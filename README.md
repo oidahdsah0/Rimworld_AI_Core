@@ -1,4 +1,4 @@
-# RimWorld AI Core
+# RimAI Core
 
 [English](README.md) | [简体中文](README_zh-CN.md) | [Documentation](docs/)
 

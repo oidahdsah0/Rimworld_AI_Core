@@ -1,4 +1,4 @@
-# RimWorld AI Core
+# RimAI Core
 
 [English](README.md) | [简体中文](README_zh-CN.md) | [文档](docs/)
 
@@ -16,7 +16,7 @@
 
 ## 🧠 **核心理念：双层架构**
 
-RimWorld AI Core 建立在革命性的**双层架构**之上，将智能与执行分离：
+RimAI Core 建立在革命性的**双层架构**之上，将智能与执行分离：
 
 ### **第一层：LLM层 - 素材深度系统**
 - **Level 1**: 基础状态
@@ -46,10 +46,11 @@ RimWorld AI Core 建立在革命性的**双层架构**之上，将智能与执�
 - 实时反馈和状态更新
 
 ### **W.I.F.E. 系统**
-- **W**orkflow **I**ntelligence **F**or **E**fficiency (工作流智能效率系统)
-- 自动化任务优先级排序
-- 智能资源分配
-- 性能优化建议
+- **W**arden's **I**ntegrated **F**oresight **E**ngine (典狱长综合预见引擎)
+- 三个AI人格: MELCHIOR-1, BALTHASAR-2, CASPER-3（EVA-MAGI-EXTENTION）
+- 深度叙事整合与情感智能
+- 记忆同步和人格进化
+- 复活任务线和哲学深度
 
 ---
 
@@ -62,7 +63,7 @@ RimWorld AI Core 建立在革命性的**双层架构**之上，将智能与执�
 
 ### **安装**
 1. 首先安装 [RimAI Framework](https://github.com/oidahdsah0/Rim_AI_Framework)
-2. 从 [Steam创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimWorld AI Core
+2. 从 [Steam创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core
 3. 在Framework模组设置中配置您的LLM API设置
 4. 启动RimWorld并享受智能殖民地管理！
 
@@ -71,7 +72,7 @@ RimWorld AI Core 建立在革命性的**双层架构**之上，将智能与执�
 ## 📐 **架构概览**
 
 ```
-RimWorld AI Core
+RimAI Core
 ├── LLM层 (智能)
 │   ├── 提示词工程
 │   ├── 上下文构建

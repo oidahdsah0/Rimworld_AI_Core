@@ -46,11 +46,11 @@ RimWorld AI Core is built on a revolutionary **dual-layer architecture** that se
 - Real-time feedback and status updates
 
 ### **W.I.F.E. System**
-- **W**orkflow **I**ntelligence **F**or **E**fficiency
-- Automated task prioritization
-- Intelligent resource allocation
-- Performance optimization recommendations
-
+- **W**arden's **I**ntegrated **F**oresight **E**ngine
+- Three AI personalities: MELCHIOR-1, BALTHASAR-2, CASPER-3（EVA-MAGI-EXTENTION）
+- Deep narrative integration with emotional intelligence
+- Memory synchronization and personality evolution
+- Resurrection questline and philosophical depth
 ---
 
 ## 🚀 **Getting Started**

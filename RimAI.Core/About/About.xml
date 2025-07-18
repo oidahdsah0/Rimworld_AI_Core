@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>RimWorld AI Core</name>
+  <name>RimAI Core</name>
   <author>oidahdsah0</author>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
   <modDependencies>
     <li>
-      <packageId>rimworld.aiframework</packageId>
+      <packageId>oidahdsah0.RimAI.Framework</packageId>
       <displayName>RimAI Framework</displayName>
       <steamWorkshopUrl>https://steamcommunity.com/sharedfiles/filedetails/?id=TBD</steamWorkshopUrl>
     </li>
   </modDependencies>
-  <packageId>rimworld.aicore</packageId>
+  <packageId>oidahdsah0.RimAI.Core</packageId>
   <description>A comprehensive AI-powered colony management system featuring intelligent decision-making, dual-layer architecture, and advanced workflow optimization.
 
 Features:

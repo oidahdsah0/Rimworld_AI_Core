@@ -5,72 +5,71 @@
     <AssemblyName>RimAI.Core</AssemblyName>
     <RootNamespace>RimAI.Core</RootNamespace>
     <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>Assemblies/</OutputPath>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <DebugType>portable</DebugType>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>portable</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>Assemblies/</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DebugType>portable</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>Assemblies/</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- RimWorld and other references via NuGet packages -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4518" />
+    <!-- Use Newtonsoft.Json for JSON handling -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>$(RimWorldInstallDir)\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(RimWorldInstallDir)\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>$(RimWorldInstallDir)\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>$(RimWorldInstallDir)\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+    <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 
   <!-- Reference to RimAI Framework -->
   <ItemGroup>
-    <ProjectReference Include="..\..\Rim_AI_Framework\RimAI.Framework\RimAI.Framework.csproj" />
+    <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj">
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
-  <!-- Copy Newtonsoft.Json with special naming for RimWorld -->
-  <Target Name="CopyNewtonsoftJson" BeforeTargets="AfterBuild">
-    <ItemGroup>
-      <NewtonsoftJsonFiles Include="$(OutputPath)Newtonsoft.Json.dll" />
-    </ItemGroup>
-    <Copy SourceFiles="@(NewtonsoftJsonFiles)" DestinationFiles="$(OutputPath)000_Newtonsoft.Json.dll" />
-  </Target>
+  <!-- 
+    Post-Build Event: A robust, explicit process to deploy the mod.
+  -->
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <PropertyGroup>
+      <!-- Cross-platform RimWorld directory detection -->
+      <!-- Windows (Steam) -->
+      <RimWorldDir Condition="$([MSBuild]::IsOSPlatform('Windows'))">C:\Program Files (x86)\Steam\steamapps\common\RimWorld</RimWorldDir>
+      <!-- macOS (Steam) -->
+      <RimWorldDir Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/</RimWorldDir>
+      <!-- Linux (Steam) -->
+      <RimWorldDir Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(HOME)/.steam/steam/steamapps/common/RimWorld</RimWorldDir>
+      
+      <!-- Fallback: Allow manual override via environment variable -->
+      <RimWorldDir Condition="'$(RIMWORLD_DIR)' != ''">$(RIMWORLD_DIR)</RimWorldDir>
+      
+      <ModDir>$(RimWorldDir)/Mods/RimAI_Core</ModDir>
+    </PropertyGroup>
 
-  <!-- Clean up -->
-  <Target Name="CleanNewtonsoftJson" BeforeTargets="Clean">
-    <Delete Files="$(OutputPath)000_Newtonsoft.Json.dll" />
+    <!-- Step 1: Clean the destination directory to prevent stale files. -->
+    <Message Text="Step 1: Cleaning destination directory: $(ModDir)" Importance="high" />
+    <RemoveDir Directories="$(ModDir)" />
+
+    <!-- Step 2: Explicitly copy each required folder and file. -->
+    <Message Text="Step 2: Copying static mod assets..." Importance="high" />
+
+    <!-- Copy the About folder -->
+    <ItemGroup>
+      <AboutFiles Include="About\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AboutFiles)" DestinationFolder="$(ModDir)\About\%(RecursiveDir)" />
+
+    <!-- Copy the loadFolders.xml file -->
+    <Copy SourceFiles="loadFolders.xml" DestinationFolder="$(ModDir)" />
+
+    <!-- Step 3: Copy the compiled assembly to the correct versioned folder. -->
+    <Message Text="Step 3: Copying compiled DLL to $(ModDir)\1.6\Assemblies" Importance="high" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModDir)\1.6\Assemblies" />
+    <Copy SourceFiles="$(ProjectDir)$(OutDir)$(AssemblyName).pdb" DestinationFolder="$(ModDir)\1.6\Assemblies" Condition="Exists('$(ProjectDir)$(OutDir)$(AssemblyName).pdb')" />
+
+    <Message Text="RimAI Core successfully deployed!" Importance="high" />
   </Target>
 
 </Project>

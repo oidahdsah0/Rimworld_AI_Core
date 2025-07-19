@@ -63,7 +63,7 @@ RimAI Core 建立在革命性的**双层架构**之上，将智能与执行分�
 
 ### **安装**
 1. 首先安装 [RimAI Framework](https://github.com/oidahdsah0/Rim_AI_Framework)
-2. 从 [Steam创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core
+2. 从 [Steam创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3529310374) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core
 3. 在Framework模组设置中配置您的LLM API设置
 4. 启动RimWorld并享受智能殖民地管理！
 
@@ -137,7 +137,7 @@ RimAI Core
 
 - **问题**: [GitHub Issues](https://github.com/oidahdsah0/Rimworld_AI_Core/issues)
 - **讨论**: [GitHub Discussions](https://github.com/oidahdsah0/Rimworld_AI_Core/discussions)
-- **Steam创意工坊**: [工坊页面](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD)
+- **Steam创意工坊**: [工坊页面](https://steamcommunity.com/sharedfiles/filedetails/?id=3529310374)
 
 ---
 

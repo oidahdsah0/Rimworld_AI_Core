@@ -1,4 +1,5 @@
 using RimAI.Framework.API;
+using RimAI.Framework.LLM.Models;
 using RimWorld;
 using System;
 using System.Text;
@@ -33,7 +34,7 @@ namespace RimAI.Core.AI
 
             try
             {
-                if (!RimAIApi.IsStreamingEnabled())
+                if (!RimAIAPI.IsStreamingEnabled)
                 {
                     // 如果用户禁用了流式，直接使用标准API
                     return await GetStandardDecision(situation, _currentOperationCts.Token);
@@ -49,8 +50,9 @@ namespace RimAI.Core.AI
 - 保持专业、建设性的游戏管理语调
 - 返回语言要与用户所写内容一致";
                 
-                // 使用GetChatCompletionWithOptions强制启用流式
-                var response = await RimAIApi.GetChatCompletionWithOptions(prompt, forceStreaming: true, _currentOperationCts.Token);
+                // 使用强制流式选项
+                var options = RimAIAPI.Options.Streaming(temperature: 0.7);
+                var response = await RimAIAPI.SendMessageAsync(prompt, options, _currentOperationCts.Token);
                 
                 Log.Message($"[SmartGovernor] Quick decision provided for: {situation}");
                 return response ?? "无法获取快速决策建议";
@@ -102,7 +104,7 @@ namespace RimAI.Core.AI
 - 返回语言要与用户所写内容一致";
                 
                 // 对于详细分析，我们不强制流式，让Framework根据设置决定
-                var response = await RimAIApi.GetChatCompletion(prompt, _currentOperationCts.Token);
+                var response = await RimAIAPI.SendMessageAsync(prompt, _currentOperationCts.Token);
                 
                 Log.Message("[SmartGovernor] Detailed strategy generated");
                 return response ?? "无法生成详细策略";
@@ -140,7 +142,7 @@ namespace RimAI.Core.AI
 - 不得讨论现实世界敏感话题  
 - 保持专业、建设性的游戏管理语调
 - 返回语言要与用户所写内容一致";
-                var response = await RimAIApi.GetChatCompletion(prompt, cancellationToken);
+                var response = await RimAIAPI.SendMessageAsync(prompt, cancellationToken);
                 
                 return response ?? "无法获取管理建议";
             }
@@ -169,7 +171,7 @@ namespace RimAI.Core.AI
 
             try
             {
-                if (!RimAIApi.IsStreamingEnabled() || onPartialNarration == null)
+                if (!RimAIAPI.IsStreamingEnabled || onPartialNarration == null)
                 {
                     // 如果不支持流式或没有回调，使用标准方法
                     var prompt = $@"作为RimWorld事件解说员，请生动描述以下事件：
@@ -181,7 +183,7 @@ namespace RimAI.Core.AI
 - 不得讨论现实世界敏感话题
 - 保持生动有趣但适宜的游戏解说风格
 - 返回语言要与用户所写内容一致";
-                    return await RimAIApi.GetChatCompletion(prompt, _currentOperationCts.Token);
+                    return await RimAIAPI.SendMessageAsync(prompt, _currentOperationCts.Token);
                 }
 
                 var streamPrompt = $@"作为专业的RimWorld事件解说员，请生动有趣地描述以下事件的发生过程：
@@ -195,7 +197,7 @@ namespace RimAI.Core.AI
 - 返回语言要与用户所写内容一致";
                 var fullNarration = new StringBuilder();
                 
-                await RimAIApi.GetChatCompletionStream(
+                await RimAIAPI.SendStreamingMessageAsync(
                     streamPrompt,
                     chunk =>
                     {
@@ -247,7 +249,7 @@ namespace RimAI.Core.AI
         /// </summary>
         public string GetServiceStatus()
         {
-            var settings = RimAIApi.GetCurrentSettings();
+            var settings = RimAIAPI.CurrentSettings;
             if (settings == null)
             {
                 return "❌ AI服务未初始化";
@@ -255,9 +257,7 @@ namespace RimAI.Core.AI
 
             var status = new StringBuilder();
             status.AppendLine("🤖 AI服务状态:");
-            status.AppendLine($"模型: {settings.modelName}");
-            status.AppendLine($"模式: {(RimAIApi.IsStreamingEnabled() ? "🚀 快速响应" : "📝 标准模式")}");
-            status.AppendLine($"API端点: {settings.apiEndpoint}");
+            status.AppendLine($"模式: {(RimAIAPI.IsStreamingEnabled ? "🚀 快速响应" : "📝 标准模式")}");
             
             return status.ToString();
         }

@@ -2,6 +2,7 @@ using UnityEngine;
 using Verse;
 using RimWorld;
 using RimAI.Framework.API;
+using RimAI.Framework.LLM.Models;
 using RimAI.Core.AI;
 using System.Text;
 using System.Threading.Tasks;
@@ -194,7 +195,7 @@ namespace RimAI.Core.UI
         /// </summary>
         private async Task HandleStreamingOrStandardResponse(string prompt, string displayPrefix, string successMessage, string fallbackThinkingText = null)
         {
-            bool useStreaming = RimAIApi.IsStreamingEnabled();
+            bool useStreaming = RimAIAPI.IsStreamingEnabled;
             
             if (useStreaming)
             {
@@ -203,7 +204,7 @@ namespace RimAI.Core.UI
                 currentResponse.Clear();
                 typingEffectTimer = 0f;
                 
-                await RimAIApi.GetChatCompletionStream(
+                await RimAIAPI.SendStreamingMessageAsync(
                     prompt,
                     chunk =>
                     {
@@ -233,7 +234,7 @@ namespace RimAI.Core.UI
                     conversationHistory.AppendLine($"\n{fallbackThinkingText}");
                 }
                 
-                var response = await RimAIApi.GetChatCompletion(prompt, currentCancellationTokenSource?.Token ?? CancellationToken.None);
+                var response = await RimAIAPI.SendMessageAsync(prompt, currentCancellationTokenSource?.Token ?? CancellationToken.None);
                 
                 // 移除思考中的文本（如果有）
                 if (!string.IsNullOrEmpty(fallbackThinkingText))
@@ -329,7 +330,7 @@ namespace RimAI.Core.UI
             
             try
             {
-                if (RimAIApi.IsStreamingEnabled())
+                if (RimAIAPI.IsStreamingEnabled)
                 {
                     // 流式模式：使用快速决策提示词
                     var prompt = $@"作为RimWorld殖民地紧急管理AI，请对以下殖民地状况提供简明扼要的应对建议（不超过100字）：

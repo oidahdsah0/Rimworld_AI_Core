@@ -18,6 +18,9 @@
       <steamWorkshopUrl>https://steamcommunity.com/sharedfiles/filedetails/?id=TBD</steamWorkshopUrl>
     </li>
   </modDependencies>
+
+  <modVersion>0.1.1-alpha</modVersion>
+
   <packageId>kilokio.rimai.core</packageId>
   <description>A comprehensive AI-powered colony management system featuring intelligent decision-making, dual-layer architecture, and advanced workflow optimization.
 

@@ -2,6 +2,7 @@ using UnityEngine;
 using Verse;
 using RimWorld;
 using RimAI.Framework.API;
+using RimAI.Framework.LLM.Models;
 using RimAI.Core.UI;
 using System.Threading.Tasks;
 using System.Threading;
@@ -33,7 +34,7 @@ namespace RimAI.Core.UI
             listingStandard.Label("🤖 RimAI Control Panel | RimAI 控制面板");
             
             // 显示当前模式状态
-            if (RimAIApi.IsStreamingEnabled())
+            if (RimAIAPI.IsStreamingEnabled)
             {
                 listingStandard.Label("🚀 Fast Response Mode Enabled | 快速响应模式已启用");
             }
@@ -134,7 +135,7 @@ namespace RimAI.Core.UI
 - 返回语言要与用户所写内容一致";
                 
                 // 检查是否应该使用流式（UI界面适合实时更新）
-                bool useStreaming = RimAIApi.IsStreamingEnabled();
+                bool useStreaming = RimAIAPI.IsStreamingEnabled;
                 
                 if (useStreaming)
                 {
@@ -142,7 +143,7 @@ namespace RimAI.Core.UI
                     responseText = "";
                     lastUpdateTime = Time.unscaledTime;
                     
-                    await RimAIApi.GetChatCompletionStream(
+                    await RimAIAPI.SendStreamingMessageAsync(
                         prompt,
                         chunk =>
                         {
@@ -168,7 +169,7 @@ namespace RimAI.Core.UI
                 {
                     responseText = "Processing request...";
                     
-                    string aiResponse = await RimAIApi.GetChatCompletion(prompt, currentCancellationTokenSource?.Token ?? CancellationToken.None);
+                    string aiResponse = await RimAIAPI.SendMessageAsync(prompt, currentCancellationTokenSource?.Token ?? CancellationToken.None);
                     
                     if (currentCancellationTokenSource?.IsCancellationRequested != true)
                     {

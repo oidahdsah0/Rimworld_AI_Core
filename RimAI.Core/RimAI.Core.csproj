@@ -14,6 +14,7 @@
   <ItemGroup>
     <!-- RimWorld and other references via NuGet packages -->
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4518" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.3" PrivateAssets="all" />
     <!-- Use Newtonsoft.Json for JSON handling -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
@@ -24,9 +25,16 @@
 
   <!-- Reference to RimAI Framework -->
   <ItemGroup>
-    <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj">
+    <!-- Use ProjectReference when both projects are in the same solution -->
+    <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj" Condition="Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">
       <Private>false</Private>
     </ProjectReference>
+    
+    <!-- Use DLL reference for standalone development -->
+    <Reference Include="RimAI.Framework" Condition="!Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">
+      <HintPath>..\..\Rimworld_AI_Framework\RimAI.Framework\Assemblies\RimAI.Framework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <!-- 
@@ -60,6 +68,12 @@
       <AboutFiles Include="About\**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(AboutFiles)" DestinationFolder="$(ModDir)\About\%(RecursiveDir)" />
+
+    <!-- Copy the Defs folder -->
+    <ItemGroup>
+      <DefFiles Include="Defs\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DefFiles)" DestinationFolder="$(ModDir)\Defs\%(RecursiveDir)" />
 
     <!-- Copy the loadFolders.xml file -->
     <Copy SourceFiles="loadFolders.xml" DestinationFolder="$(ModDir)" />

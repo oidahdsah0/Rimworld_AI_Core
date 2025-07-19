@@ -31,6 +31,27 @@ RimAI Core 建立在 RimAI Framework 之上，为实现高级游戏内 AI 功能
 </ModMetaData>
 ```
 
+#### 在项目文件中添加 Framework DLL 引用：
+
+```xml
+<ItemGroup>
+  <!-- 项目引用（当两个项目在同一解决方案中时） -->
+  <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj" Condition="Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">
+    <Private>false</Private>
+  </ProjectReference>
+  
+  <!-- DLL引用（用于独立开发时） -->
+  <Reference Include="RimAI.Framework" Condition="!Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">
+    <HintPath>..\..\Rimworld_AI_Framework\RimAI.Framework\Assemblies\RimAI.Framework.dll</HintPath>
+    <Private>false</Private>
+  </Reference>
+</ItemGroup>
+```
+
+这种配置确保了：
+- 当两个项目都在同一个解决方案中时，使用项目引用
+- 当只开发 Core 项目时，使用预编译的 Framework DLL
+
 ### 2. 导入核心命名空间
 
 在你的 C# 文件中，导入 `RimAI.Core` 和 `RimAI.Framework` 的 API 命名空间：

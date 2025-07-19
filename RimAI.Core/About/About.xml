@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>RimAI Core</name>
-  <author>oidahdsah0</author>
+  <name>RimAI Core - Alpha (An Example)</name>
+  <author>Kilokio</author>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
   <modDependencies>
     <li>
-      <packageId>oidahdsah0.RimAI.Framework</packageId>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      <downloadUrl>https://github.com/pardeike/Harmony/releases/latest</downloadUrl>
+    </li>
+    <li>
+      <packageId>kilokio.rimai.framework</packageId>
       <displayName>RimAI Framework</displayName>
       <steamWorkshopUrl>https://steamcommunity.com/sharedfiles/filedetails/?id=TBD</steamWorkshopUrl>
     </li>
   </modDependencies>
-  <packageId>oidahdsah0.RimAI.Core</packageId>
+  <packageId>kilokio.rimai.core</packageId>
   <description>A comprehensive AI-powered colony management system featuring intelligent decision-making, dual-layer architecture, and advanced workflow optimization.
 
 Features:

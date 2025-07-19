@@ -1,7 +1,9 @@
 🧠 **RimAI Core - Alpha (Developer Example)** - AI Colony Management Demo
 
-⚠️ **IMPORTANT: This is a Developer Example/Demonstration Mod**
-This mod is designed as a **comprehensive example** to showcase how modders can integrate with the RimAI Framework. It demonstrates best practices for AI-powered mod development and serves as a learning resource for the modding community. (Github：github.com/oidahdsah0/Rimworld_AI_Core)
+⚠️ **IMPORTANT: This is a Open Source Developer Example/Demonstration Mod**
+This mod is designed as a **comprehensive example** to showcase how modders can integrate with the RimAI Framework. It demonstrates best practices for AI-powered mod development and serves as a learning resource for the modding community. 
+
+Github (Open Source)：github.com/oidahdsah0/Rimworld_AI_Core
 
 🔧 **Current Implementation Status**
 Currently, this example mod provides:
@@ -29,6 +31,10 @@ Currently, this example mod provides:
 • 🏠 **Local AI Support**: Works with Ollama, vLLM, and other local models
 
 🔑 **Prerequisites**
+⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
+⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
+⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
+
 Before installing this example:
 • ✅ Install **RimAI Framework** (⚠️required dependency⚠️)
 • ✅ Configure your AI API settings (OpenAI, Ollama, etc.)
@@ -40,6 +46,10 @@ Before installing this example:
 • Local deployments: No additional costs after setup
 
 📋 **Installation & Usage**
+⚠️ **WARNING: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI functionality will NOT work!**
+⚠️ **WARNING: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI functionality will NOT work!**
+⚠️ **WARNING: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI functionality will NOT work!**
+
 1. Install RimAI Framework first
 2. Install this example mod
 3. Configure AI API settings in Framework mod options

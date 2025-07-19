@@ -61,6 +61,10 @@ RimWorld AI Core is built on a revolutionary **dual-layer architecture** that se
 - API access to a supported LLM service (OpenAI, DeepSeek, Ollama, etc.)
 
 ### **Installation**
+⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
+⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
+⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
+
 1. Install [RimAI Framework](https://github.com/oidahdsah0/Rim_AI_Framework) first
 2. Download RimWorld AI Core from [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD) or [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases)
 3. Configure your LLM API settings in the Framework mod settings

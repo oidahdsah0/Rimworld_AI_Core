@@ -62,6 +62,10 @@ RimAI Core 建立在革命性的**双层架构**之上，将智能与执行分�
 - 支持的LLM服务的API访问权限 (OpenAI、DeepSeek、Ollama等)
 
 ### **安装**
+⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
+⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
+⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
+
 1. 首先安装 [RimAI Framework](https://github.com/oidahdsah0/Rim_AI_Framework)
 2. 从 [Steam创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3529310374) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core
 3. 在Framework模组设置中配置您的LLM API设置

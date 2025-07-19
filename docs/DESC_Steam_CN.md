@@ -1,7 +1,9 @@
 🧠 **RimAI Core - Alpha (开发者示例)** - AI殖民地管理演示
 
-⚠️ **重要说明：这是一个开发者示例/演示Mod**
-这个Mod被设计为一个**综合示例**，用于展示模组开发者如何与RimAI Framework集成。它演示了AI驱动的模组开发最佳实践，并作为模组社区的学习资源。（Github：github.com/oidahdsah0/Rimworld_AI_Core）
+⚠️ **重要说明：这是一个开源的开发者示例/演示Mod**
+这个Mod被设计为一个**综合示例**，用于展示模组开发者如何与RimAI Framework集成。它演示了AI驱动的模组开发最佳实践，并作为模组社区的学习资源。
+
+Github (Open Source)：github.com/oidahdsah0/Rimworld_AI_Core
 
 🔧 **当前实现状态**
 目前，这个示例模组提供：
@@ -29,6 +31,10 @@
 • 🏠 **本地AI支持**：兼容Ollama、vLLM和其他本地模型
 
 🔑 **前置需求**
+⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
+⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
+⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
+
 安装此示例前请确保：
 • ✅ 安装 **RimAI Framework**（⚠️必需依赖⚠️）
 • ✅ 配置您的AI API设置（OpenAI、Ollama等）
@@ -40,6 +46,10 @@
 • 本地部署：安装后无额外费用
 
 📋 **安装与使用**
+⚠️ **警告：必须严格按照 RimAI Framework Mod 页面的说明进行配置，否则AI功能无效！**
+⚠️ **警告：必须严格按照 RimAI Framework Mod 页面的说明进行配置，否则AI功能无效！**
+⚠️ **警告：必须严格按照 RimAI Framework Mod 页面的说明进行配置，否则AI功能无效！**
+
 1. 首先安装RimAI Framework
 2. 安装此示例模组
 3. 在Framework模组选项中配置AI API设置

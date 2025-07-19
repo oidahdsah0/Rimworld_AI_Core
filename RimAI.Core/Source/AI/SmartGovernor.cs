@@ -1,58 +1,133 @@
-using RimAI.Framework.API;
-using RimAI.Framework.LLM.Models;
-using RimWorld;
 using System;
-using System.Text;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
+using RimAI.Core.Architecture.Interfaces;
+using RimAI.Core.Officers.Base;
 using Verse;
 
 namespace RimAI.Core.AI
 {
     /// <summary>
-    /// 智能总督 - 根据殖民地状态提供管理建议
-    /// 展示如何在不同场景下使用流式和非流式API
+    /// 智能总督 - 基于新架构的总督实现
+    /// 展示如何使用统一的官员基类
     /// </summary>
-    public class SmartGovernor
+    public class SmartGovernor : OfficerBase
     {
         private static SmartGovernor _instance;
         public static SmartGovernor Instance => _instance ??= new SmartGovernor();
-        
-        // 为长期任务添加取消支持
-        private CancellationTokenSource _currentOperationCts;
+
+        #region 官员基本信息
+
+        public override string Name => "智能总督";
+        public override string Description => "负责殖民地整体管理和紧急决策，提供全方位的管理建议";
+        public override string IconPath => "UI/Icons/Governor"; // 可以自定义图标路径
+        public override OfficerRole Role => OfficerRole.Governor;
+
+        #endregion
+
+        #region 模板配置
+
+        protected override string QuickAdviceTemplateId => "governor.quick_decision";
+        protected override string DetailedAdviceTemplateId => "governor.detailed_strategy";
+        protected override string StreamingTemplateId => "narrator.event_narration";
+
+        #endregion
+
+        private SmartGovernor() : base() { }
+
+        #region 核心上下文构建
+
+        protected override async Task<Dictionary<string, object>> BuildContextAsync(CancellationToken cancellationToken = default)
+        {
+            // 使用缓存提高性能
+            var cacheKey = "governor_context_" + Find.TickManager.TicksGame / (GenTicks.TicksPerRealSecond * 300); // 5分钟更新一次
+
+            return await _cacheService.GetOrCreateAsync(
+                cacheKey,
+                async () =>
+                {
+                    var context = new Dictionary<string, object>();
+
+                    try
+                    {
+                        // 分析殖民地状态
+                        var status = _analyzer.AnalyzeCurrentStatus();
+                        var threats = _analyzer.IdentifyThreats();
+                        var resources = _analyzer.GenerateResourceReport();
+                        var overview = _analyzer.GetColonyOverview();
+
+                        // 基础信息
+                        context["colonistCount"] = status.ColonistCount;
+                        context["threatLevel"] = status.ThreatLevel.ToString();
+                        context["season"] = status.Season;
+                        context["weather"] = status.WeatherCondition;
+
+                        // 资源状况
+                        context["resourceStatus"] = resources.OverallStatus;
+                        context["resourceInventory"] = GenerateResourceInventory(status.ResourceLevels);
+                        
+                        // 威胁分析
+                        context["threats"] = GenerateThreatsDescription(threats);
+                        
+                        // 殖民者详情
+                        context["colonistDetails"] = GenerateColonistDetails(status.Colonists);
+                        
+                        // 活跃事件
+                        context["activeEvents"] = string.Join(", ", status.ActiveEvents);
+                        
+                        // 殖民地概况
+                        context["colonyStatus"] = overview;
+                        
+                        // 建筑和设施 (模拟数据)
+                        context["buildings"] = "建筑设施分析中...";
+                        context["research"] = "当前研究项目分析中...";
+                        
+                        // 默认值
+                        context["situation"] = "请描述具体情况";
+                        context["maxWords"] = "100";
+
+                        Log.Message($"[SmartGovernor] Context built successfully with {context.Count} parameters");
+                        return context;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"[SmartGovernor] Failed to build context: {ex.Message}");
+                        
+                        // 返回基础上下文
+                        return new Dictionary<string, object>
+                        {
+                            ["colonistCount"] = "未知",
+                            ["threatLevel"] = "未知",
+                            ["resourceStatus"] = "数据获取失败",
+                            ["situation"] = "数据分析中...",
+                            ["colonyStatus"] = "殖民地状态分析失败，请稍后重试"
+                        };
+                    }
+                },
+                TimeSpan.FromMinutes(5)
+            );
+        }
+
+        #endregion
+
+        #region 专业方法
 
         /// <summary>
-        /// 获取快速决策建议（适合实时场景，如紧急事件）
-        /// 使用流式API提供快速响应
+        /// 获取快速决策建议 - 兼容旧接口
         /// </summary>
         public async Task<string> GetQuickDecision(string situation, CancellationToken cancellationToken = default)
         {
-            // 创建操作级别的取消令牌源
-            _currentOperationCts?.Cancel();
-            _currentOperationCts?.Dispose();
-            _currentOperationCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
             try
             {
-                if (!RimAIAPI.IsStreamingEnabled)
-                {
-                    // 如果用户禁用了流式，直接使用标准API
-                    return await GetStandardDecision(situation, _currentOperationCts.Token);
-                }
+                var context = await BuildContextAsync(cancellationToken);
+                context["situation"] = situation;
+                context["maxWords"] = "100"; // 快速决策限制字数
 
-                var prompt = $@"作为RimWorld殖民地紧急管理AI，请对以下紧急情况提供简明扼要的应对建议（不超过100字）：
-{situation}
+                var prompt = _promptBuilder.BuildPrompt(QuickAdviceTemplateId, context);
+                var options = CreateLLMOptions(temperature: 0.7f, forceStreaming: _llmService.IsStreamingAvailable);
 
-重要限制：
-- 仅提供游戏内管理建议
-- 不得生成NSFW、暴力、政治敏感等不当内容  
-- 不得讨论现实世界敏感话题
-- 保持专业、建设性的游戏管理语调
-- 返回语言要与用户所写内容一致";
-                
-                // 使用强制流式选项
-                var options = RimAIAPI.Options.Streaming(temperature: 0.7);
-                var response = await RimAIAPI.SendMessageAsync(prompt, options, _currentOperationCts.Token);
+                var response = await _llmService.SendMessageAsync(prompt, options, cancellationToken);
                 
                 Log.Message($"[SmartGovernor] Quick decision provided for: {situation}");
                 return response ?? "无法获取快速决策建议";
@@ -65,46 +140,27 @@ namespace RimAI.Core.AI
             catch (Exception ex)
             {
                 Log.Error($"[SmartGovernor] Quick decision failed: {ex.Message}");
-                return $"决策失败: {ex.Message}";
-            }
-            finally
-            {
-                _currentOperationCts?.Dispose();
-                _currentOperationCts = null;
+                return GetErrorMessage(ex.Message);
             }
         }
 
         /// <summary>
-        /// 获取详细的管理策略（适合后台分析，不需要实时反馈）
-        /// 使用标准API进行深度思考
+        /// 获取详细管理策略 - 兼容旧接口
         /// </summary>
         public async Task<string> GetDetailedStrategy(string colonyStatus, CancellationToken cancellationToken = default)
         {
-            // 创建操作级别的取消令牌源
-            _currentOperationCts?.Cancel();
-            _currentOperationCts?.Dispose();
-            _currentOperationCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
             try
             {
-                var prompt = $@"作为RimWorld殖民地管理专家，请根据以下殖民地状态制定详细的管理策略和优先事项：
-{colonyStatus}
+                var context = await BuildContextAsync(cancellationToken);
+                if (!string.IsNullOrEmpty(colonyStatus))
+                {
+                    context["colonyStatus"] = colonyStatus;
+                }
 
-请提供：
-1. 当前状况分析
-2. 优先处理事项
-3. 中长期发展建议
-4. 风险预警
+                var prompt = _promptBuilder.BuildPrompt(DetailedAdviceTemplateId, context);
+                var options = CreateLLMOptions(temperature: 0.6f);
 
-重要限制：
-- 仅提供游戏内策略建议
-- 不得生成NSFW、暴力、政治敏感等不当内容
-- 不得讨论现实世界敏感话题
-- 保持专业、建设性的游戏管理语调
-- 返回语言要与用户所写内容一致";
-                
-                // 对于详细分析，我们不强制流式，让Framework根据设置决定
-                var response = await RimAIAPI.SendMessageAsync(prompt, _currentOperationCts.Token);
+                var response = await _llmService.SendMessageAsync(prompt, options, cancellationToken);
                 
                 Log.Message("[SmartGovernor] Detailed strategy generated");
                 return response ?? "无法生成详细策略";
@@ -117,103 +173,38 @@ namespace RimAI.Core.AI
             catch (Exception ex)
             {
                 Log.Error($"[SmartGovernor] Detailed strategy failed: {ex.Message}");
-                return $"策略生成失败: {ex.Message}";
-            }
-            finally
-            {
-                _currentOperationCts?.Dispose();
-                _currentOperationCts = null;
+                return GetErrorMessage(ex.Message);
             }
         }
 
         /// <summary>
-        /// 标准决策方法（向后兼容）
-        /// </summary>
-        private async Task<string> GetStandardDecision(string situation, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                var prompt = $@"作为RimWorld殖民地管理AI，请对以下情况提供管理建议：
-{situation}
-
-重要限制：
-- 仅提供游戏内管理建议
-- 不得生成NSFW、暴力、政治敏感等不当内容
-- 不得讨论现实世界敏感话题  
-- 保持专业、建设性的游戏管理语调
-- 返回语言要与用户所写内容一致";
-                var response = await RimAIAPI.SendMessageAsync(prompt, cancellationToken);
-                
-                return response ?? "无法获取管理建议";
-            }
-            catch (OperationCanceledException)
-            {
-                Log.Message("[SmartGovernor] Standard decision was cancelled");
-                return "决策已取消";
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[SmartGovernor] Standard decision failed: {ex.Message}");
-                return $"决策失败: {ex.Message}";
-            }
-        }
-
-        /// <summary>
-        /// 获取实时解说（用于事件发生时的流式解说）
-        /// 展示流式API的实时反馈能力
+        /// 获取实时事件解说 - 兼容旧接口
         /// </summary>
         public async Task<string> GetEventNarration(string eventDescription, Action<string> onPartialNarration = null, CancellationToken cancellationToken = default)
         {
-            // 创建操作级别的取消令牌源
-            _currentOperationCts?.Cancel();
-            _currentOperationCts?.Dispose();
-            _currentOperationCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
             try
             {
-                if (!RimAIAPI.IsStreamingEnabled || onPartialNarration == null)
+                var context = await BuildContextAsync(cancellationToken);
+                context["eventDescription"] = eventDescription;
+                context["location"] = "殖民地";
+                context["involvedPersonnel"] = "殖民者";
+                context["currentSituation"] = "进行中";
+                context["impact"] = "评估中";
+
+                if (onPartialNarration != null && _llmService.IsStreamingAvailable)
                 {
-                    // 如果不支持流式或没有回调，使用标准方法
-                    var prompt = $@"作为RimWorld事件解说员，请生动描述以下事件：
-{eventDescription}
-
-重要限制：
-- 仅描述游戏内事件和情况
-- 不得生成NSFW、暴力、政治敏感等不当内容
-- 不得讨论现实世界敏感话题
-- 保持生动有趣但适宜的游戏解说风格
-- 返回语言要与用户所写内容一致";
-                    return await RimAIAPI.SendMessageAsync(prompt, _currentOperationCts.Token);
+                    return await GetStreamingAdviceAsync(onPartialNarration, cancellationToken);
                 }
-
-                var streamPrompt = $@"作为专业的RimWorld事件解说员，请生动有趣地描述以下事件的发生过程：
-{eventDescription}
-
-重要限制：
-- 仅描述游戏内事件和情况
-- 不得生成NSFW、暴力、政治敏感等不当内容
-- 不得讨论现实世界敏感话题
-- 保持生动有趣但适宜的游戏解说风格
-- 返回语言要与用户所写内容一致";
-                var fullNarration = new StringBuilder();
-                
-                await RimAIAPI.SendStreamingMessageAsync(
-                    streamPrompt,
-                    chunk =>
-                    {
-                        if (_currentOperationCts.Token.IsCancellationRequested)
-                            return;
-                            
-                        fullNarration.Append(chunk);
-                        onPartialNarration?.Invoke(fullNarration.ToString());
-                    },
-                    _currentOperationCts.Token
-                );
-
-                var result = fullNarration.ToString();
-                Log.Message($"[SmartGovernor] Event narration completed: {eventDescription}");
-                
-                return result;
+                else
+                {
+                    var prompt = _promptBuilder.BuildPrompt(StreamingTemplateId, context);
+                    var options = CreateLLMOptions(temperature: 0.8f);
+                    
+                    var response = await _llmService.SendMessageAsync(prompt, options, cancellationToken);
+                    Log.Message($"[SmartGovernor] Event narration completed: {eventDescription}");
+                    
+                    return response ?? "无法生成事件解说";
+                }
             }
             catch (OperationCanceledException)
             {
@@ -223,43 +214,74 @@ namespace RimAI.Core.AI
             catch (Exception ex)
             {
                 Log.Error($"[SmartGovernor] Event narration failed: {ex.Message}");
-                return $"解说失败: {ex.Message}";
-            }
-            finally
-            {
-                _currentOperationCts?.Dispose();
-                _currentOperationCts = null;
+                return GetErrorMessage(ex.Message);
             }
         }
 
-        /// <summary>
-        /// 取消当前正在进行的操作
-        /// </summary>
-        public void CancelCurrentOperation()
+        #endregion
+
+        #region 专业状态信息
+
+        protected override string GetProfessionalStatus()
         {
-            if (_currentOperationCts != null && !_currentOperationCts.IsCancellationRequested)
+            try
             {
-                _currentOperationCts.Cancel();
-                Log.Message("[SmartGovernor] Current operation cancelled by user");
+                var status = _analyzer.AnalyzeCurrentStatus();
+                var threatCount = _analyzer.IdentifyThreats().Count;
+                
+                return $"管理 {status.ColonistCount} 名殖民者, {threatCount} 个威胁需关注";
+            }
+            catch
+            {
+                return "状态分析中...";
             }
         }
 
-        /// <summary>
-        /// 获取当前AI服务状态信息
-        /// </summary>
-        public string GetServiceStatus()
+        #endregion
+
+        #region 辅助方法
+
+        private string GenerateResourceInventory(Dictionary<string, float> resourceLevels)
         {
-            var settings = RimAIAPI.CurrentSettings;
-            if (settings == null)
-            {
-                return "❌ AI服务未初始化";
-            }
+            if (resourceLevels == null || resourceLevels.Count == 0)
+                return "资源清单获取中...";
 
-            var status = new StringBuilder();
-            status.AppendLine("🤖 AI服务状态:");
-            status.AppendLine($"模式: {(RimAIAPI.IsStreamingEnabled ? "🚀 快速响应" : "📝 标准模式")}");
-            
-            return status.ToString();
+            var inventory = new System.Text.StringBuilder();
+            foreach (var resource in resourceLevels)
+            {
+                inventory.AppendLine($"- {resource.Key}: {resource.Value:F0}");
+            }
+            return inventory.ToString();
         }
+
+        private string GenerateThreatsDescription(List<ThreatInfo> threats)
+        {
+            if (threats == null || threats.Count == 0)
+                return "暂无重大威胁";
+
+            var description = new System.Text.StringBuilder();
+            foreach (var threat in threats)
+            {
+                description.AppendLine($"- {threat.Description} ({threat.Level})");
+            }
+            return description.ToString();
+        }
+
+        private string GenerateColonistDetails(List<ColonistInfo> colonists)
+        {
+            if (colonists == null || colonists.Count == 0)
+                return "殖民者信息获取中...";
+
+            var details = new System.Text.StringBuilder();
+            foreach (var colonist in colonists)
+            {
+                var skillsText = colonist.Skills.Count > 0 ? string.Join(", ", colonist.Skills) : "无特长";
+                details.AppendLine($"- {colonist.Name} ({colonist.Profession}): {colonist.HealthStatus}, {colonist.MoodStatus}");
+                details.AppendLine($"  技能: {skillsText}");
+            }
+            return details.ToString();
+        }
+
+        #endregion
     }
 }

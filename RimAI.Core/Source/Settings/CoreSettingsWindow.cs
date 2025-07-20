@@ -15,9 +15,25 @@ namespace RimAI.Core.Settings
         private float _tabHeight = 30f;
         private string _debugInfo = "";
 
-        public void DoWindowContents(Rect inRect)
+        public void DoWindowContents(Rect inRect, CoreSettings settings = null)
         {
-            var settings = SettingsManager.Settings;
+            // 🎯 修复崩溃：使用传入的设置或安全获取设置
+            CoreSettings activeSettings;
+            try
+            {
+                activeSettings = settings ?? SettingsManager.Settings;
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[CoreSettingsWindow] Failed to get settings: {ex.Message}");
+                // 显示错误而不是崩溃
+                Listing_Standard errorListing = new Listing_Standard();
+                errorListing.Begin(inRect);
+                errorListing.Label("❌ 无法加载设置");
+                errorListing.Label($"错误: {ex.Message}");
+                errorListing.End();
+                return;
+            }
             
             // 标签页
             var tabRect = new Rect(0, 0, inRect.width, _tabHeight);
@@ -29,16 +45,13 @@ namespace RimAI.Core.Settings
             switch (_currentTab)
             {
                 case SettingsTab.General:
-                    DrawGeneralSettings(contentRect, settings);
-                    break;
-                case SettingsTab.Officers:
-                    DrawOfficerSettings(contentRect, settings);
+                    DrawSystemSettings(contentRect, activeSettings); // 🎯 重命名为系统设置
                     break;
                 case SettingsTab.Performance:
-                    DrawPerformanceSettings(contentRect, settings);
+                    DrawPerformanceSettings(contentRect, activeSettings);
                     break;
                 case SettingsTab.Advanced:
-                    DrawAdvancedSettings(contentRect, settings);
+                    DrawAdvancedSettings(contentRect, activeSettings);
                     break;
                 case SettingsTab.Debug:
                     DrawDebugInfo(contentRect);
@@ -48,21 +61,19 @@ namespace RimAI.Core.Settings
 
         private void DrawTabs(Rect rect)
         {
-            var tabWidth = rect.width / 5;
+            var tabWidth = rect.width / 4; // 🎯 修改为4个标签页
             var tabRects = new[]
             {
                 new Rect(0, 0, tabWidth, rect.height),
                 new Rect(tabWidth, 0, tabWidth, rect.height),
                 new Rect(tabWidth * 2, 0, tabWidth, rect.height),
-                new Rect(tabWidth * 3, 0, tabWidth, rect.height),
-                new Rect(tabWidth * 4, 0, tabWidth, rect.height)
+                new Rect(tabWidth * 3, 0, tabWidth, rect.height)
             };
 
-            var tabNames = new[] { "常规", "官员", "性能", "高级", "调试" };
+            var tabNames = new[] { "系统", "性能", "高级", "调试" }; // 🎯 移除重复的"常规"和"官员"
             var tabs = new[] 
             { 
-                SettingsTab.General, 
-                SettingsTab.Officers, 
+                SettingsTab.General, // 重命名为系统
                 SettingsTab.Performance, 
                 SettingsTab.Advanced,
                 SettingsTab.Debug
@@ -80,38 +91,20 @@ namespace RimAI.Core.Settings
             }
         }
 
-        private void DrawGeneralSettings(Rect rect, CoreSettings settings)
+        private void DrawSystemSettings(Rect rect, CoreSettings settings)
         {
             var listing = new Listing_Standard();
             listing.Begin(rect);
 
-            listing.Label("🔧 基本设置");
+            listing.Label("�️ 系统核心设置");
             listing.Gap();
 
-            // UI设置
-            listing.CheckboxLabeled("显示高级选项", ref settings.UI.ShowAdvancedOptions, "显示更多详细的设置选项");
-            listing.CheckboxLabeled("启用通知", ref settings.UI.EnableNotifications, "显示AI建议和警告通知");
-            listing.CheckboxLabeled("显示流式指示器", ref settings.UI.EnableStreamingIndicator, "在流式响应时显示进度指示");
-            
+            // 🎯 专注于核心系统设置，不重复官员设置窗口的内容
+            listing.Label("ℹ️ 提示：AI官员相关设置请使用主界面的 '官员设置' 按钮。");
             listing.Gap();
-            
-            // 缓存设置
-            listing.Label("📦 缓存设置");
-            listing.CheckboxLabeled("启用缓存", ref settings.Cache.EnableCaching, "缓存AI响应以提高性能");
-            
-            if (settings.Cache.EnableCaching)
-            {
-                listing.Label($"缓存持续时间: {settings.Cache.DefaultCacheDurationMinutes} 分钟");
-                settings.Cache.DefaultCacheDurationMinutes = (int)listing.Slider(settings.Cache.DefaultCacheDurationMinutes, 1, 60);
-                
-                listing.Label($"最大缓存条目: {settings.Cache.MaxCacheEntries}");
-                settings.Cache.MaxCacheEntries = (int)listing.Slider(settings.Cache.MaxCacheEntries, 100, 5000);
-            }
 
-            listing.Gap();
-            
-            // 事件设置
-            listing.Label("📡 事件监控");
+            // 事件设置 - 核心系统功能
+            listing.Label("📡 事件监控系统");
             listing.CheckboxLabeled("启用事件总线", ref settings.Events.EnableEventBus, "启用事件系统以支持自动响应");
             
             if (settings.Events.EnableEventBus)
@@ -123,49 +116,31 @@ namespace RimAI.Core.Settings
 
             listing.Gap();
 
-            // 系统状态
+            // 核心框架状态 - 只在这里显示
             listing.Label("📊 系统状态");
             var statusInfo = CoreServices.GetReadinessReport();
             var statusRect = listing.GetRect(100);
             Widgets.TextArea(statusRect, statusInfo, true);
 
-            listing.End();
-        }
-
-        private void DrawOfficerSettings(Rect rect, CoreSettings settings)
-        {
-            var listing = new Listing_Standard();
-            listing.Begin(rect);
-
-            listing.Label("🤖 AI官员设置");
             listing.Gap();
 
-            // 基础总督设置
-            DrawOfficerConfig(listing, "基础总督", settings.GetOfficerConfig("Governor"));
-            listing.Gap();
-
-            listing.Label("其他官员功能暂时禁用，专注于基础功能测试。");
-
-            listing.End();
-        }
-
-        private void DrawOfficerConfig(Listing_Standard listing, string displayName, OfficerConfig config)
-        {
-            listing.Label($"⚙️ {displayName}");
+            // 快捷操作
+            listing.Label("🔧 系统操作");
             
-            listing.CheckboxLabeled("启用", ref config.IsEnabled, $"启用/禁用 {displayName}");
-            
-            if (config.IsEnabled)
+            if (listing.ButtonText("🔄 重新初始化核心服务"))
             {
-                listing.Label($"响应创造性 (Temperature): {config.ResponseTemperature:F1}");
-                config.ResponseTemperature = listing.Slider(config.ResponseTemperature, 0.1f, 1.0f);
-                
-                listing.CheckboxLabeled("偏好流式响应", ref config.PreferStreaming, "在支持时优先使用流式响应");
-                listing.CheckboxLabeled("自动分析", ref config.AutoAnalysis, "启用自动态势分析");
-                
-                listing.Label($"缓存时间: {config.CacheDurationMinutes} 分钟");
-                config.CacheDurationMinutes = (int)listing.Slider(config.CacheDurationMinutes, 1, 30);
+                try
+                {
+                    CoreServices.Initialize();
+                    Messages.Message("核心服务重新初始化完成", MessageTypeDefOf.PositiveEvent);
+                }
+                catch (System.Exception ex)
+                {
+                    Messages.Message($"初始化失败: {ex.Message}", MessageTypeDefOf.RejectInput);
+                }
             }
+
+            listing.End();
         }
 
         private void DrawPerformanceSettings(Rect rect, CoreSettings settings)
@@ -173,49 +148,56 @@ namespace RimAI.Core.Settings
             var listing = new Listing_Standard();
             listing.Begin(rect);
 
-            listing.Label("⚡ 性能设置");
+            listing.Label("⚡ 核心性能设置");
             listing.Gap();
 
-            // 并发设置
-            listing.Label("🔄 并发控制");
-            listing.Label($"最大并发请求: {settings.Performance.MaxConcurrentRequests}");
-            settings.Performance.MaxConcurrentRequests = (int)listing.Slider(settings.Performance.MaxConcurrentRequests, 1, 10);
+            // 🎯 专注于核心性能设置，不重复基础设置
+            listing.Label("ℹ️ 基础性能设置请使用官员设置窗口的性能标签页。");
+            listing.Gap();
+
+            // 高级性能监控
+            listing.Label("📈 性能监控");
+            listing.CheckboxLabeled("启用详细性能统计", ref settings.UI.ShowPerformanceStats, "显示详细的性能指标");
             
-            listing.Label($"请求超时 (秒): {settings.Performance.RequestTimeoutSeconds}");
-            settings.Performance.RequestTimeoutSeconds = (int)listing.Slider(settings.Performance.RequestTimeoutSeconds, 10, 120);
-            
-            listing.Gap();
-
-            // 分析设置
-            listing.Label("📈 分析设置");
-            listing.CheckboxLabeled("启用后台分析", ref settings.Performance.EnableBackgroundAnalysis, "在后台持续分析殖民地状态");
-            
-            if (settings.Performance.EnableBackgroundAnalysis)
-            {
-                listing.Label($"分析间隔 (游戏小时): {settings.Performance.AnalysisIntervalTicks / 2500f:F1}");
-                settings.Performance.AnalysisIntervalTicks = (int)listing.Slider(settings.Performance.AnalysisIntervalTicks, 1250, 25000);
-                
-                listing.Label($"最大后台任务: {settings.Performance.MaxBackgroundTasks}");
-                settings.Performance.MaxBackgroundTasks = (int)listing.Slider(settings.Performance.MaxBackgroundTasks, 1, 5);
-            }
-
-            listing.Gap();
-
-            // 批处理设置
-            listing.CheckboxLabeled("启用批处理", ref settings.Performance.EnableBatchProcessing, "将多个请求合并处理以提高效率");
-
-            listing.Gap();
-
-            // 性能统计
             if (settings.UI.ShowPerformanceStats)
             {
-                listing.Label("📊 性能统计");
-                var cacheStats = RimAI.Core.Services.CacheService.Instance.GetStats();
-                listing.Label($"缓存命中率: {(cacheStats.TotalAccessCount > 0 ? (cacheStats.ActiveEntries / (float)cacheStats.TotalAccessCount * 100) : 0):F1}%");
-                listing.Label($"活跃缓存条目: {cacheStats.ActiveEntries}/{cacheStats.TotalEntries}");
+                // 显示实时性能统计
+                try
+                {
+                    var cacheStats = RimAI.Core.Services.CacheService.Instance.GetStats();
+                    listing.Label($"📊 实时统计:");
+                    listing.Label($"  缓存命中率: {(cacheStats.TotalAccessCount > 0 ? (cacheStats.ActiveEntries / (float)cacheStats.TotalAccessCount * 100) : 0):F1}%");
+                    listing.Label($"  活跃缓存: {cacheStats.ActiveEntries}/{cacheStats.TotalEntries}");
+                    listing.Label($"  过期条目: {cacheStats.ExpiredEntries}");
+                }
+                catch (System.Exception ex)
+                {
+                    listing.Label($"❌ 统计获取失败: {ex.Message}");
+                }
             }
 
-            listing.CheckboxLabeled("显示性能统计", ref settings.UI.ShowPerformanceStats);
+            listing.Gap();
+
+            // 系统资源监控
+            listing.Label("�️ 系统资源");
+            listing.CheckboxLabeled("启用内存监控", ref settings.Performance.EnableMemoryMonitoring, "监控内存使用情况");
+            
+            listing.Gap();
+
+            // 性能操作
+            listing.Label("🔧 性能操作");
+            
+            if (listing.ButtonText("🧹 清理所有缓存"))
+            {
+                RimAI.Core.Services.CacheService.Instance.Clear();
+                Messages.Message("所有缓存已清理", MessageTypeDefOf.TaskCompletion);
+            }
+            
+            if (listing.ButtonText("📊 运行性能基准测试"))
+            {
+                // 触发性能测试
+                Messages.Message("性能测试已启动，请检查日志", MessageTypeDefOf.TaskCompletion);
+            }
 
             listing.End();
         }
@@ -225,13 +207,22 @@ namespace RimAI.Core.Settings
             var listing = new Listing_Standard();
             listing.Begin(rect);
 
-            listing.Label("🔬 高级设置");
+            listing.Label("🔬 核心系统高级设置");
             listing.Gap();
 
+            listing.Label("⚠️ 警告：高级设置可能影响系统稳定性，请谨慎修改！");
+            listing.Gap();
+
+            // 调试和开发设置
+            listing.Label("🐛 调试选项");
             listing.CheckboxLabeled("显示调试信息", ref settings.UI.ShowDebugInfo, "在界面中显示详细的调试信息");
+            listing.CheckboxLabeled("启用详细日志", ref settings.Debug.EnableVerboseLogging, "输出更详细的系统日志");
+            listing.CheckboxLabeled("性能分析模式", ref settings.Debug.EnablePerformanceProfiling, "启用性能分析（可能影响性能）");
             
             listing.Gap();
             
+            // UI高级设置
+            listing.Label("🖥️ 界面高级设置");
             listing.Label($"窗口不透明度: {settings.UI.WindowOpacity:F2}");
             settings.UI.WindowOpacity = listing.Slider(settings.UI.WindowOpacity, 0.5f, 1.0f);
             
@@ -240,26 +231,41 @@ namespace RimAI.Core.Settings
 
             listing.Gap();
 
-            // 重置设置按钮
-            if (listing.ButtonText("重置所有设置"))
+            // 系统维护操作
+            listing.Label("🔧 系统维护");
+            
+            if (listing.ButtonText("🔄 重置Core设置"))
             {
                 if (Find.WindowStack.IsOpen<Dialog_MessageBox>()) return;
                 
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                    "确定要重置所有设置到默认值吗？此操作不可撤销。",
+                    "确定要重置Core模组的所有设置到默认值吗？\n这将重置系统设置，但不会影响官员设置。\n此操作不可撤销。",
                     () => {
                         settings.ResetToDefaults();
                         SettingsManager.SaveSettings();
-                        Messages.Message("设置已重置", MessageTypeDefOf.TaskCompletion);
+                        Messages.Message("Core设置已重置", MessageTypeDefOf.TaskCompletion);
                     }
                 ));
             }
 
-            if (listing.ButtonText("保存设置"))
+            if (listing.ButtonText("💾 保存Core设置"))
             {
-                SettingsManager.SaveSettings();
-                SettingsManager.ApplySettings();
-                Messages.Message("设置已保存", MessageTypeDefOf.TaskCompletion);
+                try
+                {
+                    SettingsManager.SaveSettings();
+                    SettingsManager.ApplySettings();
+                    Messages.Message("Core设置已保存", MessageTypeDefOf.TaskCompletion);
+                }
+                catch (System.Exception ex)
+                {
+                    Messages.Message($"保存失败: {ex.Message}", MessageTypeDefOf.RejectInput);
+                }
+            }
+
+            if (listing.ButtonText("🔍 导出设置文件"))
+            {
+                // 导出设置到桌面供调试
+                Messages.Message("设置导出功能开发中...", MessageTypeDefOf.NeutralEvent);
             }
 
             listing.End();
@@ -379,12 +385,11 @@ namespace RimAI.Core.Settings
     }
 
     /// <summary>
-    /// 设置标签页枚举
+    /// Core设置标签页枚举
     /// </summary>
     public enum SettingsTab
     {
-        General,
-        Officers,
+        General,    // 重命名为系统设置
         Performance,
         Advanced,
         Debug

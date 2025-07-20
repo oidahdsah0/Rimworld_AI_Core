@@ -28,6 +28,9 @@ namespace RimAI.Core.Settings
         
         // 事件设置
         public EventSettings Events = new EventSettings();
+        
+        // 🎯 添加调试设置
+        public DebugSettings Debug = new DebugSettings();
 
         public override void ExposeData()
         {
@@ -39,6 +42,7 @@ namespace RimAI.Core.Settings
                 Scribe_Deep.Look(ref Performance, "performance");
                 Scribe_Deep.Look(ref Cache, "cache");
                 Scribe_Deep.Look(ref Events, "events");
+                Scribe_Deep.Look(ref Debug, "debug"); // 🎯 添加调试设置序列化
 
                 // 确保非空
                 if (OfficerConfigs == null) OfficerConfigs = new Dictionary<string, OfficerConfig>();
@@ -47,6 +51,7 @@ namespace RimAI.Core.Settings
                 if (Performance == null) Performance = new PerformanceSettings();
                 if (Cache == null) Cache = new CacheSettings();
                 if (Events == null) Events = new EventSettings();
+                if (Debug == null) Debug = new DebugSettings(); // 🎯 确保调试设置非空
             }
             catch (Exception ex)
             {
@@ -147,6 +152,7 @@ namespace RimAI.Core.Settings
         public int AnalysisIntervalTicks = 2500; // 约1游戏小时
         public bool EnableBackgroundAnalysis = true;
         public int MaxBackgroundTasks = 2;
+        public bool EnableMemoryMonitoring = false; // 🎯 添加内存监控选项
 
         public void ExposeData()
         {
@@ -156,6 +162,7 @@ namespace RimAI.Core.Settings
             Scribe_Values.Look(ref AnalysisIntervalTicks, "analysisIntervalTicks", 2500);
             Scribe_Values.Look(ref EnableBackgroundAnalysis, "enableBackgroundAnalysis", true);
             Scribe_Values.Look(ref MaxBackgroundTasks, "maxBackgroundTasks", 2);
+            Scribe_Values.Look(ref EnableMemoryMonitoring, "enableMemoryMonitoring", false); // 🎯 添加序列化
         }
     }
 
@@ -204,6 +211,25 @@ namespace RimAI.Core.Settings
     }
 
     /// <summary>
+    /// 调试设置
+    /// </summary>
+    public class DebugSettings : IExposable
+    {
+        public bool EnableVerboseLogging = false;
+        public bool EnablePerformanceProfiling = false;
+        public bool SaveAnalysisResults = false;
+        public bool ShowInternalEvents = false;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref EnableVerboseLogging, "enableVerboseLogging", false);
+            Scribe_Values.Look(ref EnablePerformanceProfiling, "enablePerformanceProfiling", false);
+            Scribe_Values.Look(ref SaveAnalysisResults, "saveAnalysisResults", false);
+            Scribe_Values.Look(ref ShowInternalEvents, "showInternalEvents", false);
+        }
+    }
+
+    /// <summary>
     /// 设置管理器
     /// </summary>
     public static class SettingsManager
@@ -216,11 +242,36 @@ namespace RimAI.Core.Settings
             {
                 if (_settings == null)
                 {
-                    var mod = LoadedModManager.GetMod<RimAICoreMod>();
-                    _settings = mod?.GetSettings<CoreSettings>() ?? new CoreSettings();
+                    try
+                    {
+                        // 🎯 修复崩溃：避免循环引用，提供更安全的获取方式
+                        var mod = LoadedModManager.GetMod<RimAICoreMod>();
+                        if (mod != null)
+                        {
+                            _settings = mod.GetSettings<CoreSettings>();
+                        }
+                        else
+                        {
+                            Log.Warning("[SettingsManager] RimAICoreMod not found, creating default settings");
+                            _settings = new CoreSettings();
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Log.Error($"[SettingsManager] Failed to get settings: {ex.Message}");
+                        _settings = new CoreSettings();
+                    }
                 }
                 return _settings;
             }
+        }
+
+        /// <summary>
+        /// 设置设置实例（供 RimAICoreMod 直接调用）
+        /// </summary>
+        public static void SetSettings(CoreSettings settings)
+        {
+            _settings = settings;
         }
 
         /// <summary>

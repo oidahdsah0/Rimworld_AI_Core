@@ -243,6 +243,7 @@ namespace RimAI.Core.Settings
         public bool EnablePerformanceProfiling = false;
         public bool SaveAnalysisResults = false;
         public bool ShowInternalEvents = false;
+        public bool SuppressGameProfilerLogs = true; // 🔇 抑制游戏性能分析日志
 
         public void ExposeData()
         {
@@ -250,6 +251,7 @@ namespace RimAI.Core.Settings
             Scribe_Values.Look(ref EnablePerformanceProfiling, "enablePerformanceProfiling", false);
             Scribe_Values.Look(ref SaveAnalysisResults, "saveAnalysisResults", false);
             Scribe_Values.Look(ref ShowInternalEvents, "showInternalEvents", false);
+            Scribe_Values.Look(ref SuppressGameProfilerLogs, "suppressGameProfilerLogs", true);
         }
     }
 

@@ -25,6 +25,9 @@ namespace RimAI.Core
                 SettingsManager.SetSettings(_settings);
                 Log.Message("[RimAICoreMod] ✅ SettingsManager initialized");
                 
+                // 📢 启用日志过滤（根据设置控制性能日志噪音）
+                LogFilter.ApplyFiltersIfNeeded();
+                
                 // 检查调试模式
                 if (_settings.Debug.EnableVerboseLogging)
                 {

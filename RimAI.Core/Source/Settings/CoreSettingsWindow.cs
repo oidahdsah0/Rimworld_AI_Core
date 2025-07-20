@@ -227,6 +227,11 @@ namespace RimAI.Core.Settings
             listing.Label("🐛 调试选项");
             listing.CheckboxLabeled("显示调试信息", ref settings.UI.ShowDebugInfo, "在界面中显示详细的调试信息");
             listing.CheckboxLabeled("启用详细日志", ref settings.Debug.EnableVerboseLogging, "输出更详细的系统日志");
+            listing.CheckboxLabeled("抑制游戏性能日志", ref settings.Debug.SuppressGameProfilerLogs, "减少游戏内建性能监控日志噪音");
+            if (GUI.changed)
+            {
+                LogFilter.ApplyFiltersIfNeeded(); // 实时应用日志过滤设置
+            }
             listing.CheckboxLabeled("性能分析模式", ref settings.Debug.EnablePerformanceProfiling, "启用性能分析（可能影响性能）");
             
             listing.Gap();

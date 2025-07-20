@@ -7,7 +7,7 @@ using Verse;
 namespace RimAI.Core.Settings
 {
     /// <summary>
-    /// RimAI Core 设置数据
+    /// RimAI Core 设置数据 - 简化版本，参考Framework设计模式
     /// </summary>
     public class CoreSettings : ModSettings
     {
@@ -29,35 +29,63 @@ namespace RimAI.Core.Settings
         // 事件设置
         public EventSettings Events = new EventSettings();
         
-        // 🎯 添加调试设置
+        // 调试设置
         public DebugSettings Debug = new DebugSettings();
 
         public override void ExposeData()
         {
             try
             {
+                // 🎯 简化序列化，避免复杂的深度序列化
                 Scribe_Collections.Look(ref OfficerConfigs, "officerConfigs", LookMode.Value, LookMode.Deep);
                 Scribe_Collections.Look(ref CustomPrompts, "customPrompts", LookMode.Value, LookMode.Deep);
+                
+                // 使用安全的Deep序列化
                 Scribe_Deep.Look(ref UI, "ui");
-                Scribe_Deep.Look(ref Performance, "performance");
+                Scribe_Deep.Look(ref Performance, "performance");  
                 Scribe_Deep.Look(ref Cache, "cache");
                 Scribe_Deep.Look(ref Events, "events");
-                Scribe_Deep.Look(ref Debug, "debug"); // 🎯 添加调试设置序列化
+                Scribe_Deep.Look(ref Debug, "debug");
 
-                // 确保非空
-                if (OfficerConfigs == null) OfficerConfigs = new Dictionary<string, OfficerConfig>();
-                if (CustomPrompts == null) CustomPrompts = new Dictionary<string, PromptTemplate>();
-                if (UI == null) UI = new UISettings();
-                if (Performance == null) Performance = new PerformanceSettings();
-                if (Cache == null) Cache = new CacheSettings();
-                if (Events == null) Events = new EventSettings();
-                if (Debug == null) Debug = new DebugSettings(); // 🎯 确保调试设置非空
+                // 确保非空 - 使用简单的空检查
+                PostLoadValidation();
             }
             catch (Exception ex)
             {
-                Log.Error($"[CoreSettings] Failed to expose data: {ex.Message}");
-                ResetToDefaults();
+                Log.Error($"[CoreSettings] 序列化失败: {ex.Message}");
+                // 发生错误时重置为安全的默认值
+                InitializeDefaults();
             }
+        }
+
+        /// <summary>
+        /// 加载后验证和初始化
+        /// </summary>
+        private void PostLoadValidation()
+        {
+            if (OfficerConfigs == null) OfficerConfigs = new Dictionary<string, OfficerConfig>();
+            if (CustomPrompts == null) CustomPrompts = new Dictionary<string, PromptTemplate>();
+            if (UI == null) UI = new UISettings();
+            if (Performance == null) Performance = new PerformanceSettings();
+            if (Cache == null) Cache = new CacheSettings();
+            if (Events == null) Events = new EventSettings();
+            if (Debug == null) Debug = new DebugSettings();
+        }
+
+        /// <summary>
+        /// 初始化默认设置
+        /// </summary>
+        private void InitializeDefaults()
+        {
+            OfficerConfigs = new Dictionary<string, OfficerConfig>();
+            CustomPrompts = new Dictionary<string, PromptTemplate>();
+            UI = new UISettings();
+            Performance = new PerformanceSettings();
+            Cache = new CacheSettings();
+            Events = new EventSettings();
+            Debug = new DebugSettings();
+            
+            Log.Message("[CoreSettings] 已初始化为默认设置");
         }
 
         /// <summary>
@@ -65,14 +93,8 @@ namespace RimAI.Core.Settings
         /// </summary>
         public void ResetToDefaults()
         {
-            OfficerConfigs.Clear();
-            CustomPrompts.Clear();
-            UI = new UISettings();
-            Performance = new PerformanceSettings();
-            Cache = new CacheSettings();
-            Events = new EventSettings();
-            
-            Log.Message("[CoreSettings] Settings reset to defaults");
+            InitializeDefaults();
+            Log.Message("[CoreSettings] 设置已重置为默认值");
         }
 
         /// <summary>
@@ -80,6 +102,8 @@ namespace RimAI.Core.Settings
         /// </summary>
         public OfficerConfig GetOfficerConfig(string officerName)
         {
+            if (string.IsNullOrEmpty(officerName)) return new OfficerConfig();
+            
             if (!OfficerConfigs.TryGetValue(officerName, out var config))
             {
                 config = new OfficerConfig { Name = officerName };
@@ -152,7 +176,7 @@ namespace RimAI.Core.Settings
         public int AnalysisIntervalTicks = 2500; // 约1游戏小时
         public bool EnableBackgroundAnalysis = true;
         public int MaxBackgroundTasks = 2;
-        public bool EnableMemoryMonitoring = false; // 🎯 添加内存监控选项
+        public bool EnableMemoryMonitoring = false;
 
         public void ExposeData()
         {
@@ -162,7 +186,7 @@ namespace RimAI.Core.Settings
             Scribe_Values.Look(ref AnalysisIntervalTicks, "analysisIntervalTicks", 2500);
             Scribe_Values.Look(ref EnableBackgroundAnalysis, "enableBackgroundAnalysis", true);
             Scribe_Values.Look(ref MaxBackgroundTasks, "maxBackgroundTasks", 2);
-            Scribe_Values.Look(ref EnableMemoryMonitoring, "enableMemoryMonitoring", false); // 🎯 添加序列化
+            Scribe_Values.Look(ref EnableMemoryMonitoring, "enableMemoryMonitoring", false);
         }
     }
 
@@ -230,7 +254,7 @@ namespace RimAI.Core.Settings
     }
 
     /// <summary>
-    /// 设置管理器
+    /// 设置管理器 - 简化版本，避免循环引用
     /// </summary>
     public static class SettingsManager
     {
@@ -244,7 +268,7 @@ namespace RimAI.Core.Settings
                 {
                     try
                     {
-                        // 🎯 修复崩溃：避免循环引用，提供更安全的获取方式
+                        // 🎯 修复崩溃：更安全的获取方式，避免循环引用
                         var mod = LoadedModManager.GetMod<RimAICoreMod>();
                         if (mod != null)
                         {
@@ -252,13 +276,13 @@ namespace RimAI.Core.Settings
                         }
                         else
                         {
-                            Log.Warning("[SettingsManager] RimAICoreMod not found, creating default settings");
+                            Log.Warning("[SettingsManager] RimAICoreMod未找到，创建默认设置");
                             _settings = new CoreSettings();
                         }
                     }
                     catch (System.Exception ex)
                     {
-                        Log.Error($"[SettingsManager] Failed to get settings: {ex.Message}");
+                        Log.Error($"[SettingsManager] 获取设置失败: {ex.Message}");
                         _settings = new CoreSettings();
                     }
                 }
@@ -283,11 +307,11 @@ namespace RimAI.Core.Settings
             {
                 var mod = LoadedModManager.GetMod<RimAICoreMod>();
                 mod?.WriteSettings();
-                Log.Message("[SettingsManager] Settings saved successfully");
+                Log.Message("[SettingsManager] 设置保存成功");
             }
             catch (Exception ex)
             {
-                Log.Error($"[SettingsManager] Failed to save settings: {ex.Message}");
+                Log.Error($"[SettingsManager] 设置保存失败: {ex.Message}");
             }
         }
 
@@ -300,24 +324,19 @@ namespace RimAI.Core.Settings
         }
 
         /// <summary>
-        /// 应用设置到服务
+        /// 应用设置到服务 - 简化版本，避免在设置加载时调用服务
         /// </summary>
         public static void ApplySettings()
         {
             try
             {
-                // 应用缓存设置
-                var cacheService = RimAI.Core.Services.CacheService.Instance;
-                // 这里可以根据设置调整缓存行为
-
-                // 应用性能设置
-                // 这里可以根据设置调整性能参数
-
-                Log.Message("[SettingsManager] Settings applied to services");
+                // 🎯 这里暂时不调用具体服务，避免循环引用
+                // 服务将在需要时主动获取最新设置
+                Log.Message("[SettingsManager] 设置更改信号已发送");
             }
             catch (Exception ex)
             {
-                Log.Error($"[SettingsManager] Failed to apply settings: {ex.Message}");
+                Log.Error($"[SettingsManager] 应用设置失败: {ex.Message}");
             }
         }
     }

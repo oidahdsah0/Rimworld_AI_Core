@@ -127,16 +127,26 @@ namespace RimAI.Core.Settings
             // 快捷操作
             listing.Label("🔧 系统操作");
             
-            if (listing.ButtonText("🔄 重新初始化核心服务"))
+            if (listing.ButtonText("🔄 重新加载服务状态"))
             {
                 try
                 {
-                    CoreServices.Initialize();
-                    Messages.Message("核心服务重新初始化完成", MessageTypeDefOf.PositiveEvent);
+                    // 简单地触发服务状态重新检查
+                    var serviceReady = CoreServices.AreServicesReady();
+                    var statusReport = CoreServices.GetReadinessReport();
+                    
+                    if (serviceReady)
+                    {
+                        Messages.Message("核心服务状态良好", MessageTypeDefOf.PositiveEvent);
+                    }
+                    else
+                    {
+                        Messages.Message("部分服务未就绪，请检查日志", MessageTypeDefOf.CautionInput);
+                    }
                 }
                 catch (System.Exception ex)
                 {
-                    Messages.Message($"初始化失败: {ex.Message}", MessageTypeDefOf.RejectInput);
+                    Messages.Message($"状态检查失败: {ex.Message}", MessageTypeDefOf.RejectInput);
                 }
             }
 

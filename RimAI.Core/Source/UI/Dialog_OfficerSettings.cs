@@ -13,12 +13,24 @@ using System.Threading.Tasks;
 namespace RimAI.Core.UI
 {
     /// <summary>
+    /// 官员设置窗口的标签页枚举
+    /// </summary>
+    public enum OfficerSettingsTab
+    {
+        Officers,
+        General,
+        Performance,
+        Advanced,
+        Debug
+    }
+
+    /// <summary>
     /// 官员设置窗口 - 从高级AI助手对话框改造而来
     /// 提供游戏内的官员配置和系统设置功能
     /// </summary>
     public class Dialog_OfficerSettings : Window
     {
-        private SettingsTab currentTab = SettingsTab.Officers;
+        private OfficerSettingsTab currentTab = OfficerSettingsTab.Officers;
         private Vector2 scrollPosition = Vector2.zero;
         private string debugInfo = "";
         
@@ -70,11 +82,11 @@ namespace RimAI.Core.UI
             
             List<TabData> tabs = new List<TabData>
             {
-                new TabData("🏛️ 官员", SettingsTab.Officers),
-                new TabData("⚙️ 常规", SettingsTab.General),
-                new TabData("⚡ 性能", SettingsTab.Performance),
-                new TabData("🔧 高级", SettingsTab.Advanced),
-                new TabData("🐛 调试", SettingsTab.Debug)
+                new TabData("🏛️ 官员", OfficerSettingsTab.Officers),
+                new TabData("⚙️ 常规", OfficerSettingsTab.General),
+                new TabData("⚡ 性能", OfficerSettingsTab.Performance),
+                new TabData("🔧 高级", OfficerSettingsTab.Advanced),
+                new TabData("🐛 调试", OfficerSettingsTab.Debug)
             };
 
             float tabWidth = availableWidth / tabs.Count;
@@ -98,19 +110,19 @@ namespace RimAI.Core.UI
         {
             switch (currentTab)
             {
-                case SettingsTab.Officers:
+                case OfficerSettingsTab.Officers:
                     DrawOfficerSettings(rect, settings);
                     break;
-                case SettingsTab.General:
+                case OfficerSettingsTab.General:
                     DrawGeneralSettings(rect, settings);
                     break;
-                case SettingsTab.Performance:
+                case OfficerSettingsTab.Performance:
                     DrawPerformanceSettings(rect, settings);
                     break;
-                case SettingsTab.Advanced:
+                case OfficerSettingsTab.Advanced:
                     DrawAdvancedSettings(rect, settings);
                     break;
-                case SettingsTab.Debug:
+                case OfficerSettingsTab.Debug:
                     DrawDebugSettings(rect, settings);
                     break;
             }
@@ -607,9 +619,9 @@ namespace RimAI.Core.UI
         private struct TabData
         {
             public string label;
-            public SettingsTab settingsTab;
+            public OfficerSettingsTab settingsTab;
 
-            public TabData(string label, SettingsTab settingsTab)
+            public TabData(string label, OfficerSettingsTab settingsTab)
             {
                 this.label = label;
                 this.settingsTab = settingsTab;

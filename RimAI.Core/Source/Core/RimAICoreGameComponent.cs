@@ -1,6 +1,7 @@
 using RimAI.Core.Architecture;
 using RimAI.Core.Architecture.Events;
 using RimAI.Core.Services;
+using RimAI.Core.Settings;
 using RimAI.Framework.API;
 using RimWorld;
 using System.Threading.Tasks;
@@ -19,22 +20,53 @@ namespace RimAI.Core
         
         public RimAICoreGameComponent(Game game)
         {
+            try
+            {
+                Log.Message("[RimAICoreGameComponent] 🎮 Game component constructor called");
+                // 基础构造函数，不做复杂初始化
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[RimAICoreGameComponent] ❌ Constructor failed: {ex}");
+                throw;
+            }
         }
 
         public override void GameComponentOnGUI()
         {
-            // 初始化核心架构（一次性）
-            if (!hasInitialized)
+            try
             {
-                hasInitialized = true;
-                InitializeCoreArchitecture();
-            }
+                // 检查是否启用调试日志
+                bool verboseLogging = false;
+                try
+                {
+                    verboseLogging = SettingsManager.Settings?.Debug?.EnableVerboseLogging ?? false;
+                }
+                catch
+                {
+                    // 忽略设置获取错误，使用默认值
+                }
 
-            // 在游戏开始后进行一次性连接测试
-            if (!hasTestedConnection && hasInitialized)
+                // 初始化核心架构（一次性）
+                if (!hasInitialized)
+                {
+                    if (verboseLogging) Log.Message("[RimAICoreGameComponent] 🔄 Starting core architecture initialization...");
+                    hasInitialized = true;
+                    InitializeCoreArchitecture();
+                }
+
+                // 在游戏开始后进行一次性连接测试
+                if (!hasTestedConnection && hasInitialized)
+                {
+                    if (verboseLogging) Log.Message("[RimAICoreGameComponent] 🧪 Starting framework connection test...");
+                    hasTestedConnection = true;
+                    _ = Task.Run(TestFrameworkConnection);
+                }
+            }
+            catch (System.Exception ex)
             {
-                hasTestedConnection = true;
-                _ = Task.Run(TestFrameworkConnection);
+                Log.Error($"[RimAICoreGameComponent] ❌ GameComponentOnGUI failed: {ex}");
+                // 不要重新抛出，避免游戏循环崩溃
             }
         }
 
@@ -43,17 +75,42 @@ namespace RimAI.Core
         /// </summary>
         private void InitializeCoreArchitecture()
         {
+            bool verboseLogging = false;
             try
             {
-                Log.Message("[RimAICoreGameComponent] Initializing Core architecture...");
+                verboseLogging = SettingsManager.Settings?.Debug?.EnableVerboseLogging ?? false;
+            }
+            catch
+            {
+                // 忽略设置获取错误
+            }
+
+            try
+            {
+                Log.Message("[RimAICoreGameComponent] 🔧 Initializing Core architecture...");
+
+                if (verboseLogging)
+                {
+                    Log.Message("[RimAICoreGameComponent] 📋 Step 1: Getting ServiceContainer instance...");
+                }
 
                 // 服务容器会自动注册默认服务
                 var services = ServiceContainer.Instance;
                 
+                if (verboseLogging)
+                {
+                    Log.Message("[RimAICoreGameComponent] 📋 Step 2: Checking service readiness...");
+                }
+                
                 // 检查服务就绪状态
                 if (CoreServices.AreServicesReady())
                 {
-                    Log.Message("[RimAICoreGameComponent] Core architecture initialized successfully");
+                    Log.Message("[RimAICoreGameComponent] ✅ Core architecture initialized successfully");
+                    
+                    if (verboseLogging)
+                    {
+                        Log.Message("[RimAICoreGameComponent] 📋 Step 3: Publishing initialization event...");
+                    }
                     
                     // 发布系统初始化事件
                     var eventBus = CoreServices.EventBus;
@@ -66,16 +123,39 @@ namespace RimAI.Core
                 }
                 else
                 {
-                    Log.Warning("[RimAICoreGameComponent] Some core services failed to initialize");
+                    Log.Warning("[RimAICoreGameComponent] ⚠️ Some core services failed to initialize");
+                    
+                    if (verboseLogging)
+                    {
+                        // 详细检查每个服务状态
+                        Log.Message($"[RimAICoreGameComponent] 🔍 Analyzer: {(CoreServices.Analyzer != null ? "✅" : "❌")}");
+                        Log.Message($"[RimAICoreGameComponent] 🔍 PromptBuilder: {(CoreServices.PromptBuilder != null ? "✅" : "❌")}");
+                        Log.Message($"[RimAICoreGameComponent] 🔍 LLMService: {(CoreServices.LLMService != null ? "✅" : "❌")}");
+                        Log.Message($"[RimAICoreGameComponent] 🔍 CacheService: {(CoreServices.CacheService != null ? "✅" : "❌")}");
+                        Log.Message($"[RimAICoreGameComponent] 🔍 EventBus: {(CoreServices.EventBus != null ? "✅" : "❌")}");
+                        Log.Message($"[RimAICoreGameComponent] 🔍 Governor: {(CoreServices.Governor != null ? "✅" : "❌")}");
+                    }
                 }
 
                 // 输出就绪状态报告
                 var report = CoreServices.GetReadinessReport();
-                Log.Message($"[RimAICoreGameComponent] Service readiness report:\n{report}");
+                if (verboseLogging)
+                {
+                    Log.Message($"[RimAICoreGameComponent] 📊 Service readiness report:\n{report}");
+                }
+                else
+                {
+                    Log.Message($"[RimAICoreGameComponent] 📊 Core services status: {(CoreServices.AreServicesReady() ? "Ready" : "Partial")}");
+                }
             }
             catch (System.Exception ex)
             {
-                Log.Error($"[RimAICoreGameComponent] Failed to initialize core architecture: {ex}");
+                Log.Error($"[RimAICoreGameComponent] ❌ CRITICAL: Failed to initialize core architecture: {ex}");
+                Log.Error($"[RimAICoreGameComponent] Stack trace: {ex.StackTrace}");
+                
+                // 不要重新抛出异常，避免游戏崩溃
+                // 而是尝试提供最小功能
+                Log.Warning("[RimAICoreGameComponent] 🔧 Attempting to continue with minimal functionality...");
             }
         }
 

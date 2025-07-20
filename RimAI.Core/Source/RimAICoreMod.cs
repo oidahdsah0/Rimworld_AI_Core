@@ -14,12 +14,31 @@ namespace RimAI.Core
 
         public RimAICoreMod(ModContentPack content) : base(content)
         {
-            _settings = GetSettings<CoreSettings>();
-            
-            // 🎯 修复崩溃：延迟设置管理器初始化，避免循环引用
-            SettingsManager.SetSettings(_settings);
-            
-            Log.Message("[RimAICoreMod] RimAI Core mod loaded");
+            try
+            {
+                Log.Message("[RimAICoreMod] 🚀 Starting RimAI Core mod initialization...");
+                
+                _settings = GetSettings<CoreSettings>();
+                Log.Message("[RimAICoreMod] ✅ Settings loaded successfully");
+                
+                // 🎯 修复崩溃：延迟设置管理器初始化，避免循环引用
+                SettingsManager.SetSettings(_settings);
+                Log.Message("[RimAICoreMod] ✅ SettingsManager initialized");
+                
+                // 检查调试模式
+                if (_settings.Debug.EnableVerboseLogging)
+                {
+                    Log.Message("[RimAICoreMod] 🔍 Verbose logging enabled");
+                }
+                
+                Log.Message("[RimAICoreMod] ✅ RimAI Core mod loaded successfully");
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[RimAICoreMod] ❌ CRITICAL: Failed to initialize mod: {ex}");
+                Log.Error($"[RimAICoreMod] Stack trace: {ex.StackTrace}");
+                throw; // 重新抛出以便游戏知道初始化失败
+            }
         }
 
         public override void DoSettingsWindowContents(Rect inRect)
@@ -50,6 +69,18 @@ namespace RimAI.Core
             // --- Core System Settings ---
             listingStandard.Label("🔧 RimAI Core 系统设置");
             listingStandard.GapLine();
+
+            // 🎯 调试模式控制 - 置顶显示
+            listingStandard.Label("🐛 调试模式");
+            listingStandard.CheckboxLabeled("启用详细日志", ref _settings.Debug.EnableVerboseLogging, "启用详细的加载和运行日志，帮助诊断问题");
+            listingStandard.CheckboxLabeled("性能分析模式", ref _settings.Debug.EnablePerformanceProfiling, "启用性能分析（可能影响性能）");
+            
+            if (_settings.Debug.EnableVerboseLogging)
+            {
+                listingStandard.Label("ℹ️ 详细日志已启用 - 检查日志文件获取诊断信息");
+            }
+            
+            listingStandard.Gap();
 
             // 基础开关设置
             listingStandard.CheckboxLabeled("启用事件监控系统", ref _settings.Events.EnableEventBus, "启用自动事件检测和响应");

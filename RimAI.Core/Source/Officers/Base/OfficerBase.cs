@@ -17,13 +17,14 @@ namespace RimAI.Core.Officers.Base
     /// </summary>
     public abstract class OfficerBase : IAIOfficer
     {
-        protected readonly IPromptBuilder _promptBuilder;
-        protected readonly ILLMService _llmService;
-        protected readonly ICacheService _cacheService;
-        protected readonly IColonyAnalyzer _analyzer;
+        protected IPromptBuilder _promptBuilder;
+        protected ILLMService _llmService;
+        protected ICacheService _cacheService;
+        protected IColonyAnalyzer _analyzer;
 
         private CancellationTokenSource _currentOperationCts;
         protected readonly object _operationLock = new object();
+        private bool _servicesInitialized = false;
 
         // 抽象属性 - 子类必须实现
         public abstract string Name { get; }
@@ -38,11 +39,38 @@ namespace RimAI.Core.Officers.Base
 
         protected OfficerBase()
         {
-            // ✅ 使用企业级服务容器架构 - 修正直接Instance调用
-            _analyzer = CoreServices.Analyzer;
-            _promptBuilder = CoreServices.PromptBuilder;
-            _llmService = CoreServices.LLMService;
-            _cacheService = CoreServices.CacheService;
+            // 🎯 修复循环依赖：延迟初始化服务，避免构造函数中调用 CoreServices
+            Log.Message($"[{GetType().Name}] Constructor called - services will be initialized on first use");
+        }
+
+        /// <summary>
+        /// 延迟初始化服务（线程安全）
+        /// </summary>
+        private void EnsureServicesInitialized()
+        {
+            if (_servicesInitialized) return;
+            
+            lock (_operationLock)
+            {
+                if (_servicesInitialized) return;
+                
+                try
+                {
+                    // ✅ 使用企业级服务容器架构 - 但延迟获取避免循环依赖
+                    _analyzer = CoreServices.Analyzer;
+                    _promptBuilder = CoreServices.PromptBuilder;
+                    _llmService = CoreServices.LLMService;
+                    _cacheService = CoreServices.CacheService;
+                    
+                    _servicesInitialized = true;
+                    Log.Message($"[{GetType().Name}] Services initialized successfully");
+                }
+                catch (System.Exception ex)
+                {
+                    Log.Error($"[{GetType().Name}] Failed to initialize services: {ex}");
+                    throw;
+                }
+            }
         }
 
         #region 公共接口实现
@@ -53,10 +81,12 @@ namespace RimAI.Core.Officers.Base
             {
                 try
                 {
+                    EnsureServicesInitialized(); // 🎯 确保服务已初始化
                     return _llmService.IsInitialized && Find.CurrentMap != null;
                 }
-                catch
+                catch (System.Exception ex)
                 {
+                    Log.Error($"[{GetType().Name}] IsAvailable check failed: {ex}");
                     return false;
                 }
             }
@@ -64,6 +94,8 @@ namespace RimAI.Core.Officers.Base
 
         public virtual async Task<string> GetAdviceAsync(CancellationToken cancellationToken = default)
         {
+            EnsureServicesInitialized(); // 🎯 确保服务已初始化
+            
             if (!IsAvailable)
             {
                 return GetUnavailableMessage();

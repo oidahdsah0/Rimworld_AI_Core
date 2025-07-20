@@ -23,10 +23,24 @@ namespace RimAI.Core.Architecture
 
         private ServiceContainer()
         {
-            _services = new Dictionary<Type, object>();
-            _factories = new Dictionary<Type, Func<object>>();
-            
-            RegisterDefaultServices();
+            try
+            {
+                Log.Message("[ServiceContainer] 🔧 Initializing ServiceContainer...");
+                
+                _services = new Dictionary<Type, object>();
+                _factories = new Dictionary<Type, Func<object>>();
+                
+                Log.Message("[ServiceContainer] 📋 Registering default services...");
+                RegisterDefaultServices();
+                
+                Log.Message("[ServiceContainer] ✅ ServiceContainer initialized successfully");
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[ServiceContainer] ❌ CRITICAL: Failed to initialize ServiceContainer: {ex}");
+                Log.Error($"[ServiceContainer] Stack trace: {ex.StackTrace}");
+                throw; // 重新抛出，这是关键错误
+            }
         }
 
         /// <summary>
@@ -36,10 +50,18 @@ namespace RimAI.Core.Architecture
         {
             if (instance == null) throw new ArgumentNullException(nameof(instance));
 
-            lock (_lock)
+            try
             {
-                _services[typeof(T)] = instance;
-                Log.Message($"[ServiceContainer] Registered instance of {typeof(T).Name}");
+                lock (_lock)
+                {
+                    _services[typeof(T)] = instance;
+                    Log.Message($"[ServiceContainer] ✅ Registered instance of {typeof(T).Name}");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[ServiceContainer] ❌ Failed to register {typeof(T).Name}: {ex}");
+                throw;
             }
         }
 
@@ -130,27 +152,50 @@ namespace RimAI.Core.Architecture
         /// </summary>
         private void RegisterDefaultServices()
         {
-            // 注册单例服务
-            RegisterInstance<IColonyAnalyzer>(ColonyAnalyzer.Instance); // 重新启用分析器
-            RegisterInstance<IPromptBuilder>(PromptBuilder.Instance);
-            RegisterInstance<ILLMService>(LLMService.Instance);
-            RegisterInstance<ICacheService>(CacheService.Instance);
-            RegisterInstance<IEventBus>(EventBusService.Instance);
-            
-            // 注册AI官员 - 重要的架构修正！
-            RegisterInstance<IAIOfficer>(Governor.Instance); // 注册总督为默认官员
-            RegisterInstance<Governor>(Governor.Instance);   // 也允许直接类型访问
-
-            // 🎯 注册事件监听器 - 展示完整的企业级架构！
-            var eventBus = GetService<IEventBus>();
-            if (eventBus != null)
+            try
             {
-                var governorEventListener = new RimAI.Core.Officers.Events.GovernorEventListener();
-                eventBus.Subscribe<RimAI.Core.Officers.Events.GovernorAdviceEvent>(governorEventListener);
-                Log.Message("[ServiceContainer] ✅ GovernorEventListener registered with EventBus");
-            }
+                Log.Message("[ServiceContainer] 📋 Step 1: Registering ColonyAnalyzer...");
+                RegisterInstance<IColonyAnalyzer>(ColonyAnalyzer.Instance);
+                
+                Log.Message("[ServiceContainer] 📋 Step 2: Registering PromptBuilder...");
+                RegisterInstance<IPromptBuilder>(PromptBuilder.Instance);
+                
+                Log.Message("[ServiceContainer] 📋 Step 3: Registering LLMService...");
+                RegisterInstance<ILLMService>(LLMService.Instance);
+                
+                Log.Message("[ServiceContainer] 📋 Step 4: Registering CacheService...");
+                RegisterInstance<ICacheService>(CacheService.Instance);
+                
+                Log.Message("[ServiceContainer] 📋 Step 5: Registering EventBusService...");
+                RegisterInstance<IEventBus>(EventBusService.Instance);
+                
+                Log.Message("[ServiceContainer] 📋 Step 6: Registering Governor...");
+                // 注册AI官员 - 重要的架构修正！
+                RegisterInstance<IAIOfficer>(Governor.Instance); // 注册总督为默认官员
+                RegisterInstance<Governor>(Governor.Instance);   // 也允许直接类型访问
 
-            Log.Message("[ServiceContainer] Default services registered with ColonyAnalyzer, Governor and EventBus integration enabled");
+                Log.Message("[ServiceContainer] 📋 Step 7: Setting up EventBus integration...");
+                // 🎯 注册事件监听器 - 展示完整的企业级架构！
+                var eventBus = GetService<IEventBus>();
+                if (eventBus != null)
+                {
+                    var governorEventListener = new RimAI.Core.Officers.Events.GovernorEventListener();
+                    eventBus.Subscribe<RimAI.Core.Officers.Events.GovernorAdviceEvent>(governorEventListener);
+                    Log.Message("[ServiceContainer] ✅ GovernorEventListener registered with EventBus");
+                }
+                else
+                {
+                    Log.Warning("[ServiceContainer] ⚠️ EventBus is null, skipping listener registration");
+                }
+
+                Log.Message("[ServiceContainer] ✅ All default services registered successfully");
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[ServiceContainer] ❌ CRITICAL: Failed to register default services: {ex}");
+                Log.Error($"[ServiceContainer] Stack trace: {ex.StackTrace}");
+                throw; // 重新抛出，这是关键错误
+            }
         }
 
         /// <summary>

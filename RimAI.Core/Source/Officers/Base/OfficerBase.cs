@@ -305,7 +305,30 @@ namespace RimAI.Core.Officers.Base
         /// </summary>
         protected virtual string GetUnavailableMessage()
         {
-            return $"❌ {Name}当前不可用 - 请检查AI框架连接和地图状态";
+            // 🎯 提供更详细的诊断信息
+            var reasons = new List<string>();
+            
+            try
+            {
+                EnsureServicesInitialized();
+                
+                if (Find.CurrentMap == null)
+                {
+                    reasons.Add("无当前地图");
+                }
+                
+                if (!_llmService.IsInitialized)
+                {
+                    reasons.Add("RimAI框架未初始化");
+                }
+            }
+            catch (Exception ex)
+            {
+                reasons.Add($"服务初始化失败: {ex.Message}");
+            }
+            
+            var reasonsText = reasons.Count > 0 ? $" - 原因: {string.Join(", ", reasons)}" : "";
+            return $"❌ {Name}当前不可用{reasonsText}\n\n💡 请确保:\n1. RimAI Framework模组已加载并启用\n2. 已加载游戏存档(有地图)\n3. 检查控制台日志了解详细错误信息";
         }
 
         #endregion

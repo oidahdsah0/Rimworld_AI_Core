@@ -153,13 +153,46 @@ namespace RimAI.Core.UI
         
         private async void ProcessGovernorRequest()
         {
+            // 🎯 防止重复处理
+            if (isProcessing)
+            {
+                Log.Warning("[MainTabWindow_RimAI] Governor request already in progress, ignoring");
+                return;
+            }
+
             isProcessing = true;
             streamingResponse.Clear();
             
-            // 创建新的取消令牌源
-            currentCancellationTokenSource?.Cancel();
-            currentCancellationTokenSource?.Dispose();
+            // 🎯 安全地处理取消令牌源
+            var previousTokenSource = currentCancellationTokenSource;
             currentCancellationTokenSource = new CancellationTokenSource();
+            
+            // 在后台安全地清理之前的令牌源
+            if (previousTokenSource != null)
+            {
+                try
+                {
+                    if (!previousTokenSource.IsCancellationRequested)
+                    {
+                        previousTokenSource.Cancel();
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                    // 忽略已释放的令牌源
+                }
+                finally
+                {
+                    try
+                    {
+                        previousTokenSource.Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 忽略已释放的令牌源
+                    }
+                }
+            }
             
             try
             {
@@ -175,31 +208,89 @@ namespace RimAI.Core.UI
                     return;
                 }
                 
-                // 使用总督的HandleUserQueryAsync方法处理用户输入
+                // 🎯 新增：检查是否支持流式响应
+                bool useStreaming = governor.IsAvailable && CoreServices.LLMService?.IsStreamingAvailable == true;
                 string governorAdvice;
-                if (!string.IsNullOrWhiteSpace(inputText))
-                {
-                    // 有具体问题时，使用用户查询处理方法
-                    governorAdvice = await governor.HandleUserQueryAsync(inputText, currentCancellationTokenSource.Token);
-                }
-                else
-                {
-                    // 没有具体问题时，获取一般建议
-                    governorAdvice = await governor.GetAdviceAsync(currentCancellationTokenSource.Token);
-                }
                 
-                if (currentCancellationTokenSource?.IsCancellationRequested != true)
+                if (useStreaming)
                 {
-                    if (!string.IsNullOrEmpty(governorAdvice))
+                    // 🚀 使用流式响应 - 就像"发送给AI"按钮一样！
+                    isStreaming = true;
+                    responseText = "";
+                    lastUpdateTime = Time.unscaledTime;
+                    
+                    if (!string.IsNullOrWhiteSpace(inputText))
                     {
-                        responseText = $"🏛️ 总督回复 (via ServiceContainer):\n\n{governorAdvice}";
-                        Messages.Message("Governor consultation completed! | 总督咨询完成!", MessageTypeDefOf.PositiveEvent);
-                        Log.Message("[MainTabWindow_RimAI] Governor advice received successfully via ServiceContainer");
+                        // 有具体问题时，使用用户查询处理方法 + 流式
+                        governorAdvice = await governor.GetStreamingAdviceAsync(
+                            chunk =>
+                            {
+                                // 检查是否已取消
+                                if (currentCancellationTokenSource?.IsCancellationRequested == true)
+                                    return;
+                                
+                                // 🎯 修复：chunk已经是累积内容，直接设置而不是追加
+                                streamingResponse.Clear();
+                                streamingResponse.Append(chunk);
+                                lastUpdateTime = Time.unscaledTime;
+                                // UI会在下一帧自动更新
+                            },
+                            currentCancellationTokenSource.Token
+                        );
                     }
                     else
                     {
-                        responseText = "总督暂时无法提供建议";
-                        Messages.Message("Governor unavailable | 总督暂时不可用", MessageTypeDefOf.NegativeEvent);
+                        // 没有具体问题时，获取一般建议 + 流式
+                        governorAdvice = await governor.GetStreamingAdviceAsync(
+                            chunk =>
+                            {
+                                if (currentCancellationTokenSource?.IsCancellationRequested == true)
+                                    return;
+                                
+                                // 🎯 修复：chunk已经是累积内容，直接设置而不是追加
+                                streamingResponse.Clear();
+                                streamingResponse.Append(chunk);
+                                lastUpdateTime = Time.unscaledTime;
+                            },
+                            currentCancellationTokenSource.Token
+                        );
+                    }
+                    
+                    isStreaming = false;
+                    
+                    if (currentCancellationTokenSource?.IsCancellationRequested != true)
+                    {
+                        responseText = $"🏛️ 总督回复 (流式):\n\n{streamingResponse.ToString()}";
+                        Messages.Message("Governor streaming consultation completed! | 总督流式咨询完成!", MessageTypeDefOf.PositiveEvent);
+                    }
+                }
+                else
+                {
+                    // 🔄 回退到非流式模式
+                    if (!string.IsNullOrWhiteSpace(inputText))
+                    {
+                        // 有具体问题时，使用用户查询处理方法
+                        governorAdvice = await governor.HandleUserQueryAsync(inputText, currentCancellationTokenSource.Token);
+                    }
+                    else
+                    {
+                        // 没有具体问题时，获取一般建议
+                        governorAdvice = await governor.GetAdviceAsync(currentCancellationTokenSource.Token);
+                    }
+                    
+                    if (currentCancellationTokenSource?.IsCancellationRequested != true)
+                    {
+                        if (!string.IsNullOrEmpty(governorAdvice))
+                        {
+                            responseText = $"🏛️ 总督回复 (标准):\n\n{governorAdvice}";
+                            Messages.Message("Governor consultation completed! | 总督咨询完成!", MessageTypeDefOf.PositiveEvent);
+                            Log.Message("[MainTabWindow_RimAI] Governor advice received successfully via ServiceContainer");
+                        }
+                        else
+                        {
+                            responseText = "总督暂时无法提供建议";
+                            Messages.Message("Governor unavailable | 总督暂时不可用", MessageTypeDefOf.NegativeEvent);
+                        }
                     }
                 }
             }
@@ -219,20 +310,67 @@ namespace RimAI.Core.UI
             {
                 isProcessing = false;
                 isStreaming = false;
-                currentCancellationTokenSource?.Dispose();
-                currentCancellationTokenSource = null;
+                // 🎯 安全地释放当前的令牌源
+                if (currentCancellationTokenSource != null)
+                {
+                    try
+                    {
+                        currentCancellationTokenSource.Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 忽略已释放的令牌源
+                    }
+                    finally
+                    {
+                        currentCancellationTokenSource = null;
+                    }
+                }
             }
         }
         
         private async void ProcessAIRequest()
         {
+            // 🎯 防止重复处理
+            if (isProcessing)
+            {
+                Log.Warning("[MainTabWindow_RimAI] AI request already in progress, ignoring");
+                return;
+            }
+
             isProcessing = true;
             streamingResponse.Clear();
             
-            // 创建新的取消令牌源
-            currentCancellationTokenSource?.Cancel();
-            currentCancellationTokenSource?.Dispose();
+            // 🎯 安全地处理取消令牌源
+            var previousTokenSource = currentCancellationTokenSource;
             currentCancellationTokenSource = new CancellationTokenSource();
+            
+            // 在后台安全地清理之前的令牌源
+            if (previousTokenSource != null)
+            {
+                try
+                {
+                    if (!previousTokenSource.IsCancellationRequested)
+                    {
+                        previousTokenSource.Cancel();
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                    // 忽略已释放的令牌源
+                }
+                finally
+                {
+                    try
+                    {
+                        previousTokenSource.Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 忽略已释放的令牌源
+                    }
+                }
+            }
             
             try
             {
@@ -315,8 +453,22 @@ namespace RimAI.Core.UI
             {
                 isProcessing = false;
                 isStreaming = false;
-                currentCancellationTokenSource?.Dispose();
-                currentCancellationTokenSource = null;
+                // 🎯 安全地释放当前的令牌源
+                if (currentCancellationTokenSource != null)
+                {
+                    try
+                    {
+                        currentCancellationTokenSource.Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // 忽略已释放的令牌源
+                    }
+                    finally
+                    {
+                        currentCancellationTokenSource = null;
+                    }
+                }
             }
         }
 
@@ -325,10 +477,21 @@ namespace RimAI.Core.UI
         /// </summary>
         private void CancelCurrentRequest()
         {
-            if (currentCancellationTokenSource != null && !currentCancellationTokenSource.IsCancellationRequested)
+            if (currentCancellationTokenSource != null)
             {
-                currentCancellationTokenSource.Cancel();
-                Log.Message("[MainTabWindow_RimAI] User cancelled current request");
+                try
+                {
+                    if (!currentCancellationTokenSource.IsCancellationRequested)
+                    {
+                        currentCancellationTokenSource.Cancel();
+                        Log.Message("[MainTabWindow_RimAI] User cancelled current request");
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                    // 令牌源已被释放，忽略
+                    Log.Message("[MainTabWindow_RimAI] Cancellation token source already disposed");
+                }
             }
         }
 

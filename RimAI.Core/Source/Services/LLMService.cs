@@ -16,8 +16,37 @@ namespace RimAI.Core.Services
         private static LLMService _instance;
         public static LLMService Instance => _instance ??= new LLMService();
 
-        public bool IsStreamingAvailable => RimAIAPI.IsStreamingEnabled;
-        public bool IsInitialized => RimAIAPI.IsInitialized;
+        public bool IsStreamingAvailable 
+        { 
+            get
+            {
+                try 
+                {
+                    return RimAIAPI.IsStreamingEnabled;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[LLMService] Failed to check streaming availability: {ex.Message}");
+                    return false;
+                }
+            }
+        }
+        
+        public bool IsInitialized 
+        { 
+            get
+            {
+                try 
+                {
+                    return RimAIAPI.IsInitialized;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[LLMService] Failed to check initialization: {ex.Message}");
+                    return false;
+                }
+            }
+        }
 
         private LLMService() { }
 
@@ -25,7 +54,8 @@ namespace RimAI.Core.Services
         {
             if (!IsInitialized)
             {
-                throw new InvalidOperationException("RimAI Framework is not initialized");
+                Log.Warning("[LLMService] RimAI Framework is not initialized - this may be expected if Framework mod is not loaded");
+                throw new InvalidOperationException("RimAI Framework is not initialized - please ensure the RimAI Framework mod is loaded and enabled");
             }
 
             try

@@ -1,12 +1,15 @@
-# RimAI Core
+# 🏗️ RimAI Core - Enterprise-Grade AI Framework
 
 [English](README.md) | [简体中文](README_zh-CN.md) | [Documentation](docs/)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![RimWorld](https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)
 [![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
+[![Architecture](https://img.shields.io/badge/Architecture-Enterprise-red.svg)](docs/ARCHITECTURE.md)
 
-> **A comprehensive AI-powered colony management system for RimWorld featuring intelligent decision-making, dual-layer architecture, and advanced workflow optimization.**
+> **The first enterprise-grade AI framework for RimWorld featuring SOLID principles, dependency injection, event-driven architecture, and production-ready infrastructure for intelligent colony management.**
+
+**🏢 Enterprise Architecture** • **🧠 Advanced AI Integration** • **🔧 Production-Ready Infrastructure**
 
 **Author**: [@oidahdsah0](https://github.com/oidahdsah0)  
 **Created**: 16 July 2025  
@@ -72,41 +75,72 @@ RimWorld AI Core is built on a revolutionary **dual-layer architecture** that se
 
 ---
 
-## 📐 **Architecture Overview**
+## 📐 **Enterprise Architecture Overview**
 
+### **Core Architecture Patterns**
+- **🏗️ Dependency Injection Container**: ServiceContainer manages service lifecycles
+- **🚌 Event-Driven Architecture**: EventBus enables decoupled component communication
+- **🛡️ Safe Access Layer**: SafeAccessService solves RimWorld API concurrent access issues
+- **💾 Intelligent Caching System**: CacheService provides multi-tier caching and performance optimization
+- **🔄 Async Programming Model**: Full-stack async/await pattern ensures UI responsiveness
+
+### **System Architecture Diagram**
 ```
-RimWorld AI Core
-├── LLM Layer (Intelligence)
-│   ├── Prompt Engineering
-│   ├── Context Building
-│   ├── Response Parsing
-│   └── Material Depth Analysis
-├── Execution Layer (Action)
-│   ├── Command Interpreter
-│   ├── Game State Monitor
-│   ├── Action Executor
-│   └── Feedback Generator
-└── User Interface
-    ├── Officer Panels
-    ├── Command Terminal
-    └── Status Displays
+🏗️ RimAI Core - Enterprise Architecture
+├── 🧠 LLM Layer (Intelligence)
+│   ├── 📝 Prompt Engineering Service
+│   ├── 🏗️ Context Building Service
+│   ├── 🔍 Response Parsing Service
+│   └── 📊 Material Depth Analysis
+├── ⚡ Execution Layer (Action System)
+│   ├── 🎯 Command Interpreter
+│   ├── 👁️ Game State Monitor
+│   ├── 🚀 Action Executor
+│   └── 📡 Feedback Generator
+├── 🏢 Infrastructure Layer (Enterprise)
+│   ├── 🗃️ Service Container (DI)
+│   ├── 🚌 Event Bus
+│   ├── 🛡️ Safe Access Service
+│   └── 💾 Cache Management
+└── 🎨 User Interface
+    ├── 👨‍💼 Officer Control Panels
+    ├── 💻 Command Terminal
+    └── 📊 Real-time Status Display
 ```
 
 ---
 
-## 🔧 **Technical Details**
+## 🔧 **Enterprise Technology Stack**
+
+### **Core Technical Features**
+- **🏗️ SOLID Principles**: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion
+- **🔄 Async Programming**: Comprehensive async/await patterns preventing UI blocking
+- **🛡️ Exception Safety**: Unified exception handling, retry mechanisms, circuit breaker patterns
+- **📊 Performance Monitoring**: Built-in metrics collection, cache statistics, execution time tracking
+- **🔧 Extensible Architecture**: Plugin-based design, hot-swappable components, modular development
+
+### **Infrastructure Services**
+| Service | Description | Enterprise Features |
+|---------|-------------|-------------------|
+| **ServiceContainer** | Dependency Injection Container | Lifecycle management, circular dependency detection |
+| **EventBus** | Event-driven communication | Async publishing, subscription management, error isolation |
+| **SafeAccessService** | API Safe Access | Concurrency protection, auto-retry, failure recovery |
+| **CacheService** | Intelligent Caching | Multi-tier cache, TTL management, memory optimization |
+| **LLMService** | AI Model Integration | Connection pooling, request throttling, failover |
 
 ### **Supported LLM Services**
-- OpenAI (GPT-4, GPT-3.5)
-- DeepSeek (deepseek-chat)
-- Ollama (Local deployment)
-- vLLM (Local deployment)
-- Any OpenAI-compatible API
+- **🤖 OpenAI**: GPT-4, GPT-3.5-turbo (Production recommended)
+- **🧠 DeepSeek**: deepseek-chat (Cost-optimized choice)
+- **🏠 Ollama**: Local model deployment (Privacy-first)
+- **⚡ vLLM**: High-performance inference server
+- **🔌 Compatible APIs**: Any OpenAI-format API service
 
-### **System Requirements**
-- .NET Framework 4.7.2
-- RimWorld 1.6+
-- Internet connection (for cloud LLM services)
+### **Deployment Requirements**
+- **Runtime**: .NET Framework 4.7.2 or higher
+- **Game Version**: RimWorld 1.6+ (backward compatible)
+- **Network**: Internet connection (cloud LLMs) or local deployment (Ollama/vLLM)
+- **Memory**: Recommended 8GB+ RAM (large colonies + AI processing)
+- **Storage**: ~50MB disk space (framework + cache)
 
 ---
 

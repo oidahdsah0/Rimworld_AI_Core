@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using RimAI.Core.Analysis;
 using RimAI.Core.Architecture.Interfaces;
+using RimAI.Core.Analysis;
 using RimAI.Core.Prompts;
 using RimAI.Core.Services;
 using Verse;
@@ -130,17 +130,13 @@ namespace RimAI.Core.Architecture
         private void RegisterDefaultServices()
         {
             // 注册单例服务
-            RegisterInstance<IColonyAnalyzer>(ColonyAnalyzer.Instance);
+            RegisterInstance<IColonyAnalyzer>(ColonyAnalyzer.Instance); // 重新启用分析器
             RegisterInstance<IPromptBuilder>(PromptBuilder.Instance);
             RegisterInstance<ILLMService>(LLMService.Instance);
             RegisterInstance<ICacheService>(CacheService.Instance);
             RegisterInstance<IEventBus>(EventBusService.Instance);
-            
-            // 注册新的分析器和服务
-            RegisterInstance<SecurityAnalyzer>(SecurityAnalyzer.Instance);
-            RegisterInstance<AutomationService>(AutomationService.Instance);
 
-            Log.Message("[ServiceContainer] Default services registered");
+            Log.Message("[ServiceContainer] Default services registered with ColonyAnalyzer enabled");
         }
 
         /// <summary>
@@ -186,7 +182,7 @@ namespace RimAI.Core.Architecture
     /// </summary>
     public static class CoreServices
     {
-        public static IColonyAnalyzer Analyzer => ServiceContainer.Instance.GetService<IColonyAnalyzer>();
+        public static IColonyAnalyzer Analyzer => ServiceContainer.Instance.GetService<IColonyAnalyzer>(); // 重新启用
         public static IPromptBuilder PromptBuilder => ServiceContainer.Instance.GetService<IPromptBuilder>();
         public static ILLMService LLMService => ServiceContainer.Instance.GetService<ILLMService>();
         public static ICacheService CacheService => ServiceContainer.Instance.GetService<ICacheService>();
@@ -199,7 +195,7 @@ namespace RimAI.Core.Architecture
         {
             try
             {
-                return Analyzer != null &&
+                return Analyzer != null && // 重新启用分析器检查
                        PromptBuilder != null &&
                        LLMService != null &&
                        CacheService != null &&
@@ -222,7 +218,7 @@ namespace RimAI.Core.Architecture
 
             try
             {
-                report.AppendLine($"分析器: {(Analyzer != null ? "✅" : "❌")}");
+                report.AppendLine($"殖民地分析器: {(Analyzer != null ? "✅" : "❌")}"); // 重新启用
                 report.AppendLine($"提示词构建器: {(PromptBuilder != null ? "✅" : "❌")}");
                 report.AppendLine($"LLM服务: {(LLMService != null ? "✅" : "❌")}");
                 report.AppendLine($"缓存服务: {(CacheService != null ? "✅" : "❌")}");

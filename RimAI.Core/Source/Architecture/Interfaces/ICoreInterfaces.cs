@@ -3,19 +3,30 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Framework.LLM.Models;
+using RimAI.Core.Analysis;
 
 namespace RimAI.Core.Architecture.Interfaces
 {
     /// <summary>
     /// 殖民地分析器接口 - 负责收集和分析殖民地状态
+    /// 现代化异步版本，支持完整的分析流程
     /// </summary>
     public interface IColonyAnalyzer
     {
-        ColonyStatus AnalyzeCurrentStatus();
-        List<ThreatInfo> IdentifyThreats();
-        ResourceReport GenerateResourceReport();
-        List<string> GetActiveEvents();
-        string GetColonyOverview();
+        /// <summary>
+        /// 异步分析整个殖民地状况
+        /// </summary>
+        Task<ColonyAnalysisResult> AnalyzeColonyAsync(CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// 快速获取殖民地状态摘要
+        /// </summary>
+        Task<string> GetQuickStatusSummaryAsync(CancellationToken cancellationToken = default);
+        
+        /// <summary>
+        /// 获取特定领域的专门分析
+        /// </summary>
+        Task<T> GetSpecializedAnalysisAsync<T>(CancellationToken cancellationToken = default) where T : class;
     }
 
     /// <summary>
@@ -53,9 +64,9 @@ namespace RimAI.Core.Architecture.Interfaces
     /// </summary>
     public interface ILLMService
     {
-        Task<string> SendMessageAsync(string prompt, LLMOptions options = null, CancellationToken cancellationToken = default);
-        Task<T> SendJsonRequestAsync<T>(string prompt, LLMOptions options = null, CancellationToken cancellationToken = default) where T : class;
-        Task SendStreamingMessageAsync(string prompt, Action<string> onChunk, LLMOptions options = null, CancellationToken cancellationToken = default);
+        Task<string> SendMessageAsync(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default);
+        Task<T> SendJsonRequestAsync<T>(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default) where T : class;
+        Task SendStreamingMessageAsync(string prompt, Action<string> onChunk, LLMRequestOptions options = null, CancellationToken cancellationToken = default);
         bool IsStreamingAvailable { get; }
         bool IsInitialized { get; }
     }

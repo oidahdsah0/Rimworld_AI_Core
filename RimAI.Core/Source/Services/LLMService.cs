@@ -21,7 +21,7 @@ namespace RimAI.Core.Services
 
         private LLMService() { }
 
-        public async Task<string> SendMessageAsync(string prompt, LLMOptions options = null, CancellationToken cancellationToken = default)
+        public async Task<string> SendMessageAsync(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default)
         {
             if (!IsInitialized)
             {
@@ -45,32 +45,24 @@ namespace RimAI.Core.Services
             }
         }
 
-        public async Task<T> SendJsonRequestAsync<T>(string prompt, LLMOptions options = null, CancellationToken cancellationToken = default) where T : class
+        public async Task<T> SendJsonRequestAsync<T>(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default) where T : class
         {
             if (!IsInitialized)
             {
                 throw new InvalidOperationException("RimAI Framework is not initialized");
             }
 
-            var jsonService = RimAIAPI.GetJsonService();
-            if (jsonService == null)
-            {
-                throw new InvalidOperationException("JSON service is not available");
-            }
-
             try
             {
-                var response = await jsonService.SendJsonRequestAsync<T>(prompt, options, cancellationToken);
-                
-                if (response.Success)
+                // 简化实现，直接调用基础API然后反序列化
+                var response = await RimAIAPI.SendMessageAsync(prompt, options, cancellationToken);
+                if (string.IsNullOrEmpty(response))
                 {
-                    return response.Data;
-                }
-                else
-                {
-                    Log.Warning($"[LLMService] JSON request returned no data: {response.ErrorMessage}");
                     return null;
                 }
+
+                // 尝试反序列化JSON响应
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<T>(response);
             }
             catch (OperationCanceledException)
             {
@@ -80,11 +72,11 @@ namespace RimAI.Core.Services
             catch (Exception ex)
             {
                 Log.Error($"[LLMService] JSON request failed: {ex.Message}");
-                throw;
+                return null;
             }
         }
 
-        public async Task SendStreamingMessageAsync(string prompt, Action<string> onChunk, LLMOptions options = null, CancellationToken cancellationToken = default)
+        public async Task SendStreamingMessageAsync(string prompt, Action<string> onChunk, LLMRequestOptions options = null, CancellationToken cancellationToken = default)
         {
             if (!IsInitialized)
             {
@@ -113,62 +105,6 @@ namespace RimAI.Core.Services
                 Log.Error($"[LLMService] Streaming request failed: {ex.Message}");
                 throw;
             }
-        }
-
-        /// <summary>
-        /// 测试连接状态
-        /// </summary>
-        public async Task<(bool success, string message)> TestConnectionAsync()
-        {
-            if (!IsInitialized)
-            {
-                return (false, "Framework not initialized");
-            }
-
-            try
-            {
-                return await RimAIAPI.TestConnectionAsync();
-            }
-            catch (Exception ex)
-            {
-                return (false, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// 获取当前设置信息
-        /// </summary>
-        public string GetCurrentSettings()
-        {
-            if (!IsInitialized)
-            {
-                return "Framework not initialized";
-            }
-
-            var settings = RimAIAPI.CurrentSettings;
-            if (settings == null)
-            {
-                return "No settings available";
-            }
-
-            return $"Provider: {settings.ProviderType}, Streaming: {IsStreamingAvailable}";
-        }
-
-        /// <summary>
-        /// 创建带有默认安全规则的选项
-        /// </summary>
-        public LLMOptions CreateSafeOptions(float temperature = 0.7f, bool forceStreaming = false)
-        {
-            if (forceStreaming && IsStreamingAvailable)
-            {
-                return RimAIAPI.Options.Streaming(temperature: temperature);
-            }
-            else if (temperature != 0.7f)
-            {
-                return new LLMOptions { Temperature = temperature };
-            }
-            
-            return null; // 使用默认设置
         }
     }
 }

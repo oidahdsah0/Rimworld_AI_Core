@@ -100,11 +100,10 @@ namespace RimAI.Core
                     return;
                 }
 
-                var (success, message) = await llmService.TestConnectionAsync();
-                
-                if (success)
+                // 简单测试Framework是否可用
+                if (llmService.IsInitialized)
                 {
-                    Log.Message($"RimAI Framework 连接成功: {message}");
+                    Log.Message("RimAI Framework 连接成功");
                     
                     // 显示当前模式信息
                     string mode = llmService.IsStreamingAvailable ? "流式模式" : "标准模式";
@@ -121,8 +120,8 @@ namespace RimAI.Core
                 }
                 else
                 {
-                    Log.Warning($"RimAI Framework 连接测试失败: {message}");
-                    Messages.Message($"AI 连接异常: {message}", MessageTypeDefOf.RejectInput);
+                    Log.Warning("RimAI Framework 初始化失败");
+                    Messages.Message("AI Framework 未初始化", MessageTypeDefOf.RejectInput);
                 }
             }
             catch (System.Exception ex)

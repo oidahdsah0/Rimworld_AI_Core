@@ -12,15 +12,15 @@
 │                    RimAI Core Layer                         │
 ├─────────────────────────────────────────────────────────────┤
 │  AI官员 (Officers)  │  分析器 (Analyzers)  │  工作流 (Workflows)  │
-│  ├─ ResearchOfficer │  ├─ ColonyAnalyzer   │  ├─ CrisisManagement │
+│  ├─ Governor ✅     │  ├─ ColonyAnalyzer✅ │  ├─ CrisisManagement │
 │  ├─ LogisticsOfficer│  ├─ SecurityAnalyzer │  └─ AutomationFlow   │
 │  └─ MilitaryOfficer │  └─ ThreatAnalyzer   │                     │
 ├─────────────────────────────────────────────────────────────┤
-│                    核心服务层                                │
-│              ┌─────────────────────────┐                    │
-│              │     LLMService          │ ← 🎯 关键调用组件   │
-│              │  (ILLMService 实现)     │                    │
-│              └─────────────────────────┘                    │
+│                    核心服务层 ✅ 完全恢复                      │
+│        ┌─────────────────┐  ┌─────────────────┐              │
+│        │   LLMService    │  │ ServiceContainer │              │
+│        │(ILLMService实现)│  │  + 分析器服务   │ ← 🎯 已恢复    │
+│        └─────────────────┘  └─────────────────┘              │
 ├─────────────────────────────────────────────────────────────┤
 │                Framework Wrapper                           │
 │              ┌─────────────────────────┐                    │

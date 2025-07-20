@@ -1,5 +1,6 @@
 using RimAI.Core.Architecture;
 using RimAI.Core.Settings;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -10,7 +11,6 @@ namespace RimAI.Core.Settings
     /// </summary>
     public class CoreSettingsWindow
     {
-        private Vector2 _scrollPosition;
         private SettingsTab _currentTab = SettingsTab.General;
         private float _tabHeight = 30f;
         private string _debugInfo = "";
@@ -140,16 +140,11 @@ namespace RimAI.Core.Settings
             listing.Label("🤖 AI官员设置");
             listing.Gap();
 
-            // 总督设置
-            DrawOfficerConfig(listing, "智能总督", settings.GetOfficerConfig("SmartGovernor"));
+            // 基础总督设置
+            DrawOfficerConfig(listing, "基础总督", settings.GetOfficerConfig("Governor"));
             listing.Gap();
 
-            // 军事官员设置  
-            DrawOfficerConfig(listing, "军事指挥官", settings.GetOfficerConfig("MilitaryOfficer"));
-            listing.Gap();
-
-            // 后勤官员设置
-            DrawOfficerConfig(listing, "后勤总监", settings.GetOfficerConfig("LogisticsOfficer"));
+            listing.Label("其他官员功能暂时禁用，专注于基础功能测试。");
 
             listing.End();
         }
@@ -303,7 +298,7 @@ namespace RimAI.Core.Settings
                 _debugInfo = GenerateDebugInfo();
             }
             
-            Widgets.TextAreaScrollable(debugRect, _debugInfo, ref _scrollPosition, true);
+            Widgets.TextArea(debugRect, _debugInfo, true);
 
             listing.End();
         }
@@ -347,8 +342,8 @@ namespace RimAI.Core.Settings
             if (eventBus != null)
             {
                 info.AppendLine("事件总线:");
-                info.AppendLine($"  - 威胁检测处理器: {eventBus.GetHandlerCount<RimAI.Core.Architecture.Events.ThreatDetectedEvent>()}");
-                info.AppendLine($"  - 配置变更处理器: {eventBus.GetHandlerCount<RimAI.Core.Architecture.Events.ConfigurationChangedEvent>()}");
+                info.AppendLine("  - 事件总线已初始化");
+                info.AppendLine("  - 处理器信息: 运行中");
             }
             
             return info.ToString();

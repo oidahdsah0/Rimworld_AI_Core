@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using RimAI.Core.Architecture.Interfaces;
 using RimAI.Core.Analysis;
+using RimAI.Core.Architecture.Interfaces;
 using RimAI.Core.Prompts;
 using RimAI.Core.Services;
 using RimAI.Framework.LLM.Models;
@@ -16,10 +16,10 @@ namespace RimAI.Core.Officers.Base
     /// </summary>
     public abstract class OfficerBase : IAIOfficer
     {
-        protected readonly IColonyAnalyzer _analyzer;
         protected readonly IPromptBuilder _promptBuilder;
         protected readonly ILLMService _llmService;
         protected readonly ICacheService _cacheService;
+        protected readonly IColonyAnalyzer _analyzer;
 
         private CancellationTokenSource _currentOperationCts;
         protected readonly object _operationLock = new object();
@@ -238,11 +238,11 @@ namespace RimAI.Core.Officers.Base
         /// <summary>
         /// 创建LLM选项 - 子类可以重写
         /// </summary>
-        protected virtual LLMOptions CreateLLMOptions(float temperature = 0.7f, bool forceStreaming = false, bool forceJson = false)
+        protected virtual LLMRequestOptions CreateLLMOptions(float temperature = 0.7f, bool forceStreaming = false, bool forceJson = false)
         {
             if (forceJson)
             {
-                return new LLMOptions 
+                return new LLMRequestOptions 
                 { 
                     Temperature = temperature,
                     // 可以在这里添加JSON相关的选项
@@ -250,11 +250,11 @@ namespace RimAI.Core.Officers.Base
             }
             else if (forceStreaming && _llmService.IsStreamingAvailable)
             {
-                return _llmService.CreateSafeOptions(temperature, true);
+                return new LLMRequestOptions { Temperature = temperature };
             }
             else
             {
-                return _llmService.CreateSafeOptions(temperature, false);
+                return new LLMRequestOptions { Temperature = temperature };
             }
         }
 

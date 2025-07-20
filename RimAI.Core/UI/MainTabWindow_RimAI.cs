@@ -8,9 +8,13 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using System.Text;
+using System.Linq;
 
 namespace RimAI.Core.UI
 {
+    /// <summary>
+    /// RimAI主标签窗口 - 指令下达和AI对话界面
+    /// </summary>
     public class MainTabWindow_RimAI : MainTabWindow
     {
         private string inputText = "";
@@ -24,14 +28,14 @@ namespace RimAI.Core.UI
         // 添加取消支持
         private CancellationTokenSource currentCancellationTokenSource = null;
         
-        public override Vector2 InitialSize => new Vector2(600f, 500f);
+        public override Vector2 InitialSize => new Vector2(800f, 600f);
 
         public override void DoWindowContents(Rect inRect)
         {
             Listing_Standard listingStandard = new Listing_Standard();
             listingStandard.Begin(inRect);
             
-            listingStandard.Label("🤖 RimAI Control Panel | RimAI 控制面板");
+            listingStandard.Label("🤖 RimAI Command Center | RimAI 指令中心");
             
             // 显示当前模式状态
             if (RimAIAPI.IsStreamingEnabled)
@@ -49,39 +53,13 @@ namespace RimAI.Core.UI
             listingStandard.Label("Enter Command | 输入指令:");
             
             // 添加输入框
-            Rect textFieldRect = listingStandard.GetRect(30f);
-            inputText = Widgets.TextField(textFieldRect, inputText);
+            Rect textFieldRect = listingStandard.GetRect(60f);
+            inputText = Widgets.TextArea(textFieldRect, inputText);
             
             listingStandard.Gap();
             
-            // 添加确认按钮
-            string buttonText = isProcessing ? 
-                (isStreaming ? "Receiving Response... | 接收响应中..." : "Processing... | 处理中...") : 
-                "Send to AI | 发送给AI";
-            
-            if (listingStandard.ButtonText(buttonText))
-            {
-                if (string.IsNullOrWhiteSpace(inputText))
-                {
-                    Messages.Message("Please enter valid command content | 请输入有效的命令内容", MessageTypeDefOf.RejectInput, false);
-                }
-                else if (!isProcessing)
-                {
-                    ProcessAIRequest();
-                }
-            }
-            
-            // 添加取消按钮（仅在处理时显示）
-            if (isProcessing && listingStandard.ButtonText("❌ Cancel Request | 取消请求"))
-            {
-                CancelCurrentRequest();
-            }
-            
-            // 添加高级AI助手按钮
-            if (listingStandard.ButtonText("🚀 Open Advanced AI Assistant | 打开高级AI助手"))
-            {
-                Find.WindowStack.Add(new Dialog_AdvancedAIAssistant());
-            }
+            // 按钮行
+            DrawButtonRow(listingStandard, inRect.width);
             
             listingStandard.Gap();
             
@@ -93,7 +71,7 @@ namespace RimAI.Core.UI
                 string displayText = isStreaming ? streamingResponse.ToString() : responseText;
                 
                 // 创建一个可滚动的文本区域
-                Rect responseRect = listingStandard.GetRect(200f);
+                Rect responseRect = listingStandard.GetRect(300f);
                 Rect viewRect = new Rect(0f, 0f, responseRect.width - 16f, Text.CalcHeight(displayText, responseRect.width));
                 
                 Widgets.BeginScrollView(responseRect, ref scrollPosition, viewRect);
@@ -109,6 +87,54 @@ namespace RimAI.Core.UI
             }
             
             listingStandard.End();
+        }
+
+        private void DrawButtonRow(Listing_Standard listing, float availableWidth)
+        {
+            Rect buttonRowRect = listing.GetRect(35f);
+            float buttonSpacing = 5f;
+            
+            // 计算按钮数量和宽度
+            int buttonCount = isProcessing ? 3 : 2; // 发送/处理中, 设置, 取消(仅处理时)
+            float totalSpacing = (buttonCount - 1) * buttonSpacing;
+            float buttonWidth = (availableWidth - totalSpacing) / buttonCount;
+            
+            float currentX = buttonRowRect.x;
+            
+            // 发送/处理按钮
+            string sendButtonText = isProcessing ? 
+                (isStreaming ? "Receiving... | 接收中..." : "Processing... | 处理中...") : 
+                "Send to AI | 发送给AI";
+            
+            Rect sendRect = new Rect(currentX, buttonRowRect.y, buttonWidth, buttonRowRect.height);
+            GUI.enabled = !string.IsNullOrWhiteSpace(inputText) && !isProcessing;
+            
+            if (Widgets.ButtonText(sendRect, sendButtonText))
+            {
+                ProcessAIRequest();
+            }
+            
+            GUI.enabled = true;
+            currentX += buttonWidth + buttonSpacing;
+            
+            // 设置按钮
+            Rect settingsRect = new Rect(currentX, buttonRowRect.y, buttonWidth, buttonRowRect.height);
+            if (Widgets.ButtonText(settingsRect, "⚙️ Settings | 设置"))
+            {
+                Find.WindowStack.Add(new Dialog_OfficerSettings());
+            }
+            
+            currentX += buttonWidth + buttonSpacing;
+            
+            // 取消按钮（仅在处理时显示）
+            if (isProcessing)
+            {
+                Rect cancelRect = new Rect(currentX, buttonRowRect.y, buttonWidth, buttonRowRect.height);
+                if (Widgets.ButtonText(cancelRect, "❌ Cancel | 取消"))
+                {
+                    CancelCurrentRequest();
+                }
+            }
         }
         
         private async void ProcessAIRequest()

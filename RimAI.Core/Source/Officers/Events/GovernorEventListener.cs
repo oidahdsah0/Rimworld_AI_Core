@@ -11,6 +11,14 @@ namespace RimAI.Core.Officers.Events
     /// </summary>
     public class GovernorEventListener : IEventHandler<GovernorAdviceEvent>
     {
+        public async Task HandleAsync(IEvent eventData, CancellationToken cancellationToken = default)
+        {
+            if (eventData is GovernorAdviceEvent governorEvent)
+            {
+                await HandleAsync(governorEvent, cancellationToken);
+            }
+        }
+
         public async Task HandleAsync(GovernorAdviceEvent eventArgs, CancellationToken cancellationToken = default)
         {
             try
@@ -18,7 +26,7 @@ namespace RimAI.Core.Officers.Events
                 // 🎯 企业级事件处理示例 
                 Log.Message($"[GovernorEventListener] 接收到总督建议事件:");
                 Log.Message($"  - 用户查询: {eventArgs.UserQuery}");
-                Log.Message($"  - 建议成功: {eventArgs.IsSuccessful}");
+                Log.Message($"  - 建议成功: {eventArgs.WasSuccessful}");
                 Log.Message($"  - 殖民地状态: {eventArgs.ColonyStatus}");
                 Log.Message($"  - 时间戳: {eventArgs.Timestamp}");
                 
@@ -28,7 +36,7 @@ namespace RimAI.Core.Officers.Events
                 // - 发送通知
                 // - 更新统计数据等
 
-                if (eventArgs.IsSuccessful)
+                if (eventArgs.WasSuccessful)
                 {
                     Log.Message("[GovernorEventListener] ✅ 总督建议处理成功，事件已记录");
                 }

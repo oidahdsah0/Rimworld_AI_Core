@@ -8,9 +8,8 @@ namespace RimAI.Core.Officers.Events
     /// </summary>
     public class GovernorAdviceEvent : IEvent
     {
-        public string Id { get; } = Guid.NewGuid().ToString();
         public DateTime Timestamp { get; } = DateTime.Now;
-        public string EventType { get; } = "GovernorAdvice";
+        public string EventId { get; } = Guid.NewGuid().ToString();
 
         public string UserQuery { get; set; }
         public string AdviceProvided { get; set; }

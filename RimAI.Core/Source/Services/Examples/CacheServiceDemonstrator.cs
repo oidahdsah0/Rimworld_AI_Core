@@ -43,9 +43,9 @@ namespace RimAI.Core.Services.Examples
             // 2. 再次调用同样的key - 应该直接从缓存返回
             var cachedData = await _cache.GetOrCreateAsync(
                 "expensive_calculation",
-                async () => {
+                () => {
                     Log.Message("[Cache Demo] This should NOT be called!");
-                    return "Should not see this";
+                    return Task.FromResult("Should not see this");
                 }
             );
 
@@ -95,9 +95,9 @@ namespace RimAI.Core.Services.Examples
             // 创建短期缓存项
             var shortLivedData = await _cache.GetOrCreateAsync(
                 "short_lived_data",
-                async () => {
+                () => {
                     Log.Message("[Cache Demo] Creating short-lived data");
-                    return "Temporary Data: " + DateTime.Now.ToString();
+                    return Task.FromResult("Temporary Data: " + DateTime.Now.ToString());
                 },
                 TimeSpan.FromSeconds(2) // 2秒过期
             );
@@ -110,9 +110,9 @@ namespace RimAI.Core.Services.Examples
             // 再次请求 - 应该重新创建
             var newData = await _cache.GetOrCreateAsync(
                 "short_lived_data",
-                async () => {
+                () => {
                     Log.Message("[Cache Demo] Recreating expired data");
-                    return "New Data: " + DateTime.Now.ToString();
+                    return Task.FromResult("New Data: " + DateTime.Now.ToString());
                 },
                 TimeSpan.FromSeconds(2)
             );

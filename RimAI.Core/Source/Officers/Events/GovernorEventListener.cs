@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Architecture.Interfaces;
@@ -42,14 +43,21 @@ namespace RimAI.Core.Officers.Events
                 }
                 else
                 {
-                    Log.Warning("[GovernorEventListener] ⚠️ 总督建议处理失败，需要关注");
+                    // 🎯 修复：不要在失败事件中输出 Warning，这会导致递归错误
+                    Log.Message("[GovernorEventListener] ℹ️ 总督建议处理失败（这是正常的错误恢复流程）");
                 }
 
                 await Task.CompletedTask; // 模拟异步处理
             }
+            catch (OperationCanceledException)
+            {
+                // 🎯 修复：正确处理取消异常
+                Log.Message("[GovernorEventListener] 事件处理被取消");
+            }
             catch (System.Exception ex)
             {
-                Log.Error($"[GovernorEventListener] 事件处理失败: {ex.Message}");
+                // 🎯 修复：更详细的错误信息，但不要再次触发事件
+                Log.Message($"[GovernorEventListener] 事件处理异常: {ex.GetType().Name}: {ex.Message}");
             }
         }
     }

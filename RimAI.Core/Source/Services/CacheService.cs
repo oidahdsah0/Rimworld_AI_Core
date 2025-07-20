@@ -69,6 +69,12 @@ namespace RimAI.Core.Services
 
                 return value;
             }
+            catch (OperationCanceledException)
+            {
+                // 🎯 修复：正确处理任务取消，不记录为错误
+                Log.Message($"[CacheService] Cache creation cancelled for key: {key}");
+                throw; // 重新抛出以保持取消语义
+            }
             catch (Exception ex)
             {
                 Log.Error($"[CacheService] Failed to create cache entry for key {key}: {ex.Message}");

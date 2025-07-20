@@ -717,24 +717,38 @@ namespace RimAI.Core.Officers
             finally
             {
                 // 🎯 企业级架构展示：事件总线集成 - 无论成功失败都发布事件！
-                try
+                // 🎯 修复：但不要在取消的情况下发布事件
+                if (!cancellationToken.IsCancellationRequested)
                 {
-                    var eventBus = CoreServices.EventBus;
-                    if (eventBus != null)
+                    try
                     {
-                        var adviceEvent = new GovernorAdviceEvent(userQuery, response, colonyStatus, wasSuccessful);
-                        await eventBus.PublishAsync(adviceEvent, cancellationToken);
-                        Log.Message("[Governor] ✅ EventBus integration successful - Published GovernorAdviceEvent");
+                        var eventBus = CoreServices.EventBus;
+                        if (eventBus != null)
+                        {
+                            var adviceEvent = new GovernorAdviceEvent(userQuery, response, colonyStatus, wasSuccessful);
+                            // 🎯 修复：使用一个短期的取消令牌，避免等待已取消的操作
+                            using var eventCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            await eventBus.PublishAsync(adviceEvent, eventCts.Token);
+                            Log.Message("[Governor] ✅ EventBus integration successful - Published GovernorAdviceEvent");
+                        }
+                        else
+                        {
+                            Log.Warning("[Governor] EventBus service not available");
+                        }
                     }
-                    else
+                    catch (OperationCanceledException)
                     {
-                        Log.Warning("[Governor] EventBus service not available");
+                        Log.Message("[Governor] Event publishing was cancelled");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Message($"[Governor] Event publishing failed: {ex.GetType().Name}: {ex.Message}");
+                        // 事件发布失败不应该影响主要功能
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log.Error($"[Governor] Failed to publish event: {ex.Message}");
-                    // 事件发布失败不应该影响主要功能
+                    Log.Message("[Governor] Skipping event publishing due to cancellation");
                 }
             }
         }

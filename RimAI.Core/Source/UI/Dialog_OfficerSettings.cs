@@ -200,7 +200,7 @@ namespace RimAI.Core.UI
             if (config.IsEnabled)
             {
                 listing.Label($"🎨 响应创造性: {config.ResponseTemperature:F1}");
-                config.ResponseTemperature = listing.Slider(config.ResponseTemperature, 0.1f, 1.0f);
+                config.ResponseTemperature = listing.Slider(config.ResponseTemperature, 0.1f, 2.0f);
                 
                 listing.CheckboxLabeled("🚀 偏好流式响应", ref config.PreferStreaming, "在支持时优先使用流式响应");
                 listing.CheckboxLabeled("🔍 自动分析", ref config.AutoAnalysis, "启用自动态势分析");

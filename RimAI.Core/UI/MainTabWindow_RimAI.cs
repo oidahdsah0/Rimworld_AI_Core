@@ -222,8 +222,9 @@ namespace RimAI.Core.UI
                     
                     if (!string.IsNullOrWhiteSpace(inputText))
                     {
-                        // 有具体问题时，使用用户查询处理方法 + 流式
-                        governorAdvice = await governor.GetStreamingAdviceAsync(
+                        // 有具体问题时，使用用户查询的流式处理方法
+                        governorAdvice = await governor.HandleUserQueryStreamingAsync(
+                            inputText,
                             chunk =>
                             {
                                 // 检查是否已取消 - 使用局部变量token

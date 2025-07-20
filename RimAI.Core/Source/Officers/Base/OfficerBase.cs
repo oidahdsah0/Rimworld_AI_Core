@@ -182,7 +182,7 @@ namespace RimAI.Core.Officers.Base
             {
                 var context = await BuildContextAsync(operationCts.Token);
                 var prompt = _promptBuilder.BuildPrompt(StreamingTemplateId, context);
-                var options = CreateLLMOptions(temperature: 0.8f, forceStreaming: true);
+                var options = CreateLLMOptions(forceStreaming: true);
 
                 var fullResponse = "";
                 
@@ -272,23 +272,49 @@ namespace RimAI.Core.Officers.Base
         /// <summary>
         /// 创建LLM选项 - 子类可以重写
         /// </summary>
-        protected virtual LLMRequestOptions CreateLLMOptions(float temperature = 0.7f, bool forceStreaming = false, bool forceJson = false)
+        protected virtual LLMRequestOptions CreateLLMOptions(float? temperature = null, bool forceStreaming = false, bool forceJson = false)
         {
+            // 如果没有指定temperature，从配置中获取
+            float actualTemperature = temperature ?? GetConfiguredTemperature();
+            
             if (forceJson)
             {
                 return new LLMRequestOptions 
                 { 
-                    Temperature = temperature,
+                    Temperature = actualTemperature,
                     // 可以在这里添加JSON相关的选项
                 };
             }
             else if (forceStreaming && _llmService.IsStreamingAvailable)
             {
-                return new LLMRequestOptions { Temperature = temperature };
+                return new LLMRequestOptions { Temperature = actualTemperature };
             }
             else
             {
-                return new LLMRequestOptions { Temperature = temperature };
+                return new LLMRequestOptions { Temperature = actualTemperature };
+            }
+        }
+
+        /// <summary>
+        /// 从配置中获取Temperature设置
+        /// </summary>
+        protected virtual float GetConfiguredTemperature()
+        {
+            try
+            {
+                var serviceContainer = ServiceContainer.Instance;
+                var settings = serviceContainer?.GetService<RimAI.Core.Settings.CoreSettings>();
+                if (settings != null)
+                {
+                    var config = settings.GetOfficerConfig(Role.ToString());
+                    return config?.ResponseTemperature ?? 0.7f;
+                }
+                return 0.7f; // 默认值
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[{Name}] Failed to get configured temperature, using default: {ex.Message}");
+                return 0.7f; // 默认值
             }
         }
 

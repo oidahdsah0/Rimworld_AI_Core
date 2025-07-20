@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Analysis;
+using RimAI.Core.Architecture;
 using RimAI.Core.Architecture.Interfaces;
 using RimAI.Core.Prompts;
 using RimAI.Core.Services;
@@ -37,10 +38,11 @@ namespace RimAI.Core.Officers.Base
 
         protected OfficerBase()
         {
-            _analyzer = ColonyAnalyzer.Instance;
-            _promptBuilder = PromptBuilder.Instance;
-            _llmService = LLMService.Instance;
-            _cacheService = CacheService.Instance;
+            // ✅ 使用企业级服务容器架构 - 修正直接Instance调用
+            _analyzer = CoreServices.Analyzer;
+            _promptBuilder = CoreServices.PromptBuilder;
+            _llmService = CoreServices.LLMService;
+            _cacheService = CoreServices.CacheService;
         }
 
         #region 公共接口实现

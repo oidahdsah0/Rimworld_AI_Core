@@ -8,14 +8,14 @@ namespace RimAI.Core.Architecture.Interfaces
     /// </summary>
     public enum OfficerRole
     {
-        Governor,      // 总督 - 整体管理
-        Military,      // 军事 - 防务和战斗
-        Logistics,     // 后勤 - 资源和建设
-        Medical,       // 医疗 - 健康和医疗
-        Research,      // 科研 - 研究和技术
-        Diplomat,      // 外交 - 对外关系
-        Security,      // 安全 - 内部秩序
-        Economy        // 经济 - 贸易和财务
+        Governor,        // 总督 - 整体管理
+        //Military,      // 军事 - 防务和战斗
+        //Logistics,     // 后勤 - 资源和建设
+        //Medical,       // 医疗 - 健康和医疗
+        //Research,      // 科研 - 研究和技术
+        //Diplomat,      // 外交 - 对外关系
+        //Security,      // 安全 - 内部秩序
+        //Economy        // 经济 - 贸易和财务
     }
 
     /// <summary>

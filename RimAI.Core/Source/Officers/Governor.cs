@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Architecture.Interfaces;
+using RimAI.Core.Architecture;
 using RimAI.Core.Officers.Base;
+using RimAI.Core.Officers.Events;
 using RimAI.Core.Analysis;
 using RimAI.Framework.LLM.Models;
 using RimWorld;
@@ -555,6 +557,104 @@ namespace RimAI.Core.Officers
                 ["quickAnalysisSummary"] = "分析器不可用",
                 ["overallRiskLevel"] = "未知"
             };
+        }
+
+        #endregion
+
+        #region 用户查询处理
+
+        /// <summary>
+        /// 处理用户的特定查询 - UI专用方法
+        /// </summary>
+        public async Task<string> HandleUserQueryAsync(string userQuery, CancellationToken cancellationToken = default)
+        {
+            if (!IsAvailable)
+            {
+                return GetUnavailableMessage();
+            }
+
+            string response = "";
+            string colonyStatus = "";
+            bool wasSuccessful = false;
+
+            try
+            {
+                // 构建包含用户查询的增强上下文
+                var context = await BuildContextAsync(cancellationToken);
+                colonyStatus = context.GetValueOrDefault("quickAnalysisSummary", "状态未知").ToString();
+                
+                // 添加用户查询到上下文
+                context["userQuery"] = userQuery;
+                context["isSpecificQuery"] = true;
+                
+                // 构建针对用户查询的专门提示
+                var customPrompt = _promptBuilder.BuildPrompt("governor.user_query", context);
+                
+                // 如果没有专门的用户查询模板，使用默认模板并添加查询
+                if (string.IsNullOrEmpty(customPrompt))
+                {
+                    customPrompt = $@"作为殖民地总督，基于当前殖民地状况回答用户的具体问题。
+
+用户问题：{userQuery}
+
+当前殖民地状况：
+- 殖民者：{context.GetValueOrDefault("colonistCount", "未知")}人 ({context.GetValueOrDefault("colonistStatus", "状态未知")})
+- 食物储备：{context.GetValueOrDefault("foodDaysRemaining", "未知")}天
+- 威胁等级：{context.GetValueOrDefault("threatLevel", "未知")}
+- 总体风险：{context.GetValueOrDefault("overallRiskLevel", "未知")}
+- 快速分析：{context.GetValueOrDefault("quickAnalysisSummary", "分析不可用")}
+
+请提供专业的建议和指导，重点回答用户的问题。";
+                }
+                
+                var options = CreateLLMOptions(temperature: 0.7f);
+                response = await _llmService.SendMessageAsync(customPrompt, options, cancellationToken);
+                
+                if (string.IsNullOrEmpty(response))
+                {
+                    response = "总督暂时无法处理您的查询";
+                }
+                else
+                {
+                    wasSuccessful = true;
+                }
+
+                Log.Message($"[Governor] User query handled successfully: {userQuery.Substring(0, Math.Min(50, userQuery.Length))}...");
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Message("[Governor] User query was cancelled");
+                response = "查询已取消";
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[Governor] Failed to handle user query: {ex.Message}");
+                response = $"查询处理失败: {ex.Message}";
+            }
+            finally
+            {
+                // 🎯 发布事件到EventBus - 展示企业级架构的使用！
+                try
+                {
+                    var eventBus = CoreServices.EventBus;
+                    if (eventBus != null)
+                    {
+                        var adviceEvent = new GovernorAdviceEvent(userQuery, response, colonyStatus, wasSuccessful);
+                        await eventBus.PublishAsync(adviceEvent, cancellationToken);
+                        Log.Message("[Governor] ✅ EventBus integration successful - Published GovernorAdviceEvent");
+                    }
+                    else
+                    {
+                        Log.Warning("[Governor] EventBus service not available");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[Governor] Failed to publish event: {ex.Message}");
+                }
+            }
+
+            return response;
         }
 
         #endregion

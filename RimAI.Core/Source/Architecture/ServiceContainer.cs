@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using RimAI.Core.Architecture.Interfaces;
 using RimAI.Core.Analysis;
+using RimAI.Core.Officers;
 using RimAI.Core.Prompts;
 using RimAI.Core.Services;
 using Verse;
@@ -135,8 +136,21 @@ namespace RimAI.Core.Architecture
             RegisterInstance<ILLMService>(LLMService.Instance);
             RegisterInstance<ICacheService>(CacheService.Instance);
             RegisterInstance<IEventBus>(EventBusService.Instance);
+            
+            // 注册AI官员 - 重要的架构修正！
+            RegisterInstance<IAIOfficer>(Governor.Instance); // 注册总督为默认官员
+            RegisterInstance<Governor>(Governor.Instance);   // 也允许直接类型访问
 
-            Log.Message("[ServiceContainer] Default services registered with ColonyAnalyzer enabled");
+            // 🎯 注册事件监听器 - 展示完整的企业级架构！
+            var eventBus = GetService<IEventBus>();
+            if (eventBus != null)
+            {
+                var governorEventListener = new RimAI.Core.Officers.Events.GovernorEventListener();
+                eventBus.Subscribe<RimAI.Core.Officers.Events.GovernorAdviceEvent>(governorEventListener);
+                Log.Message("[ServiceContainer] ✅ GovernorEventListener registered with EventBus");
+            }
+
+            Log.Message("[ServiceContainer] Default services registered with ColonyAnalyzer, Governor and EventBus integration enabled");
         }
 
         /// <summary>
@@ -187,6 +201,10 @@ namespace RimAI.Core.Architecture
         public static ILLMService LLMService => ServiceContainer.Instance.GetService<ILLMService>();
         public static ICacheService CacheService => ServiceContainer.Instance.GetService<ICacheService>();
         public static IEventBus EventBus => ServiceContainer.Instance.GetService<IEventBus>();
+        
+        // AI官员服务
+        public static IAIOfficer DefaultOfficer => ServiceContainer.Instance.GetService<IAIOfficer>();
+        public static Governor Governor => ServiceContainer.Instance.GetService<Governor>();
 
         /// <summary>
         /// 检查所有核心服务是否可用
@@ -199,7 +217,8 @@ namespace RimAI.Core.Architecture
                        PromptBuilder != null &&
                        LLMService != null &&
                        CacheService != null &&
-                       EventBus != null;
+                       EventBus != null &&
+                       Governor != null; // 添加总督检查
             }
             catch (Exception ex)
             {

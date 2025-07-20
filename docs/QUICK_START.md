@@ -78,8 +78,25 @@ var advice = await myOfficer.ProvideAdviceAsync();
 | **EventBus** | 事件通信 | `CoreServices.EventBus` |
 | **CacheService** | 智能缓存 | `CoreServices.CacheService` |
 | **LLMService** | AI模型调用 | `CoreServices.LLMService` |
+| **SafeAccess** | RimWorld API安全访问 | `CoreServices.SafeAccess` |
 
 ## 📝 常用代码模式
+
+### RimWorld数据安全访问
+```csharp
+// ✅ 安全获取殖民者列表
+var colonists = await CoreServices.SafeAccess.GetColonistsSafeAsync(map);
+
+// ✅ 安全获取资源数据
+var food = await CoreServices.SafeAccess.GetResourcesSafeAsync(map, "食物");
+
+// ✅ 安全处理Pawn集合
+await CoreServices.SafeAccess.SafePawnOperationAsync(colonists, async pawn =>
+{
+    var health = pawn.health.summaryHealth.SummaryHealthPercent;
+    await ProcessPawnAsync(pawn, health);
+});
+```
 
 ### 异步AI调用
 ```csharp
@@ -138,6 +155,20 @@ if (!CoreServices.AreServicesReady())
 
 ## 🚨 常见错误避免
 
+### ❌ 直接访问RimWorld集合
+```csharp
+// 不要这样做 - 可能引发InvalidOperationException
+var colonists = map.mapPawns.FreeColonists; // 并发修改异常风险
+var items = map.listerThings.ThingsOfDef(def); // 枚举操作异常风险
+```
+
+### ✅ 使用SafeAccessService
+```csharp
+// 正确方式 - 内置重试和异常处理
+var colonists = await CoreServices.SafeAccess.GetColonistsSafeAsync(map);
+var items = await CoreServices.SafeAccess.GetThingsSafeAsync(map, def);
+```
+
 ### ❌ 直接单例调用
 ```csharp
 // 不要这样做
@@ -180,10 +211,11 @@ async void OnButtonClick()
 ## 💡 小贴士
 
 1. **始终使用CoreServices**: 这是企业级架构的正确方式
-2. **合理使用缓存**: 避免重复的昂贵AI调用
-3. **异步为主**: 所有AI调用都应该是异步的
-4. **事件驱动**: 使用EventBus实现组件解耦
-5. **日志记录**: 便于调试和问题排查
+2. **使用SafeAccess访问RimWorld API**: 避免并发修改异常，内置重试机制
+3. **合理使用缓存**: 避免重复的昂贵AI调用
+4. **异步为主**: 所有AI调用都应该是异步的
+5. **事件驱动**: 使用EventBus实现组件解耦
+6. **日志记录**: 便于调试和问题排查
 
 ---
 *🎯 现在你已经掌握了RimAI开发的基础！开始创建你的第一个AI官员吧！*

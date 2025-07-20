@@ -52,9 +52,30 @@ public static class CoreServices
     public static IEventBus EventBus { get; }
     public static IPromptBuilder PromptBuilder { get; }
     
+    // RimWorld API 安全访问服务
+    public static class SafeAccess
+    {
+        // 集合安全访问
+        public static List<Pawn> GetColonistsSafe(Map map);
+        public static List<Pawn> GetPrisonersSafe(Map map);
+        public static List<Pawn> GetAllPawnsSafe(Map map);
+        public static List<Building> GetBuildingsSafe(Map map);
+        public static List<Thing> GetThingsSafe(Map map, ThingDef thingDef);
+        public static List<Thing> GetThingGroupSafe(Map map, ThingRequestGroup group);
+        
+        // 单个对象安全访问
+        public static int GetColonistCountSafe(Map map);
+        public static WeatherDef GetCurrentWeatherSafe(Map map);
+        public static Season GetCurrentSeasonSafe(Map map);
+        public static int GetTicksGameSafe();
+        
+        // 统计监控
+        public static string GetStatusReport();
+    }
+    
     // 状态检查
-    public static bool AreServicesReady()
-    public static string GetServiceStatusReport()
+    public static bool AreServicesReady();
+    public static string GetServiceStatusReport();
 }
 ```
 
@@ -64,11 +85,82 @@ public static class CoreServices
 var governor = CoreServices.Governor;
 var cache = CoreServices.CacheService;
 
+// 安全访问RimWorld API - 自动处理并发异常
+var colonists = CoreServices.SafeAccess.GetColonistsSafe(map);
+var weather = CoreServices.SafeAccess.GetCurrentWeatherSafe(map);
+
 // 检查服务状态
 if (CoreServices.AreServicesReady())
 {
     // 安全使用服务
 }
+```
+
+## 🛡️ SafeAccessService API
+
+### 核心功能
+SafeAccessService 提供对 RimWorld API 的并发安全访问，自动处理 `InvalidOperationException` 和空引用异常。
+
+```csharp
+public static class SafeAccessService
+{
+    // 集合安全访问方法
+    public static List<Pawn> GetColonistsSafe(Map map, int maxRetries = 3);
+    public static List<Pawn> GetPrisonersSafe(Map map, int maxRetries = 3);
+    public static List<Pawn> GetAllPawnsSafe(Map map, int maxRetries = 3);
+    public static List<Building> GetBuildingsSafe(Map map, int maxRetries = 3);
+    public static List<Thing> GetThingsSafe(Map map, ThingDef thingDef, int maxRetries = 3);
+    public static List<Thing> GetThingGroupSafe(Map map, ThingRequestGroup group, int maxRetries = 3);
+    
+    // 单个对象安全访问方法
+    public static int GetColonistCountSafe(Map map, int maxRetries = 3);
+    public static WeatherDef GetCurrentWeatherSafe(Map map, int maxRetries = 3);
+    public static Season GetCurrentSeasonSafe(Map map, int maxRetries = 3);
+    public static int GetTicksGameSafe(int maxRetries = 3);
+    
+    // 批量操作安全包装器
+    public static TResult SafePawnOperation<TResult>(
+        List<Pawn> pawns,
+        Func<List<Pawn>, TResult> operation,
+        TResult fallbackValue,
+        string operationName);
+        
+    public static TResult SafeBuildingOperation<TResult>(
+        List<Building> buildings,
+        Func<List<Building>, TResult> operation,
+        TResult fallbackValue,
+        string operationName);
+        
+    public static TResult SafeThingOperation<TResult>(
+        List<Thing> things,
+        Func<List<Thing>, TResult> operation,
+        TResult fallbackValue,
+        string operationName);
+    
+    // 统计和监控
+    public static Dictionary<string, int> GetFailureStats();
+    public static string GetStatusReport();
+    public static void ClearStats();
+}
+```
+
+**使用示例**:
+```csharp
+// 基础集合访问 - 自动重试和异常处理
+var colonists = SafeAccessService.GetColonistsSafe(map);
+var buildings = SafeAccessService.GetBuildingsSafe(map);
+var food = SafeAccessService.GetThingGroupSafe(map, ThingRequestGroup.FoodSourceNotPlantOrTree);
+
+// 安全操作包装器 - 防止操作中的异常
+var healthyCount = SafeAccessService.SafePawnOperation(
+    colonists,
+    pawns => pawns.Count(p => !p.Downed && p.health.summaryHealth.SummaryHealthPercent > 0.8f),
+    0,
+    "CountHealthyColonists"
+);
+
+// 监控和统计
+Log.Message(SafeAccessService.GetStatusReport());
 ```
 
 ## 🤖 AI官员API

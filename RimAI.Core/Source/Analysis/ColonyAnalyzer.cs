@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using RimWorld;
 using Verse;
 using RimAI.Core.Architecture.Interfaces;
+using RimAI.Core.Services;
 
 namespace RimAI.Core.Analysis
 {
@@ -91,14 +92,16 @@ namespace RimAI.Core.Analysis
 
         /// <summary>
         /// 人口分析 - 分析殖民者状态、技能分布等
+        /// 使用SafeAccessService统一处理并发访问问题
         /// 其他官员可以参考这个方法的结构来实现专业分析
         /// </summary>
         private async Task<PopulationAnalysis> AnalyzePopulationAsync(Map map, CancellationToken cancellationToken)
         {
             return await Task.Run(() =>
             {
-                var colonists = map.mapPawns.FreeColonists.ToList();
-                var prisoners = map.mapPawns.PrisonersOfColony.ToList();
+                // 使用SafeAccessService安全获取集合，无需手动处理异常
+                var colonists = SafeAccessService.GetColonistsSafe(map);
+                var prisoners = SafeAccessService.GetPrisonersSafe(map);
                 
                 var analysis = new PopulationAnalysis
                 {
@@ -106,26 +109,62 @@ namespace RimAI.Core.Analysis
                     TotalPrisoners = prisoners.Count
                 };
 
-                // 健康状态分析
-                analysis.HealthyColonists = colonists.Count(p => !p.Downed && !p.InBed() && p.health.hediffSet.PainTotal < 0.1f);
-                analysis.InjuredColonists = colonists.Count(p => p.health.hediffSet.PainTotal >= 0.1f);
-                analysis.DownedColonists = colonists.Count(p => p.Downed);
+                // 健康状态分析 - 使用安全操作包装器
+                analysis.HealthyColonists = SafeAccessService.SafePawnOperation(
+                    colonists,
+                    pawns => pawns.Count(p => !p.Downed && !p.InBed() && p.health.hediffSet.PainTotal < 0.1f),
+                    0,
+                    "CountHealthyColonists"
+                );
 
-                // 心情分析
-                var moodSum = 0f;
-                var moodCount = 0;
-                foreach (var colonist in colonists)
-                {
-                    if (colonist.needs?.mood?.CurLevel != null)
-                    {
-                        moodSum += colonist.needs.mood.CurLevel;
-                        moodCount++;
-                    }
-                }
-                analysis.AverageMood = moodCount > 0 ? moodSum / moodCount : 0.5f;
+                analysis.InjuredColonists = SafeAccessService.SafePawnOperation(
+                    colonists,
+                    pawns => pawns.Count(p => p.health.hediffSet.PainTotal >= 0.1f),
+                    0,
+                    "CountInjuredColonists"
+                );
 
-                // 技能分布分析（简化版）
-                analysis.SkillDistribution = AnalyzeSkillDistribution(colonists);
+                analysis.DownedColonists = SafeAccessService.SafePawnOperation(
+                    colonists,
+                    pawns => pawns.Count(p => p.Downed),
+                    0,
+                    "CountDownedColonists"
+                );
+
+                // 心情分析 - 使用安全操作包装器
+                analysis.AverageMood = SafeAccessService.SafePawnOperation(
+                    colonists,
+                    pawns => {
+                        var moodSum = 0f;
+                        var moodCount = 0;
+                        foreach (var colonist in pawns)
+                        {
+                            try
+                            {
+                                if (colonist?.needs?.mood?.CurLevel != null)
+                                {
+                                    moodSum += colonist.needs.mood.CurLevel;
+                                    moodCount++;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Warning($"[ColonyAnalyzer] Error accessing colonist mood: {ex.Message}");
+                            }
+                        }
+                        return moodCount > 0 ? moodSum / moodCount : 0.5f;
+                    },
+                    0.5f,
+                    "CalculateAverageMood"
+                );
+
+                // 技能分布分析
+                analysis.SkillDistribution = SafeAccessService.SafePawnOperation(
+                    colonists,
+                    pawns => AnalyzeSkillDistribution(pawns),
+                    new Dictionary<string, float>(),
+                    "AnalyzeSkillDistribution"
+                );
 
                 Log.Message($"[ColonyAnalyzer] 人口分析完成: {analysis.TotalColonists}人, 健康{analysis.HealthyColonists}人");
                 return analysis;
@@ -134,6 +173,7 @@ namespace RimAI.Core.Analysis
 
         /// <summary>
         /// 资源分析 - 分析食物、材料、武器等储备情况
+        /// 使用SafeAccessService统一处理RimWorld API访问
         /// </summary>
         private async Task<ResourceAnalysis> AnalyzeResourcesAsync(Map map, CancellationToken cancellationToken)
         {
@@ -141,23 +181,45 @@ namespace RimAI.Core.Analysis
             {
                 var analysis = new ResourceAnalysis();
 
-                // 食物分析
-                var foodItems = map.listerThings.ThingsInGroup(ThingRequestGroup.FoodSourceNotPlantOrTree);
-                analysis.TotalFood = foodItems.Sum(t => t.def.IsNutritionGivingIngestible ? t.stackCount * t.GetStatValue(StatDefOf.Nutrition) : 0f);
+                // 食物分析 - 使用安全访问服务
+                var foodItems = SafeAccessService.GetThingGroupSafe(map, ThingRequestGroup.FoodSourceNotPlantOrTree);
+                analysis.TotalFood = SafeAccessService.SafeThingOperation(
+                    foodItems,
+                    items => items.Sum(t => 
+                    {
+                        try
+                        {
+                            return t.def.IsNutritionGivingIngestible ? t.stackCount * t.GetStatValue(StatDefOf.Nutrition) : 0f;
+                        }
+                        catch
+                        {
+                            return 0f;
+                        }
+                    }),
+                    0f,
+                    "CalculateTotalFood"
+                );
 
-                // 材料分析
-                var steelItems = map.listerThings.ThingsOfDef(ThingDefOf.Steel);
-                analysis.Steel = steelItems?.Sum(t => t.stackCount) ?? 0;
+                // 材料分析 - 使用安全访问服务
+                analysis.Steel = SafeAccessService.SafeThingOperation(
+                    SafeAccessService.GetThingsSafe(map, ThingDefOf.Steel),
+                    items => items.Sum(t => t?.stackCount ?? 0),
+                    0,
+                    "CalculateSteel"
+                );
 
-                var woodItems = map.listerThings.ThingsOfDef(ThingDefOf.WoodLog);
-                analysis.Wood = woodItems?.Sum(t => t.stackCount) ?? 0;
+                analysis.Wood = SafeAccessService.SafeThingOperation(
+                    SafeAccessService.GetThingsSafe(map, ThingDefOf.WoodLog),
+                    items => items.Sum(t => t?.stackCount ?? 0),
+                    0,
+                    "CalculateWood"
+                );
 
                 // 武器分析
-                var weapons = map.listerThings.ThingsInGroup(ThingRequestGroup.Weapon);
-                analysis.WeaponCount = weapons?.Count() ?? 0;
+                analysis.WeaponCount = SafeAccessService.GetThingGroupSafe(map, ThingRequestGroup.Weapon).Count;
 
-                // 计算储备天数（简化计算）
-                var colonistCount = map.mapPawns.FreeColonistsCount;
+                // 计算储备天数
+                var colonistCount = SafeAccessService.GetColonistCountSafe(map);
                 analysis.FoodDaysRemaining = colonistCount > 0 ? (int)(analysis.TotalFood / (colonistCount * 2.0f)) : 999;
 
                 Log.Message($"[ColonyAnalyzer] 资源分析完成: 食物{analysis.TotalFood:F1}, 钢材{analysis.Steel}, 木材{analysis.Wood}");
@@ -167,6 +229,7 @@ namespace RimAI.Core.Analysis
 
         /// <summary>
         /// 威胁分析 - 分析当前和潜在威胁
+        /// 使用SafeAccessService处理并发访问问题
         /// </summary>
         private async Task<ThreatAnalysis> AnalyzeThreatsAsync(Map map, CancellationToken cancellationToken)
         {
@@ -174,9 +237,24 @@ namespace RimAI.Core.Analysis
             {
                 var analysis = new ThreatAnalysis();
 
-                // 敌对生物分析
-                var hostilePawns = map.mapPawns.AllPawns.Where(p => 
-                    p.Faction != null && p.Faction.HostileTo(Faction.OfPlayer)).ToList();
+                // 敌对生物分析 - 使用安全访问服务
+                var allPawns = SafeAccessService.GetAllPawnsSafe(map);
+                var hostilePawns = SafeAccessService.SafePawnOperation(
+                    allPawns,
+                    pawns => pawns.Where(p => 
+                    {
+                        try
+                        {
+                            return p?.Faction != null && p.Faction.HostileTo(Faction.OfPlayer);
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }).ToList(),
+                    new List<Pawn>(),
+                    "FilterHostilePawns"
+                );
                 
                 analysis.ActiveHostiles = hostilePawns.Count;
                 analysis.HostileStrength = CalculateHostileStrength(hostilePawns);
@@ -184,9 +262,8 @@ namespace RimAI.Core.Analysis
                 // 环境威胁
                 analysis.WeatherThreat = CalculateWeatherThreat(map);
                 
-                // 火灾威胁
-                var fires = map.listerThings.ThingsOfDef(ThingDefOf.Fire);
-                analysis.FireCount = fires?.Count() ?? 0;
+                // 火灾威胁 - 使用安全访问服务
+                analysis.FireCount = SafeAccessService.GetThingsSafe(map, ThingDefOf.Fire).Count;
 
                 // 计算总威胁等级
                 analysis.OverallThreatLevel = CalculateThreatLevel(analysis);
@@ -198,6 +275,7 @@ namespace RimAI.Core.Analysis
 
         /// <summary>
         /// 基础设施分析 - 分析建筑、防御、电力等
+        /// 使用SafeAccessService统一处理建筑访问
         /// </summary>
         private async Task<InfrastructureAnalysis> AnalyzeInfrastructureAsync(Map map, CancellationToken cancellationToken)
         {
@@ -205,20 +283,64 @@ namespace RimAI.Core.Analysis
             {
                 var analysis = new InfrastructureAnalysis();
 
-                // 防御建筑
-                var defensiveBuildings = map.listerBuildings.allBuildingsColonist.Where(b =>
-                    b.def.building?.IsTurret == true || b.def.defName.Contains("Wall") || b.def.defName.Contains("Door"));
-                analysis.DefensiveStructures = defensiveBuildings.Count();
+                // 使用SafeAccessService获取建筑列表
+                var allBuildings = SafeAccessService.GetBuildingsSafe(map);
 
-                // 电力系统
-                var powerBuildings = map.listerBuildings.allBuildingsColonist.Where(b => 
-                    b.TryGetComp<CompPowerTrader>() != null);
-                analysis.PowerBuildings = powerBuildings.Count();
+                // 防御建筑分析 - 使用安全操作包装器
+                analysis.DefensiveStructures = SafeAccessService.SafeBuildingOperation(
+                    allBuildings,
+                    buildings => buildings.Where(b =>
+                    {
+                        try
+                        {
+                            return b?.def?.building?.IsTurret == true || 
+                                   b?.def?.defName?.Contains("Wall") == true || 
+                                   b?.def?.defName?.Contains("Door") == true;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }).Count(),
+                    0,
+                    "CountDefensiveStructures"
+                );
 
-                // 住房质量（简化评估）
-                var bedrooms = map.listerBuildings.allBuildingsColonist.Where(b => 
-                    b.def.defName.Contains("Bed")).Count();
-                analysis.BedroomCount = bedrooms;
+                // 电力系统分析
+                analysis.PowerBuildings = SafeAccessService.SafeBuildingOperation(
+                    allBuildings,
+                    buildings => buildings.Where(b => 
+                    {
+                        try
+                        {
+                            return b?.TryGetComp<CompPowerTrader>() != null;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }).Count(),
+                    0,
+                    "CountPowerBuildings"
+                );
+
+                // 住房质量分析
+                analysis.BedroomCount = SafeAccessService.SafeBuildingOperation(
+                    allBuildings,
+                    buildings => buildings.Where(b => 
+                    {
+                        try
+                        {
+                            return b?.def?.defName?.Contains("Bed") == true;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }).Count(),
+                    0,
+                    "CountBedrooms"
+                );
 
                 Log.Message($"[ColonyAnalyzer] 基础设施分析完成: 防御建筑{analysis.DefensiveStructures}个, 电力建筑{analysis.PowerBuildings}个");
                 return analysis;
@@ -267,10 +389,17 @@ namespace RimAI.Core.Analysis
 
         /// <summary>
         /// 计算天气威胁等级
+        /// 使用SafeAccessService安全获取天气信息
         /// </summary>
         private float CalculateWeatherThreat(Map map)
         {
-            var weather = map.weatherManager.curWeather;
+            var weather = SafeAccessService.GetCurrentWeatherSafe(map);
+            
+            if (weather == null)
+            {
+                Log.Warning("[ColonyAnalyzer] Unable to get weather information");
+                return 0.1f; // 默认低威胁
+            }
             
             // 使用字符串比较来判断危险天气
             var weatherName = weather.defName.ToLower();

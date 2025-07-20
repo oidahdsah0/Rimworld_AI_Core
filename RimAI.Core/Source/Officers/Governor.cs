@@ -8,6 +8,7 @@ using RimAI.Core.Architecture;
 using RimAI.Core.Officers.Base;
 using RimAI.Core.Officers.Events;
 using RimAI.Core.Analysis;
+using RimAI.Core.Services;
 using RimAI.Framework.LLM.Models;
 using RimWorld;
 using Verse;
@@ -68,11 +69,13 @@ namespace RimAI.Core.Officers
                 
                 var context = new Dictionary<string, object>();
                 
-                // 基础信息（保持向后兼容）
-                var colonists = map.mapPawns.FreeColonists;
-                context["colonistCount"] = colonists.Count();
-                context["season"] = GenLocalDate.Season(map).ToString();
-                context["weather"] = map.weatherManager.curWeather.label;
+                // 基础信息（保持向后兼容） - 使用SafeAccessService
+                var colonistCount = SafeAccessService.GetColonistCountSafe(map);
+                context["colonistCount"] = colonistCount;
+                context["season"] = SafeAccessService.GetCurrentSeasonSafe(map).ToString();
+                
+                var currentWeather = SafeAccessService.GetCurrentWeatherSafe(map);
+                context["weather"] = currentWeather?.label ?? "Unknown";
 
                 // 集成分析器数据 - 这是关键的增强部分
                 try
@@ -117,6 +120,7 @@ namespace RimAI.Core.Officers
                 {
                     Log.Warning($"[Governor] 分析器集成失败，使用基础数据: {ex.Message}");
                     // 如果分析器失败，回退到基础数据
+                    var colonists = SafeAccessService.GetColonistsSafe(map);
                     context["colonistStatus"] = GetColonistSummary(colonists);
                     context["threatCount"] = 0;
                     context["majorThreats"] = 0;
@@ -292,6 +296,7 @@ namespace RimAI.Core.Officers
 
         /// <summary>
         /// 公共方法：获取官员状态（供UI调用）
+        /// 使用SafeAccessService确保并发安全
         /// </summary>
         public string GetPublicStatus()
         {
@@ -300,9 +305,9 @@ namespace RimAI.Core.Officers
                 var map = Find.CurrentMap;
                 if (map == null) return "无当前地图";
 
-                var colonists = map.mapPawns.FreeColonists;
+                var colonistCount = SafeAccessService.GetColonistCountSafe(map);
                 
-                return $"殖民者: {colonists.Count()}";
+                return $"殖民者: {colonistCount}";
             }
             catch
             {

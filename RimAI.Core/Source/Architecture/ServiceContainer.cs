@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RimWorld;
 using RimAI.Core.Architecture.Interfaces;
 using RimAI.Core.Analysis;
 using RimAI.Core.Officers;
@@ -246,6 +247,22 @@ namespace RimAI.Core.Architecture
         public static ILLMService LLMService => ServiceContainer.Instance.GetService<ILLMService>();
         public static ICacheService CacheService => ServiceContainer.Instance.GetService<ICacheService>();
         public static IEventBus EventBus => ServiceContainer.Instance.GetService<IEventBus>();
+        
+        // RimWorld API 安全访问服务（静态服务）
+        public static class SafeAccess
+        {
+            public static List<Pawn> GetColonistsSafe(Map map) => SafeAccessService.GetColonistsSafe(map);
+            public static List<Pawn> GetPrisonersSafe(Map map) => SafeAccessService.GetPrisonersSafe(map);
+            public static List<Pawn> GetAllPawnsSafe(Map map) => SafeAccessService.GetAllPawnsSafe(map);
+            public static List<Building> GetBuildingsSafe(Map map) => SafeAccessService.GetBuildingsSafe(map);
+            public static List<Thing> GetThingsSafe(Map map, ThingDef thingDef) => SafeAccessService.GetThingsSafe(map, thingDef);
+            public static List<Thing> GetThingGroupSafe(Map map, ThingRequestGroup group) => SafeAccessService.GetThingGroupSafe(map, group);
+            public static int GetColonistCountSafe(Map map) => SafeAccessService.GetColonistCountSafe(map);
+            public static WeatherDef GetCurrentWeatherSafe(Map map) => SafeAccessService.GetCurrentWeatherSafe(map);
+            public static int GetTicksGameSafe() => SafeAccessService.GetTicksGameSafe();
+            public static Season GetCurrentSeasonSafe(Map map) => SafeAccessService.GetCurrentSeasonSafe(map);
+            public static string GetStatusReport() => SafeAccessService.GetStatusReport();
+        }
         
         // AI官员服务
         public static IAIOfficer DefaultOfficer => ServiceContainer.Instance.GetService<IAIOfficer>();

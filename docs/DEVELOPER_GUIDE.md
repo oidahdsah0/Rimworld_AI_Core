@@ -511,7 +511,32 @@ public class PerformanceMonitor
 
 ## 📝 代码规范
 
-### 1. 命名约定
+### 1. RimWorld API 访问最佳实践
+```csharp
+// ✅ 正确：使用SafeAccessService访问RimWorld集合
+var colonists = await CoreServices.SafeAccess.GetColonistsSafeAsync(map);
+var resources = await CoreServices.SafeAccess.GetResourcesSafeAsync(map, "食物");
+
+// ❌ 错误：直接访问RimWorld集合（可能引发InvalidOperationException）
+var colonists = map.mapPawns.FreeColonists; // 并发修改异常风险
+var things = map.listerThings.ThingsOfDef(def); // 枚举操作异常风险
+
+// ✅ 正确：使用安全操作处理Pawn集合
+await CoreServices.SafeAccess.SafePawnOperationAsync(colonists, async pawn =>
+{
+    var health = pawn.health.summaryHealth.SummaryHealthPercent;
+    await ProcessPawnHealthAsync(pawn, health);
+});
+
+// ✅ 正确：批量处理操作
+var healthData = await CoreServices.SafeAccess.BatchProcessPawnsAsync(
+    colonists,
+    pawn => pawn.health.summaryHealth.SummaryHealthPercent,
+    maxBatchSize: 10
+);
+```
+
+### 2. 命名约定
 ```csharp
 // 类名: PascalCase
 public class ResourceManager
@@ -556,8 +581,11 @@ public async Task<string> ProcessRequestAsync(string input)
         if (string.IsNullOrEmpty(input))
             throw new ArgumentException("输入不能为空", nameof(input));
         
-        // 主要逻辑
-        var result = await ProcessLogicAsync(input);
+        // 使用SafeAccessService的内置重试机制
+        var result = await CoreServices.SafeAccess.SafeMapOperationAsync(
+            map => ProcessMapLogicAsync(map, input),
+            maxRetries: 3
+        );
         return result;
     }
     catch (ArgumentException ex)
@@ -565,11 +593,22 @@ public async Task<string> ProcessRequestAsync(string input)
         Log.Warning($"[ProcessRequest] 输入参数错误: {ex.Message}");
         throw; // 重新抛出验证错误
     }
+    catch (SafeAccessException ex)
+    {
+        Log.Error($"[ProcessRequest] RimWorld API访问失败: {ex.Message}");
+        return GetSafeAccessErrorResponse();
+    }
     catch (Exception ex)
     {
         Log.Error($"[ProcessRequest] 处理请求时发生错误: {ex.Message}");
         return GetDefaultErrorResponse();
     }
+}
+
+// 自定义安全访问异常处理
+private string GetSafeAccessErrorResponse()
+{
+    return "由于游戏状态变化，当前操作无法完成。请稍后重试。";
 }
 ```
 

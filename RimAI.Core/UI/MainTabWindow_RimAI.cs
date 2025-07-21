@@ -39,14 +39,14 @@ namespace RimAI.Core.UI
             
             listingStandard.Label("🤖 RimAI Command Center | RimAI 指令中心");
             
-            // 显示当前模式状态
-            if (RimAIAPI.IsStreamingEnabled)
+            // 显示当前模式状态 - ✅ 修复：Framework v3.0 总是支持流式
+            if (RimAIAPI.IsInitialized)
             {
                 listingStandard.Label("🚀 Fast Response Mode Enabled | 快速响应模式已启用");
             }
             else
             {
-                listingStandard.Label("📝 Standard Response Mode | 标准响应模式");
+                listingStandard.Label("📝 Framework Not Ready | 框架未就绪");
             }
             
             listingStandard.Gap();
@@ -374,8 +374,8 @@ namespace RimAI.Core.UI
 - 保持友善、专业的游戏助手语调
 - 返回语言要与用户所写内容一致";
                 
-                // 检查是否应该使用流式（UI界面适合实时更新）
-                bool useStreaming = RimAIAPI.IsStreamingEnabled;
+                // 检查是否应该使用流式（UI界面适合实时更新） - ✅ 修复：Framework v3.0 总是支持流式
+                bool useStreaming = RimAIAPI.IsInitialized;
                 
                 if (useStreaming)
                 {
@@ -383,6 +383,7 @@ namespace RimAI.Core.UI
                     responseText = "";
                     lastUpdateTime = Time.unscaledTime;
                     
+                    // ✅ 修复：正确的参数顺序 (prompt, onChunk, options, cancellationToken)
                     await RimAIAPI.SendStreamingMessageAsync(
                         prompt,
                         chunk =>
@@ -395,6 +396,7 @@ namespace RimAI.Core.UI
                             lastUpdateTime = Time.unscaledTime;
                             // UI会在下一帧自动更新
                         },
+                        null, // options
                         currentCancellationTokenSource?.Token ?? CancellationToken.None
                     );
                     
@@ -409,7 +411,12 @@ namespace RimAI.Core.UI
                 {
                     responseText = "Processing request...";
                     
-                    string aiResponse = await RimAIAPI.SendMessageAsync(prompt, currentCancellationTokenSource?.Token ?? CancellationToken.None);
+                    // ✅ 修复：正确的参数顺序 (prompt, options, cancellationToken)
+                    string aiResponse = await RimAIAPI.SendMessageAsync(
+                        prompt, 
+                        null, // options
+                        currentCancellationTokenSource?.Token ?? CancellationToken.None
+                    );
                     
                     if (currentCancellationTokenSource?.IsCancellationRequested != true)
                     {

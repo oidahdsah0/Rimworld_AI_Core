@@ -13,11 +13,14 @@ namespace RimAI.Core
     public static class LogFilter
     {
         private static bool _isActive = false;
+        private static Harmony _harmony;
         
         static LogFilter()
         {
             try
             {
+                // 延迟初始化，避免在设置加载前就执行
+                _harmony = new Harmony("rimai.core.logfilter");
                 // 在设置系统加载后激活
                 ApplyFiltersIfNeeded();
             }
@@ -31,7 +34,7 @@ namespace RimAI.Core
         {
             try
             {
-                bool shouldSuppress = SettingsManager.Settings?.Debug?.SuppressGameProfilerLogs ?? true;
+                bool shouldSuppress = SettingsManager.Settings?.Debug?.SuppressGameProfilerLogs ?? false; // 默认不启用，避免问题
                 
                 if (shouldSuppress && !_isActive)
                 {
@@ -52,22 +55,35 @@ namespace RimAI.Core
         {
             try
             {
-                var harmony = new Harmony("rimai.core.logfilter");
+                if (_harmony == null)
+                {
+                    _harmony = new Harmony("rimai.core.logfilter");
+                }
                 
-                // Hook Log.Message 来过滤性能监控消息
-                var logMessageMethod = AccessTools.Method(typeof(Log), nameof(Log.Message));
+                // ✅ 修复：明确指定Log.Message(string)重载，避免歧义
+                var logMessageMethod = AccessTools.Method(typeof(Log), nameof(Log.Message), new Type[] { typeof(string) });
                 var prefixMethod = AccessTools.Method(typeof(LogFilter), nameof(MessagePrefix));
                 
                 if (logMessageMethod != null && prefixMethod != null)
                 {
-                    harmony.Patch(logMessageMethod, new HarmonyMethod(prefixMethod));
-                    _isActive = true;
-                    Log.Message("[LogFilter] 🔇 游戏性能日志过滤已启用");
+                    // 检查是否已经被patch过
+                    if (!_isActive)
+                    {
+                        _harmony.Patch(logMessageMethod, new HarmonyMethod(prefixMethod));
+                        _isActive = true;
+                        Log.Message("[LogFilter] 🔇 游戏性能日志过滤已启用");
+                    }
+                }
+                else
+                {
+                    Log.Warning("[LogFilter] 无法找到Log.Message方法或前缀方法");
                 }
             }
             catch (Exception ex)
             {
                 Log.Warning($"[LogFilter] 启用过滤失败: {ex.Message}");
+                // 如果启用失败，确保状态正确
+                _isActive = false;
             }
         }
         
@@ -75,39 +91,71 @@ namespace RimAI.Core
         {
             try
             {
-                var harmony = new Harmony("rimai.core.logfilter");
-                harmony.UnpatchAll("rimai.core.logfilter");
-                _isActive = false;
-                Log.Message("[LogFilter] 🔊 游戏性能日志过滤已禁用");
+                if (_harmony != null)
+                {
+                    _harmony.UnpatchAll("rimai.core.logfilter");
+                    _isActive = false;
+                    Log.Message("[LogFilter] 🔊 游戏性能日志过滤已禁用");
+                }
             }
             catch (Exception ex)
             {
                 Log.Warning($"[LogFilter] 禁用过滤失败: {ex.Message}");
+                // 即使失败也设置状态为false，避免重复尝试
+                _isActive = false;
             }
         }
         
         /// <summary>
         /// Log.Message的前缀Hook - 过滤性能监控消息
+        /// ✅ 修复：明确方法签名，匹配Log.Message(string text)
         /// </summary>
         public static bool MessagePrefix(string text)
         {
-            // 过滤常见的性能监控日志
-            if (string.IsNullOrEmpty(text)) return true;
-            
-            // 检查是否是性能分析相关的消息
-            if (text.Contains("DeepProfiler") ||
-                text.Contains("ThreadLocalDeepProfiler") ||
-                text.Contains("Steam geyser erupted") ||
-                text.Contains("Sound finished") ||
-                (text.Contains("Analysis") && text.Contains("ms")) ||
-                text.Contains("Profiler"))
+            try
             {
-                // 被过滤的消息不输出
-                return false;
+                // 过滤常见的性能监控日志
+                if (string.IsNullOrEmpty(text)) return true;
+                
+                // 检查是否是性能分析相关的消息
+                if (text.Contains("DeepProfiler") ||
+                    text.Contains("ThreadLocalDeepProfiler") ||
+                    text.Contains("Steam geyser erupted") ||
+                    text.Contains("Sound finished") ||
+                    (text.Contains("Analysis") && text.Contains("ms")) ||
+                    text.Contains("Profiler"))
+                {
+                    // 被过滤的消息不输出
+                    return false;
+                }
+                
+                // 其他消息正常输出
+                return true;
             }
-            
-            // 其他消息正常输出
-            return true;
+            catch (Exception)
+            {
+                // 如果过滤过程出错，默认允许消息通过
+                return true;
+            }
+        }
+        
+        /// <summary>
+        /// 安全地清理所有patch
+        /// </summary>
+        public static void Cleanup()
+        {
+            try
+            {
+                if (_harmony != null && _isActive)
+                {
+                    _harmony.UnpatchAll("rimai.core.logfilter");
+                    _isActive = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[LogFilter] 清理失败: {ex.Message}");
+            }
         }
     }
 }

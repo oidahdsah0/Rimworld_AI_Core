@@ -22,7 +22,8 @@ namespace RimAI.Core.Services
             {
                 try 
                 {
-                    return RimAIAPI.IsStreamingEnabled;
+                    // ✅ 修复：Framework v3.0 总是支持流式，只需检查框架是否初始化
+                    return RimAIAPI.IsInitialized;
                 }
                 catch (Exception ex)
                 {
@@ -60,6 +61,7 @@ namespace RimAI.Core.Services
 
             try
             {
+                // ✅ 修复：直接使用Framework API，它已经返回string
                 var response = await RimAIAPI.SendMessageAsync(prompt, options, cancellationToken);
                 return response ?? string.Empty;
             }
@@ -123,6 +125,7 @@ namespace RimAI.Core.Services
 
             try
             {
+                // ✅ 修复：使用正确的方法名 SendStreamingMessageAsync
                 await RimAIAPI.SendStreamingMessageAsync(prompt, onChunk, options, cancellationToken);
             }
             catch (OperationCanceledException)

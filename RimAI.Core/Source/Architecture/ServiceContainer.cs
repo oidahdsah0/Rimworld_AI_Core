@@ -275,12 +275,12 @@ namespace RimAI.Core.Architecture
         {
             try
             {
-                return Analyzer != null && // 重新启用分析器检查
-                       PromptBuilder != null &&
-                       LLMService != null &&
-                       CacheService != null &&
-                       EventBus != null &&
-                       Governor != null; // 添加总督检查
+                            return Analyzer != null && // 重新启用分析器检查
+                   PromptBuilder != null &&
+                   LLMService != null &&
+                   CacheService != null &&
+                   EventBus != null &&
+                   Governor != null; // 添加总督检查
             }
             catch (Exception ex)
             {

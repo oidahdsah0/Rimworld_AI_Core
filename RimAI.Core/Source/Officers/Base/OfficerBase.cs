@@ -296,14 +296,15 @@ namespace RimAI.Core.Officers.Base
         }
 
         /// <summary>
-        /// 从配置中获取Temperature设置
+        /// 从配置中获取Temperature设置 - 直接访问设置，避免服务容器的循环依赖
         /// </summary>
         protected virtual float GetConfiguredTemperature()
         {
             try
             {
-                var serviceContainer = ServiceContainer.Instance;
-                var settings = serviceContainer?.GetService<RimAI.Core.Settings.CoreSettings>();
+                // 🎯 长期修复：直接访问设置管理器，避免通过服务容器
+                // 设置应该是系统基础，而不是被注入的服务
+                var settings = RimAI.Core.Settings.SettingsManager.Settings;
                 if (settings != null)
                 {
                     var config = settings.GetOfficerConfig(Role.ToString());

@@ -372,6 +372,107 @@ eventBus.Subscribe<ResourceShortageEvent>(new ResourceShortageListener());
 await eventBus.PublishAsync(new ResourceShortageEvent("食物", 50f, 200f));
 ```
 
+## 💾 持久化数据开发
+
+本框架提供了强大的 `PersistenceService` 来统一处理两种类型的持久化需求：与游戏存档绑定的数据和独立于存档的全局Mod设置。
+
+### 1. 随存档数据的持久化 (Per-Save Data)
+
+如果你需要某个服务或组件的数据（例如，AI的记忆、任务列表）与特定的游戏存档一起保存和加载，你需要实现 `IPersistable` 接口。
+
+**步骤 1: 实现 `IPersistable` 接口**
+
+```csharp
+using RimAI.Core.Architecture.Interfaces;
+using Verse;
+using System.Collections.Generic;
+
+public class AITaskManager : IPersistable
+{
+    private List<string> _activeTasks = new List<string>();
+    private Dictionary<string, string> _taskDetails = new Dictionary<string, string>();
+
+    public AITaskManager()
+    {
+        // 在构造函数中向服务注册自己，这是关键一步！
+        CoreServices.PersistenceService?.RegisterPersistable(this);
+    }
+    
+    // 实现接口的核心方法
+    public void ExposeData()
+    {
+        // 使用RimWorld原生的Scribe系统来读写你的数据
+        // Scribe系统会自动处理是保存还是加载
+        Scribe_Collections.Look(ref _activeTasks, "activeTasks", LookMode.Value);
+        Scribe_Collections.Look(ref _taskDetails, "taskDetails", LookMode.Value, LookMode.Value);
+
+        // 如果在加载时列表为空，进行初始化以避免null引用
+        if (Scribe.mode == LoadSaveMode.PostLoadInit)
+        {
+            _activeTasks ??= new List<string>();
+            _taskDetails ??= new Dictionary<string, string>();
+        }
+    }
+
+    // 你的业务逻辑...
+    public void AddTask(string taskId, string description)
+    {
+        if (!_activeTasks.Contains(taskId))
+        {
+            _activeTasks.Add(taskId);
+            _taskDetails[taskId] = description;
+        }
+    }
+}
+```
+**工作原理**:
+- 当游戏保存或加载时，`RimAICoreGameComponent` 会调用 `PersistenceService.ExposeAllRegisteredData()`。
+- `PersistenceService` 会遍历所有通过 `RegisterPersistable` 注册过的对象（比如我们的 `AITaskManager` 实例），并调用它们的 `ExposeData()` 方法。
+- `Scribe` 系统接管后续工作，将数据写入存档或从存档中读出。
+
+### 2. 全局设置的持久化 (Global Data)
+
+对于不应随存档改变的全局设置（如API Key、UI主题等），可以直接使用 `PersistenceService` 的异步方法。
+
+```csharp
+public class ModGlobalConfig
+{
+    public string UserApiKey { get; set; }
+    public bool EnableAdvancedMode { get; set; } = false;
+}
+
+public static class ConfigManager
+{
+    private const string GlobalConfigKey = "RimAI_GlobalConfig";
+    public static ModGlobalConfig CurrentConfig { get; private set; }
+
+    public static async Task SaveConfigAsync()
+    {
+        if (CurrentConfig == null) return;
+        await CoreServices.PersistenceService.SaveGlobalSettingAsync(GlobalConfigKey, CurrentConfig);
+        Log.Message("[ConfigManager] Global config saved.");
+    }
+
+    public static async Task LoadConfigAsync()
+    {
+        CurrentConfig = await CoreServices.PersistenceService.LoadGlobalSettingAsync<ModGlobalConfig>(GlobalConfigKey);
+
+        // 如果没有加载到配置 (例如首次启动)，则创建一个新的默认配置
+        if (CurrentConfig == null)
+        {
+            CurrentConfig = new ModGlobalConfig();
+            Log.Message("[ConfigManager] No global config found, created a new default one.");
+        }
+        else
+        {
+            Log.Message("[ConfigManager] Global config loaded.");
+        }
+    }
+}
+```
+**注意**: 全局配置文件会保存在 RimWorld 配置文件夹下的 `RimAI.Core` 子目录中，通常是 `.../AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios/Config/RimAI.Core/`。
+
+
 ## 🧪 测试开发
 
 ### 1. 单元测试设置

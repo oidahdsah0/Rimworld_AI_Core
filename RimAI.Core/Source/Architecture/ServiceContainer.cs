@@ -175,7 +175,10 @@ namespace RimAI.Core.Architecture
                 RegisterInstance<IAIOfficer>(Governor.Instance); // 注册总督为默认官员
                 RegisterInstance<Governor>(Governor.Instance);   // 也允许直接类型访问
 
-                Log.Message("[ServiceContainer] 📋 Step 7: Setting up EventBus integration...");
+                Log.Message("[ServiceContainer] 📋 Step 7: Registering PersistenceService...");
+                RegisterInstance<IPersistenceService>(PersistenceService.Instance);
+
+                Log.Message("[ServiceContainer] 📋 Step 8: Setting up EventBus integration...");
                 // 🎯 注册事件监听器 - 展示完整的企业级架构！
                 var eventBus = GetService<IEventBus>();
                 if (eventBus != null)
@@ -247,6 +250,7 @@ namespace RimAI.Core.Architecture
         public static ILLMService LLMService => ServiceContainer.Instance.GetService<ILLMService>();
         public static ICacheService CacheService => ServiceContainer.Instance.GetService<ICacheService>();
         public static IEventBus EventBus => ServiceContainer.Instance.GetService<IEventBus>();
+        public static IPersistenceService PersistenceService => ServiceContainer.Instance.GetService<IPersistenceService>();
         
         // RimWorld API 安全访问服务（静态服务）
         public static class SafeAccess
@@ -280,6 +284,7 @@ namespace RimAI.Core.Architecture
                    LLMService != null &&
                    CacheService != null &&
                    EventBus != null &&
+                   PersistenceService != null && // Add check for the new service
                    Governor != null; // 添加总督检查
             }
             catch (Exception ex)
@@ -304,6 +309,7 @@ namespace RimAI.Core.Architecture
                 report.AppendLine($"LLM服务: {(LLMService != null ? "✅" : "❌")}");
                 report.AppendLine($"缓存服务: {(CacheService != null ? "✅" : "❌")}");
                 report.AppendLine($"事件总线: {(EventBus != null ? "✅" : "❌")}");
+                report.AppendLine($"持久化服务: {(PersistenceService != null ? "✅" : "❌")}");
 
                 if (LLMService != null)
                 {

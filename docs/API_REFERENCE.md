@@ -51,6 +51,7 @@ public static class CoreServices
     public static ICacheService CacheService { get; }
     public static IEventBus EventBus { get; }
     public static IPromptBuilder PromptBuilder { get; }
+    public static IPersistenceService PersistenceService { get; }
     
     // RimWorld API 安全访问服务
     public static class SafeAccess
@@ -385,6 +386,91 @@ if (cache is CacheService concreteCache)
 {
     var stats = concreteCache.GetStats();
     Log.Message($"缓存命中率: {stats.ActiveEntries}/{stats.TotalEntries}");
+}
+```
+
+## 💾 持久化服务API
+
+### IPersistenceService
+用于管理随存档数据和全局Mod设置的综合服务。
+
+```csharp
+public interface IPersistenceService
+{
+    // --- 随存档数据管理 (与Scribe系统集成) ---
+    
+    // 注册一个对象以包含在游戏的保存/加载周期中
+    void RegisterPersistable(IPersistable persistable);
+    
+    // 从游戏的保存/加载周期中取消注册一个对象
+    void UnregisterPersistable(IPersistable persistable);
+    
+    // 由游戏的核心组件调用，以在所有注册对象上触发ExposeData方法
+    void ExposeAllRegisteredData();
+    
+    // --- 全局设置管理 (独立于游戏存档) ---
+    
+    // 异步地将全局设置保存到文件
+    Task SaveGlobalSettingAsync<T>(string key, T setting);
+    
+    // 异步地从文件加载全局设置
+    Task<T> LoadGlobalSettingAsync<T>(string key);
+}
+```
+
+### IPersistable
+表示一个可以将其数据作为游戏存档一部分持久化的对象。
+
+```csharp
+public interface IPersistable
+{
+    // 此方法在保存和加载期间由Scribe系统调用。
+    // 实现此方法以定义哪些数据被写入存档文件或从存档文件读取。
+    void ExposeData();
+}
+```
+
+**使用示例**:
+```csharp
+// 1. 实现随存档数据的持久化
+public class DialogueHistoryManager : IPersistable
+{
+    private List<string> _dialogueLines = new List<string>();
+
+    public DialogueHistoryManager()
+    {
+        // 向持久化服务注册自己
+        CoreServices.PersistenceService.RegisterPersistable(this);
+    }
+    
+    public void ExposeData()
+    {
+        // 使用RimWorld的Scribe系统进行读写
+        Scribe_Collections.Look(ref _dialogueLines, "dialogueLines", LookMode.Value);
+    }
+    
+    public void AddLine(string line) => _dialogueLines.Add(line);
+}
+
+// 2. 保存和加载全局设置
+public class GlobalSettings
+{
+    public string ApiKey { get; set; }
+    public float Temperature { get; set; }
+}
+
+public static async void HandleGlobalSettings()
+{
+    // 保存设置
+    var settingsToSave = new GlobalSettings { ApiKey = "my-secret-key", Temperature = 0.5f };
+    await CoreServices.PersistenceService.SaveGlobalSettingAsync("MyMod_GlobalSettings", settingsToSave);
+    
+    // 加载设置
+    var loadedSettings = await CoreServices.PersistenceService.LoadGlobalSettingAsync<GlobalSettings>("MyMod_GlobalSettings");
+    if (loadedSettings != null)
+    {
+        Log.Message($"Loaded API Key: {loadedSettings.ApiKey}");
+    }
 }
 ```
 

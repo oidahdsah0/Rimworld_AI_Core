@@ -109,6 +109,7 @@
 **核心内容**:
 - 🏗️ 核心架构API (ServiceContainer, CoreServices)
 - 🛡️ 安全访问API (SafeAccessService, RimWorld API安全调用)
+- 💾 持久化服务API (PersistenceService, IPersistable)
 - 🤖 AI官员API (IAIOfficer, OfficerBase, Governor)
 - 📊 分析服务API (IColonyAnalyzer, 数据结构)
 - 🗄️ 缓存服务API (ICacheService, 统计信息)

@@ -79,6 +79,7 @@ var advice = await myOfficer.ProvideAdviceAsync();
 | **CacheService** | 智能缓存 | `CoreServices.CacheService` |
 | **LLMService** | AI模型调用 | `CoreServices.LLMService` |
 | **SafeAccess** | RimWorld API安全访问 | `CoreServices.SafeAccess` |
+| **PersistenceService** | 持久化存储 | `CoreServices.PersistenceService` |
 
 ## 📝 常用代码模式
 
@@ -115,6 +116,21 @@ var cachedData = await _cacheService.GetOrCreateAsync(
 ### 发布事件
 ```csharp
 await CoreServices.EventBus.PublishAsync(new MyCustomEvent(data));
+```
+
+### 持久化数据
+```csharp
+// 1. 随存档数据 (详情见开发者指南)
+public class MySaveableComponent : IPersistable
+{
+    public void ExposeData() { /* ... Scribe code ... */ }
+    public MySaveableComponent() { CoreServices.PersistenceService.RegisterPersistable(this); }
+}
+
+// 2. 全局设置
+var settings = new { MySetting = "value" };
+await CoreServices.PersistenceService.SaveGlobalSettingAsync("MySettings", settings);
+var loaded = await CoreServices.PersistenceService.LoadGlobalSettingAsync<object>("MySettings");
 ```
 
 ### 分析殖民地

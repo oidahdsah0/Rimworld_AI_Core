@@ -89,7 +89,8 @@ Services Layer
 ├── AnalysisService    # 数据分析
 ├── PromptService      # 提示词管理
 ├── EventBusService    # 事件通信
-└── SafeAccessService  # RimWorld API安全访问层
+├── SafeAccessService  # RimWorld API安全访问层
+└── PersistenceService # 持久化存储服务
 ```
 
 ### 5. SafeAccessService (RimWorld API安全访问层)
@@ -296,13 +297,18 @@ await CoreServices.EventBus.PublishAsync(new CustomEvent());
 - 支持取消操作
 - 提供完整日志
 
-### 2. 错误处理
+### 2. 存取档集成
+- 需要随存档保存的数据，实现 `IPersistable` 接口。
+- 在服务构造函数中向 `PersistenceService` 注册。
+- 在 `ExposeData` 方法中使用 `Scribe` 系统进行数据读写。
+
+### 3. 错误处理
 - 使用try-catch包装关键操作
 - 提供用户友好的错误信息
 - 记录详细的错误上下文
 - 实现优雅降级
 
-### 3. 性能优化
+### 4. 性能优化
 - 合理使用缓存
 - 避免阻塞操作
 - 及时释放资源

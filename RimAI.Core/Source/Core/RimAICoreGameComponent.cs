@@ -32,6 +32,38 @@ namespace RimAI.Core
             }
         }
 
+        public override void LoadedGame()
+        {
+            base.LoadedGame();
+            // This is a good place to clear any data that should not persist across different save games.
+            // For now, our services are singletons and manage their own state.
+        }
+
+        public override void StartedNewGame()
+        {
+            base.StartedNewGame();
+            // This is a good place to clear any data that should not persist across different save games.
+        }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            
+            // This single line handles all registered per-save data persistence
+            // by calling the ExposeData() method on all IPersistable objects
+            // that have registered themselves with the PersistenceService.
+            CoreServices.PersistenceService?.ExposeAllRegisteredData();
+        }
+        
+        private void ClearPersistableRegistrations()
+        {
+            // This is a conceptual method. The actual implementation will depend on 
+            // how we manage the lifecycle of persistable objects. For now, we assume
+            // services are long-lived and don't need explicit clearing, but if we
+            // register per-game objects, this is where we'd clean them up.
+            // A more robust implementation might involve the PersistenceService exposing a clear method.
+        }
+
         public override void GameComponentOnGUI()
         {
             try

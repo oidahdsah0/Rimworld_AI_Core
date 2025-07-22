@@ -191,22 +191,22 @@ namespace RimAI.Core.Settings
     }
 
     /// <summary>
-    /// 缓存设置
+    /// 缓存设置 - 与Framework配置系统保持一致，适应现代硬件
     /// </summary>
     public class CacheSettings : IExposable
     {
         public bool EnableCaching = true;
-        public int MaxCacheEntries = 1000;
-        public int DefaultCacheDurationMinutes = 5;
-        public int CleanupIntervalMinutes = 30;
+        public int MaxCacheEntries = 500; // 提高默认值，适应现代硬件
+        public int DefaultCacheDurationMinutes = 30; // 增加默认值，减少API调用
+        public int CleanupIntervalMinutes = 2; // 适中的清理频率
         public bool EnableSmartCaching = true;
 
         public void ExposeData()
         {
             Scribe_Values.Look(ref EnableCaching, "enableCaching", true);
-            Scribe_Values.Look(ref MaxCacheEntries, "maxCacheEntries", 1000);
-            Scribe_Values.Look(ref DefaultCacheDurationMinutes, "defaultCacheDurationMinutes", 5);
-            Scribe_Values.Look(ref CleanupIntervalMinutes, "cleanupIntervalMinutes", 30);
+            Scribe_Values.Look(ref MaxCacheEntries, "maxCacheEntries", 500); // 更新默认值
+            Scribe_Values.Look(ref DefaultCacheDurationMinutes, "defaultCacheDurationMinutes", 30); // 更新默认值
+            Scribe_Values.Look(ref CleanupIntervalMinutes, "cleanupIntervalMinutes", 2); // 更新默认值
             Scribe_Values.Look(ref EnableSmartCaching, "enableSmartCaching", true);
         }
     }

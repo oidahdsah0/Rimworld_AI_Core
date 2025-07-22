@@ -95,14 +95,34 @@ namespace RimAI.Core.Architecture.Interfaces
     }
 
     /// <summary>
-    /// 缓存服务接口
+    /// 缓存服务接口 - 统一的缓存抽象
     /// </summary>
     public interface ICacheService
     {
+        /// <summary>
+        /// 获取或创建缓存值
+        /// </summary>
         Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiration = null);
+
+        /// <summary>
+        /// 移除缓存项
+        /// </summary>
         void Remove(string key);
+
+        /// <summary>
+        /// 清空所有缓存
+        /// </summary>
         void Clear();
+
+        /// <summary>
+        /// 检查缓存是否包含指定键
+        /// </summary>
         bool Contains(string key);
+
+        /// <summary>
+        /// 获取缓存统计信息
+        /// </summary>
+        Services.CacheStats GetStats();
     }
 
     /// <summary>

@@ -19,7 +19,7 @@
     </li>
   </modDependencies>
 
-  <modVersion>0.1.2-alpha</modVersion>
+  <modVersion>0.1.3-alpha</modVersion>
 
   <packageId>kilokio.rimai.core</packageId>
   <description>A comprehensive AI-powered colony management system featuring intelligent decision-making, dual-layer architecture, and advanced workflow optimization.

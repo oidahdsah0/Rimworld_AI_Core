@@ -199,14 +199,16 @@ namespace RimAI.Core.UI
             
             if (config.IsEnabled)
             {
-                listing.Label($"🎨 响应创造性: {config.ResponseTemperature:F1}");
-                config.ResponseTemperature = listing.Slider(config.ResponseTemperature, 0.1f, 2.0f);
+                var currentResponseTemp = listing.Slider(config.ResponseTemperature, 0.1f, 2.0f);
+                listing.Label($"🎨 响应创造性: {currentResponseTemp:F1}");
+                config.ResponseTemperature = currentResponseTemp;
                 
                 listing.CheckboxLabeled("🚀 偏好流式响应", ref config.PreferStreaming, "在支持时优先使用流式响应");
                 listing.CheckboxLabeled("🔍 自动分析", ref config.AutoAnalysis, "启用自动态势分析");
                 
-                listing.Label($"💾 缓存时间: {config.CacheDurationMinutes} 分钟");
-                config.CacheDurationMinutes = (int)listing.Slider(config.CacheDurationMinutes, 1, 30);
+                var currentCacheDuration = (int)listing.Slider(config.CacheDurationMinutes, 1, 30);
+                listing.Label($"💾 缓存时间: {currentCacheDuration} 分钟");
+                config.CacheDurationMinutes = currentCacheDuration;
             }
         }
 
@@ -234,11 +236,13 @@ namespace RimAI.Core.UI
             
             if (settings.Cache.EnableCaching)
             {
-                listing.Label($"缓存持续时间: {settings.Cache.DefaultCacheDurationMinutes} 分钟");
-                settings.Cache.DefaultCacheDurationMinutes = (int)listing.Slider(settings.Cache.DefaultCacheDurationMinutes, 1, 60);
+                var currentGeneralCacheDuration = (int)listing.Slider(settings.Cache.DefaultCacheDurationMinutes, 1, 60);
+                listing.Label($"缓存持续时间: {currentGeneralCacheDuration} 分钟");
+                settings.Cache.DefaultCacheDurationMinutes = currentGeneralCacheDuration;
                 
-                listing.Label($"最大缓存条目: {settings.Cache.MaxCacheEntries}");
-                settings.Cache.MaxCacheEntries = (int)listing.Slider(settings.Cache.MaxCacheEntries, 100, 5000);
+                var currentMaxCacheEntries = (int)listing.Slider(settings.Cache.MaxCacheEntries, 100, 5000);
+                listing.Label($"最大缓存条目: {currentMaxCacheEntries}");
+                settings.Cache.MaxCacheEntries = currentMaxCacheEntries;
             }
 
             listing.End();
@@ -255,11 +259,13 @@ namespace RimAI.Core.UI
             listing.Label("⚡ 性能设置");
             listing.Gap();
 
-            listing.Label($"最大并发请求: {settings.Performance.MaxConcurrentRequests}");
-            settings.Performance.MaxConcurrentRequests = (int)listing.Slider(settings.Performance.MaxConcurrentRequests, 1, 10);
+            var currentMaxConcurrent = (int)listing.Slider(settings.Performance.MaxConcurrentRequests, 1, 10);
+            listing.Label($"最大并发请求: {currentMaxConcurrent}");
+            settings.Performance.MaxConcurrentRequests = currentMaxConcurrent;
             
-            listing.Label($"请求超时 (秒): {settings.Performance.RequestTimeoutSeconds}");
-            settings.Performance.RequestTimeoutSeconds = (int)listing.Slider(settings.Performance.RequestTimeoutSeconds, 10, 120);
+            var currentRequestTimeout = (int)listing.Slider(settings.Performance.RequestTimeoutSeconds, 10, 120);
+            listing.Label($"请求超时 (秒): {currentRequestTimeout}");
+            settings.Performance.RequestTimeoutSeconds = currentRequestTimeout;
 
             listing.End();
             Widgets.EndScrollView();

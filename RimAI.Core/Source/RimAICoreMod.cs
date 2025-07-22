@@ -105,8 +105,9 @@ namespace RimAI.Core
 
             // 性能设置 (简化版)
             listingStandard.Label("⚡ 性能设置");
-            listingStandard.Label($"最大并发请求数: {_settings.Performance.MaxConcurrentRequests}");
-            _settings.Performance.MaxConcurrentRequests = (int)listingStandard.Slider(_settings.Performance.MaxConcurrentRequests, 1, 10);
+            var currentMaxConcurrent = (int)listingStandard.Slider(_settings.Performance.MaxConcurrentRequests, 1, 10);
+            listingStandard.Label($"最大并发请求数: {currentMaxConcurrent}");
+            _settings.Performance.MaxConcurrentRequests = currentMaxConcurrent;
 
             listingStandard.Gap();
 
@@ -116,8 +117,9 @@ namespace RimAI.Core
             
             if (_settings.Cache.EnableCaching)
             {
-                listingStandard.Label($"默认缓存时间(分钟): {_settings.Cache.DefaultCacheDurationMinutes}");
-                _settings.Cache.DefaultCacheDurationMinutes = (int)listingStandard.Slider(_settings.Cache.DefaultCacheDurationMinutes, 1, 30);
+                var currentCacheDuration = (int)listingStandard.Slider(_settings.Cache.DefaultCacheDurationMinutes, 1, 30);
+                listingStandard.Label($"默认缓存时间(分钟): {currentCacheDuration}");
+                _settings.Cache.DefaultCacheDurationMinutes = currentCacheDuration;
             }
 
             listingStandard.Gap();

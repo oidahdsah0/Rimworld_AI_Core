@@ -238,11 +238,13 @@ namespace RimAI.Core.Settings
             
             // UI高级设置
             listing.Label("🖥️ 界面高级设置");
-            listing.Label($"窗口不透明度: {settings.UI.WindowOpacity:F2}");
-            settings.UI.WindowOpacity = listing.Slider(settings.UI.WindowOpacity, 0.5f, 1.0f);
+            var currentOpacity = listing.Slider(settings.UI.WindowOpacity, 0.5f, 1.0f);
+            listing.Label($"窗口不透明度: {currentOpacity:F2}");
+            settings.UI.WindowOpacity = currentOpacity;
             
-            listing.Label($"最大显示消息数: {settings.UI.MaxDisplayedMessages}");
-            settings.UI.MaxDisplayedMessages = (int)listing.Slider(settings.UI.MaxDisplayedMessages, 10, 200);
+            var currentMaxMessages = (int)listing.Slider(settings.UI.MaxDisplayedMessages, 10, 200);
+            listing.Label($"最大显示消息数: {currentMaxMessages}");
+            settings.UI.MaxDisplayedMessages = currentMaxMessages;
 
             listing.Gap();
 

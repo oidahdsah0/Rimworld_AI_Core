@@ -10,9 +10,6 @@ namespace RimAI.Core.Services
 {
     public class PersistenceService : IPersistenceService
     {
-        private static readonly Lazy<PersistenceService> _instance = new Lazy<PersistenceService>(() => new PersistenceService());
-        public static IPersistenceService Instance => _instance.Value;
-
         private List<IPersistable> _persistables = new List<IPersistable>();
         private string _saveFilePath;
 

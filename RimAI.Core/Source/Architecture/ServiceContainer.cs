@@ -9,6 +9,7 @@ using Verse;
 using RimAI.Core.Settings;
 using System.Text;
 using RimWorld;
+using RimAI.Core.Prompts;
 
 namespace RimAI.Core.Architecture
 {
@@ -23,6 +24,7 @@ namespace RimAI.Core.Architecture
         public static ISafeAccessService SafeAccessService => ServiceContainer.Instance?.GetService<ISafeAccessService>();
         public static IHistoryService History => ServiceContainer.Instance?.GetService<IHistoryService>();
         public static IPromptFactoryService PromptFactory => ServiceContainer.Instance?.GetService<IPromptFactoryService>();
+        public static IPromptBuilder PromptBuilder => ServiceContainer.Instance?.GetService<IPromptBuilder>();
         public static string PlayerStableId => Faction.OfPlayer.GetUniqueLoadID();
         public static string PlayerDisplayName => SettingsManager.Settings.Player.Nickname;
 
@@ -30,7 +32,7 @@ namespace RimAI.Core.Architecture
         {
             return Governor != null && Analyzer != null && LLMService != null && EventBus != null &&
                    CacheService != null && PersistenceService != null && SafeAccessService != null &&
-                   History != null && PromptFactory != null;
+                   History != null && PromptFactory != null && PromptBuilder != null;
         }
 
         public static string GetServiceStatusReport()
@@ -51,7 +53,8 @@ namespace RimAI.Core.Architecture
                 { "Persistence", PersistenceService != null },
                 { "SafeAccess", SafeAccessService != null },
                 { "History", History != null },
-                { "PromptFactory", PromptFactory != null }
+                { "PromptFactory", PromptFactory != null },
+                { "PromptBuilder", PromptBuilder != null }
             };
 
             foreach (var service in services)
@@ -96,7 +99,10 @@ namespace RimAI.Core.Architecture
         private void RegisterService<T>(T service) where T : class
         {
             _services[typeof(T)] = service;
-            _services[service.GetType()] = service;
+            if (typeof(T) != service.GetType())
+            {
+                _services[service.GetType()] = service;
+            }
         }
 
         private void RegisterService<TInterface, TImplementation>(TImplementation service) where TImplementation : class, TInterface
@@ -107,20 +113,16 @@ namespace RimAI.Core.Architecture
 
         private void RegisterDefaultServices()
         {
-            RegisterService<ICacheService>(new CacheService());
-            RegisterService<IEventBus>(new EventBusService());
-            RegisterService<ILLMService>(new LLMService());
-            RegisterService<IPersistenceService>(new PersistenceService());
-            RegisterService<IHistoryService>(new HistoryService());
-            RegisterService<IPromptFactoryService>(new PromptFactoryService());
-            RegisterService<IColonyAnalyzer>(new ColonyAnalyzer());
-            RegisterService<ISafeAccessService>(new SafeAccessService());
-            RegisterService<IAIOfficer>(new Governor(), "Governor");
-        }
-
-        private void RegisterService<T>(T service, string key) where T : class
-        {
-            _services[typeof(T)] = service;
+            RegisterService<ICacheService, CacheService>(new CacheService());
+            RegisterService<IEventBus, EventBusService>(new EventBusService());
+            RegisterService<ILLMService, LLMService>(new LLMService());
+            RegisterService<IPersistenceService, PersistenceService>(new PersistenceService());
+            RegisterService<IHistoryService, HistoryService>(new HistoryService());
+            RegisterService<IPromptFactoryService, PromptFactoryService>(new PromptFactoryService());
+            RegisterService<IColonyAnalyzer, ColonyAnalyzer>(new ColonyAnalyzer());
+            RegisterService<ISafeAccessService, SafeAccessService>(new SafeAccessService());
+            RegisterService<IAIOfficer, Governor>(new Governor());
+            RegisterService<IPromptBuilder, PromptBuilder>(new PromptBuilder());
         }
     }
 }

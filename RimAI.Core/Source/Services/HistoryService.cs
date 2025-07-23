@@ -6,7 +6,7 @@ using Verse;
 
 namespace RimAI.Core.Services
 {
-    public class HistoryService : IHistoryService
+    public class HistoryService : IHistoryService, IPersistable
     {
         private Dictionary<string, List<ConversationEntry>> _conversationStore = new Dictionary<string, List<ConversationEntry>>();
         private Dictionary<string, HashSet<string>> _participantIndex = new Dictionary<string, HashSet<string>>();

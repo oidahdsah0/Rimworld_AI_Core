@@ -11,13 +11,10 @@ namespace RimAI.Core.Prompts
     /// </summary>
     public class PromptBuilder : IPromptBuilder
     {
-        private static PromptBuilder _instance;
-        public static PromptBuilder Instance => _instance ??= new PromptBuilder();
-
         private readonly Dictionary<string, PromptTemplate> _templates;
         private readonly Regex _variablePattern;
 
-        private PromptBuilder()
+        public PromptBuilder()
         {
             _templates = new Dictionary<string, PromptTemplate>();
             _variablePattern = new Regex(@"\{\{(\w+)\}\}", RegexOptions.Compiled);

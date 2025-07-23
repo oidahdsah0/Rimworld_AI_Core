@@ -189,6 +189,32 @@ PromptBuildConfig 输入
 PromptPayload 输出 (OpenAI格式)
 ```
 
+### 5.1. PromptBuilder (提示词模板引擎) - 新增
+
+`PromptBuilder` 是一个低层级的工具，但同样至关重要。它与 `PromptFactoryService` 功能互补。
+
+-   **职责**: 管理静态的、预设的提示词**模板**，并负责用动态数据填充这些模板。
+-   **功能**: 它使用 `{{变量}}` 语法，接收一个数据字典，然后通过变量替换生成最终的提示词字符串。
+-   **定位**: 如果说 `PromptFactoryService` 是决定**对话结构**（组装哪些 `ChatMessage`）的“工厂”，那么 `PromptBuilder` 就是负责生产每个 `ChatMessage` 具体**内容**的“工坊”。
+
+**关系图**:
+```
+PromptFactoryService (高级)
+    │
+    ├─ 调用 HistoryService 获取历史
+    │
+    └─ (可选) 调用 PromptBuilder (低级)
+            │
+            └─ 使用模板ID和数据字典
+                 ↓
+               生成 "Content" 字符串
+                 ↓
+           填充到 ChatMessage.Content 中
+```
+
+**澄清**: `PromptBuilder` 并不是文档之前提到的、应被淘汰的“简单字符串拼接”。它是一个功能强大的模板引擎，是架构中有意设计的一部分，用于确保提示词内容的标准化和可维护性。
+
+
 ### 6. EventBus (事件总线系统)
 ```
 EventBusService

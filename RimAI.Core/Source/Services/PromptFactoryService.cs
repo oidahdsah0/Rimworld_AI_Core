@@ -10,16 +10,17 @@ namespace RimAI.Core.Services
 {
     public class PromptFactoryService : IPromptFactoryService
     {
-        private readonly IHistoryService _historyService;
-
-        public PromptFactoryService()
-        {
-            _historyService = CoreServices.History;
-        }
-
         public async Task<PromptPayload> BuildStructuredPromptAsync(PromptBuildConfig config)
         {
             var payload = new PromptPayload();
+            var historyService = CoreServices.History;
+            var playerStableId = CoreServices.PlayerStableId;
+
+            if (historyService == null || playerStableId == null)
+            {
+                Log.Error("HistoryService or PlayerStableId is not available. PromptFactory cannot continue.");
+                return payload;
+            }
 
             // 1. Add System Prompt
             if (!string.IsNullOrEmpty(config.SystemPrompt))
@@ -28,7 +29,7 @@ namespace RimAI.Core.Services
             }
 
             // 2. Get Historical Context
-            var historicalContext = _historyService.GetHistoricalContextFor(config.CurrentParticipants, config.HistoryLimit);
+            var historicalContext = historyService.GetHistoricalContextFor(config.CurrentParticipants, config.HistoryLimit);
 
             // 3. Assemble Ancillary History
             if (historicalContext.AncillaryHistory.Count > 0)
@@ -48,7 +49,7 @@ namespace RimAI.Core.Services
             // 4. Assemble Primary History
             foreach (var entry in historicalContext.PrimaryHistory)
             {
-                var role = entry.ParticipantId == "Player" ? "user" : "assistant"; // This is a simplification
+                var role = entry.ParticipantId == playerStableId ? "user" : "assistant";
                 var timestamp = FormatTimestamp(entry.GameTicksTimestamp);
                 payload.Messages.Add(new ChatMessage { Role = role, Content = $"{timestamp} | {entry.Content}", Name = entry.ParticipantId });
             }

@@ -15,10 +15,7 @@ namespace RimAI.Core.Services
     /// </summary>
     public class CacheService : ICacheService
     {
-        private static CacheService _instance;
-        public static CacheService Instance => _instance ??= new CacheService();
-
-        private readonly ConcurrentDictionary<string, CacheEntry> _cache;
+        private readonly ConcurrentDictionary<string, CacheItem> _cache = new ConcurrentDictionary<string, CacheItem>();
         private readonly object _cleanupLock = new object();
         private readonly Timer _cleanupTimer;
         private readonly Timer _statsTimer;
@@ -40,7 +37,6 @@ namespace RimAI.Core.Services
 
         public CacheService()
         {
-            _cache = new ConcurrentDictionary<string, CacheEntry>();
             RefreshConfiguration();
             
             // 初始化定时器
@@ -186,7 +182,7 @@ namespace RimAI.Core.Services
                 // 判断是否应该缓存
                 if (ShouldCacheRequest(key, value))
                 {
-                    var entry = new CacheEntry
+                    var entry = new CacheItem
                     {
                         Key = key,
                         Value = value,
@@ -500,7 +496,7 @@ namespace RimAI.Core.Services
     /// <summary>
     /// 缓存条目
     /// </summary>
-    internal class CacheEntry
+    internal class CacheItem
     {
         public string Key { get; set; }
         public object Value { get; set; }

@@ -19,7 +19,7 @@ namespace RimAI.Core.Services
         private readonly ConcurrentDictionary<Type, List<IEventHandler>> _handlers;
         private readonly object _lock = new object();
 
-        private EventBusService()
+        public EventBusService()
         {
             _handlers = new ConcurrentDictionary<Type, List<IEventHandler>>();
         }

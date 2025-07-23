@@ -5,8 +5,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using RimWorld;
 using Verse;
+using RimAI.Core.Architecture;
 using RimAI.Core.Architecture.Interfaces;
+using RimAI.Core.Architecture.Models;
 using RimAI.Core.Services;
+using RimAI.Core.Officers;
 
 namespace RimAI.Core.Analysis
 {
@@ -17,10 +20,14 @@ namespace RimAI.Core.Analysis
     /// </summary>
     public class ColonyAnalyzer : IColonyAnalyzer
     {
-        private static ColonyAnalyzer _instance;
-        public static ColonyAnalyzer Instance => _instance ??= new ColonyAnalyzer();
+        private readonly ISafeAccessService _safeAccess;
+        private readonly ICacheService _cache;
 
-        private ColonyAnalyzer() { }
+        public ColonyAnalyzer()
+        {
+            this._safeAccess = CoreServices.SafeAccessService;
+            this._cache = CoreServices.CacheService; // Corrected to CacheService
+        }
 
         #region 核心分析方法
 
@@ -100,8 +107,8 @@ namespace RimAI.Core.Analysis
             return await Task.Run(() =>
             {
                 // 使用SafeAccessService安全获取集合，无需手动处理异常
-                var colonists = SafeAccessService.GetColonistsSafe(map);
-                var prisoners = SafeAccessService.GetPrisonersSafe(map);
+                var colonists = _safeAccess.GetColonistsSafe(map);
+                var prisoners = _safeAccess.GetPrisonersSafe(map);
                 
                 var analysis = new PopulationAnalysis
                 {
@@ -110,21 +117,21 @@ namespace RimAI.Core.Analysis
                 };
 
                 // 健康状态分析 - 使用安全操作包装器
-                analysis.HealthyColonists = SafeAccessService.SafePawnOperation(
+                analysis.HealthyColonists = _safeAccess.SafePawnOperation(
                     colonists,
                     pawns => pawns.Count(p => !p.Downed && !p.InBed() && p.health.hediffSet.PainTotal < 0.1f),
                     0,
                     "CountHealthyColonists"
                 );
 
-                analysis.InjuredColonists = SafeAccessService.SafePawnOperation(
+                analysis.InjuredColonists = _safeAccess.SafePawnOperation(
                     colonists,
                     pawns => pawns.Count(p => p.health.hediffSet.PainTotal >= 0.1f),
                     0,
                     "CountInjuredColonists"
                 );
 
-                analysis.DownedColonists = SafeAccessService.SafePawnOperation(
+                analysis.DownedColonists = _safeAccess.SafePawnOperation(
                     colonists,
                     pawns => pawns.Count(p => p.Downed),
                     0,
@@ -132,7 +139,7 @@ namespace RimAI.Core.Analysis
                 );
 
                 // 心情分析 - 使用安全操作包装器
-                analysis.AverageMood = SafeAccessService.SafePawnOperation(
+                analysis.AverageMood = _safeAccess.SafePawnOperation(
                     colonists,
                     pawns => {
                         var moodSum = 0f;
@@ -159,7 +166,7 @@ namespace RimAI.Core.Analysis
                 );
 
                 // 技能分布分析
-                analysis.SkillDistribution = SafeAccessService.SafePawnOperation(
+                analysis.SkillDistribution = _safeAccess.SafePawnOperation(
                     colonists,
                     pawns => AnalyzeSkillDistribution(pawns),
                     new Dictionary<string, float>(),
@@ -182,8 +189,8 @@ namespace RimAI.Core.Analysis
                 var analysis = new ResourceAnalysis();
 
                 // 食物分析 - 使用安全访问服务
-                var foodItems = SafeAccessService.GetThingGroupSafe(map, ThingRequestGroup.FoodSourceNotPlantOrTree);
-                analysis.TotalFood = SafeAccessService.SafeThingOperation(
+                var foodItems = _safeAccess.GetThingGroupSafe(map, ThingRequestGroup.FoodSourceNotPlantOrTree);
+                analysis.TotalFood = _safeAccess.SafeThingOperation(
                     foodItems,
                     items => items.Sum(t => 
                     {
@@ -201,25 +208,25 @@ namespace RimAI.Core.Analysis
                 );
 
                 // 材料分析 - 使用安全访问服务
-                analysis.Steel = SafeAccessService.SafeThingOperation(
-                    SafeAccessService.GetThingsSafe(map, ThingDefOf.Steel),
+                analysis.Steel = _safeAccess.SafeThingOperation(
+                    _safeAccess.GetThingsSafe(map, ThingDefOf.Steel),
                     items => items.Sum(t => t?.stackCount ?? 0),
                     0,
                     "CalculateSteel"
                 );
 
-                analysis.Wood = SafeAccessService.SafeThingOperation(
-                    SafeAccessService.GetThingsSafe(map, ThingDefOf.WoodLog),
+                analysis.Wood = _safeAccess.SafeThingOperation(
+                    _safeAccess.GetThingsSafe(map, ThingDefOf.WoodLog),
                     items => items.Sum(t => t?.stackCount ?? 0),
                     0,
                     "CalculateWood"
                 );
 
                 // 武器分析
-                analysis.WeaponCount = SafeAccessService.GetThingGroupSafe(map, ThingRequestGroup.Weapon).Count;
+                analysis.WeaponCount = _safeAccess.GetThingGroupSafe(map, ThingRequestGroup.Weapon).Count;
 
                 // 计算储备天数
-                var colonistCount = SafeAccessService.GetColonistCountSafe(map);
+                var colonistCount = _safeAccess.GetColonistCountSafe(map);
                 analysis.FoodDaysRemaining = colonistCount > 0 ? (int)(analysis.TotalFood / (colonistCount * 2.0f)) : 999;
 
                 Log.Message($"[ColonyAnalyzer] 资源分析完成: 食物{analysis.TotalFood:F1}, 钢材{analysis.Steel}, 木材{analysis.Wood}");
@@ -238,8 +245,8 @@ namespace RimAI.Core.Analysis
                 var analysis = new ThreatAnalysis();
 
                 // 敌对生物分析 - 使用安全访问服务
-                var allPawns = SafeAccessService.GetAllPawnsSafe(map);
-                var hostilePawns = SafeAccessService.SafePawnOperation(
+                var allPawns = _safeAccess.GetAllPawnsSafe(map);
+                var hostilePawns = _safeAccess.SafePawnOperation(
                     allPawns,
                     pawns => pawns.Where(p => 
                     {
@@ -263,7 +270,7 @@ namespace RimAI.Core.Analysis
                 analysis.WeatherThreat = CalculateWeatherThreat(map);
                 
                 // 火灾威胁 - 使用安全访问服务
-                analysis.FireCount = SafeAccessService.GetThingsSafe(map, ThingDefOf.Fire).Count;
+                analysis.FireCount = _safeAccess.GetThingsSafe(map, ThingDefOf.Fire).Count;
 
                 // 计算总威胁等级
                 analysis.OverallThreatLevel = CalculateThreatLevel(analysis);
@@ -284,10 +291,10 @@ namespace RimAI.Core.Analysis
                 var analysis = new InfrastructureAnalysis();
 
                 // 使用SafeAccessService获取建筑列表
-                var allBuildings = SafeAccessService.GetBuildingsSafe(map);
+                var allBuildings = _safeAccess.GetBuildingsSafe(map);
 
                 // 防御建筑分析 - 使用安全操作包装器
-                analysis.DefensiveStructures = SafeAccessService.SafeBuildingOperation(
+                analysis.DefensiveStructures = _safeAccess.SafeBuildingOperation(
                     allBuildings,
                     buildings => buildings.Where(b =>
                     {
@@ -307,7 +314,7 @@ namespace RimAI.Core.Analysis
                 );
 
                 // 电力系统分析
-                analysis.PowerBuildings = SafeAccessService.SafeBuildingOperation(
+                analysis.PowerBuildings = _safeAccess.SafeBuildingOperation(
                     allBuildings,
                     buildings => buildings.Where(b => 
                     {
@@ -325,7 +332,7 @@ namespace RimAI.Core.Analysis
                 );
 
                 // 住房质量分析
-                analysis.BedroomCount = SafeAccessService.SafeBuildingOperation(
+                analysis.BedroomCount = _safeAccess.SafeBuildingOperation(
                     allBuildings,
                     buildings => buildings.Where(b => 
                     {
@@ -393,7 +400,7 @@ namespace RimAI.Core.Analysis
         /// </summary>
         private float CalculateWeatherThreat(Map map)
         {
-            var weather = SafeAccessService.GetCurrentWeatherSafe(map);
+            var weather = _safeAccess.GetCurrentWeatherSafe(map);
             
             if (weather == null)
             {

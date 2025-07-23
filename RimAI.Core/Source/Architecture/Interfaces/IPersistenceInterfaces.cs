@@ -39,6 +39,9 @@ namespace RimAI.Core.Architecture.Interfaces
         /// </summary>
         void ExposeAllRegisteredData();
 
+        void Load(); // Add Load method
+        void Save(); // Add Save method
+
 
         // --- Global Settings Management (independent of game saves) ---
 

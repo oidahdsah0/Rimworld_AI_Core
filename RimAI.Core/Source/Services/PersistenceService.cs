@@ -13,6 +13,9 @@ namespace RimAI.Core.Services
         private static readonly Lazy<PersistenceService> _instance = new Lazy<PersistenceService>(() => new PersistenceService());
         public static IPersistenceService Instance => _instance.Value;
 
+        private List<IPersistable> _persistables = new List<IPersistable>();
+        private string _saveFilePath;
+
         private readonly List<IPersistable> _registeredPersistables = new List<IPersistable>();
         private readonly string _globalSettingsFolderPath;
         
@@ -23,8 +26,10 @@ namespace RimAI.Core.Services
             DefaultValueHandling = DefaultValueHandling.Ignore
         };
 
-        private PersistenceService()
+        public PersistenceService()
         {
+            // We create a unique data file inside the standard RimWorld save directory.
+            _saveFilePath = Path.Combine(GenFilePaths.SaveDataFolderPath, "RimAICoreData.xml");
             _globalSettingsFolderPath = Path.Combine(GenFilePaths.ConfigFolderPath, "RimAI.Core");
             try
             {
@@ -40,9 +45,10 @@ namespace RimAI.Core.Services
 
         public void RegisterPersistable(IPersistable persistable)
         {
-            if (!_registeredPersistables.Contains(persistable))
+            if (!_persistables.Contains(persistable))
             {
-                _registeredPersistables.Add(persistable);
+                _persistables.Add(persistable);
+                Log.Message($"[PersistenceService] Registered {persistable.GetType().Name}.");
             }
         }
 
@@ -53,16 +59,46 @@ namespace RimAI.Core.Services
 
         public void ExposeAllRegisteredData()
         {
-            foreach (var persistable in _registeredPersistables)
+            // This is the core of RimWorld's Scribe system. It will look for the list
+            // and save/load each item in it.
+            Scribe_Collections.Look(ref _persistables, "persistables", LookMode.Deep);
+        }
+
+        public void Save()
+        {
+            try
             {
-                try
-                {
-                    persistable.ExposeData();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"[PersistenceService] Error while exposing data for {persistable.GetType().Name}: {ex.Message}");
-                }
+                // Correct way to save custom data to a separate file.
+                Scribe.saver.InitSaving(_saveFilePath, "RimAICore");
+                ExposeAllRegisteredData();
+                Scribe.saver.FinalizeSaving();
+                Log.Message($"[PersistenceService] Data saved to {_saveFilePath}");
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[PersistenceService] Error saving data: {ex}");
+            }
+        }
+
+        public void Load()
+        {
+            if (!File.Exists(_saveFilePath))
+            {
+                Log.Message($"[PersistenceService] No data file found at {_saveFilePath}. Skipping load.");
+                return;
+            }
+
+            try
+            {
+                // Correct way to load custom data from a separate file.
+                Scribe.loader.InitLoading(_saveFilePath);
+                ExposeAllRegisteredData();
+                Scribe.loader.FinalizeLoading();
+                Log.Message($"[PersistenceService] Data loaded from {_saveFilePath}");
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[PersistenceService] Error loading data: {ex}");
             }
         }
 

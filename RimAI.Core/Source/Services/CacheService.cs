@@ -38,7 +38,7 @@ namespace RimAI.Core.Services
         private double _minHitRate;
         private DateTime _lastConfigUpdate = DateTime.MinValue;
 
-        private CacheService()
+        public CacheService()
         {
             _cache = new ConcurrentDictionary<string, CacheEntry>();
             RefreshConfiguration();

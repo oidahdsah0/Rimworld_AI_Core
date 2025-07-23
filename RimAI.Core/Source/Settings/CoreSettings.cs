@@ -11,7 +11,10 @@ namespace RimAI.Core.Settings
     /// </summary>
     public class CoreSettings : ModSettings
     {
-        // 官员设置
+        // Player Settings
+        public PlayerSettings Player = new PlayerSettings();
+
+        // Officer settings
         public Dictionary<string, OfficerConfig> OfficerConfigs = new Dictionary<string, OfficerConfig>();
         
         // 提示词设置
@@ -34,8 +37,12 @@ namespace RimAI.Core.Settings
 
         public override void ExposeData()
         {
+            base.ExposeData();
             try
             {
+                // Serialize PlayerSettings
+                Scribe_Deep.Look(ref Player, "player");
+
                 // 🎯 简化序列化，避免复杂的深度序列化
                 Scribe_Collections.Look(ref OfficerConfigs, "officerConfigs", LookMode.Value, LookMode.Deep);
                 Scribe_Collections.Look(ref CustomPrompts, "customPrompts", LookMode.Value, LookMode.Deep);
@@ -63,6 +70,7 @@ namespace RimAI.Core.Settings
         /// </summary>
         private void PostLoadValidation()
         {
+            if (Player == null) Player = new PlayerSettings();
             if (OfficerConfigs == null) OfficerConfigs = new Dictionary<string, OfficerConfig>();
             if (CustomPrompts == null) CustomPrompts = new Dictionary<string, PromptTemplate>();
             if (UI == null) UI = new UISettings();
@@ -77,6 +85,7 @@ namespace RimAI.Core.Settings
         /// </summary>
         private void InitializeDefaults()
         {
+            Player = new PlayerSettings();
             OfficerConfigs = new Dictionary<string, OfficerConfig>();
             CustomPrompts = new Dictionary<string, PromptTemplate>();
             UI = new UISettings();
@@ -252,6 +261,16 @@ namespace RimAI.Core.Settings
             Scribe_Values.Look(ref SaveAnalysisResults, "saveAnalysisResults", false);
             Scribe_Values.Look(ref ShowInternalEvents, "showInternalEvents", false);
             Scribe_Values.Look(ref SuppressGameProfilerLogs, "suppressGameProfilerLogs", true);
+        }
+    }
+
+    public class PlayerSettings : IExposable
+    {
+        public string Nickname = "指挥官";
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref Nickname, "nickname", "指挥官");
         }
     }
 

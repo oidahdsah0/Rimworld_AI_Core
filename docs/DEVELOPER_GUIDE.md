@@ -1,591 +1,899 @@
 # 👨‍💻 RimAI 开发者指南
 
-*完整的开发流程、最佳实践和问题解决方案*
+*基于依赖注入架构的完整开发教程*
 
-## 🚀 开发流程
+## 🧠 核心概念
 
-### 1. 项目设置
-```bash
-# 克隆项目
-git clone <repository-url>
-cd Rimworld_AI_Core
+### 架构核心：依赖注入（DI）
 
-# 还原NuGet包
-dotnet restore RimAI.Core.sln
+RimAI Core 已从静态单例模式全面迁移到依赖注入架构。这是理解整个框架的关键。
 
-# 编译项目
-dotnet build RimAI.Core.sln --configuration Debug
-```
+#### 1. ServiceContainer - 依赖注入容器
 
-### 2. 开发环境配置
-```xml
-<!-- RimAI.Core.csproj 关键配置 -->
-<TargetFramework>net48</TargetFramework>
-<LangVersion>latest</LangVersion>
-<OutputPath>Assemblies/</OutputPath>
-```
+`ServiceContainer` 是整个框架的心脏，负责管理所有服务的生命周期：
 
-### 3. 调试设置
-- **启动项目**: 设置RimWorld.exe为启动程序
-- **工作目录**: RimWorld安装目录
-- **命令行参数**: `-dev -logverbose`
-
-## 🧱 创建AI官员完整流程
-
-### 步骤1: 定义官员类
 ```csharp
-using RimAI.Core.Officers.Base;
-using RimAI.Core.Architecture.Interfaces;
+// 服务注册（在框架内部进行）
+ServiceContainer.Instance.RegisterService<IHistoryService>(new HistoryService());
 
-namespace RimAI.Core.Officers
+// 服务获取（通过CoreServices门面）
+var historyService = CoreServices.History;
+```
+
+**核心职责：**
+- 服务注册与获取
+- 生命周期管理
+- 依赖关系解析
+- 类型安全的服务访问
+
+#### 2. CoreServices - 统一服务门面
+
+`CoreServices` 是所有模块访问核心服务的**唯一、标准入口**：
+
+```csharp
+public static class CoreServices
 {
-    public class MedicalOfficer : OfficerBase
+    // AI服务
+    public static Governor Governor => ServiceContainer.Instance?.GetService<Governor>();
+    public static ILLMService LLMService => ServiceContainer.Instance?.GetService<ILLMService>();
+    
+    // 新增的核心服务
+    public static IHistoryService History => ServiceContainer.Instance?.GetService<IHistoryService>();
+    public static IPromptFactoryService PromptFactory => ServiceContainer.Instance?.GetService<IPromptFactoryService>();
+    
+    // 基础架构服务
+    public static ICacheService CacheService => ServiceContainer.Instance?.GetService<ICacheService>();
+    public static IEventBus EventBus => ServiceContainer.Instance?.GetService<IEventBus>();
+    public static IPersistenceService PersistenceService => ServiceContainer.Instance?.GetService<IPersistenceService>();
+    public static ISafeAccessService SafeAccessService => ServiceContainer.Instance?.GetService<ISafeAccessService>();
+    public static IColonyAnalyzer Analyzer => ServiceContainer.Instance?.GetService<IColonyAnalyzer>();
+    
+    // 玩家身份标识
+    public static string PlayerStableId => Faction.OfPlayer.GetUniqueLoadID();
+    public static string PlayerDisplayName => SettingsManager.Settings.Player.Nickname;
+    
+    // 系统状态检查
+    public static bool AreServicesReady() { /* ... */ }
+}
+```
+
+**重要原则：**
+- ✅ **始终通过 CoreServices 访问服务**
+- ❌ **不再使用旧的 `.Instance` 静态属性**
+- 🛡️ **在使用前检查 `AreServicesReady()`**
+
+#### 3. 玩家身份处理
+
+框架提供两种不同用途的玩家标识：
+
+```csharp
+// 稳定ID：用于后台数据关联，永不改变
+string stableId = CoreServices.PlayerStableId; 
+// 实际值："RimWorld.Faction_e1b2c3d4"
+
+// 显示名称：用户可在设置中修改，用于UI和AI对话
+string displayName = CoreServices.PlayerDisplayName; 
+// 实际值："指挥官王小明"（用户设置的昵称）
+```
+
+**应用场景：**
+- `PlayerStableId`：用于对话历史、数据持久化、系统内部关联
+- `PlayerDisplayName`：用于UI显示、AI对话中的称呼
+
+## 🏗️ 创建新服务完整教程
+
+以 `HistoryService` 为例，展示如何从零开始创建一个完整的服务。
+
+### 步骤1：定义服务接口
+
+首先在 `Architecture/Interfaces/` 目录下定义接口：
+
+```csharp
+// IHistoryService.cs
+using System.Collections.Generic;
+using RimAI.Core.Architecture.Models;
+
+namespace RimAI.Core.Architecture.Interfaces
+{
+    public interface IHistoryService : IPersistable
     {
-        public override string Name => "医疗官";
-        public override string Description => "专业医疗建议和健康管理";
-        public override string IconPath => "UI/Icons/Medical";
-        public override OfficerRole Role => OfficerRole.Medical;
+        /// <summary>
+        /// 为一组参与者开始或获取一个对话ID
+        /// </summary>
+        string StartOrGetConversation(List<string> participantIds);
         
-        // 设置专业模板ID
-        protected override string QuickAdviceTemplateId => "medical.quick";
-        protected override string DetailedAdviceTemplateId => "medical.detailed";
+        /// <summary>
+        /// 向指定的对话中添加一条记录
+        /// </summary>
+        void AddEntry(string conversationId, ConversationEntry entry);
+        
+        /// <summary>
+        /// 获取结构化的历史上下文，区分主线对话和附加参考对话
+        /// </summary>
+        HistoricalContext GetHistoricalContextFor(List<string> primaryParticipants, int limit = 10);
     }
 }
 ```
 
-### 步骤2: 实现核心逻辑
+### 步骤2：实现服务
+
+在 `Services/` 目录下实现具体服务：
+
 ```csharp
-protected override async Task<string> ExecuteAdviceRequest(CancellationToken cancellationToken)
+// HistoryService.cs
+using System.Collections.Generic;
+using System.Linq;
+using RimAI.Core.Architecture.Interfaces;
+using RimAI.Core.Architecture.Models;
+using Verse;
+
+namespace RimAI.Core.Services
 {
+    public class HistoryService : IHistoryService
+    {
+        // 主数据存储：对话ID -> 对话记录列表
+        private Dictionary<string, List<ConversationEntry>> _conversationStore 
+            = new Dictionary<string, List<ConversationEntry>>();
+        
+        // 倒排索引：参与者ID -> 相关对话ID集合
+        private Dictionary<string, HashSet<string>> _participantIndex 
+            = new Dictionary<string, HashSet<string>>();
+
+        public string StartOrGetConversation(List<string> participantIds)
+        {
+            if (participantIds == null || participantIds.Count == 0) return null;
+
+            // 通过排序和拼接生成稳定的对话ID
+            var sortedIds = participantIds.Distinct().OrderBy(id => id).ToList();
+            var conversationId = string.Join("_", sortedIds);
+
+            if (!_conversationStore.ContainsKey(conversationId))
+            {
+                _conversationStore[conversationId] = new List<ConversationEntry>();
+                
+                // 更新倒排索引
+                foreach (var id in sortedIds)
+                {
+                    if (!_participantIndex.ContainsKey(id))
+                        _participantIndex[id] = new HashSet<string>();
+                    _participantIndex[id].Add(conversationId);
+                }
+            }
+
+            return conversationId;
+        }
+
+        public void AddEntry(string conversationId, ConversationEntry entry)
+        {
+            if (string.IsNullOrEmpty(conversationId) || entry == null) return;
+
+            if (_conversationStore.TryGetValue(conversationId, out var history))
+            {
+                entry.GameTicksTimestamp = CoreServices.SafeAccessService.GetTicksGameSafe();
+                history.Add(entry);
+            }
+        }
+
+        public HistoricalContext GetHistoricalContextFor(List<string> primaryParticipants, int limit = 10)
+        {
+            var context = new HistoricalContext();
+            if (primaryParticipants == null || primaryParticipants.Count == 0) return context;
+
+            var sortedPrimaryIds = primaryParticipants.Distinct().OrderBy(id => id).ToList();
+            var primaryConversationId = string.Join("_", sortedPrimaryIds);
+
+            // 1. 获取主线历史
+            if (_conversationStore.TryGetValue(primaryConversationId, out var primaryHistory))
+            {
+                context.PrimaryHistory = primaryHistory
+                    .OrderByDescending(e => e.GameTicksTimestamp)
+                    .Take(limit)
+                    .Reverse()
+                    .ToList();
+            }
+
+            // 2. 通过倒排索引查找相关对话
+            HashSet<string> relevantConversationIds = null;
+            foreach (var id in sortedPrimaryIds)
+            {
+                if (_participantIndex.TryGetValue(id, out var conversations))
+                {
+                    if (relevantConversationIds == null)
+                        relevantConversationIds = new HashSet<string>(conversations);
+                    else
+                        relevantConversationIds.IntersectWith(conversations);
+                }
+                else
+                {
+                    return context; // 如果任一参与者不在索引中，没有共同对话
+                }
+            }
+
+            // 3. 收集附加历史（排除主线对话）
+            if (relevantConversationIds != null)
+            {
+                var ancillaryHistory = new List<ConversationEntry>();
+                foreach (var convId in relevantConversationIds)
+                {
+                    if (convId != primaryConversationId && _conversationStore.TryGetValue(convId, out var history))
+                    {
+                        ancillaryHistory.AddRange(history);
+                    }
+                }
+                
+                context.AncillaryHistory = ancillaryHistory
+                    .OrderByDescending(e => e.GameTicksTimestamp)
+                    .Take(limit)
+                    .Reverse()
+                    .ToList();
+            }
+
+            return context;
+        }
+
+        // 实现IPersistable接口，支持随存档保存
+        public void ExposeData()
+        {
+            Scribe_Collections.Look(ref _conversationStore, "conversationStore", LookMode.Value, LookMode.Deep);
+            Scribe_Collections.Look(ref _participantIndex, "participantIndex", LookMode.Value, LookMode.Deep);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                _conversationStore ??= new Dictionary<string, List<ConversationEntry>>();
+                _participantIndex ??= new Dictionary<string, HashSet<string>>();
+            }
+        }
+    }
+}
+```
+
+### 步骤3：注册服务
+
+在 `ServiceContainer.cs` 的 `RegisterDefaultServices()` 方法中注册：
+
+```csharp
+private void RegisterDefaultServices()
+{
+    // ... 其他服务注册 ...
+    
+    // 注册我们的新服务
+    RegisterService<IHistoryService>(new HistoryService());
+    
+    // ... 继续注册其他服务 ...
+}
+```
+
+### 步骤4：添加到CoreServices门面
+
+在 `ServiceContainer.cs` 的 `CoreServices` 类中添加访问器：
+
+```csharp
+public static class CoreServices
+{
+    // ... 其他服务属性 ...
+    
+    public static IHistoryService History => ServiceContainer.Instance?.GetService<IHistoryService>();
+    
+    // ... 其他属性 ...
+}
+```
+
+### 步骤5：持久化注册（可选）
+
+如果服务实现了 `IPersistable`，需要在构造函数中自动注册：
+
+```csharp
+public HistoryService()
+{
+    // 自动注册到持久化服务
+    CoreServices.PersistenceService?.RegisterPersistable(this);
+}
+```
+
+## 🤖 与AI交互：新的提示词构建方式
+
+废弃旧的字符串拼接方式，使用 `PromptFactoryService` 和 `PromptBuildConfig` 进行结构化提示词构建。
+
+### 1. 基本AI交互流程
+
+```csharp
+public async Task<string> GetAIAdviceAsync(string userQuery)
+{
+    // 1. 检查服务就绪状态
+    if (!CoreServices.AreServicesReady())
+    {
+        return "AI服务暂时不可用，请稍后重试。";
+    }
+
     try
     {
-        // 1. 获取医疗相关数据
-        var colonistHealth = await GetColonistHealthDataAsync(cancellationToken);
-        var medicalSupplies = await GetMedicalSuppliesAsync(cancellationToken);
-        
-        // 2. 构建专业上下文
-        var context = await BuildContextAsync(cancellationToken);
-        context["healthData"] = colonistHealth;
-        context["supplies"] = medicalSupplies;
-        context["medicalPriorities"] = AnalyzeMedicalPriorities(colonistHealth);
-        
-        // 3. 构建专业提示词
-        var prompt = _promptBuilder.BuildPrompt(QuickAdviceTemplateId, context);
-        if (string.IsNullOrEmpty(prompt))
+        // 2. 构建结构化提示词配置
+        var promptConfig = new PromptBuildConfig
         {
-            prompt = BuildDefaultMedicalPrompt(context);
-        }
+            CurrentParticipants = new List<string> 
+            { 
+                CoreServices.PlayerStableId, 
+                "Governor" 
+            },
+            SystemPrompt = "你是RimWorld殖民地的AI总督，提供专业的管理建议。",
+            Scene = new SceneContext 
+            { 
+                Situation = $"玩家询问：{userQuery}",
+                Time = GetCurrentGameTime(),
+                Location = GetCurrentMapInfo()
+            },
+            HistoryLimit = 10
+        };
+
+        // 3. 通过PromptFactory构建完整提示词
+        var promptPayload = await CoreServices.PromptFactory.BuildStructuredPromptAsync(promptConfig);
         
-        // 4. 调用AI并返回结果
-        var options = CreateLLMOptions(temperature: 0.3f); // 医疗建议需要更保守
-        return await _llmService.SendMessageAsync(prompt, options, cancellationToken);
+        // 4. 添加当前用户输入
+        promptPayload.Messages.Add(new ChatMessage 
+        { 
+            Role = "user", 
+            Content = userQuery, 
+            Name = CoreServices.PlayerDisplayName 
+        });
+
+        // 5. 发送给LLM服务
+        var promptText = ConvertToPromptText(promptPayload);
+        var response = await CoreServices.LLMService.SendMessageAsync(promptText);
+
+        // 6. 记录对话历史
+        var conversationId = CoreServices.History.StartOrGetConversation(promptConfig.CurrentParticipants);
+        CoreServices.History.AddEntry(conversationId, new ConversationEntry
+        {
+            ParticipantId = CoreServices.PlayerStableId,
+            Role = "user",
+            Content = userQuery
+        });
+        CoreServices.History.AddEntry(conversationId, new ConversationEntry
+        {
+            ParticipantId = "Governor",
+            Role = "assistant", 
+            Content = response
+        });
+
+        return response;
     }
     catch (Exception ex)
     {
-        Log.Error($"[MedicalOfficer] 医疗建议请求失败: {ex.Message}");
-        return GetErrorResponse("医疗系统暂时不可用，请稍后重试");
+        Log.Error($"AI交互失败: {ex.Message}");
+        return "抱歉，处理您的请求时出现了问题。";
     }
 }
 
-// 辅助方法
-private async Task<Dictionary<string, object>> GetColonistHealthDataAsync(CancellationToken token)
+private string ConvertToPromptText(PromptPayload payload)
 {
-    return await _cacheService.GetOrCreateAsync(
-        "medical_health_data",
-        async () => {
-            // 实际的健康数据收集逻辑
-            var healthData = new Dictionary<string, object>();
-            // ... 收集殖民者健康状况
-            return healthData;
-        },
-        TimeSpan.FromMinutes(1) // 健康数据缓存1分钟
-    );
+    return string.Join("\n", payload.Messages.Select(m => 
+        $"{m.Role} ({m.Name ?? "System"}): {m.Content}"));
 }
 ```
 
-### 步骤3: 注册服务
-```csharp
-// 在ServiceContainer.RegisterDefaultServices()中添加
-RegisterInstance<IAIOfficer>(MedicalOfficer.Instance);
-RegisterInstance<MedicalOfficer>(MedicalOfficer.Instance);
+### 2. 高级提示词构建示例
 
-// 或在CoreServices中添加访问器
-public static MedicalOfficer MedicalOfficer => 
-    ServiceContainer.Instance.GetService<MedicalOfficer>();
+```csharp
+public class MedicalOfficer : OfficerBase
+{
+    protected override async Task<string> ExecuteAdviceRequest(CancellationToken cancellationToken)
+    {
+        // 构建医疗专业的提示词配置
+        var promptConfig = new PromptBuildConfig
+        {
+            CurrentParticipants = new List<string> { CoreServices.PlayerStableId, "MedicalOfficer" },
+            SystemPrompt = @"你是殖民地的专业医疗官。你的职责是：
+1. 监控殖民者健康状况
+2. 提供医疗建议和治疗方案
+3. 预防疾病爆发
+4. 管理医疗资源
+
+保持专业、准确、关注安全。",
+            Scene = new SceneContext
+            {
+                Situation = "例行医疗状况检查",
+                Location = await GetCurrentMedicalFacilities(),
+                Participants = await GetMedicalStaff()
+            },
+            OtherData = new AncillaryData
+            {
+                ReferenceInfo = await GetMedicalSuppliesInventory(),
+                Weather = await GetCurrentWeatherImpact()
+            },
+            HistoryLimit = 15 // 医疗历史需要更多上下文
+        };
+
+        // 使用PromptFactory构建结构化提示词
+        var payload = await CoreServices.PromptFactory.BuildStructuredPromptAsync(promptConfig);
+        
+        // 添加当前医疗数据
+        var medicalSummary = await GenerateMedicalSummary();
+        payload.Messages.Add(new ChatMessage
+        {
+            Role = "user",
+            Content = $"当前医疗状况：\n{medicalSummary}",
+            Name = "System"
+        });
+
+        // 发送到LLM并返回
+        var promptText = ConvertToPromptText(payload);
+        return await CoreServices.LLMService.SendMessageAsync(promptText, cancellationToken);
+    }
+}
 ```
 
-### 步骤4: UI集成
+### 3. 对话历史的智能利用
+
 ```csharp
-// 在MainTabWindow_RimAI.cs中添加按钮
-private void DrawMedicalButton(Rect rect)
+public async Task<string> ContinueConversationAsync(string newMessage, List<string> participants)
 {
-    if (Widgets.ButtonText(rect, "🏥 医疗建议"))
+    // 获取历史上下文
+    var historicalContext = CoreServices.History.GetHistoricalContextFor(participants, limit: 20);
+    
+    var promptConfig = new PromptBuildConfig
     {
-        ProcessMedicalRequest();
+        CurrentParticipants = participants,
+        SystemPrompt = "基于之前的对话历史，继续这个对话。保持上下文一致性。",
+        HistoryLimit = 0 // 我们手动处理历史
+    };
+
+    var payload = await CoreServices.PromptFactory.BuildStructuredPromptAsync(promptConfig);
+    
+    // 手动添加分层历史
+    if (historicalContext.AncillaryHistory.Count > 0)
+    {
+        var ancillaryText = $"[背景对话记录]：\n{FormatHistory(historicalContext.AncillaryHistory)}";
+        payload.Messages.Add(new ChatMessage { Role = "system", Content = ancillaryText });
+    }
+    
+    // 添加主线对话历史
+    foreach (var entry in historicalContext.PrimaryHistory)
+    {
+        payload.Messages.Add(new ChatMessage
+        {
+            Role = entry.Role,
+            Content = entry.Content,
+            Name = entry.ParticipantId
+        });
+    }
+    
+    // 添加新消息
+    payload.Messages.Add(new ChatMessage 
+    { 
+        Role = "user", 
+        Content = newMessage,
+        Name = CoreServices.PlayerDisplayName
+    });
+
+    var response = await CoreServices.LLMService.SendMessageAsync(ConvertToPromptText(payload));
+    
+    // 更新历史
+    var conversationId = CoreServices.History.StartOrGetConversation(participants);
+    CoreServices.History.AddEntry(conversationId, new ConversationEntry
+    {
+        ParticipantId = CoreServices.PlayerStableId,
+        Role = "user",
+        Content = newMessage
+    });
+    CoreServices.History.AddEntry(conversationId, new ConversationEntry
+    {
+        ParticipantId = participants.FirstOrDefault(p => p != CoreServices.PlayerStableId) ?? "AI",
+        Role = "assistant",
+        Content = response
+    });
+
+    return response;
+}
+```
+
+## 🎛️ 创建自定义AI官员
+
+### 1. 实现OfficerBase
+
+```csharp
+using RimAI.Core.Officers.Base;
+using RimAI.Core.Architecture.Models;
+
+namespace MyMod.Officers
+{
+    public class SecurityOfficer : OfficerBase
+    {
+        public override string Name => "安全官";
+        public override string Description => "负责殖民地安全防务和威胁分析";
+        public override OfficerRole Role => OfficerRole.Security;
+        public override string IconPath => "UI/Icons/Security";
+
+        protected override async Task<string> ExecuteAdviceRequest(CancellationToken cancellationToken)
+        {
+            var promptConfig = new PromptBuildConfig
+            {
+                CurrentParticipants = new List<string> { CoreServices.PlayerStableId, "SecurityOfficer" },
+                SystemPrompt = @"你是殖民地安全官，负责：
+1. 威胁评估和防御策略
+2. 武器装备管理
+3. 训练计划制定
+4. 紧急响应预案
+
+保持警惕、专业、注重安全。",
+                Scene = await BuildSecurityContext(),
+                HistoryLimit = 10
+            };
+
+            var payload = await CoreServices.PromptFactory.BuildStructuredPromptAsync(promptConfig);
+            
+            // 添加当前威胁分析
+            var threatAnalysis = await AnalyzeCurrentThreats();
+            payload.Messages.Add(new ChatMessage
+            {
+                Role = "user",
+                Content = $"当前威胁分析：\n{threatAnalysis}",
+                Name = "SecuritySystem"
+            });
+
+            var promptText = ConvertToPromptText(payload);
+            return await CoreServices.LLMService.SendMessageAsync(promptText, cancellationToken);
+        }
+
+        private async Task<SceneContext> BuildSecurityContext()
+        {
+            return new SceneContext
+            {
+                Situation = "例行安全评估",
+                Location = await GetDefensePositions(),
+                Participants = await GetSecurityPersonnel()
+            };
+        }
+
+        private async Task<string> AnalyzeCurrentThreats()
+        {
+            var threats = await CoreServices.SafeAccessService.GetThreatsAsync();
+            // 分析威胁逻辑
+            return "威胁分析报告...";
+        }
+    }
+}
+```
+
+### 2. 注册自定义官员
+
+```csharp
+// 在您的模组初始化中
+public class MyModInitializer
+{
+    public static void Initialize()
+    {
+        // 注册到服务容器
+        ServiceContainer.Instance.RegisterService<SecurityOfficer>(new SecurityOfficer());
+        ServiceContainer.Instance.RegisterService<IAIOfficer>(SecurityOfficer.Instance, "SecurityOfficer");
+        
+        Log.Message("[MyMod] SecurityOfficer registered successfully.");
     }
 }
 
-private async void ProcessMedicalRequest()
+// 在CoreServices中添加访问器（如果需要直接访问）
+public static class MyModServices
 {
-    var medicalOfficer = CoreServices.MedicalOfficer;
-    if (medicalOfficer?.IsAvailable == true)
+    public static SecurityOfficer SecurityOfficer => 
+        ServiceContainer.Instance.GetService<SecurityOfficer>();
+}
+```
+
+## 💾 持久化数据开发
+
+### 1. 实现IPersistable接口
+
+```csharp
+public class AITaskManager : IPersistable
+{
+    private List<string> _activeTasks = new List<string>();
+    private Dictionary<string, TaskProgress> _taskProgress = new Dictionary<string, TaskProgress>();
+
+    public AITaskManager()
     {
-        var advice = await medicalOfficer.ProvideAdviceAsync();
-        UpdateResponseText($"🏥 医疗官建议:\n\n{advice}");
+        // 在构造函数中自动注册到持久化服务
+        CoreServices.PersistenceService?.RegisterPersistable(this);
     }
+
+    public void ExposeData()
+    {
+        // 使用Scribe系统保存/加载数据
+        Scribe_Collections.Look(ref _activeTasks, "activeTasks", LookMode.Value);
+        Scribe_Collections.Look(ref _taskProgress, "taskProgress", LookMode.Value, LookMode.Deep);
+
+        // 加载后的初始化
+        if (Scribe.mode == LoadSaveMode.PostLoadInit)
+        {
+            _activeTasks ??= new List<string>();
+            _taskProgress ??= new Dictionary<string, TaskProgress>();
+        }
+    }
+
+    // 业务逻辑方法
+    public void AddTask(string taskId, string description)
+    {
+        if (!_activeTasks.Contains(taskId))
+        {
+            _activeTasks.Add(taskId);
+            _taskProgress[taskId] = new TaskProgress { Description = description, StartTime = DateTime.Now };
+        }
+    }
+}
+```
+
+### 2. 全局设置管理
+
+```csharp
+public static class ModGlobalSettings
+{
+    private const string SETTINGS_KEY = "MyMod_GlobalConfig";
+    
+    public static async Task<ModConfig> LoadConfigAsync()
+    {
+        var config = await CoreServices.PersistenceService.LoadGlobalSettingAsync<ModConfig>(SETTINGS_KEY);
+        return config ?? new ModConfig(); // 返回默认配置如果加载失败
+    }
+    
+    public static async Task SaveConfigAsync(ModConfig config)
+    {
+        await CoreServices.PersistenceService.SaveGlobalSettingAsync(SETTINGS_KEY, config);
+        Log.Message("[ModGlobalSettings] Configuration saved.");
+    }
+}
+
+public class ModConfig
+{
+    public string ApiEndpoint { get; set; } = "";
+    public bool EnableAdvancedFeatures { get; set; } = false;
+    public Dictionary<string, string> CustomSettings { get; set; } = new Dictionary<string, string>();
 }
 ```
 
 ## 🎨 UI开发最佳实践
 
 ### 1. 异步UI处理
-```csharp
-// ❌ 错误 - 会阻塞UI线程
-private void OnButtonClick()
-{
-    var result = aiService.GetAdvice().Result; // 危险！
-    UpdateUI(result);
-}
 
-// ✅ 正确 - 异步处理
-private async void OnButtonClick()
-{
-    try 
-    {
-        UpdateUI("正在处理...");
-        var result = await aiService.GetAdviceAsync();
-        UpdateUI(result);
-    }
-    catch (Exception ex)
-    {
-        UpdateUI($"处理失败: {ex.Message}");
-    }
-}
-```
-
-### 2. 响应式布局
 ```csharp
-public override void DoWindowContents(Rect inRect)
+public class MyAIWindow : Window
 {
-    var listing = new Listing_Standard();
-    listing.Begin(inRect);
-    
-    // 使用相对尺寸而非固定像素
-    var buttonHeight = 35f;
-    var spacing = 10f;
-    
-    if (listing.ButtonText("AI建议", buttonHeight))
-    {
-        ProcessAIRequest();
-    }
-    
-    listing.Gap(spacing);
-    
-    // 动态文本区域
-    var textRect = listing.GetRect(inRect.height - listing.CurHeight - 20f);
-    Widgets.TextArea(textRect, responseText, true);
-    
-    listing.End();
-}
-```
+    private string _responseText = "";
+    private bool _isProcessing = false;
 
-### 3. 状态管理
-```csharp
-public class UIState
-{
-    public bool IsProcessing { get; set; }
-    public string CurrentResponse { get; set; } = "";
-    public DateTime LastUpdate { get; set; }
-    
-    public void SetProcessing(bool processing)
+    public override void DoWindowContents(Rect inRect)
     {
-        IsProcessing = processing;
-        if (processing)
+        var listing = new Listing_Standard();
+        listing.Begin(inRect);
+
+        // 显示响应文本
+        var textRect = listing.GetRect(200f);
+        Widgets.TextArea(textRect, _responseText, true);
+
+        listing.Gap(10f);
+
+        // AI请求按钮
+        GUI.enabled = !_isProcessing && CoreServices.AreServicesReady();
+        if (listing.ButtonText(_isProcessing ? "处理中..." : "获取AI建议"))
         {
-            CurrentResponse = "正在处理中...";
-            LastUpdate = DateTime.Now;
+            HandleAIRequest();
+        }
+        GUI.enabled = true;
+
+        listing.End();
+    }
+
+    private async void HandleAIRequest()
+    {
+        if (_isProcessing) return;
+
+        _isProcessing = true;
+        _responseText = "正在思考中...";
+
+        try
+        {
+            var response = await CoreServices.Governor.ProvideAdviceAsync();
+            _responseText = response;
+        }
+        catch (Exception ex)
+        {
+            _responseText = $"请求失败: {ex.Message}";
+            Log.Error($"[MyAIWindow] AI请求失败: {ex}");
+        }
+        finally
+        {
+            _isProcessing = false;
         }
     }
 }
 ```
 
-## 🔧 服务开发模式
+### 2. 对话界面开发
 
-### 1. 创建自定义服务
 ```csharp
-// 定义接口
-public interface IWeatherService
+public class ConversationWindow : Window
 {
-    Task<WeatherInfo> GetCurrentWeatherAsync();
-    Task<WeatherForecast> GetForecastAsync(int days);
-}
+    private List<ChatMessage> _messages = new List<ChatMessage>();
+    private string _currentInput = "";
+    private Vector2 _scrollPosition;
 
-// 实现服务
-public class WeatherService : IWeatherService
-{
-    private static WeatherService _instance;
-    public static WeatherService Instance => _instance ??= new WeatherService();
-    
-    private readonly ICacheService _cache;
-    
-    private WeatherService()
+    public override void DoWindowContents(Rect inRect)
     {
-        _cache = CoreServices.CacheService;
-    }
-    
-    public async Task<WeatherInfo> GetCurrentWeatherAsync()
-    {
-        return await _cache.GetOrCreateAsync(
-            "current_weather",
-            async () => await CollectWeatherDataAsync(),
-            TimeSpan.FromMinutes(10)
-        );
-    }
-}
-```
+        // 聊天历史显示区域
+        var historyRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height - 60f);
+        DrawChatHistory(historyRect);
 
-### 2. 服务注册
-```csharp
-// 在ServiceContainer中注册
-RegisterInstance<IWeatherService>(WeatherService.Instance);
+        // 输入区域
+        var inputRect = new Rect(inRect.x, historyRect.yMax + 10f, inRect.width - 80f, 30f);
+        var sendRect = new Rect(inputRect.xMax + 10f, inputRect.y, 70f, 30f);
 
-// 在CoreServices中添加访问器
-public static IWeatherService Weather => 
-    ServiceContainer.Instance.GetService<IWeatherService>();
-```
-
-## 📊 数据分析集成
-
-### 1. 使用ColonyAnalyzer
-```csharp
-public class ResourceAnalyzer
-{
-    private readonly IColonyAnalyzer _analyzer;
-    
-    public ResourceAnalyzer()
-    {
-        _analyzer = CoreServices.Analyzer;
-    }
-    
-    public async Task<ResourceReport> AnalyzeResourcesAsync()
-    {
-        // 获取快速分析数据
-        var quickAnalysis = await _analyzer.GetQuickAnalysisAsync();
+        _currentInput = Widgets.TextField(inputRect, _currentInput);
         
-        // 基于快速分析构建详细报告
-        var report = new ResourceReport
+        if (Widgets.ButtonText(sendRect, "发送") && !string.IsNullOrWhiteSpace(_currentInput))
         {
-            OverallStatus = quickAnalysis.OverallRiskLevel,
-            CriticalShortages = ExtractCriticalItems(quickAnalysis),
-            // ... 更多分析逻辑
-        };
-        
-        return report;
-    }
-}
-```
-
-### 2. 自定义分析器
-```csharp
-public class ThreatAnalyzer
-{
-    public async Task<List<ThreatInfo>> AnalyzeThreatsAsync()
-    {
-        var threats = new List<ThreatInfo>();
-        
-        // 分析当前威胁
-        foreach (var incident in Find.World.worldObjects.Incidents)
-        {
-            var threat = new ThreatInfo
-            {
-                Type = incident.def.defName,
-                Level = CalculateThreatLevel(incident),
-                Description = incident.GetDescription(),
-                DetectedAt = DateTime.Now
-            };
-            threats.Add(threat);
-        }
-        
-        return threats;
-    }
-}
-```
-
-## 🎯 事件系统开发
-
-### 1. 创建自定义事件
-```csharp
-using RimAI.Core.Architecture.Interfaces;
-
-public class ResourceShortageEvent : IEvent
-{
-    public string Id { get; } = Guid.NewGuid().ToString();
-    public DateTime Timestamp { get; } = DateTime.Now;
-    public string EventType => "ResourceShortage";
-    
-    public string ResourceType { get; set; }
-    public float CurrentAmount { get; set; }
-    public float RequiredAmount { get; set; }
-    public ThreatLevel Severity { get; set; }
-    
-    public ResourceShortageEvent(string resourceType, float current, float required)
-    {
-        ResourceType = resourceType;
-        CurrentAmount = current;
-        RequiredAmount = required;
-        Severity = CalculateSeverity();
-    }
-}
-```
-
-### 2. 创建事件监听器
-```csharp
-public class ResourceShortageListener : IEventHandler<ResourceShortageEvent>
-{
-    public async Task HandleAsync(ResourceShortageEvent eventArgs)
-    {
-        Log.Warning($"[ResourceMonitor] 资源短缺警告: {eventArgs.ResourceType}");
-        
-        // 自动触发补充建议
-        if (eventArgs.Severity >= ThreatLevel.High)
-        {
-            var governor = CoreServices.Governor;
-            await governor?.HandleUserQueryAsync($"如何解决{eventArgs.ResourceType}短缺问题？");
-        }
-        
-        // 发送通知给UI
-        await CoreServices.EventBus.PublishAsync(new UINotificationEvent(
-            $"⚠️ {eventArgs.ResourceType}储量不足",
-            NotificationType.Warning
-        ));
-    }
-}
-```
-
-### 3. 事件发布和订阅
-```csharp
-// 注册监听器
-var eventBus = CoreServices.EventBus;
-eventBus.Subscribe<ResourceShortageEvent>(new ResourceShortageListener());
-
-// 发布事件
-await eventBus.PublishAsync(new ResourceShortageEvent("食物", 50f, 200f));
-```
-
-## 💾 持久化数据开发
-
-本框架提供了强大的 `PersistenceService` 来统一处理两种类型的持久化需求：与游戏存档绑定的数据和独立于存档的全局Mod设置。
-
-### 1. 随存档数据的持久化 (Per-Save Data)
-
-如果你需要某个服务或组件的数据（例如，AI的记忆、任务列表）与特定的游戏存档一起保存和加载，你需要实现 `IPersistable` 接口。
-
-**步骤 1: 实现 `IPersistable` 接口**
-
-```csharp
-using RimAI.Core.Architecture.Interfaces;
-using Verse;
-using System.Collections.Generic;
-
-public class AITaskManager : IPersistable
-{
-    private List<string> _activeTasks = new List<string>();
-    private Dictionary<string, string> _taskDetails = new Dictionary<string, string>();
-
-    public AITaskManager()
-    {
-        // 在构造函数中向服务注册自己，这是关键一步！
-        CoreServices.PersistenceService?.RegisterPersistable(this);
-    }
-    
-    // 实现接口的核心方法
-    public void ExposeData()
-    {
-        // 使用RimWorld原生的Scribe系统来读写你的数据
-        // Scribe系统会自动处理是保存还是加载
-        Scribe_Collections.Look(ref _activeTasks, "activeTasks", LookMode.Value);
-        Scribe_Collections.Look(ref _taskDetails, "taskDetails", LookMode.Value, LookMode.Value);
-
-        // 如果在加载时列表为空，进行初始化以避免null引用
-        if (Scribe.mode == LoadSaveMode.PostLoadInit)
-        {
-            _activeTasks ??= new List<string>();
-            _taskDetails ??= new Dictionary<string, string>();
+            SendMessage();
         }
     }
 
-    // 你的业务逻辑...
-    public void AddTask(string taskId, string description)
+    private void DrawChatHistory(Rect rect)
     {
-        if (!_activeTasks.Contains(taskId))
+        var viewRect = new Rect(0, 0, rect.width - 16f, _messages.Count * 40f);
+        
+        Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
+        
+        var y = 0f;
+        foreach (var message in _messages)
         {
-            _activeTasks.Add(taskId);
-            _taskDetails[taskId] = description;
+            var messageRect = new Rect(0, y, viewRect.width, 35f);
+            DrawMessage(messageRect, message);
+            y += 40f;
         }
-    }
-}
-```
-**工作原理**:
-- 当游戏保存或加载时，`RimAICoreGameComponent` 会调用 `PersistenceService.ExposeAllRegisteredData()`。
-- `PersistenceService` 会遍历所有通过 `RegisterPersistable` 注册过的对象（比如我们的 `AITaskManager` 实例），并调用它们的 `ExposeData()` 方法。
-- `Scribe` 系统接管后续工作，将数据写入存档或从存档中读出。
-
-### 2. 全局设置的持久化 (Global Data)
-
-对于不应随存档改变的全局设置（如API Key、UI主题等），可以直接使用 `PersistenceService` 的异步方法。
-
-```csharp
-public class ModGlobalConfig
-{
-    public string UserApiKey { get; set; }
-    public bool EnableAdvancedMode { get; set; } = false;
-}
-
-public static class ConfigManager
-{
-    private const string GlobalConfigKey = "RimAI_GlobalConfig";
-    public static ModGlobalConfig CurrentConfig { get; private set; }
-
-    public static async Task SaveConfigAsync()
-    {
-        if (CurrentConfig == null) return;
-        await CoreServices.PersistenceService.SaveGlobalSettingAsync(GlobalConfigKey, CurrentConfig);
-        Log.Message("[ConfigManager] Global config saved.");
+        
+        Widgets.EndScrollView();
     }
 
-    public static async Task LoadConfigAsync()
+    private void DrawMessage(Rect rect, ChatMessage message)
     {
-        CurrentConfig = await CoreServices.PersistenceService.LoadGlobalSettingAsync<ModGlobalConfig>(GlobalConfigKey);
+        var color = message.Role == "user" ? Color.cyan : Color.white;
+        GUI.color = color;
+        
+        var displayName = message.Name ?? (message.Role == "user" ? CoreServices.PlayerDisplayName : "AI");
+        Widgets.Label(rect, $"{displayName}: {message.Content}");
+        
+        GUI.color = Color.white;
+    }
 
-        // 如果没有加载到配置 (例如首次启动)，则创建一个新的默认配置
-        if (CurrentConfig == null)
+    private async void SendMessage()
+    {
+        var userMessage = _currentInput;
+        _currentInput = "";
+
+        // 添加用户消息到历史
+        _messages.Add(new ChatMessage 
+        { 
+            Role = "user", 
+            Content = userMessage, 
+            Name = CoreServices.PlayerDisplayName 
+        });
+
+        try
         {
-            CurrentConfig = new ModGlobalConfig();
-            Log.Message("[ConfigManager] No global config found, created a new default one.");
+            // 发送给AI并获取响应
+            var response = await CoreServices.Governor.HandleUserQueryAsync(userMessage);
+            
+            // 添加AI响应到历史
+            _messages.Add(new ChatMessage 
+            { 
+                Role = "assistant", 
+                Content = response, 
+                Name = "总督" 
+            });
         }
-        else
+        catch (Exception ex)
         {
-            Log.Message("[ConfigManager] Global config loaded.");
+            _messages.Add(new ChatMessage 
+            { 
+                Role = "system", 
+                Content = $"错误: {ex.Message}", 
+                Name = "系统" 
+            });
         }
-    }
-}
-```
-**注意**: 全局配置文件会保存在 RimWorld 配置文件夹下的 `RimAI.Core` 子目录中，通常是 `.../AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios/Config/RimAI.Core/`。
-
-
-## 🧪 测试开发
-
-### 1. 单元测试设置
-```csharp
-[TestClass]
-public class GovernorTests
-{
-    private Governor _governor;
-    private Mock<ILLMService> _mockLLMService;
-    
-    [TestInitialize]
-    public void Setup()
-    {
-        _mockLLMService = new Mock<ILLMService>();
-        _governor = new Governor();
-        // 注入Mock服务
-    }
-    
-    [TestMethod]
-    public async Task HandleUserQuery_ValidQuery_ReturnsResponse()
-    {
-        // Arrange
-        var query = "殖民地状况如何？";
-        var expectedResponse = "殖民地运行良好";
-        _mockLLMService.Setup(x => x.SendMessageAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                      .ReturnsAsync(expectedResponse);
-        
-        // Act
-        var result = await _governor.HandleUserQueryAsync(query);
-        
-        // Assert
-        Assert.AreEqual(expectedResponse, result);
-    }
-}
-```
-
-### 2. 集成测试
-```csharp
-[TestClass]
-public class ServiceIntegrationTests
-{
-    [TestMethod]
-    public void ServiceContainer_RegisterAndRetrieve_Success()
-    {
-        // Arrange
-        var container = ServiceContainer.Instance;
-        var testService = new TestService();
-        
-        // Act
-        container.RegisterInstance<ITestService>(testService);
-        var retrieved = container.GetService<ITestService>();
-        
-        // Assert
-        Assert.IsNotNull(retrieved);
-        Assert.AreSame(testService, retrieved);
     }
 }
 ```
 
 ## 🔍 调试和故障排除
 
-### 1. 常见问题诊断
+### 1. 服务状态诊断
+
 ```csharp
-public class DiagnosticTool
+public static class DiagnosticTool
 {
-    public static void RunDiagnostics()
+    public static void RunFullDiagnostics()
     {
-        Log.Message("=== RimAI 诊断开始 ===");
+        Log.Message("=== RimAI 完整诊断开始 ===");
         
-        // 检查服务状态
-        CheckServiceStatus();
+        CheckCoreServices();
+        CheckServiceContainer();
+        CheckHistoryService();
+        CheckPromptFactory();
+        CheckPersistence();
         
-        // 检查缓存状态
-        CheckCacheStatus();
-        
-        // 检查事件系统
-        CheckEventSystem();
-        
-        Log.Message("=== RimAI 诊断完成 ===");
+        Log.Message("=== RimAI 完整诊断完成 ===");
     }
-    
-    private static void CheckServiceStatus()
+
+    private static void CheckCoreServices()
     {
-        var services = new[]
-        {
-            ("Governor", CoreServices.Governor),
-            ("EventBus", CoreServices.EventBus),
-            ("Cache", CoreServices.CacheService),
-            ("LLM", CoreServices.LLMService)
-        };
+        Log.Message("--- 核心服务检查 ---");
         
-        foreach (var (name, service) in services)
+        var serviceChecks = new Dictionary<string, object>
         {
-            var status = service != null ? "✅" : "❌";
+            ["ServiceContainer"] = ServiceContainer.Instance,
+            ["Governor"] = CoreServices.Governor,
+            ["LLMService"] = CoreServices.LLMService,
+            ["History"] = CoreServices.History,
+            ["PromptFactory"] = CoreServices.PromptFactory,
+            ["PersistenceService"] = CoreServices.PersistenceService,
+            ["CacheService"] = CoreServices.CacheService,
+            ["EventBus"] = CoreServices.EventBus,
+            ["SafeAccessService"] = CoreServices.SafeAccessService,
+            ["Analyzer"] = CoreServices.Analyzer
+        };
+
+        foreach (var (name, service) in serviceChecks)
+        {
+            var status = service != null ? "✅ 就绪" : "❌ 未就绪";
             Log.Message($"[诊断] {name}: {status}");
+        }
+
+        var overallStatus = CoreServices.AreServicesReady() ? "✅ 所有服务就绪" : "❌ 部分服务未就绪";
+        Log.Message($"[诊断] 整体状态: {overallStatus}");
+    }
+
+    private static void CheckHistoryService()
+    {
+        Log.Message("--- 历史服务检查 ---");
+        
+        try
+        {
+            var history = CoreServices.History;
+            if (history == null)
+            {
+                Log.Warning("[诊断] HistoryService 未初始化");
+                return;
+            }
+
+            // 创建测试对话
+            var testParticipants = new List<string> { "TestUser1", "TestUser2" };
+            var conversationId = history.StartOrGetConversation(testParticipants);
+            
+            if (!string.IsNullOrEmpty(conversationId))
+            {
+                Log.Message($"[诊断] HistoryService 功能正常，测试对话ID: {conversationId}");
+            }
+            else
+            {
+                Log.Warning("[诊断] HistoryService 无法创建对话");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[诊断] HistoryService 错误: {ex.Message}");
         }
     }
 }
 ```
 
 ### 2. 性能监控
+
 ```csharp
-public class PerformanceMonitor
+public static class PerformanceMonitor
 {
-    private static readonly Dictionary<string, List<long>> _timings = new();
-    
+    private static readonly Dictionary<string, List<long>> _timings = new Dictionary<string, List<long>>();
+
     public static async Task<T> MeasureAsync<T>(string operation, Func<Task<T>> func)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            var result = await func();
-            return result;
+            return await func();
         }
         finally
         {
@@ -593,146 +901,75 @@ public class PerformanceMonitor
             RecordTiming(operation, stopwatch.ElapsedMilliseconds);
         }
     }
-    
+
     private static void RecordTiming(string operation, long milliseconds)
     {
         if (!_timings.ContainsKey(operation))
             _timings[operation] = new List<long>();
-        
+
         _timings[operation].Add(milliseconds);
-        
+
+        // 每10次操作报告一次平均性能
         if (_timings[operation].Count % 10 == 0)
         {
             var avg = _timings[operation].Average();
-            Log.Message($"[性能] {operation} 平均耗时: {avg:F2}ms");
+            var max = _timings[operation].Max();
+            var min = _timings[operation].Min();
+            
+            Log.Message($"[性能] {operation} - 平均: {avg:F1}ms, 最大: {max}ms, 最小: {min}ms");
+        }
+    }
+
+    public static void LogPerformanceReport()
+    {
+        Log.Message("=== 性能报告 ===");
+        foreach (var (operation, timings) in _timings)
+        {
+            if (timings.Count > 0)
+            {
+                var avg = timings.Average();
+                var total = timings.Count;
+                Log.Message($"{operation}: {total}次调用, 平均{avg:F1}ms");
+            }
         }
     }
 }
-```
 
-## 📝 代码规范
-
-### 1. RimWorld API 访问最佳实践
-```csharp
-// ✅ 正确：使用SafeAccessService访问RimWorld集合
-var colonists = await CoreServices.SafeAccess.GetColonistsSafeAsync(map);
-var resources = await CoreServices.SafeAccess.GetResourcesSafeAsync(map, "食物");
-
-// ❌ 错误：直接访问RimWorld集合（可能引发InvalidOperationException）
-var colonists = map.mapPawns.FreeColonists; // 并发修改异常风险
-var things = map.listerThings.ThingsOfDef(def); // 枚举操作异常风险
-
-// ✅ 正确：使用安全操作处理Pawn集合
-await CoreServices.SafeAccess.SafePawnOperationAsync(colonists, async pawn =>
+// 使用示例
+public async Task<string> MonitoredAICall(string query)
 {
-    var health = pawn.health.summaryHealth.SummaryHealthPercent;
-    await ProcessPawnHealthAsync(pawn, health);
-});
-
-// ✅ 正确：批量处理操作
-var healthData = await CoreServices.SafeAccess.BatchProcessPawnsAsync(
-    colonists,
-    pawn => pawn.health.summaryHealth.SummaryHealthPercent,
-    maxBatchSize: 10
-);
-```
-
-### 2. 命名约定
-```csharp
-// 类名: PascalCase
-public class ResourceManager
-
-// 方法名: PascalCase + Async后缀(如果是异步)
-public async Task<string> GetResourceDataAsync()
-
-// 属性名: PascalCase
-public string ResourceName { get; set; }
-
-// 私有字段: _camelCase
-private readonly IService _service;
-
-// 常量: UPPER_CASE
-private const int MAX_RETRIES = 3;
-```
-
-### 2. 注释规范
-```csharp
-/// <summary>
-/// 获取资源状态的异步方法
-/// </summary>
-/// <param name="resourceType">资源类型</param>
-/// <param name="cancellationToken">取消令牌</param>
-/// <returns>资源状态信息</returns>
-/// <exception cref="ArgumentNullException">当resourceType为null时抛出</exception>
-public async Task<ResourceStatus> GetResourceStatusAsync(
-    string resourceType, 
-    CancellationToken cancellationToken = default)
-{
-    // 方法实现...
+    return await PerformanceMonitor.MeasureAsync("AI调用", async () =>
+    {
+        return await CoreServices.Governor.HandleUserQueryAsync(query);
+    });
 }
 ```
 
-### 3. 错误处理规范
-```csharp
-public async Task<string> ProcessRequestAsync(string input)
-{
-    try
-    {
-        // 输入验证
-        if (string.IsNullOrEmpty(input))
-            throw new ArgumentException("输入不能为空", nameof(input));
-        
-        // 使用SafeAccessService的内置重试机制
-        var result = await CoreServices.SafeAccess.SafeMapOperationAsync(
-            map => ProcessMapLogicAsync(map, input),
-            maxRetries: 3
-        );
-        return result;
-    }
-    catch (ArgumentException ex)
-    {
-        Log.Warning($"[ProcessRequest] 输入参数错误: {ex.Message}");
-        throw; // 重新抛出验证错误
-    }
-    catch (SafeAccessException ex)
-    {
-        Log.Error($"[ProcessRequest] RimWorld API访问失败: {ex.Message}");
-        return GetSafeAccessErrorResponse();
-    }
-    catch (Exception ex)
-    {
-        Log.Error($"[ProcessRequest] 处理请求时发生错误: {ex.Message}");
-        return GetDefaultErrorResponse();
-    }
-}
+## 📋 最佳实践总结
 
-// 自定义安全访问异常处理
-private string GetSafeAccessErrorResponse()
-{
-    return "由于游戏状态变化，当前操作无法完成。请稍后重试。";
-}
-```
+### ✅ 应该做的
+- 始终通过 `CoreServices` 门面访问服务
+- 在使用AI功能前检查 `CoreServices.AreServicesReady()`
+- 使用 `PromptBuildConfig` 构建结构化提示词
+- 实现 `IPersistable` 接口来持久化重要数据
+- 使用 `PlayerStableId` 进行数据关联，`PlayerDisplayName` 进行UI显示
+- 在异步方法中正确处理异常和取消令牌
+- 使用 `SafeAccessService` 安全访问RimWorld API
 
-## 🚀 部署和发布
+### ❌ 避免做的
+- 使用已废弃的 `.Instance` 静态属性
+- 直接拼接字符串构建提示词
+- 在UI线程中进行同步的AI调用
+- 忽略服务就绪状态检查
+- 直接访问RimWorld集合而不使用SafeAccessService
+- 混用稳定ID和显示名称
 
-### 1. 构建配置
-```xml
-<!-- Release配置 -->
-<PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <DefineConstants>TRACE</DefineConstants>
-</PropertyGroup>
-```
-
-### 2. 发布检查清单
-- [ ] 所有单元测试通过
-- [ ] 集成测试验证
-- [ ] 性能测试通过
-- [ ] 内存泄漏检查
-- [ ] 异常处理覆盖
-- [ ] 日志级别设置正确
-- [ ] 文档更新完成
+### 🛡️ 错误处理原则
+- 每个AI调用都应该包装在try-catch中
+- 为用户提供有意义的错误信息
+- 记录详细的错误日志用于调试
+- 在服务不可用时提供降级方案
 
 ---
-*👨‍💻 遵循这个开发指南，你将能够高效地开发出高质量的RimAI组件和功能！*
+
+*🚀 遵循这个开发指南，您将能够充分利用RimAI的新架构，创建强大、可靠的AI功能模块！*

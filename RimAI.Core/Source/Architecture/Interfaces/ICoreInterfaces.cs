@@ -49,14 +49,11 @@ namespace RimAI.Core.Architecture.Interfaces
         string Description { get; }
         string IconPath { get; }
         OfficerRole Role { get; }
-        
-        Task<string> GetAdviceAsync(CancellationToken cancellationToken = default);
-        Task<T> GetStructuredAdviceAsync<T>(CancellationToken cancellationToken = default) where T : class;
-        Task<string> GetStreamingAdviceAsync(Action<string> onPartialResponse, CancellationToken cancellationToken = default);
-        
         bool IsAvailable { get; }
-        string GetStatusInfo();
+
+        Task<string> ProvideAdviceAsync(CancellationToken cancellationToken = default);
         void CancelCurrentOperation();
+        string GetStatus();
     }
 
     /// <summary>

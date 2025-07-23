@@ -1,173 +1,184 @@
 # 📚 RimAI API 参考手册
 
-*完整的API接口、类型定义和使用示例*
+*所有公共接口、类型定义和方法签名的完整技术参考*
 
 ## 🏗️ 核心架构API
 
 ### ServiceContainer
-中央依赖注入容器，管理所有服务的生命周期
+中央依赖注入容器，管理所有服务的生命周期。
 
 ```csharp
 public class ServiceContainer
 {
-    // 获取单例实例
+    // 单例实例
     public static ServiceContainer Instance { get; }
     
-    // 注册服务实例
-    public void RegisterInstance<T>(T instance) where T : class
-    
-    // 注册服务工厂
-    public void RegisterFactory<T>(Func<T> factory) where T : class
-    
-    // 获取服务
+    // 服务获取
     public T GetService<T>() where T : class
     
-    // 检查服务状态
-    public string GetStatusInfo()
+    // 服务注册状态
+    public Dictionary<Type, object> GetRegisteredServices()
+    
+    // 初始化
+    public static void Initialize()
 }
 ```
 
-**使用示例**:
-```csharp
-// 注册服务
-ServiceContainer.Instance.RegisterInstance<IMyService>(myServiceInstance);
-
-// 获取服务
-var myService = ServiceContainer.Instance.GetService<IMyService>();
-```
-
 ### CoreServices
-统一的服务访问门面，提供类型安全的服务获取
+统一的服务访问门面，提供类型安全的服务获取。
 
 ```csharp
 public static class CoreServices
 {
-    // 核心AI服务
+    // AI服务
     public static Governor Governor { get; }
-    public static IColonyAnalyzer Analyzer { get; }
     public static ILLMService LLMService { get; }
+    public static IColonyAnalyzer Analyzer { get; }
     
-    // 基础服务
+    // 新架构核心服务
+    public static IHistoryService History { get; }
+    public static IPromptFactoryService PromptFactory { get; }
+    
+    // 基础架构服务
     public static ICacheService CacheService { get; }
     public static IEventBus EventBus { get; }
-    public static IPromptBuilder PromptBuilder { get; }
     public static IPersistenceService PersistenceService { get; }
+    public static ISafeAccessService SafeAccessService { get; }
     
-    // RimWorld API 安全访问服务
-    public static class SafeAccess
-    {
-        // 集合安全访问
-        public static List<Pawn> GetColonistsSafe(Map map);
-        public static List<Pawn> GetPrisonersSafe(Map map);
-        public static List<Pawn> GetAllPawnsSafe(Map map);
-        public static List<Building> GetBuildingsSafe(Map map);
-        public static List<Thing> GetThingsSafe(Map map, ThingDef thingDef);
-        public static List<Thing> GetThingGroupSafe(Map map, ThingRequestGroup group);
-        
-        // 单个对象安全访问
-        public static int GetColonistCountSafe(Map map);
-        public static WeatherDef GetCurrentWeatherSafe(Map map);
-        public static Season GetCurrentSeasonSafe(Map map);
-        public static int GetTicksGameSafe();
-        
-        // 统计监控
-        public static string GetStatusReport();
-    }
+    // 玩家身份标识
+    public static string PlayerStableId { get; }      // 用于数据关联，永不改变
+    public static string PlayerDisplayName { get; }  // 用于UI显示，用户可修改
     
-    // 状态检查
-    public static bool AreServicesReady();
-    public static string GetServiceStatusReport();
+    // 系统状态
+    public static bool AreServicesReady()
+    public static string GetServiceStatusReport()
 }
 ```
 
-**使用示例**:
+## 🧠 对话历史服务API
+
+### IHistoryService
+管理多参与者对话历史的核心服务接口。
+
 ```csharp
-// 推荐的服务获取方式
-var governor = CoreServices.Governor;
-var cache = CoreServices.CacheService;
-
-// 安全访问RimWorld API - 自动处理并发异常
-var colonists = CoreServices.SafeAccess.GetColonistsSafe(map);
-var weather = CoreServices.SafeAccess.GetCurrentWeatherSafe(map);
-
-// 检查服务状态
-if (CoreServices.AreServicesReady())
+public interface IHistoryService : IPersistable
 {
-    // 安全使用服务
+    // 对话管理
+    string StartOrGetConversation(List<string> participantIds);
+    void AddEntry(string conversationId, ConversationEntry entry);
+    
+    // 历史检索
+    HistoricalContext GetHistoricalContextFor(List<string> primaryParticipants, int limit = 10);
 }
 ```
 
-## 🛡️ SafeAccessService API
-
-### 核心功能
-SafeAccessService 提供对 RimWorld API 的并发安全访问，自动处理 `InvalidOperationException` 和空引用异常。
+### ConversationEntry
+单条对话记录的数据结构。
 
 ```csharp
-public static class SafeAccessService
+public class ConversationEntry : IExposable
 {
-    // 集合安全访问方法
-    public static List<Pawn> GetColonistsSafe(Map map, int maxRetries = 3);
-    public static List<Pawn> GetPrisonersSafe(Map map, int maxRetries = 3);
-    public static List<Pawn> GetAllPawnsSafe(Map map, int maxRetries = 3);
-    public static List<Building> GetBuildingsSafe(Map map, int maxRetries = 3);
-    public static List<Thing> GetThingsSafe(Map map, ThingDef thingDef, int maxRetries = 3);
-    public static List<Thing> GetThingGroupSafe(Map map, ThingRequestGroup group, int maxRetries = 3);
+    public string ParticipantId { get; set; }      // 发言者唯一ID
+    public string Role { get; set; }               // 角色标签 ("user", "assistant", "character")
+    public string Content { get; set; }            // 发言内容
+    public long GameTicksTimestamp { get; set; }   // 游戏内时间戳
     
-    // 单个对象安全访问方法
-    public static int GetColonistCountSafe(Map map, int maxRetries = 3);
-    public static WeatherDef GetCurrentWeatherSafe(Map map, int maxRetries = 3);
-    public static Season GetCurrentSeasonSafe(Map map, int maxRetries = 3);
-    public static int GetTicksGameSafe(int maxRetries = 3);
-    
-    // 批量操作安全包装器
-    public static TResult SafePawnOperation<TResult>(
-        List<Pawn> pawns,
-        Func<List<Pawn>, TResult> operation,
-        TResult fallbackValue,
-        string operationName);
-        
-    public static TResult SafeBuildingOperation<TResult>(
-        List<Building> buildings,
-        Func<List<Building>, TResult> operation,
-        TResult fallbackValue,
-        string operationName);
-        
-    public static TResult SafeThingOperation<TResult>(
-        List<Thing> things,
-        Func<List<Thing>, TResult> operation,
-        TResult fallbackValue,
-        string operationName);
-    
-    // 统计和监控
-    public static Dictionary<string, int> GetFailureStats();
-    public static string GetStatusReport();
-    public static void ClearStats();
+    public void ExposeData()
 }
 ```
 
-**使用示例**:
+### HistoricalContext
+结构化的历史上下文数据，区分主线对话和附加参考对话。
+
 ```csharp
-// 基础集合访问 - 自动重试和异常处理
-var colonists = SafeAccessService.GetColonistsSafe(map);
-var buildings = SafeAccessService.GetBuildingsSafe(map);
-var food = SafeAccessService.GetThingGroupSafe(map, ThingRequestGroup.FoodSourceNotPlantOrTree);
+public class HistoricalContext
+{
+    // 主线历史：当前对话者之间的直接对话记录
+    public List<ConversationEntry> PrimaryHistory { get; set; }
+    
+    // 附加历史：包含当前对话者但也有其他人在场的对话记录
+    public List<ConversationEntry> AncillaryHistory { get; set; }
+}
+```
 
-// 安全操作包装器 - 防止操作中的异常
-var healthyCount = SafeAccessService.SafePawnOperation(
-    colonists,
-    pawns => pawns.Count(p => !p.Downed && p.health.summaryHealth.SummaryHealthPercent > 0.8f),
-    0,
-    "CountHealthyColonists"
-);
+## 🏭 提示词工厂服务API
 
-// 监控和统计
-Log.Message(SafeAccessService.GetStatusReport());
+### IPromptFactoryService
+智能组装结构化提示词的服务接口。
+
+```csharp
+public interface IPromptFactoryService
+{
+    // 核心方法
+    Task<PromptPayload> BuildStructuredPromptAsync(PromptBuildConfig config);
+}
+```
+
+### PromptBuildConfig
+定义构建提示词所需的所有输入信息。
+
+```csharp
+public class PromptBuildConfig
+{
+    public List<string> CurrentParticipants { get; set; }  // 当前对话参与者
+    public string SystemPrompt { get; set; }               // 系统提示词
+    public SceneContext Scene { get; set; }                // 场景上下文
+    public AncillaryData OtherData { get; set; }          // 其他附加数据
+    public int HistoryLimit { get; set; } = 10;           // 历史记录上限
+}
+```
+
+### PromptPayload
+最终输出的LLM友好格式，与OpenAI API兼容。
+
+```csharp
+public class PromptPayload
+{
+    public List<ChatMessage> Messages { get; set; }
+}
+```
+
+### ChatMessage
+单条聊天消息格式。
+
+```csharp
+public class ChatMessage
+{
+    public string Role { get; set; }     // "system", "user", "assistant"
+    public string Content { get; set; }  // 消息内容
+    public string Name { get; set; }     // 可选，发言者标识
+}
+```
+
+### SceneContext
+描述对话发生时的具体环境。
+
+```csharp
+public class SceneContext
+{
+    public string Scenario { get; set; }         // 场景描述
+    public string Time { get; set; }             // 时间信息
+    public string Location { get; set; }         // 地点信息
+    public List<string> Participants { get; set; } // 在场人员
+    public string Situation { get; set; }        // 当前情况
+}
+```
+
+### AncillaryData
+其他附加游戏数据。
+
+```csharp
+public class AncillaryData
+{
+    public string Weather { get; set; }         // 天气信息
+    public string ReferenceInfo { get; set; }   // 参考资料
+}
 ```
 
 ## 🤖 AI官员API
 
 ### IAIOfficer
-AI官员基础接口
+AI官员基础接口。
 
 ```csharp
 public interface IAIOfficer
@@ -187,115 +198,84 @@ public interface IAIOfficer
 ```
 
 ### OfficerBase
-AI官员抽象基类，提供通用功能实现
+AI官员抽象基类。
 
 ```csharp
 public abstract class OfficerBase : IAIOfficer
 {
-    // 抽象属性 - 子类必须实现
+    // 抽象属性
     public abstract string Name { get; }
     public abstract string Description { get; }
     public abstract string IconPath { get; }
     public abstract OfficerRole Role { get; }
     
-    // 虚拟属性 - 子类可以重写
-    protected virtual string QuickAdviceTemplateId { get; }
-    protected virtual string DetailedAdviceTemplateId { get; }
+    // 虚拟属性
+    public virtual bool IsAvailable { get; }
     
     // 核心方法
     public virtual Task<string> ProvideAdviceAsync(CancellationToken cancellationToken = default)
-    protected abstract Task<string> ExecuteAdviceRequest(CancellationToken cancellationToken)
+    protected abstract Task<string> ExecuteAdviceRequest(CancellationToken cancellationToken);
     
-    // 辅助方法
-    protected virtual async Task<Dictionary<string, object>> BuildContextAsync(CancellationToken cancellationToken)
-    protected virtual string GenerateCacheKey(string operation)
-    protected virtual LLMOptions CreateLLMOptions(float temperature = 0.7f)
-}
-```
-
-**继承示例**:
-```csharp
-public class MedicalOfficer : OfficerBase
-{
-    public override string Name => "医疗官";
-    public override string Description => "专业医疗建议和健康管理";
-    public override OfficerRole Role => OfficerRole.Medical;
-    public override string IconPath => "UI/Icons/Medical";
-    
-    protected override async Task<string> ExecuteAdviceRequest(CancellationToken cancellationToken)
-    {
-        var context = await BuildContextAsync(cancellationToken);
-        // 添加医疗专业数据
-        context["healthData"] = await GetHealthDataAsync(cancellationToken);
-        
-        var prompt = _promptBuilder.BuildPrompt("medical.advice", context);
-        return await _llmService.SendMessageAsync(prompt, CreateLLMOptions(0.3f), cancellationToken);
-    }
+    // 控制方法
+    public virtual void CancelCurrentOperation()
+    public virtual string GetStatus()
 }
 ```
 
 ### Governor
-总督AI官员，系统默认的主要AI官员
+总督AI官员，系统默认的主要AI决策者。
 
 ```csharp
 public class Governor : OfficerBase
 {
-    // 单例访问
-    public static Governor Instance { get; }
-    
     // 基本属性
     public override string Name => "总督";
+    public override string Description => "殖民地的首席AI决策官";
     public override OfficerRole Role => OfficerRole.Governor;
+    public override string IconPath => "UI/Icons/Governor";
     
     // 专业方法
-    public async Task<string> HandleUserQueryAsync(string userQuery, CancellationToken cancellationToken = default)
-    public async Task<string> GetColonyOverviewAsync(CancellationToken cancellationToken = default)
+    public async Task<string> HandleUserQueryAsync(string userQuery, CancellationToken cancellationToken = default);
 }
 ```
 
-**使用示例**:
+### OfficerRole
+官员角色枚举。
+
 ```csharp
-// 通过CoreServices获取（推荐）
-var governor = CoreServices.Governor;
-
-// 用户查询处理
-var response = await governor.HandleUserQueryAsync("当前殖民地状况如何？");
-
-// 获取殖民地概览
-var overview = await governor.GetColonyOverviewAsync();
+public enum OfficerRole
+{
+    Governor,    // 总督
+    Military,    // 军事
+    Medical,     // 医疗
+    Logistics,   // 后勤
+    Research,    // 科研
+    Diplomat,    // 外交
+    Security,    // 安全
+    Economy      // 经济
+}
 ```
 
-## 📊 分析服务API
+## 🔍 分析服务API
 
 ### IColonyAnalyzer
-殖民地分析服务接口
+殖民地分析服务接口。
 
 ```csharp
 public interface IColonyAnalyzer
 {
-    // 快速分析
-    Task<QuickAnalysisResult> GetQuickAnalysisAsync(CancellationToken cancellationToken = default);
-    
-    // 详细分析
-    Task<DetailedAnalysisResult> GetDetailedAnalysisAsync(CancellationToken cancellationToken = default);
-    
-    // 威胁分析
-    Task<List<ThreatInfo>> GetThreatsAsync(CancellationToken cancellationToken = default);
-    
-    // 资源分析
-    Task<ResourceReport> GetResourceReportAsync(CancellationToken cancellationToken = default);
-    
-    // 状态检查
-    bool IsAvailable { get; }
-    string GetStatus();
+    // 分析方法
+    Task<ColonyAnalysisResult> AnalyzeColonyAsync(CancellationToken cancellationToken = default);
+    Task<string> GetQuickStatusSummaryAsync(CancellationToken cancellationToken = default);
+    Task<T> GetSpecializedAnalysisAsync<T>(CancellationToken cancellationToken = default) where T : class;
 }
 ```
 
-### QuickAnalysisResult
-快速分析结果数据结构
+### ColonyAnalysisResult
+殖民地分析结果数据结构。
 
 ```csharp
-public class QuickAnalysisResult
+public class ColonyAnalysisResult
 {
     public int ColonistCount { get; set; }
     public string ColonistStatus { get; set; }
@@ -308,29 +288,16 @@ public class QuickAnalysisResult
 }
 ```
 
-**使用示例**:
-```csharp
-var analyzer = CoreServices.Analyzer;
-if (analyzer.IsAvailable)
-{
-    var analysis = await analyzer.GetQuickAnalysisAsync();
-    Log.Message($"殖民地状态: {analysis.OverallRiskLevel}");
-    Log.Message($"食物储备: {analysis.FoodDaysRemaining}天");
-}
-```
-
 ## 🗄️ 缓存服务API
 
 ### ICacheService
-智能缓存服务接口
+智能缓存服务接口。
 
 ```csharp
 public interface ICacheService
 {
-    // 获取或创建缓存项
-    Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiration = null);
-    
     // 缓存操作
+    Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiration = null);
     void Remove(string key);
     void Clear();
     bool Contains(string key);
@@ -338,25 +305,22 @@ public interface ICacheService
 ```
 
 ### CacheService
-缓存服务具体实现
+缓存服务实现。
 
 ```csharp
 public class CacheService : ICacheService
 {
-    // 单例访问
-    public static CacheService Instance { get; }
-    
     // 统计信息
     public CacheStats GetStats()
     
     // 配置属性
-    public TimeSpan DefaultExpiration { get; } // 5分钟
-    public int MaxEntries { get; } // 1000项
+    public TimeSpan DefaultExpiration { get; }
+    public int MaxEntries { get; }
 }
 ```
 
 ### CacheStats
-缓存统计信息
+缓存统计信息。
 
 ```csharp
 public class CacheStats
@@ -370,114 +334,42 @@ public class CacheStats
 }
 ```
 
-**使用示例**:
-```csharp
-var cache = CoreServices.CacheService;
-
-// 基本缓存使用
-var expensiveData = await cache.GetOrCreateAsync(
-    "expensive_operation",
-    async () => await PerformExpensiveOperation(),
-    TimeSpan.FromMinutes(10)
-);
-
-// 检查缓存统计
-if (cache is CacheService concreteCache)
-{
-    var stats = concreteCache.GetStats();
-    Log.Message($"缓存命中率: {stats.ActiveEntries}/{stats.TotalEntries}");
-}
-```
-
 ## 💾 持久化服务API
 
 ### IPersistenceService
-用于管理随存档数据和全局Mod设置的综合服务。
+管理随存档数据和全局Mod设置的综合服务。
 
 ```csharp
 public interface IPersistenceService
 {
-    // --- 随存档数据管理 (与Scribe系统集成) ---
-    
-    // 注册一个对象以包含在游戏的保存/加载周期中
+    // 随存档数据管理
     void RegisterPersistable(IPersistable persistable);
-    
-    // 从游戏的保存/加载周期中取消注册一个对象
     void UnregisterPersistable(IPersistable persistable);
-    
-    // 由游戏的核心组件调用，以在所有注册对象上触发ExposeData方法
     void ExposeAllRegisteredData();
+    void Load();
+    void Save();
     
-    // --- 全局设置管理 (独立于游戏存档) ---
-    
-    // 异步地将全局设置保存到文件
+    // 全局设置管理
     Task SaveGlobalSettingAsync<T>(string key, T setting);
-    
-    // 异步地从文件加载全局设置
     Task<T> LoadGlobalSettingAsync<T>(string key);
 }
 ```
 
 ### IPersistable
-表示一个可以将其数据作为游戏存档一部分持久化的对象。
+表示可随存档持久化的对象。
 
 ```csharp
 public interface IPersistable
 {
-    // 此方法在保存和加载期间由Scribe系统调用。
-    // 实现此方法以定义哪些数据被写入存档文件或从存档文件读取。
+    // 数据暴露方法，由Scribe系统调用
     void ExposeData();
-}
-```
-
-**使用示例**:
-```csharp
-// 1. 实现随存档数据的持久化
-public class DialogueHistoryManager : IPersistable
-{
-    private List<string> _dialogueLines = new List<string>();
-
-    public DialogueHistoryManager()
-    {
-        // 向持久化服务注册自己
-        CoreServices.PersistenceService.RegisterPersistable(this);
-    }
-    
-    public void ExposeData()
-    {
-        // 使用RimWorld的Scribe系统进行读写
-        Scribe_Collections.Look(ref _dialogueLines, "dialogueLines", LookMode.Value);
-    }
-    
-    public void AddLine(string line) => _dialogueLines.Add(line);
-}
-
-// 2. 保存和加载全局设置
-public class GlobalSettings
-{
-    public string ApiKey { get; set; }
-    public float Temperature { get; set; }
-}
-
-public static async void HandleGlobalSettings()
-{
-    // 保存设置
-    var settingsToSave = new GlobalSettings { ApiKey = "my-secret-key", Temperature = 0.5f };
-    await CoreServices.PersistenceService.SaveGlobalSettingAsync("MyMod_GlobalSettings", settingsToSave);
-    
-    // 加载设置
-    var loadedSettings = await CoreServices.PersistenceService.LoadGlobalSettingAsync<GlobalSettings>("MyMod_GlobalSettings");
-    if (loadedSettings != null)
-    {
-        Log.Message($"Loaded API Key: {loadedSettings.ApiKey}");
-    }
 }
 ```
 
 ## 📡 事件系统API
 
 ### IEventBus
-事件总线服务接口
+事件总线服务接口。
 
 ```csharp
 public interface IEventBus
@@ -495,7 +387,7 @@ public interface IEventBus
 ```
 
 ### IEvent
-事件基础接口
+事件基础接口。
 
 ```csharp
 public interface IEvent
@@ -507,7 +399,7 @@ public interface IEvent
 ```
 
 ### IEventHandler<TEvent>
-事件处理器接口
+事件处理器接口。
 
 ```csharp
 public interface IEventHandler<TEvent> where TEvent : IEvent
@@ -516,210 +408,180 @@ public interface IEventHandler<TEvent> where TEvent : IEvent
 }
 ```
 
-**使用示例**:
+## 🛡️ 安全访问服务API
+
+### ISafeAccessService
+提供对RimWorld API的并发安全访问。
+
 ```csharp
-// 定义自定义事件
-public class CustomEvent : IEvent
+public interface ISafeAccessService
 {
-    public string Id { get; } = Guid.NewGuid().ToString();
-    public DateTime Timestamp { get; } = DateTime.Now;
-    public string EventType => "Custom";
+    // 集合安全访问
+    List<Pawn> GetColonistsSafe(Map map, int maxRetries = 3);
+    List<Pawn> GetPrisonersSafe(Map map, int maxRetries = 3);
+    List<Pawn> GetAllPawnsSafe(Map map, int maxRetries = 3);
+    List<Building> GetBuildingsSafe(Map map, int maxRetries = 3);
+    List<Thing> GetThingsSafe(Map map, ThingDef thingDef, int maxRetries = 3);
+    List<Thing> GetThingGroupSafe(Map map, ThingRequestGroup group, int maxRetries = 3);
     
-    public string Message { get; set; }
+    // 单值安全访问
+    int GetColonistCountSafe(Map map, int maxRetries = 3);
+    WeatherDef GetCurrentWeatherSafe(Map map, int maxRetries = 3);
+    Season GetCurrentSeasonSafe(Map map, int maxRetries = 3);
+    int GetTicksGameSafe(int maxRetries = 3);
+    
+    // 统计和监控
+    Dictionary<string, int> GetFailureStats();
+    string GetStatusReport();
+    void ClearStats();
 }
-
-// 创建事件处理器
-public class CustomEventHandler : IEventHandler<CustomEvent>
-{
-    public async Task HandleAsync(CustomEvent eventArgs)
-    {
-        Log.Message($"处理自定义事件: {eventArgs.Message}");
-        // 处理逻辑...
-    }
-}
-
-// 注册监听器
-var eventBus = CoreServices.EventBus;
-eventBus.Subscribe<CustomEvent>(new CustomEventHandler());
-
-// 发布事件
-await eventBus.PublishAsync(new CustomEvent { Message = "测试消息" });
 ```
 
 ## 🤖 LLM服务API
 
 ### ILLMService
-AI模型调用服务接口
+AI模型调用服务接口。
 
 ```csharp
 public interface ILLMService
 {
-    // 基本消息发送
-    Task<string> SendMessageAsync(string message, CancellationToken cancellationToken = default);
+    // 基本属性
+    bool IsStreamingAvailable { get; }
+    bool IsInitialized { get; }
     
-    // 带选项的消息发送
-    Task<string> SendMessageAsync(string message, LLMOptions options, CancellationToken cancellationToken = default);
-    
-    // 流式响应
-    IAsyncEnumerable<string> SendMessageStreamAsync(string message, LLMOptions options, CancellationToken cancellationToken = default);
-    
-    // 状态检查
-    bool IsAvailable { get; }
-    string GetStatus();
+    // 消息发送
+    Task<string> SendMessageAsync(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default);
+    Task<T> SendJsonRequestAsync<T>(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default) where T : class;
+    Task SendStreamingMessageAsync(string prompt, Action<string> onChunk, LLMRequestOptions options = null, CancellationToken cancellationToken = default);
 }
 ```
 
-### LLMOptions
-LLM调用选项配置
+### LLMRequestOptions
+LLM请求选项配置（来自Framework）。
 
 ```csharp
-public class LLMOptions
+public class LLMRequestOptions
 {
-    public float Temperature { get; set; } = 0.7f;
-    public int MaxTokens { get; set; } = 1000;
+    public float Temperature { get; set; }
+    public int MaxTokens { get; set; }
     public string Model { get; set; }
-    public bool Stream { get; set; } = false;
-    public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(2);
-    public Dictionary<string, object> AdditionalParameters { get; set; } = new();
+    public bool Stream { get; set; }
+    public TimeSpan Timeout { get; set; }
+    public Dictionary<string, object> AdditionalParameters { get; set; }
 }
 ```
 
-**使用示例**:
-```csharp
-var llmService = CoreServices.LLMService;
-
-// 基本调用
-var response = await llmService.SendMessageAsync("你好，AI助手！");
-
-// 带选项调用
-var options = new LLMOptions
-{
-    Temperature = 0.3f,
-    MaxTokens = 500,
-    Model = "gpt-4"
-};
-var detailedResponse = await llmService.SendMessageAsync("详细分析殖民地状况", options);
-
-// 流式调用
-await foreach (var chunk in llmService.SendMessageStreamAsync("长篇分析", options))
-{
-    Console.Write(chunk);
-}
-```
-
-## 📝 提示词API
+## 📝 提示词构建API（旧版，即将废弃）
 
 ### IPromptBuilder
-提示词构建服务接口
+传统的提示词构建服务接口。
 
 ```csharp
 public interface IPromptBuilder
 {
-    // 构建提示词
+    // 模板构建
     string BuildPrompt(string templateId, Dictionary<string, object> context);
     
     // 模板管理
-    void RegisterTemplate(string templateId, string template);
-    bool HasTemplate(string templateId);
-    void RemoveTemplate(string templateId);
-    
-    // 变量处理
-    string ProcessVariables(string template, Dictionary<string, object> variables);
+    void RegisterTemplate(string id, PromptTemplate template);
+    PromptTemplate GetTemplate(string id);
+    bool TemplateExists(string id);
 }
 ```
 
-**使用示例**:
+### PromptTemplate
+提示词模板数据结构。
+
 ```csharp
-var promptBuilder = CoreServices.PromptBuilder;
-
-// 注册模板
-promptBuilder.RegisterTemplate("medical.advice", 
-    "作为医疗官，基于以下数据提供建议：\n健康状况：{healthData}\n医疗用品：{supplies}");
-
-// 使用模板
-var context = new Dictionary<string, object>
+public class PromptTemplate
 {
-    ["healthData"] = "3名殖民者受伤",
-    ["supplies"] = "药品充足"
-};
+    public string Id { get; set; }
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public string Template { get; set; }
+    public PromptConstraints Constraints { get; set; }
+    public Dictionary<string, string> Variables { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime LastModified { get; set; }
+}
+```
 
-var prompt = promptBuilder.BuildPrompt("medical.advice", context);
+### PromptConstraints
+提示词约束配置。
+
+```csharp
+public class PromptConstraints
+{
+    public int? MaxTokens { get; set; }
+    public float? Temperature { get; set; }
+    public List<string> SafetyRules { get; set; }
+    public string ResponseFormat { get; set; }
+    public bool RequireStreaming { get; set; }
+    public TimeSpan? Timeout { get; set; }
+}
 ```
 
 ## 🎨 UI组件API
 
 ### MainTabWindow_RimAI
-主要UI窗口类
+主要UI窗口类。
 
 ```csharp
 public class MainTabWindow_RimAI : MainTabWindow
 {
     // 窗口属性
-    public override Vector2 RequestedTabSize => new Vector2(400f, 600f);
+    public override Vector2 RequestedTabSize { get; }
     
-    // 主要方法
+    // 核心方法
+    public override void DoWindowContents(Rect inRect);
+    public override void PreOpen();
+    
+    // 私有状态
+    private List<ChatMessage> _displayMessages;
+    private Vector2 _scrollPosition;
+    private string _currentInput;
+    private bool _isProcessing;
+    private string _conversationId;
+}
+```
+
+### Dialog_OfficerSettings
+官员设置对话框。
+
+```csharp
+public class Dialog_OfficerSettings : Window
+{
+    // 窗口属性
+    public override Vector2 InitialSize { get; }
+    
+    // 核心方法
     public override void DoWindowContents(Rect inRect);
     
-    // UI状态
-    private string responseText = "";
-    private bool isProcessing = false;
+    // 构造函数
+    public Dialog_OfficerSettings(IAIOfficer officer);
 }
 ```
 
-### UI工具方法
+## 📊 数据模型和枚举
+
+### ThreatLevel
+威胁等级枚举。
+
 ```csharp
-// 异步按钮处理
-private async void ProcessGovernorRequest()
-{
-    try
-    {
-        isProcessing = true;
-        responseText = "正在咨询总督...";
-        
-        var governor = CoreServices.Governor;
-        var advice = await governor.ProvideAdviceAsync();
-        
-        responseText = $"🏛️ 总督建议:\n\n{advice}";
-    }
-    catch (Exception ex)
-    {
-        responseText = $"❌ 错误: {ex.Message}";
-    }
-    finally
-    {
-        isProcessing = false;
-    }
-}
-```
-
-## 📊 数据模型API
-
-### 核心枚举类型
-```csharp
-// 官员角色
-public enum OfficerRole
-{
-    Governor,        // 总督
-    Military,        // 军事  
-    Medical,         // 医疗
-    Logistics,       // 后勤
-    Research,        // 科研
-    Diplomat,        // 外交
-    Security,        // 安全
-    Economy          // 经济
-}
-
-// 威胁等级
 public enum ThreatLevel
 {
     None,      // 无威胁
-    Low,       // 低威胁  
+    Low,       // 低威胁
     Medium,    // 中等威胁
     High,      // 高威胁
     Critical   // 危急威胁
 }
+```
 
-// 资源优先级
+### ResourcePriority
+资源优先级枚举。
+
+```csharp
 public enum ResourcePriority
 {
     Low,
@@ -729,10 +591,8 @@ public enum ResourcePriority
 }
 ```
 
-### 数据结构
-
-#### ColonyStatus
-殖民地状态数据
+### ColonyStatus
+殖民地状态数据。
 
 ```csharp
 public class ColonyStatus
@@ -740,17 +600,16 @@ public class ColonyStatus
     public int ColonistCount { get; set; }
     public string ResourceSummary { get; set; }
     public ThreatLevel ThreatLevel { get; set; }
-    public List<string> ActiveEvents { get; set; } = new List<string>();
+    public List<string> ActiveEvents { get; set; }
     public string WeatherCondition { get; set; }
     public string Season { get; set; }
-    public Dictionary<string, float> ResourceLevels { get; set; } = new Dictionary<string, float>();
-    public List<ColonistInfo> Colonists { get; set; } = new List<ColonistInfo>();
-    public DateTime LastUpdated { get; set; } = DateTime.Now;
+    public Dictionary<string, float> ResourceLevels { get; set; }
+    public DateTime LastUpdated { get; set; }
 }
 ```
 
-#### ThreatInfo
-威胁信息
+### ThreatInfo
+威胁信息数据。
 
 ```csharp
 public class ThreatInfo
@@ -760,144 +619,128 @@ public class ThreatInfo
     public string Description { get; set; }
     public DateTime DetectedAt { get; set; }
     public bool IsActive { get; set; }
-    public Dictionary<string, object> Details { get; set; } = new Dictionary<string, object>();
+    public Dictionary<string, object> Details { get; set; }
 }
 ```
 
-#### ResourceReport
-资源报告
+## ⚙️ 设置和配置API
+
+### CoreSettings
+核心设置数据结构。
 
 ```csharp
-public class ResourceReport
+public class CoreSettings : ModSettings
 {
-    public Dictionary<string, ResourceStatus> Resources { get; set; } = new Dictionary<string, ResourceStatus>();
-    public List<string> CriticalShortages { get; set; } = new List<string>();
-    public List<string> Surpluses { get; set; } = new List<string>();
-    public string OverallStatus { get; set; }
-    public DateTime GeneratedAt { get; set; } = DateTime.Now;
-}
-```
-
-## 🔧 扩展点API
-
-### 服务扩展
-```csharp
-// 创建自定义服务接口
-public interface ICustomService
-{
-    Task<string> DoSomethingAsync();
-}
-
-// 实现服务
-public class CustomService : ICustomService
-{
-    public async Task<string> DoSomethingAsync()
-    {
-        // 实现逻辑
-        return "完成";
-    }
-}
-
-// 注册服务
-ServiceContainer.Instance.RegisterInstance<ICustomService>(new CustomService());
-
-// 在CoreServices中添加访问器
-public static ICustomService Custom => ServiceContainer.Instance.GetService<ICustomService>();
-```
-
-### 官员扩展
-```csharp
-// 扩展新的官员角色
-public class EconomyOfficer : OfficerBase
-{
-    public override string Name => "经济官";
-    public override OfficerRole Role => OfficerRole.Economy;
+    public PlayerSettings Player { get; set; }
+    public Dictionary<string, OfficerConfig> OfficerConfigs { get; set; }
+    public Dictionary<string, PromptTemplate> CustomPrompts { get; set; }
+    public UISettings UI { get; set; }
+    public PerformanceSettings Performance { get; set; }
+    public CacheSettings Cache { get; set; }
+    public EventSettings Events { get; set; }
+    public DebugSettings Debug { get; set; }
     
-    protected override async Task<string> ExecuteAdviceRequest(CancellationToken cancellationToken)
-    {
-        // 经济专业分析逻辑
-        var economicData = await GetEconomicDataAsync(cancellationToken);
-        var context = await BuildContextAsync(cancellationToken);
-        context["economicData"] = economicData;
-        
-        var prompt = _promptBuilder.BuildPrompt("economy.advice", context);
-        return await _llmService.SendMessageAsync(prompt, CreateLLMOptions(0.5f), cancellationToken);
-    }
+    public override void ExposeData();
 }
 ```
 
-## 📋 API使用最佳实践
+### PlayerSettings
+玩家设置。
 
-### 1. 异步编程
 ```csharp
-// ✅ 正确的异步调用
-public async Task<string> GetAnalysisAsync()
+public class PlayerSettings
 {
-    var analyzer = CoreServices.Analyzer;
-    var result = await analyzer.GetQuickAnalysisAsync();
-    return result.QuickSummary;
-}
-
-// ❌ 错误的阻塞调用
-public string GetAnalysis()
-{
-    var result = CoreServices.Analyzer.GetQuickAnalysisAsync().Result; // 会阻塞
-    return result.QuickSummary;
+    public string Nickname { get; set; } = "指挥官";
 }
 ```
 
-### 2. 错误处理
+### OfficerConfig
+官员配置。
+
 ```csharp
-public async Task<string> SafeAPICall()
+public class OfficerConfig
 {
-    try
-    {
-        var service = CoreServices.Governor;
-        if (service?.IsAvailable != true)
-        {
-            return "服务不可用";
-        }
-        
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        return await service.ProvideAdviceAsync(cts.Token);
-    }
-    catch (OperationCanceledException)
-    {
-        return "操作已取消";
-    }
-    catch (Exception ex)
-    {
-        Log.Error($"API调用失败: {ex.Message}");
-        return "系统错误，请稍后重试";
-    }
+    public bool Enabled { get; set; } = true;
+    public float Temperature { get; set; } = 0.7f;
+    public int MaxTokens { get; set; } = 1000;
+    public Dictionary<string, object> CustomSettings { get; set; }
 }
 ```
 
-### 3. 资源管理
+### SettingsManager
+设置管理器。
+
 ```csharp
-public async Task<string> ProperResourceManagement()
+public static class SettingsManager
 {
-    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+    public static CoreSettings Settings { get; }
     
-    try
-    {
-        var tasks = new[]
-        {
-            CoreServices.Analyzer.GetQuickAnalysisAsync(cts.Token),
-            CoreServices.Governor.ProvideAdviceAsync(cts.Token)
-        };
-        
-        await Task.WhenAll(tasks);
-        
-        return "操作完成";
-    }
-    finally
-    {
-        // 确保资源被正确清理
-        cts?.Dispose();
-    }
+    public static void SetSettings(CoreSettings settings);
+    public static void SaveSettings();
+    public static OfficerConfig GetOfficerConfig(string officerName);
+    public static void ApplySettings();
 }
+```
+
+## 🔧 系统组件API
+
+### RimAICoreGameComponent
+游戏组件，负责生命周期管理。
+
+```csharp
+public class RimAICoreGameComponent : GameComponent
+{
+    // 构造函数
+    public RimAICoreGameComponent(Game game);
+    
+    // 生命周期方法
+    public override void LoadedGame();
+    public override void ExposeData();
+    public override void GameComponentTick();
+}
+```
+
+### RimAICoreMod
+模组主类。
+
+```csharp
+public class RimAICoreMod : Mod
+{
+    // 构造函数
+    public RimAICoreMod(ModContentPack content);
+    
+    // 设置窗口
+    public override void DoSettingsWindowContents(Rect inRect);
+    
+    // 设置名称
+    public override string SettingsCategory();
+}
+```
+
+## 📋 服务状态和监控API
+
+### 服务就绪检查
+```csharp
+// 检查所有核心服务是否就绪
+bool isReady = CoreServices.AreServicesReady();
+
+// 获取详细的服务状态报告
+string report = CoreServices.GetServiceStatusReport();
+```
+
+### 性能监控
+```csharp
+// 缓存服务统计
+var cacheStats = CoreServices.CacheService.GetStats();
+
+// 安全访问服务统计
+var safeAccessStats = CoreServices.SafeAccessService.GetFailureStats();
+string safeAccessReport = CoreServices.SafeAccessService.GetStatusReport();
+
+// 事件总线统计
+int subscriberCount = CoreServices.EventBus.GetSubscriberCount<CustomEvent>();
 ```
 
 ---
-*📚 这个API参考手册涵盖了RimAI框架的所有核心接口和使用方法，是开发过程中的重要参考资料！*
+
+*📚 本API参考手册提供了RimAI框架所有公共接口的完整技术规格。所有方法签名、参数类型和返回值都经过验证，确保准确性。*

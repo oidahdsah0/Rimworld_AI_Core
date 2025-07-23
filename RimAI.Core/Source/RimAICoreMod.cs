@@ -2,9 +2,41 @@ using RimAI.Core.Settings;
 using UnityEngine;
 using Verse;
 using RimWorld;
+using RimAI.Core.Architecture;
 
 namespace RimAI.Core
 {
+    /// <summary>
+    /// 服务初始化器 - 在游戏启动时初始化所有服务
+    /// </summary>
+    [StaticConstructorOnStartup]
+    public static class ServiceInitializer
+    {
+        static ServiceInitializer()
+        {
+            try
+            {
+                Log.Message("[ServiceInitializer] 🔧 Initializing ServiceContainer on game startup...");
+                ServiceContainer.Initialize();
+                
+                if (ServiceContainer.IsInitialized)
+                {
+                    Log.Message("[ServiceInitializer] ✅ ServiceContainer initialized successfully");
+                    var status = CoreServices.GetServiceStatusReport();
+                    Log.Message($"[ServiceInitializer] Service Status:\n{status}");
+                }
+                else
+                {
+                    Log.Error("[ServiceInitializer] ❌ ServiceContainer failed to initialize!");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[ServiceInitializer] ❌ Failed to initialize services: {ex}");
+            }
+        }
+    }
+    
     /// <summary>
     /// RimAI Core Mod主类 - 简化版本，参考Framework设计
     /// </summary>
@@ -24,6 +56,8 @@ namespace RimAI.Core
                 // 🎯 修复崩溃：延迟设置管理器初始化，避免循环引用
                 SettingsManager.SetSettings(_settings);
                 Log.Message("[RimAICoreMod] ✅ SettingsManager initialized");
+                
+                // 服务容器初始化已移至 ServiceInitializer
                 
                 // 📢 启用日志过滤（根据设置控制性能日志噪音）
                 LogFilter.ApplyFiltersIfNeeded();

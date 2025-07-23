@@ -7,6 +7,7 @@ using RimAI.Core.Architecture;
 using RimAI.Core.Architecture.Models;
 using System.Linq;
 using RimAI.Core.Settings;
+using System;
 
 namespace RimAI.Core.UI
 {
@@ -25,12 +26,37 @@ namespace RimAI.Core.UI
         public override void PreOpen()
         {
             base.PreOpen();
+            
+            // 检查服务是否已初始化
+            if (!CoreServices.AreServicesReady())
+            {
+                Log.Error("[MainTabWindow_RimAI] Core services are not initialized. Please check your mod settings.");
+                Messages.Message("RimAI Core services are not initialized. Please check the mod settings.", MessageTypeDefOf.RejectInput);
+                return;
+            }
+            
+            // 额外的空值检查
+            if (CoreServices.History == null)
+            {
+                Log.Error("[MainTabWindow_RimAI] History service is null even though services reported ready.");
+                return;
+            }
+            
             // Initialize conversation when the window is opened
             if (string.IsNullOrEmpty(_conversationId))
             {
-                // Use the new PlayerId property
-                _conversationId = CoreServices.History.StartOrGetConversation(new List<string> { PlayerId, AiId });
-                // Potentially load existing messages from history here if desired
+                try
+                {
+                    // 直接使用 CoreServices.PlayerStableId 并处理可能的异常
+                    var playerId = CoreServices.PlayerStableId;
+                    _conversationId = CoreServices.History.StartOrGetConversation(new List<string> { playerId, AiId });
+                    // Potentially load existing messages from history here if desired
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[MainTabWindow_RimAI] Failed to initialize conversation: {ex}");
+                    _conversationId = "fallback_conversation";
+                }
             }
         }
         
@@ -96,34 +122,38 @@ namespace RimAI.Core.UI
         private async void HandleSend()
         {
             if (string.IsNullOrWhiteSpace(_currentInput)) return;
+            
+            if (!CoreServices.AreServicesReady())
+            {
+                Messages.Message("RimAI services are not ready. Please try again later.", MessageTypeDefOf.RejectInput);
+                return;
+            }
 
             var userInput = _currentInput;
-            _currentInput = ""; // Clear input immediately
-            _isProcessing = true;
+            _currentInput = "";
 
-            // Add player message to UI and history
-            // Use the Nickname from settings for display
             var playerMessage = new ChatMessage { Role = "user", Content = userInput, Name = SettingsManager.Settings.Player.Nickname };
             _displayMessages.Add(playerMessage);
-            ScrollToBottom();
-
             CoreServices.History.AddEntry(_conversationId, new ConversationEntry { ParticipantId = PlayerId, Role = "user", Content = userInput, GameTicksTimestamp = CoreServices.SafeAccessService.GetTicksGameSafe() });
+            ScrollToBottom();
+            
+            _isProcessing = true;
 
-            // Show a thinking indicator
-            var thinkingMessage = new ChatMessage { Role = "assistant", Content = "...", Name = "Governor" };
+            var thinkingMessage = new ChatMessage { Role = "assistant", Content = "", Name = "Governor" };
             _displayMessages.Add(thinkingMessage);
             ScrollToBottom();
             
             try
             {
-                // Get AI response
-                var aiResponse = await CoreServices.Governor.HandleUserQueryAsync(userInput);
+                var fullResponse = await CoreServices.Governor.HandleUserQueryStreamAsync(userInput, chunk =>
+                {
+                    // This action is called for each piece of the response.
+                    thinkingMessage.Content += chunk;
+                    ScrollToBottom(); // Keep scrolling to the bottom as new content arrives
+                });
 
-                // Add AI message to history
-                CoreServices.History.AddEntry(_conversationId, new ConversationEntry { ParticipantId = AiId, Role = "assistant", Content = aiResponse, GameTicksTimestamp = CoreServices.SafeAccessService.GetTicksGameSafe() });
-
-                // Update UI with AI response
-                thinkingMessage.Content = aiResponse; // Replace "..." with actual response
+                // Now that we have the full response, add it to the history.
+                CoreServices.History.AddEntry(_conversationId, new ConversationEntry { ParticipantId = AiId, Role = "assistant", Content = fullResponse, GameTicksTimestamp = CoreServices.SafeAccessService.GetTicksGameSafe() });
             }
             catch (System.Exception ex)
             {
@@ -133,7 +163,7 @@ namespace RimAI.Core.UI
             finally
             {
                 _isProcessing = false;
-                ScrollToBottom();
+                ScrollToBottom(); // Final scroll to make sure
             }
         }
         

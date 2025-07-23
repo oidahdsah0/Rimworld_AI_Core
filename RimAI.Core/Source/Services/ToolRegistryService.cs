@@ -45,7 +45,12 @@ namespace RimAI.Core.Services
             Register(
                 new AITool
                 {
-                    Function = new AIFunction { /* ... as before ... */ }
+                    Function = new AIFunction 
+                    {
+                        Name = "get_colony_summary",
+                        Description = "Provides a high-level summary of the colony's current status, including resources, mood, and any immediate threats.",
+                        Parameters = new AIParameterSchema { Type = "object", Properties = new Dictionary<string, AIParameterProperty>() }
+                    }
                 },
                 typeof(IColonyAnalyzer),
                 async (service, parameters) =>
@@ -61,7 +66,20 @@ namespace RimAI.Core.Services
             Register(
                 new AITool
                 {
-                    Function = new AIFunction { /* ... as before ... */ }
+                    Function = new AIFunction 
+                    {
+                        Name = "get_pawn_details",
+                        Description = "Retrieves detailed information about a specific colonist (pawn).",
+                        Parameters = new AIParameterSchema
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, AIParameterProperty>
+                            {
+                                { "pawnName", new AIParameterProperty { Type = "string", Description = "The full name of the pawn." } }
+                            },
+                            Required = new List<string> { "pawnName" }
+                        }
+                    }
                 },
                 typeof(IPawnAnalyzer),
                 async (service, parameters) =>

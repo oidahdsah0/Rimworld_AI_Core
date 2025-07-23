@@ -37,7 +37,8 @@ namespace RimAI.Core.Services
 
         public CacheService()
         {
-            RefreshConfiguration();
+            // 将 RefreshConfiguration 从构造函数中移除，避免在初始化时就依赖Framework
+            SetSafeDefaults(); // 先使用安全的默认值
             
             // 初始化定时器
             _cleanupTimer = new Timer(
@@ -54,7 +55,7 @@ namespace RimAI.Core.Services
                 TimeSpan.FromMinutes(5)
             );
 
-            Log.Message($"[CacheService] Initialized with maxEntries={_maxEntries}, defaultExpiration={_defaultExpiration.TotalMinutes}min");
+            Log.Message($"[CacheService] Initialized with safe defaults. Configuration will be loaded on first use.");
         }
 
         /// <summary>
@@ -126,8 +127,14 @@ namespace RimAI.Core.Services
                 if (frameworkType != null)
                 {
                     var instanceProperty = frameworkType.GetProperty("Instance", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                    return instanceProperty?.GetValue(null);
+                    var frameworkInstance = instanceProperty?.GetValue(null);
+                    if (frameworkInstance != null)
+                    {
+                        Log.Message("[CacheService] Successfully retrieved Framework configuration instance.");
+                        return frameworkInstance;
+                    }
                 }
+                Log.Warning("[CacheService] Framework configuration type found, but instance is null. Framework might not be fully initialized.");
             }
             catch (Exception ex)
             {
@@ -220,8 +227,8 @@ namespace RimAI.Core.Services
         /// </summary>
         private bool ShouldCacheRequest(string key, object value)
         {
-            // 游戏启动时的优化：前75000个tick（约30秒）不缓存
-            if (Find.TickManager != null && Find.TickManager.TicksGame < 75000)
+            // 游戏启动时的优化：前100个tick不缓存
+            if (Find.TickManager != null && Find.TickManager.TicksGame < 100)
             {
                 Log.Message($"[CacheService] Skipping cache during game startup (tick {Find.TickManager.TicksGame})");
                 return false;

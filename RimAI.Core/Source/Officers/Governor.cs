@@ -17,16 +17,26 @@ namespace RimAI.Core.Officers
 {
     public class Governor : OfficerBase
     {
-        private readonly IToolRegistryService _toolRegistry;
+        private IToolRegistryService _toolRegistry;
 
         public Governor()
         {
-            // Resolve services from the central container.
-            _toolRegistry = ServiceContainer.Instance.GetService<IToolRegistryService>();
-
-            if (_toolRegistry == null)
+            // 延迟初始化，避免在服务容器构建期间出现循环依赖
+        }
+        
+        private IToolRegistryService ToolRegistry
+        {
+            get
             {
-                throw new InvalidOperationException("ToolRegistryService is not available.");
+                if (_toolRegistry == null)
+                {
+                    _toolRegistry = ServiceContainer.Instance?.GetService<IToolRegistryService>();
+                    if (_toolRegistry == null)
+                    {
+                        Log.Error("[Governor] ToolRegistryService is not available.");
+                    }
+                }
+                return _toolRegistry;
             }
         }
 
@@ -40,39 +50,95 @@ namespace RimAI.Core.Officers
         /// </summary>
         public async Task<string> HandleUserQueryAsync(string userQuery, CancellationToken cancellationToken = default)
         {
-            // STAGE 1: Dispatch - Let the AI decide which tool to use.
+            var finalResponse = new StringBuilder();
+            await HandleUserQueryStreamAsync(userQuery, chunk => finalResponse.Append(chunk), cancellationToken);
+            return finalResponse.ToString();
+        }
+
+        /// <summary>
+        /// Handles a user's query with streaming, providing real-time response chunks.
+        /// </summary>
+        public async Task<string> HandleUserQueryStreamAsync(string userQuery, Action<string> onChunk, CancellationToken cancellationToken = default)
+        {
+            if (ToolRegistry == null)
+            {
+                var errorMsg = "Error: ToolRegistry service is not available.";
+                onChunk(errorMsg);
+                return errorMsg;
+            }
+
+            // STAGE 1: Dispatch - This part is not streamed as we need the full tool call first.
             var dispatcher = DispatcherFactory.Create();
-            var availableTools = _toolRegistry.GetAvailableTools();
+            var availableTools = ToolRegistry.GetAvailableTools();
             var dispatchResult = await dispatcher.DispatchAsync(userQuery, availableTools);
 
             if (dispatchResult == null || !dispatchResult.Success)
             {
-                // If the AI decides no tool is needed, or fails to decide,
-                // we can fall back to a general conversational response.
-                return await FallbackConversationAsync(userQuery, cancellationToken);
+                return await FallbackConversationStreamAsync(userQuery, onChunk, cancellationToken);
             }
 
-            // STAGE 2: Execute - Run the selected tool and generate a response based on its output.
-            var executionInfo = _toolRegistry.GetToolExecutionInfo(dispatchResult.ToolName);
+            // STAGE 2: Execute
+            var executionInfo = ToolRegistry.GetToolExecutionInfo(dispatchResult.ToolName);
             if (executionInfo == null)
             {
                 Log.Error($"[Governor] Dispatcher selected tool '{dispatchResult.ToolName}', but it's not registered correctly.");
-                return await FallbackConversationAsync(userQuery, cancellationToken);
+                return await FallbackConversationStreamAsync(userQuery, onChunk, cancellationToken);
             }
 
-            // Get the required service instance from the container.
             var serviceInstance = ServiceContainer.Instance.GetService(executionInfo.ServiceType);
             if (serviceInstance == null)
             {
                 Log.Error($"[Governor] Tool '{dispatchResult.ToolName}' requires service '{executionInfo.ServiceType.Name}', but it's not in the container.");
-                return await FallbackConversationAsync(userQuery, cancellationToken);
+                return await FallbackConversationStreamAsync(userQuery, onChunk, cancellationToken);
             }
-
-            // Execute the tool's logic using the delegate from the registry.
+            
             var toolResult = await executionInfo.Executor(serviceInstance, dispatchResult.Parameters);
 
-            // STAGE 3: Generate - Use the tool's output to generate a final, user-facing response.
-            return await GenerateFinalResponseAsync(userQuery, toolResult, cancellationToken);
+            // STAGE 3: Generate - Stream the final response.
+            return await GenerateFinalResponseStreamAsync(userQuery, toolResult, onChunk, cancellationToken);
+        }
+
+        private Task<string> GenerateFinalResponseStreamAsync(string userQuery, string toolResult, Action<string> onChunk, CancellationToken cancellationToken)
+        {
+            var llmService = ServiceContainer.Instance.GetService<ILLMService>();
+            var promptBuilder = new StringBuilder();
+            promptBuilder.AppendLine("You are the Governor, an AI assistant.");
+            promptBuilder.AppendLine($"A user asked: \"{userQuery}\".");
+            promptBuilder.AppendLine("To answer this, you executed an internal tool which provided the following data:");
+            promptBuilder.AppendLine("--- TOOL RESULT ---");
+            promptBuilder.AppendLine(toolResult);
+            promptBuilder.AppendLine("--------------------");
+            promptBuilder.AppendLine("Based on this data, provide a helpful and concise response to the user.");
+
+            return StreamAndAccumulateAsync(llmService, promptBuilder.ToString(), onChunk, null, cancellationToken);
+        }
+
+        private Task<string> FallbackConversationStreamAsync(string userQuery, Action<string> onChunk, CancellationToken cancellationToken)
+        {
+            var llmService = ServiceContainer.Instance.GetService<ILLMService>();
+            var prompt = $"The user said: \"{userQuery}\". Respond as a helpful AI assistant.";
+            return StreamAndAccumulateAsync(llmService, prompt, onChunk, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Helper method to execute a streaming call and accumulate the full response.
+        /// </summary>
+        private async Task<string> StreamAndAccumulateAsync(ILLMService llmService, string prompt, Action<string> onChunk, LLMRequestOptions options, CancellationToken cancellationToken)
+        {
+            var fullResponse = new StringBuilder();
+            var taskCompletionSource = new TaskCompletionSource<bool>();
+
+            await llmService.SendStreamingMessageAsync(prompt, chunk =>
+            {
+                if (chunk != null)
+                {
+                    fullResponse.Append(chunk);
+                    onChunk(chunk);
+                }
+            }, options, cancellationToken);
+            
+            // Assuming the underlying API call is complete when SendStreamingMessageAsync returns.
+            return fullResponse.ToString();
         }
 
         /// <summary>

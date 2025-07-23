@@ -25,12 +25,13 @@ namespace RimAI.Core.Architecture
         public static IHistoryService History => ServiceContainer.Instance?.GetService<IHistoryService>();
         public static IPromptFactoryService PromptFactory => ServiceContainer.Instance?.GetService<IPromptFactoryService>();
         public static IPromptBuilder PromptBuilder => ServiceContainer.Instance?.GetService<IPromptBuilder>();
-        public static string PlayerStableId => Faction.OfPlayer.GetUniqueLoadID();
-        public static string PlayerDisplayName => SettingsManager.Settings.Player.Nickname;
+        public static string PlayerStableId => Faction.OfPlayer?.GetUniqueLoadID() ?? "Player";
+        public static string PlayerDisplayName => SettingsManager.Settings?.Player?.Nickname ?? "Commander";
 
         public static bool AreServicesReady()
         {
-            return Governor != null && Analyzer != null && LLMService != null && EventBus != null &&
+            return ServiceContainer.Instance != null &&
+                   Governor != null && Analyzer != null && LLMService != null && EventBus != null &&
                    CacheService != null && PersistenceService != null && SafeAccessService != null &&
                    History != null && PromptFactory != null && PromptBuilder != null;
         }
@@ -73,6 +74,7 @@ namespace RimAI.Core.Architecture
     {
         private static ServiceContainer _instance;
         public static ServiceContainer Instance => _instance;
+        public static bool IsInitialized => _instance != null;
 
         private readonly Dictionary<Type, object> _services = new Dictionary<Type, object>();
 
@@ -80,6 +82,12 @@ namespace RimAI.Core.Architecture
 
         public static void Initialize()
         {
+            if (_instance != null)
+            {
+                Log.Message("[RimAI.Core] ServiceContainer already initialized, skipping.");
+                return;
+            }
+            
             _instance = new ServiceContainer();
             _instance.RegisterDefaultServices();
             Log.Message("[RimAI.Core] ServiceContainer initialized and all services registered.");
@@ -123,13 +131,26 @@ namespace RimAI.Core.Architecture
             RegisterService<IEventBus, EventBusService>(new EventBusService());
             RegisterService<ILLMService, LLMService>(new LLMService());
             RegisterService<IPersistenceService, PersistenceService>(new PersistenceService());
-            RegisterService<IHistoryService, HistoryService>(new HistoryService());
+            
+            // 创建 HistoryService 实例
+            var historyService = new HistoryService();
+            RegisterService<IHistoryService, HistoryService>(historyService);
+            
             RegisterService<IPromptFactoryService, PromptFactoryService>(new PromptFactoryService());
             RegisterService<IColonyAnalyzer, ColonyAnalyzer>(new ColonyAnalyzer());
             RegisterService<IPawnAnalyzer, PawnAnalyzer>(new PawnAnalyzer());
             RegisterService<ISafeAccessService, SafeAccessService>(new SafeAccessService());
+            RegisterService<IToolRegistryService, ToolRegistryService>(new ToolRegistryService());
             RegisterService<IAIOfficer, Governor>(new Governor());
             RegisterService<IPromptBuilder, PromptBuilder>(new PromptBuilder());
+            
+            // 注册 HistoryService 到 PersistenceService，以确保对话历史被保存
+            var persistenceService = GetService<IPersistenceService>();
+            if (persistenceService != null && historyService != null)
+            {
+                persistenceService.RegisterPersistable(historyService);
+                Log.Message("[ServiceContainer] HistoryService registered with PersistenceService for data persistence.");
+            }
         }
     }
 }

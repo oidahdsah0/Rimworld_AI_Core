@@ -578,6 +578,130 @@ public static class MyModServices
 }
 ```
 
+## 🛠️ 如何为AI添加一个新工具
+
+随着 `v2.1` 引入了由AI驱动的工具调用架构，为`Governor`或其他AI官员添加新能力变得前所未有的简单和强大。这不再是关于构建复杂的提示词，而是关于定义清晰的、可供AI调用的“工具”。
+
+以下是如何添加一个新工具的完整分步指南，以创建一个“获取特定角色信息”的工具为例。
+
+### 步骤1：创建或确定服务接口和实现
+
+首先，确保你有一个能执行工具逻辑的C#服务。对于我们的例子，我们需要一个`IPawnAnalyzer`服务。
+
+**a. 定义接口 (`IPawnAnalyzer.cs`)**
+
+在 `Source/Architecture/Interfaces/` 目录下，定义一个清晰的接口。
+
+```csharp
+// IPawnAnalyzer.cs
+namespace RimAI.Core.Architecture.Interfaces
+{
+    public interface IPawnAnalyzer
+    {
+        Task<string> GetPawnDetailsAsync(string pawnName, CancellationToken cancellationToken = default);
+    }
+}
+```
+
+**b. 实现服务 (`PawnAnalyzer.cs`)**
+
+在 `Source/Analysis/` 目录下，实现这个接口。
+
+```csharp
+// PawnAnalyzer.cs
+namespace RimAI.Core.Analysis
+{
+    public class PawnAnalyzer : IPawnAnalyzer
+    {
+        public Task<string> GetPawnDetailsAsync(string pawnName, CancellationToken cancellationToken = default)
+        {
+            // ... 实现获取角色信息的具体逻辑 ...
+            var details = $"Details for {pawnName}: Healthy, but stressed.";
+            return Task.FromResult(details);
+        }
+    }
+}
+```
+
+### 步骤2：在ServiceContainer中注册新服务
+
+打开 `Source/Architecture/ServiceContainer.cs`，在 `RegisterDefaultServices` 方法中，将你的新服务注册到依赖注入容器中。
+
+```csharp
+// ServiceContainer.cs
+private void RegisterDefaultServices()
+{
+    // ... 其他服务
+    RegisterService<IColonyAnalyzer, ColonyAnalyzer>(new ColonyAnalyzer());
+    RegisterService<IPawnAnalyzer, PawnAnalyzer>(new PawnAnalyzer()); // <-- 添加这一行
+    RegisterService<ISafeAccessService, SafeAccessService>(new SafeAccessService());
+    // ... 其他服务
+}
+```
+
+### 步骤3：在ToolRegistryService中注册新工具
+
+这是最关键的一步。打开 `Services/ToolRegistryService.cs`，在 `RegisterTools` 方法中，为你希望AI能够调用的功能定义一个“工具”。
+
+这个注册过程包含三个核心部分：
+1.  **工具定义 (`AITool`)**: 这是给AI看的“说明书”。它包含工具的名称、功能描述以及它需要的参数（名称、类型、描述）。
+2.  **服务类型 (`Type`)**: 这是工具在C#世界中对应的服务接口，我们的架构将使用它从`ServiceContainer`中获取正确的服务实例。
+3.  **执行器 (`Func`)**: 这是一个委托（delegate），它精确地定义了**如何调用**服务的方法，以及如何处理从AI那里得到的参数。
+
+```csharp
+// ToolRegistryService.cs
+private void RegisterTools()
+{
+    // ... 其他工具，如 get_colony_summary ...
+
+    // 注册我们的“获取角色详情”工具
+    Register(
+        // 1. 工具定义 (给AI看)
+        new AITool
+        {
+            Function = new AIFunction
+            {
+                Name = "get_pawn_details",
+                Description = "根据姓名检索关于特定殖民者、囚犯或动物的详细信息。",
+                Parameters = new AIParameterSchema
+                {
+                    Properties =
+                    {
+                        { "pawnName", new AIParameterProperty { Type = "string", Description = "要查询的角色姓名。" } }
+                    },
+                    Required = { "pawnName" } // 告诉AI这个参数是必需的
+                }
+            }
+        },
+        // 2. 服务类型 (给ServiceContainer用)
+        typeof(IPawnAnalyzer),
+        // 3. 执行器 (定义如何调用服务)
+        async (service, parameters) =>
+        {
+            var analyzer = (IPawnAnalyzer)service; // 将服务转换为正确的类型
+            // 从AI传来的参数中安全地获取pawnName
+            if (parameters.TryGetValue("pawnName", out var pawnNameObj) && pawnNameObj is string pawnName)
+            {
+                // 调用服务的具体方法并返回结果
+                return await analyzer.GetPawnDetailsAsync(pawnName);
+            }
+            return "错误：缺少'pawnName'参数或参数类型不正确。";
+        }
+    );
+}
+```
+
+### 步骤4：完成！
+
+就这样。你不需要修改`Governor`或任何其他官员的代码。现在，当玩家向总督发出类似“帮我看看王小明的状态怎么样？”的查询时：
+1.  `DispatcherService` 会请求AI分析这个查询。
+2.  AI会看到你的`get_pawn_details`工具，并认为它是最合适的选择。
+3.  AI会返回决策：`{ "tool_to_call": "get_pawn_details", "arguments": "{ \"pawnName\": \"王小明\" }" }`。
+4.  我们的架构会自动查找`ToolRegistryService`，获取`IPawnAnalyzer`类型，从`ServiceContainer`得到实例，并调用你定义的执行器，最终将`"王小明"`这个参数传递给`GetPawnDetailsAsync`方法。
+5.  最终，`Governor`会将方法的返回结果作为上下文，生成对玩家的最终回复。
+
+这个架构极大地简化了扩展AI能力的过程，让开发者可以专注于实现核心业务逻辑，而不是处理复杂的提示词工程。
+
 ## 💾 持久化数据开发
 
 ### 1. 实现IPersistable接口

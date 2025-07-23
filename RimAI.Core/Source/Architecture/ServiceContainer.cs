@@ -91,6 +91,12 @@ namespace RimAI.Core.Architecture
             return service as T;
         }
 
+        public object GetService(Type serviceType)
+        {
+            _services.TryGetValue(serviceType, out var service);
+            return service;
+        }
+
         public Dictionary<Type, object> GetRegisteredServices()
         {
             return new Dictionary<Type, object>(_services);
@@ -120,6 +126,7 @@ namespace RimAI.Core.Architecture
             RegisterService<IHistoryService, HistoryService>(new HistoryService());
             RegisterService<IPromptFactoryService, PromptFactoryService>(new PromptFactoryService());
             RegisterService<IColonyAnalyzer, ColonyAnalyzer>(new ColonyAnalyzer());
+            RegisterService<IPawnAnalyzer, PawnAnalyzer>(new PawnAnalyzer());
             RegisterService<ISafeAccessService, SafeAccessService>(new SafeAccessService());
             RegisterService<IAIOfficer, Governor>(new Governor());
             RegisterService<IPromptBuilder, PromptBuilder>(new PromptBuilder());

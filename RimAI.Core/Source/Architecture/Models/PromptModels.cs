@@ -13,7 +13,18 @@ namespace RimAI.Core.Architecture.Models
         public List<string> CurrentParticipants { get; set; }
 
         /// <summary>
+        /// 要使用的提示词模板ID
+        /// </summary>
+        public string SystemPromptTemplateId { get; set; }
+        
+        /// <summary>
+        /// 用于填充模板的上下文数据字典
+        /// </summary>
+        public Dictionary<string, object> TemplateContext { get; set; }
+        
+        /// <summary>
         /// 系统提示词，定义AI的角色和行为准则。
+        /// 如果提供了 TemplateId，此项将被忽略。
         /// </summary>
         public string SystemPrompt { get; set; }
 

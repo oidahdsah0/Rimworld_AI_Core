@@ -15,17 +15,28 @@ namespace RimAI.Core.Services
             var payload = new PromptPayload();
             var historyService = CoreServices.History;
             var playerStableId = CoreServices.PlayerStableId;
+            var promptBuilder = CoreServices.PromptBuilder; // 新增
 
-            if (historyService == null || playerStableId == null)
+            if (historyService == null || playerStableId == null || promptBuilder == null) // 新增
             {
-                Log.Error("HistoryService or PlayerStableId is not available. PromptFactory cannot continue.");
+                Log.Error("Core services (History, PlayerId, or PromptBuilder) not available. PromptFactory cannot continue."); // 新增
                 return payload;
             }
 
-            // 1. Add System Prompt
-            if (!string.IsNullOrEmpty(config.SystemPrompt))
+            // 1. Build and Add System Prompt
+            string systemPromptContent = null;
+            if (!string.IsNullOrEmpty(config.SystemPromptTemplateId))
             {
-                payload.Messages.Add(new ChatMessage { Role = "system", Content = config.SystemPrompt });
+                systemPromptContent = promptBuilder.BuildPrompt(config.SystemPromptTemplateId, config.TemplateContext);
+            }
+            else if (!string.IsNullOrEmpty(config.SystemPrompt))
+            {
+                systemPromptContent = config.SystemPrompt;
+            }
+            
+            if (!string.IsNullOrEmpty(systemPromptContent))
+            {
+                payload.Messages.Add(new ChatMessage { Role = "system", Content = systemPromptContent });
             }
 
             // 2. Get Historical Context

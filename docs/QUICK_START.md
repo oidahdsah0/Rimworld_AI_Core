@@ -45,17 +45,53 @@ public static class MyFirstAICall
 }
 ```
 
-## 如何测试
+## 与总督（Governor）对话
 
-### 方式1: 开发者模式测试
-1. 启用开发者模式 (`Ctrl+F12`)
-2. 打开调试日志窗口 (`Ctrl+F12` → Debug log)
-3. 在控制台执行: `MyFirstAICall.TestGovernor()`
+现在，你可以用更自然的方式与总督交谈了！得益于全新的AI工具调用架构，总督不再仅仅依赖固定的模板，而是能够理解你的意图，并自主调用内部功能来回答你的问题。
 
-### 方式2: 添加到您的模组
-1. 将代码复制到您的模组项目
-2. 在任何地方调用 `MyFirstAICall.TestGovernor()`
-3. 查看游戏日志中的 AI 响应
+**你可以尝试这样问：**
+
+-   "帮我看看王小明的状态怎么样？"
+-   "我们殖民地的总体情况如何？"
+-   "有什么需要我注意的吗？"
+
+**代码示例更新：**
+
+与总督进行一次对话调用的推荐方式现在是 `HandleUserQueryAsync`。
+
+```csharp
+using Verse;
+using RimAI.Core.Architecture;
+using System.Threading.Tasks;
+
+public static class MyFirstAICall
+{
+    public static async void TestGovernorQuery()
+    {
+        // 1. 检查服务是否就绪
+        if (!CoreServices.AreServicesReady())
+        {
+            Log.Warning("RimAI services not ready. Please check your setup.");
+            return;
+        }
+
+        // 2. 获取总督并向他提问
+        var governor = CoreServices.Governor;
+        string myQuery = "我们殖民地的总体情况如何？";
+        
+        try
+        {
+            // 使用 HandleUserQueryAsync 发送自然语言查询
+            string response = await governor.HandleUserQueryAsync(myQuery);
+            Log.Message($"[总督]: {response}");
+        }
+        catch (System.Exception ex)
+        {
+            Log.Error($"AI call failed: {ex.Message}");
+        }
+    }
+}
+```
 
 ## 核心概念
 

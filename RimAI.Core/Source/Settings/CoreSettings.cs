@@ -35,6 +35,9 @@ namespace RimAI.Core.Settings
         // 调试设置
         public DebugSettings Debug = new DebugSettings();
 
+        // AI Pilot Settings - New section for our dispatcher logic
+        public AIPilotSettings AIPilot = new AIPilotSettings();
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -53,6 +56,7 @@ namespace RimAI.Core.Settings
                 Scribe_Deep.Look(ref Cache, "cache");
                 Scribe_Deep.Look(ref Events, "events");
                 Scribe_Deep.Look(ref Debug, "debug");
+                Scribe_Deep.Look(ref AIPilot, "aiPilot"); // Serialize the new settings
 
                 // 确保非空 - 使用简单的空检查
                 PostLoadValidation();
@@ -78,6 +82,7 @@ namespace RimAI.Core.Settings
             if (Cache == null) Cache = new CacheSettings();
             if (Events == null) Events = new EventSettings();
             if (Debug == null) Debug = new DebugSettings();
+            if (AIPilot == null) AIPilot = new AIPilotSettings(); // Validate the new settings
         }
 
         /// <summary>
@@ -93,6 +98,7 @@ namespace RimAI.Core.Settings
             Cache = new CacheSettings();
             Events = new EventSettings();
             Debug = new DebugSettings();
+            AIPilot = new AIPilotSettings(); // Reset the new settings
             
             Log.Message("[CoreSettings] 已初始化为默认设置");
         }
@@ -262,6 +268,38 @@ namespace RimAI.Core.Settings
             Scribe_Values.Look(ref ShowInternalEvents, "showInternalEvents", false);
             Scribe_Values.Look(ref SuppressGameProfilerLogs, "suppressGameProfilerLogs", true);
         }
+    }
+
+    /// <summary>
+    /// AI Pilot Settings - Contains settings related to the core AI decision-making process.
+    /// </summary>
+    public class AIPilotSettings : IExposable
+    {
+        public DispatchMode DispatcherMode = DispatchMode.LlmTool;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref DispatcherMode, "dispatcherMode", DispatchMode.LlmTool);
+        }
+    }
+
+    /// <summary>
+    /// Defines the different strategies the AI can use to select a tool.
+    /// </summary>
+    public enum DispatchMode
+    {
+        /// <summary>
+        /// (Recommended) Use the LLM's native Tool Calling feature. Most reliable.
+        /// </summary>
+        LlmTool,
+        /// <summary>
+        /// (Fallback) Force the LLM to output a specific JSON format.
+        /// </summary>
+        LlmJson,
+        /// <summary>
+        /// (Experimental) Use a local embedding model for ultra-fast, offline dispatching.
+        /// </summary>
+        LocalEmbedding
     }
 
     public class PlayerSettings : IExposable

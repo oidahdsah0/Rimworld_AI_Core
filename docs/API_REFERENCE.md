@@ -55,7 +55,105 @@ public static class CoreServices
 }
 ```
 
-## 🧠 对话历史服务API
+## 🧠 智能体与工具API (Agent & Tools API)
+
+*这部分API是在 `v2.1` 中引入的，用于支持AI驱动的工具调用功能。*
+
+### IDispatcherService
+所有AI工具调度策略的统一接口。
+
+```csharp
+public interface IDispatcherService
+{
+    /// <summary>
+    /// 异步地根据用户输入，从工具列表中选择一个合适的工具。
+    /// </summary>
+    /// <param name="userInput">用户输入的自然语言。</param>
+    /// <param name="tools">可供AI选择的工具定义列表。</param>
+    /// <param name="cancellationToken">用于取消操作的令牌。</param>
+    /// <returns>一个 DispatchResult 对象，包含AI的决策。</returns>
+    Task<DispatchResult> DispatchAsync(string userInput, List<AITool> tools, CancellationToken cancellationToken = default);
+}
+```
+
+### DispatchResult
+`IDispatcherService` 返回的决策结果。
+
+```csharp
+public class DispatchResult
+{
+    public string ToolName { get; set; }  // AI选择的工具名称
+    public Dictionary<string, object> Parameters { get; set; } // AI提取的参数
+    public bool Success { get; } // 指示决策是否成功
+}
+```
+
+### IToolRegistryService
+管理工具定义、映射和执行逻辑的核心服务。
+
+```csharp
+public interface IToolRegistryService
+{
+    /// <summary>
+    /// 获取所有可供AI使用的工具的定义列表。
+    /// </summary>
+    List<AITool> GetAvailableTools();
+
+    /// <summary>
+    /// 根据工具名称获取其执行所需的信息（服务类型和执行器）。
+    /// </summary>
+    ToolExecutionInfo GetToolExecutionInfo(string toolName);
+}
+```
+
+### ToolExecutionInfo
+包含执行一个工具所需的所有信息。
+
+```csharp
+public class ToolExecutionInfo
+{
+    // 该工具依赖的C#服务类型
+    public Type ServiceType { get; set; } 
+    
+    // 一个封装了具体执行逻辑的委托
+    public Func<object, Dictionary<string, object>, Task<string>> Executor { get; set; }
+}
+```
+
+### AITool & AIFunction
+用于定义工具的数据模型，与OpenAI的Function Calling格式兼容。
+
+```csharp
+public class AITool
+{
+    public string Type { get; set; } // 总是 "function"
+    public AIFunction Function { get; set; }
+}
+
+public class AIFunction
+{
+    public string Name { get; set; } // 工具名称
+    public string Description { get; set; } // 工具功能描述
+    public AIParameterSchema Parameters { get; set; } // 工具参数定义
+}
+```
+
+## 🧔 角色与分析API (Pawn & Analysis API) - 新增
+
+### IPawnAnalyzer
+用于分析单个角色（Pawn）的服务接口。
+
+```csharp
+public interface IPawnAnalyzer
+{
+    /// <summary>
+    /// 异步地根据姓名获取一个角色的详细信息。
+    /// </summary>
+    Task<string> GetPawnDetailsAsync(string pawnName, CancellationToken cancellationToken = default);
+}
+```
+
+## 🏗️ 对话历史服务API
 
 ### IHistoryService
 管理多参与者对话历史的核心服务接口。

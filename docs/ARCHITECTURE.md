@@ -267,7 +267,85 @@ Services Layer
     └── ServiceContainer    # 依赖注入容器
 ```
 
-### 9. SafeAccessService (RimWorld API安全访问层)
+### 9. AI驱动的工具使用架构 (AI-Powered Tool-Use Architecture)
+
+为了实现从“响应式”到“主动式”AI的转变，`v2.1`引入了一个由AI驱动的、基于`Function Calling`的工具使用工作流。该架构的核心是**让AI自主决策调用哪个内部功能**，而不是被动地填充模板。
+
+#### 核心设计：可插拔的调度器 (Pluggable Dispatcher)
+
+我们采用**策略模式 (Strategy Pattern)** 来构建核心的工具调度功能，允许系统在不同的决策算法（如`Function Calling`或`JSON Mode`）之间动态切换。
+
+```mermaid
+graph TD
+    subgraph "Rimworld_AI_Core"
+        direction TB
+        
+        Governor("<b>Governor.cs</b><br>1. 请求决策")
+        Factory("<b>DispatcherFactory.cs</b><br>2. 根据设置创建策略")
+        Settings("CoreSettings<br>用户选择的模式")
+
+        subgraph "调度策略 (IDispatcherService)"
+            direction LR
+            LlmTool("LlmToolDispatcher<br>(Function Call)")
+            LlmJson("LlmJsonDispatcher<br>(JSON Mode)")
+            Embedding("EmbeddingDispatcher<br>(未来实现)")
+        end
+        
+        Analyzers("各种Analyzer.cs<br>5. 执行具体工具")
+
+        Governor --> Factory
+        Factory -- reads --> Settings
+        Factory -->|"3. 返回一个具体实现"| LlmTool
+        LlmTool -->|"4. 返回决策结果"| Governor
+        Governor --> Analyzers
+
+        Factory -.-> LlmJson
+        Factory -.-> Embedding
+    end
+
+    style LlmJson fill:#f9f,stroke:#333,stroke-width:2px,color:black
+    style Embedding fill:#f9f,stroke:#333,stroke-width:2px,color:black
+```
+
+#### 组件职责
+
+*   **`Governor`**: 作为总指挥，负责编排整个工作流，但不关心具体的决策或执行细节。
+*   **`DispatcherFactory`**: 一个静态工厂，根据用户在`CoreSettings`中的选择，创建并返回一个具体的`IDispatcherService`实例。
+*   **`IDispatcherService`**: 调度策略的统一接口。定义了`DispatchAsync`方法，所有策略都必须实现它。
+*   **`ToolRegistryService`**: 关键的“翻译官”。它不仅向AI提供可用工具的列表，还维护着从AI工具名到C#服务类型及其执行逻辑的映射。
+*   **`ServiceContainer`**: 最终的“后勤官”。根据`ToolRegistryService`提供的类型信息，提供具体服务的实例。
+
+#### 最终协作流程：避免重复造轮子
+
+这个设计优雅地结合了AI的动态决策能力和依赖注入的工程优势。
+
+```mermaid
+sequenceDiagram
+    participant Governor as 总督 (Governor)
+    participant Dispatcher as AIDispatcher (AI大脑)
+    participant Registry as ToolRegistry (翻译官)
+    participant Container as ServiceContainer (后勤官)
+    participant Analyzer as IColonyAnalyzer (具体工具)
+
+    Governor->>Dispatcher: 1. "该用什么工具?" (What to use?)
+    Dispatcher-->>Governor: 2. "用 'analyze_colony_mood' 工具"
+
+    Governor->>Registry: 3. "'analyze_colony_mood' 对应什么C#类型?"
+    Registry-->>Governor: 4. "是 typeof(IColonyAnalyzer)"
+
+    Governor->>Container: 5. "请给我一个 IColonyAnalyzer 实例" (How to get it?)
+    Container-->>Governor: 6. "给你，这是你要的 Analyzer 实例"
+
+    Governor->>Analyzer: 7. "执行分析任务"
+    Analyzer-->>Governor: 8. "分析完毕"
+```
+
+这个架构实现了：
+-   **尊重依赖注入**: `ServiceContainer` 依然是创建服务实例的唯一权威。
+-   **避免重复造轮子**: `Governor` 的逻辑非常干净，完全不涉及服务的具体创建。
+-   **高度可扩展**: 添加新工具只需在 `ToolRegistry` 和 `ServiceContainer` 中各注册一行即可。
+
+### 10. SafeAccessService (RimWorld API安全访问层)
 ```
 SafeAccessService
 ├── 并发安全访问 (重试机制)

@@ -52,6 +52,7 @@ namespace RimAI.Core.Architecture.Interfaces
         bool IsAvailable { get; }
 
         Task<string> ProvideAdviceAsync(CancellationToken cancellationToken = default);
+        Task<string> GetAdviceAsync(string topic, CancellationToken cancellationToken = default);
         void CancelCurrentOperation();
         string GetStatus();
     }
@@ -61,7 +62,7 @@ namespace RimAI.Core.Architecture.Interfaces
     /// </summary>
     public interface ILLMService
     {
-        Task<string> SendMessageAsync(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default);
+        Task<LLMResponse> SendMessageAsync(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default);
         Task<T> SendJsonRequestAsync<T>(string prompt, LLMRequestOptions options = null, CancellationToken cancellationToken = default) where T : class;
         Task SendStreamingMessageAsync(string prompt, Action<string> onChunk, LLMRequestOptions options = null, CancellationToken cancellationToken = default);
         bool IsStreamingAvailable { get; }

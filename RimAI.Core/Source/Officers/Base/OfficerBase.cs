@@ -69,6 +69,12 @@ namespace RimAI.Core.Officers.Base
             _cancellationTokenSource?.Cancel();
         }
 
+        public virtual Task<string> GetAdviceAsync(string topic, CancellationToken cancellationToken = default)
+        {
+            Log.Warning($"[OfficerBase] GetAdviceAsync(string topic) was called on {Name}, but this officer has not implemented a topic-specific advice method. Falling back to default advice.");
+            return ProvideAdviceAsync(cancellationToken);
+        }
+
         public string GetStatus()
         {
             return IsAvailable ? "Ready" : "Unavailable";

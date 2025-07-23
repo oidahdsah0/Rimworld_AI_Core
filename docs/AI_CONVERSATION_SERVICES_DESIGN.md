@@ -1,223 +1,95 @@
-# 🧠 AI 对话服务设计文档
+# 🧠 RimAI 对话服务设计
 
-本文档详细阐述了 RimAI 框架中两个核心对话服务的增强设计：**历史对话服务 (`HistoryService`)** 和 **提示词工厂服务 (`PromptFactoryService`)**。该设计旨在支持复杂、多层次、有记忆的 AI 对话场景。
+*从被动响应到主动决策的范式转变*
 
----
+本文档阐述了RimAI对话服务架构的演进历程，从一个复杂的、基于模板填充的系统，到一个更智能、更灵活的、由AI驱动决策的现代架构。
 
-## 1. 核心设计需求
+## v2.0 范式：模板填充与高级历史管理
 
-该设计方案旨在满足以下核心业务需求：
+在 `v2.0` 版本中，AI的对话生成严重依赖于**模板填充**模式。该模式的核心是构建一个能详细描述游戏世界状态的、巨大的上下文，然后将其一次性提供给AI。该设计的核心是两个高度耦合的服务：`HistoryService` 和 `PromptFactoryService`。
 
-1.  **多路对话支持**: 系统必须同时管理多个独立的对话，包括：
-    *   **1v1 对话**: 玩家 vs. NPC, NPC vs. NPC。
-    *   **多v多对话**: 多个实体在同一场对话中交互。
-2.  **上下文关联检索**: 在获取对话历史时，必须能揪出所有包含当前对话者的相关对话。例如，A和B在1v1对话时，系统需要获取他们二人之间纯粹的1v1历史，以及所有包含他们二人的多人对话历史（如A、B、C的群聊）。
-3.  **历史主次分层**: 检索出的历史记录必须能够被区分为：
-    *   **主线历史 (Primary History)**: 当前直接参与者之间的对话。
-    *   **附加历史 (Ancillary History)**: 包含当前参与者，但也有其他人在场的对话，作为背景参考。
-4.  **跨对话访问**: 允许一个独立的对话场景（如法庭）访问并引用另一场不相关的对话历史（如犯罪嫌疑人的历史供词），作为背景资料。
-5.  **游戏时间戳**: 所有的对话记录都必须带有精确到游戏刻度（Tick）的时间戳，以确保与游戏世界进程的同步。
-6.  **持久化存储**: 所有对话历史都必须能随游戏存档一起保存和加载。
+### 1. 核心设计需求
 
----
+该设计旨在满足以下核心业务需求：
 
-## 2. 历史对话服务 (`HistoryService`) 设计
+1.  **多路对话支持**: 系统必须同时管理多个独立的对话，包括1v1和多人对话。
+2.  **上下文关联检索**: 在获取对话历史时，必须能找出所有包含当前对话者的相关对话。
+3.  **历史主次分层**: 检索出的历史记录必须能够被区分为主线历史和作为背景参考的附加历史。
+4.  **游戏时间戳**: 所有的对话记录都必须带有精确到游戏刻度（Tick）的时间戳。
+5.  **持久化存储**: 所有对话历史都必须能随游戏存档一起保存和加载。
 
-`HistoryService` 的职责是存储、索引和检索所有对话历史。它是一个小型的对话搜索引擎。
+### 2. 历史对话服务 (`HistoryService`) 设计
 
-### 2.1. 核心架构
+`HistoryService` 的职责是存储、索引和检索所有对话历史。它被设计成一个小型对话搜索引擎，采用“**主存储 + 倒排索引**”的双重数据结构来满足复杂的检索需求。
 
-为满足复杂的检索需求，`HistoryService` 采用“**主存储 + 倒排索引**”的双重数据结构。
+-   **主数据存储**: 一个`Dictionary<ConversationId, List<ConversationEntry>>`，存储所有对话的完整内容。
+-   **倒排参与者索引**: 一个`Dictionary<ParticipantId, HashSet<ConversationId>>`，用于快速查找每个参与者参与过的所有对话，是实现高效关联检索的核心。
 
-1.  **主数据存储 (`_conversationStore`)**: 一个字典，用于存储所有对话的完整内容。
-    *   **结构**: `Dictionary<string, List<ConversationEntry>>`
-    *   **Key**: `ConversationId`，每场对话的唯一标识符。
-    *   **Value**: 该对话的所有聊天记录列表。
+### 3. 提示词工厂服务 (`PromptFactoryService`) 设计
 
-2.  **倒排参与者索引 (`_participantIndex`)**: 一个字典，用于快速查找每个参与者参与过的所有对话。这是实现高效关联检索的核心。
-    *   **结构**: `Dictionary<string, HashSet<string>>`
-    *   **Key**: `ParticipantId`，每个参与者的唯一ID。
-    *   **Value**: 一个集合，包含该参与者参与过的所有 `ConversationId`。
+`PromptFactoryService` 的职责是消费 `HistoryService` 提供的结构化历史，并结合其他上下文，智能地组装成一个可直接发送给LLM的、结构化的提示词负载。它的核心逻辑是：
+1.  **获取结构化历史**: 调用`HistoryService`得到主线和附加历史。
+2.  **时间戳格式化**: 将游戏Tick时间戳转换为人类和AI可读的字符串。
+3.  **组装上下文**: 将系统提示词、附加历史（作为背景资料）、主线历史、场景数据等，按预定顺序组装成一个与OpenAI兼容的消息列表。
 
-### 2.2. 数据模型
+### 4. v2.0 范式的局限性
 
-#### `ConversationEntry`
-表示单条对话记录。
-```csharp
-public class ConversationEntry : IExposable
-{
-    // 发言者的唯一ID
-    public string ParticipantId;
-    // 发言者的角色标签 (e.g., "user", "assistant", "character")
-    public string Role;
-    // 发言内容
-    public string Content;
-    // 游戏内时间戳 (Ticks)
-    public long GameTicksTimestamp;
-
-    public void ExposeData()
-    {
-        Scribe_Values.Look(ref ParticipantId, "participantId");
-        Scribe_Values.Look(ref Role, "role");
-        Scribe_Values.Look(ref Content, "content");
-        Scribe_Values.Look(ref GameTicksTimestamp, "gameTicksTimestamp", 0);
-    }
-}
-```
-
-#### `HistoricalContext`
-结构化的历史上下文，用于返回给调用者，已预先分好主次。
-```csharp
-public class HistoricalContext
-{
-    /// <summary>
-    /// 主线历史：当前对话者之间的直接对话记录。
-    /// </summary>
-    public List<ConversationEntry> PrimaryHistory { get; set; }
-
-    /// <summary>
-    /// 附加历史：包含了当前对话者，但也有其他人在场的对话记录。
-    /// </summary>
-    public List<ConversationEntry> AncillaryHistory { get; set; }
-}
-```
-
-### 2.3. 接口定义 (`IHistoryService`)
-
-```csharp
-public interface IHistoryService : IPersistable
-{
-    /// <summary>
-    /// 为一组参与者开始或获取一个对话ID。
-    /// 如果是新对话，会自动创建并更新索引。
-    /// </summary>
-    /// <param name="participantIds">参与对话的所有实体ID列表。</param>
-    /// <returns>这场对话的唯一ID (ConversationId)。</returns>
-    string StartOrGetConversation(List<string> participantIds);
-
-    /// <summary>
-    /// 向指定的对话中添加一条记录。
-    /// </summary>
-    /// <param name="conversationId">对话ID。</param>
-    /// <param name="entry">包含游戏时间戳的对话条目。</param>
-    void AddEntry(string conversationId, ConversationEntry entry);
-
-    /// <summary>
-    /// 获取一个结构化的历史上下文，区分主线对话和附加参考对话。
-    /// </summary>
-    /// <param name="primaryParticipants">当前对话的直接参与者ID列表。</param>
-    /// <param name="limit">每个历史列表的记录条数上限。</param>
-    /// <returns>一个包含主次历史的结构化对象。</returns>
-    HistoricalContext GetHistoricalContextFor(List<string> primaryParticipants, int limit = 10);
-}
-```
-
-### 2.4. 核心逻辑
-
-#### 索引机制
-`ConversationId` 通过对参与者ID列表进行**排序**和**拼接**生成，确保其唯一性和稳定性。当新对话创建时，会同步更新 `_participantIndex`，将新的 `ConversationId` 添加到每个参与者的条目下。
-
-#### 检索逻辑 (`GetHistoricalContextFor`)
-1.  接收当前对话的参与者列表，如 `["A", "B"]`。
-2.  **确定主线历史**: 生成精确匹配的ID（如`"A_B"`），从 `_conversationStore` 中获取其对话记录，作为 `PrimaryHistory`。
-3.  **查找所有相关对话**:
-    *   从 `_participantIndex` 分别获取A和B参与的所有对话ID集合。
-    *   对这些集合**求交集**，得到所有同时包含A和B的对话ID（如 `{"A_B", "A_B_C"}`）。
-4.  **筛选并合并附加历史**:
-    *   从交集结果中移除主线ID (`"A_B"`)。
-    *   用剩下的ID（`"A_B_C"`）去 `_conversationStore` 中取出所有记录。
-    *   将这些记录合并，并按 `GameTicksTimestamp` 排序，作为 `AncillaryHistory`。
-5.  返回填充好的 `HistoricalContext` 对象。
-
-### 2.5. 持久化
-该服务必须实现 `IPersistable` 接口。在 `ExposeData()` 方法中，**`_conversationStore` 和 `_participantIndex` 都必须使用 `Scribe` 系统进行读写**，以确保所有历史和索引都能随存档保存和加载。
+这种模式虽然在当时是先进的，但存在几个根本性的缺陷：
+-   **僵化**：无法处理模板之外的用户查询。AI是被动的模板填充者，而不是主动的思考者。
+-   **低效**：无论用户问什么，总是要抓取并处理所有类型的历史和上下文数据，造成不必要的性能开销。
+-   **上下文质量不高**：LLM得到的是一堆被动灌输的、混合了各种信息的原始数据，而非一个清晰的“任务”，这限制了其进行高质量推理的能力。
 
 ---
 
-## 3. 提示词工厂服务 (`PromptFactoryService`) 设计
+## v2.1 范式转变：两阶段决策模型 (Two-Stage Decision Model)
 
-`PromptFactoryService` 的职责是消费 `HistoryService` 提供的结构化历史，并结合其他上下文，智能地组装成一个可直接发送给大型语言模型（LLM）的、结构化的提示词负载。
+为了克服上述缺陷，我们引入了一个全新的、基于AI工具使用的**两阶段决策模型**。这个模型将一次复杂的交互分解为两个更简单、更清晰的步骤，实现了从“被动响应”到“主动决策”的飞跃。
 
-### 3.1. 数据模型
+### 1. 核心理念：超越模板，拥抱决策
 
-#### `PromptBuildConfig`
-定义了构建一个提示词所需要的所有输入信息。
-```csharp
-public class PromptBuildConfig
-{
-    // 用于从HistoryService获取上下文
-    public List<string> CurrentParticipants { get; set; }
-    // 系统提示词，定义AI的角色和行为准则
-    public string SystemPrompt { get; set; }
-    // 场景提示词
-    public SceneContext Scene { get; set; }
-    // 其他附加游戏数据
-    public AncillaryData OtherData { get; set; }
-    // 历史记录获取上限
-    public int HistoryLimit { get; set; } = 10;
-}
+新范式的核心理念是：**让AI自主选择完成任务所需的工具，而不是被动地接收数据。**
 
-public class SceneContext { /* 时间、地点、人物、事件... */ }
-public class AncillaryData { /* 天气、参考资料... */ }
+1.  **阶段一：决策（Dispatch）**
+    -   **目标**：不直接回答用户，而是让AI**选择合适的工具**。
+    -   **过程**：我们将用户的原始查询（如“殖民地心情如何？”）和一份“工具清单”发送给LLM。LLM的任务是像一个聪明的调度员，返回一个结构化的决策，告诉我们：“对于这个请求，我推荐使用`analyzeColonyMood`这个工具”。
+    -   **产出**：一个包含工具名称和所需参数的JSON对象。
+
+2.  **阶段二：执行与生成（Execute & Generate）**
+    -   **目标**：执行AI选择的工具，并基于其返回的**真实、精确**的数据，生成最终回复。
+    -   **过程**：
+        a. C#代码解析AI的决策，调用对应的本地服务（如`ColonyAnalyzer`）。
+        b. 该服务从游戏中实时抓取**与任务强相关**的数据（例如，只抓取心情数据，而不是所有数据）。
+        c. 然后，我们将这些新鲜出炉的数据，连同原始用户请求，再次发送给LLM，并附上一个简单直接的新指令：“根据以下数据，为玩家生成一份关于殖民地心情的报告和建议。”
+    -   **产出**：一份高质量的、人类可读的回复。
+
+### 2. 工作流图示
+
+这个新流程可以用下图清晰地表示：
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Governor as 总督 (Governor)
+    participant LLMService as LLM服务
+    participant ColonyAnalyzer as 殖民地分析器 (C#)
+
+    User->>Governor: 发出指令 (e.g., "殖民地心情如何？")
+    Governor->>LLMService: <b>决策请求 (阶段 1)</b><br/>"该用哪个工具分析'殖民地心情'？"<br/>附带工具列表: [analyzeColonyMood, ...]
+    LLMService-->>Governor: 返回决策 (JSON)<br/>{ "tool_to_call": "analyzeColonyMood" }
+    Governor->>ColonyAnalyzer: <b>执行工具 (阶段 2.1)</b><br/>调用 C# 方法 analyzeColonyMood()
+    ColonyAnalyzer-->>Governor: 返回实时数据<br/>"心情低落，缺少娱乐..."
+    Governor->>LLMService: <b>生成回复请求 (阶段 2.2)</b><br/>"根据'心情低落'的数据，给玩家一些建议"
+    LLMService-->>Governor: 返回最终回复文本<br/>"指挥官，大家心情不太好，也许可以造个棋盘？"
+    Governor->>User: 显示最终回复
 ```
 
-#### `PromptPayload` 和 `ChatMessage`
-定义了最终输出的、LLM友好的格式，与OpenAI的API格式兼容。
-```csharp
-public class PromptPayload
-{
-    public List<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
-}
+### 3. 设计优势
 
-public class ChatMessage
-{
-    public string Role { get; set; } // "system", "user", "assistant"
-    public string Content { get; set; }
-    public string Name { get; set; } // 可选，用于标记发言者
-}
-```
+这种新的对话服务设计带来了革命性的改进：
 
-### 3.2. 接口定义 (`IPromptFactoryService`)
+-   **智能与灵活**：AI不再是被动的模板填充者，而是主动的决策者。系统可以轻松处理各种预料之外的用户查询，只要有合适的工具可供选择。
+-   **高效与精准**：系统只在需要时，执行与任务最相关的代码来获取数据，避免了不必要的性能浪费。
+-   **高质量回复**：AI的最终回复是基于从游戏中获取的**实时、精确**的数据，而不是基于对一堆混乱信息的模糊猜测，因此回复的质量和相关性都大大提高。
+-   **极佳的可扩展性**：为AI赋予新能力，不再需要修改复杂的提示词模板，而仅仅是为它提供一个定义清晰的新“工具”。（详见**[开发者指南](DEVELOP-GUIDE.md)**）
 
-```csharp
-public interface IPromptFactoryService
-{
-    /// <summary>
-    /// 根据结构化配置，异步构建一个完整的、可直接发送给LLM的提示词负载。
-    /// </summary>
-    /// <param name="config">结构化的提示词构建配置。</param>
-    /// <returns>一个结构化的消息列表，类似于OpenAI的格式。</returns>
-    Task<PromptPayload> BuildStructuredPromptAsync(PromptBuildConfig config);
-}
-```
-
-### 3.3. 核心逻辑 (智能组装)
-
-当 `BuildStructuredPromptAsync` 被调用时，其内部工作流如下：
-1.  **获取结构化历史**: 使用 `config.CurrentParticipants` 调用 `historyService.GetHistoricalContextFor()`，得到 `HistoricalContext` 对象。
-2.  **初始化Payload**: 创建一个 `PromptPayload`，并首先添加 `SystemPrompt` 对应的 `ChatMessage` (`Role: "system"`)。
-3.  **时间戳格式化**: **(关键步骤)** `PromptFactoryService` 的一项核心职责是调用游戏引擎的工具类（如`GenDate`），将从 `ConversationEntry` 中获取的 `long` 类型 `GameTicksTimestamp` 转换为人类和AI可读的字符串（例如：`[时间: 2503年春季第5天, 13时]`）。
-4.  **组装附加历史**:
-    *   将 `historicalContext.AncillaryHistory` 格式化为一段单一、易于理解的文本摘要。在格式化时，必须使用上述转换后的可读时间戳。
-    *   这段摘要将作为一条特殊的 `ChatMessage`（例如 `Role: "user"` 或 `system`，内容前缀为 `[背景参考资料]`）插入到 `Messages` 列表的靠前位置。
-5.  **组装主线历史**:
-    *   遍历 `historicalContext.PrimaryHistory` 中的 `ConversationEntry`。
-    *   将每条记录转换为对应的 `ChatMessage`，并在内容前附加上格式化好的可读时间戳。
-    *   将这些 `ChatMessage` 添加到 `Messages` 列表中。
-6.  **组装场景和其他数据**:
-    *   将 `config.Scene` 和 `config.OtherData` 的信息格式化。
-    *   可以作为一条额外的 `ChatMessage` 插入，也可以融入 `SystemPrompt`。推荐作为独立的上下文消息。
-7.  **返回负载**: 返回最终组装好的 `PromptPayload` 对象。
-
----
-
-## 4. 端到端协同工作流
-
-1.  **对话触发**: 玩家与NPC "Zorg" 开始1v1对话。
-2.  **获取历史**: 游戏逻辑请求 `PromptFactory` 构建提示词，传入参与者 `["player_id", "zorg_id"]`。
-3.  **智能检索**: `PromptFactory` 调用 `HistoryService`，后者通过倒排索引和主存储，返回一个 `HistoricalContext` 对象，其中包含了玩家与Zorg的1v1主线历史，以及他们共同参与过的多人对话（附加历史）。
-4.  **智能组装**: `PromptFactory` 将附加历史格式化为背景资料（包含可读时间戳），将主线历史作为核心对话流（每条记录都附加可读时间戳），再结合系统、场景等提示词，组装成一个 `PromptPayload`。
-5.  **AI调用**: `PromptPayload` 被发送给 `LLMService`。
-6.  **记录更新**: 获得AI（Zorg）的回复后，游戏逻辑调用 `historyService.StartOrGetConversation` 获取 `ConversationId`，然后调用 `historyService.AddEntry`，将带有游戏时间戳（`long`类型）的新回复存入主线历史中。
-
-这个闭环确保了AI既能专注于当前对话，又能参考所有相关的过去经验，从而实现真正有深度、有记忆的互动。 
+通过这次范式转变，RimAI的对话服务从一个“问答机”进化为了一个真正的“AI智能体”。 

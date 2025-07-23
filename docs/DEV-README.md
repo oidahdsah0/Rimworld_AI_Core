@@ -35,20 +35,25 @@ RimAI.Core/
 ├── RimAI.Core.csproj              # 项目文件
 └── Source/                        # 核心源代码
     ├── Analysis/                  # 分析服务
-    │   └── ColonyAnalyzer.cs      # 殖民地分析器
+    │   ├── ColonyAnalyzer.cs      # 殖民地分析器
+    │   └── PawnAnalyzer.cs        # 角色分析器 [v2.1新增]
     ├── Architecture/              # 架构核心
     │   ├── Events.cs              # 事件定义
     │   ├── Models.cs              # 基础数据模型
     │   ├── ServiceContainer.cs    # 依赖注入容器 + CoreServices门面
     │   ├── Interfaces/            # 接口定义
     │   │   ├── ICoreInterfaces.cs # 核心接口
-    │   │   ├── IHistoryService.cs # 历史服务接口 [新增]
-    │   │   ├── IPromptFactoryService.cs # 提示词工厂接口 [新增]
-    │   │   ├── ISafeAccessService.cs # 安全访问接口 [新增]
+    │   │   ├── IDispatcherService.cs # AI调度器接口 [v2.1新增]
+    │   │   ├── IHistoryService.cs # 历史服务接口
+    │   │   ├── IPawnAnalyzer.cs   # 角色分析器接口 [v2.1新增]
+    │   │   ├── IPromptFactoryService.cs # 提示词工厂接口
+    │   │   ├── IToolRegistryService.cs # AI工具注册表接口 [v2.1新增]
+    │   │   ├── ISafeAccessService.cs # 安全访问接口
     │   │   └── IPersistenceInterfaces.cs # 持久化接口
     │   └── Models/                # 数据模型
-    │       ├── ConversationModels.cs # 对话模型 [新增]
-    │       └── PromptModels.cs    # 提示词模型 [新增]
+    │       ├── ConversationModels.cs # 对话模型
+    │       ├── PromptModels.cs    # 提示词模型
+    │       └── ToolModels.cs      # AI工具模型 [v2.1新增]
     ├── Commands/                  # 命令处理
     ├── Core/                      # 核心组件
     │   ├── LogFilter.cs           # 日志过滤器
@@ -65,12 +70,17 @@ RimAI.Core/
     ├── RimAICoreMod.cs           # 模组主类
     ├── Services/                  # 服务实现
     │   ├── CacheService.cs        # 缓存服务
+    │   ├── DispatcherFactory.cs   # AI调度器工厂 [v2.1新增]
+    │   ├── EmbeddingDispatcherService.cs # Embedding调度器(占位) [v2.1新增]
     │   ├── EventBusService.cs     # 事件总线服务
-    │   ├── HistoryService.cs      # 对话历史服务 [新增]
+    │   ├── HistoryService.cs      # 对话历史服务
     │   ├── LLMService.cs          # LLM调用服务
+    │   ├── LlmJsonDispatcherService.cs # JSON调度器实现 [v2.1新增]
+    │   ├── LlmToolDispatcherService.cs # Tool-Calling调度器实现 [v2.1新增]
     │   ├── PersistenceService.cs  # 持久化服务
-    │   ├── PromptFactoryService.cs # 提示词工厂服务 [新增]
-    │   ├── SafeAccessService.cs   # 安全访问服务 [新增]
+    │   ├── PromptFactoryService.cs # 提示词工厂服务
+    │   ├── SafeAccessService.cs   # 安全访问服务
+    │   ├── ToolRegistryService.cs # AI工具注册表 [v2.1新增]
     │   └── Examples/
     │       └── GovernorPerformanceDemonstrator.cs # 性能演示
     ├── Settings/                  # 设置系统
@@ -127,65 +137,41 @@ dotnet build RimAI.Core/RimAI.Core.csproj --configuration Release
    3. 其他依赖此框架的模组
    ```
 
-## 🏗️ 架构核心组件
+## 🏗️ 架构核心思想 (v2.1更新)
 
-### 新增核心服务
+RimAI Core 采用了**依赖注入（DI）**和**事件驱动**的设计哲学。其核心经过 `v2.1` 的重大升级，已经从一个“模板填充”式的AI，演变为一个**由AI自主决策的、基于工具使用的智能体（Agent）**。
 
-| 服务 | 文件位置 | 接口定义 | 职责描述 |
-|------|----------|----------|----------|
-| **HistoryService** | `Services/HistoryService.cs` | `IHistoryService.cs` | 管理多参与者对话历史，支持主线/附加历史分层检索 |
-| **PromptFactoryService** | `Services/PromptFactoryService.cs` | `IPromptFactoryService.cs` | 智能组装结构化提示词，消费历史服务数据 |
-| **SafeAccessService** | `Services/SafeAccessService.cs` | `ISafeAccessService.cs` | 提供RimWorld API的并发安全访问，自动重试机制 |
+| 核心组件 | 职责描述 |
+|---|---|
+| **`ServiceContainer`** | **后勤总管**：唯一的单例，负责所有服务的创建、管理和生命周期。 |
+| **`CoreServices`** | **快速通道**：静态门面，为最常用的服务提供便捷、类型安全的访问入口。 |
+| **`DispatcherService`** | **AI大脑**：基于策略模式，根据用户设置（`Function Calling`、`JSON Mode`等）动态决定使用哪种算法来**选择工具**。 |
+| **`ToolRegistryService`**| **翻译官**：维护“AI工具定义”到“C#服务实现”的映射，是连接AI意图和本地代码的关键桥梁。 |
+| **`Governor`** | **指挥官**：高层协调者，负责编排“**决策 -> 执行 -> 生成回复**”的完整工作流，但不关心具体实现细节。 |
 
-### 架构迁移重点
+开发者应首先理解这种将**AI决策**与**本地代码执行**解耦的核心思想。
 
-**从静态单例 → 依赖注入**
-- 所有服务通过 `ServiceContainer` 注册和管理
-- `CoreServices` 门面提供统一访问入口
-- 废弃旧的 `.Instance` 静态属性模式
+## 🔧 核心开发工作流
 
-**玩家身份处理**
-- `CoreServices.PlayerStableId`：用于数据关联，永不改变
-- `CoreServices.PlayerDisplayName`：用于UI显示，用户可修改
+对于本项目的大多数贡献者而言，最常见和最重要的开发任务是**为AI添加一个新工具**，以扩展其能力。
 
-## 🔧 开发工作流
+我们已经为您准备了一份详尽的、分步的指南，它将指导您完成从创建服务到在工具注册表中注册的所有步骤。
 
-### 1. 添加新服务
+➡️ **请首先阅读：[如何为AI添加一个新工具](DEVELOPER_GUIDE.md#️-如何为ai添加一个新工具)**
 
-```bash
-# 1. 在 Architecture/Interfaces/ 中定义接口
-touch RimAI.Core/Source/Architecture/Interfaces/IMyNewService.cs
+## 📚 重要文档链接
 
-# 2. 在 Services/ 中实现服务
-touch RimAI.Core/Source/Services/MyNewService.cs
+| 文档 | 主要内容 | 目标读者 |
+|---|---|---|
+| 🚀 **[快速入门](QUICK_START.md)** | 5分钟内完成第一次AI调用，基础环境配置。 | **所有新开发者** |
+| 👨‍💻 **[开发者指南](DEVELOPER_GUIDE.md)** | 创建新服务、新官员的完整教程，以及**如何添加新工具**。 | **主要贡献者** |
+| 🏗️ **[架构文档](ARCHITECTURE.md)** | 深入解析所有核心组件的设计哲学、协作流程和设计决策。 | **架构师、核心开发者** |
+| 🧠 **[对话服务设计](AI_CONVERSATION_SERVICES_DESIGN.md)** | 阐述从`v2.0`的模板填充到`v2.1`主动决策的范式转变。| **对AI设计感兴趣的开发者** |
+| 📚 **[API参考](API_REFERENCE.md)** | 所有公共接口、类和方法的完整技术参考手册。 | **所有开发者** |
 
-# 3. 在 ServiceContainer.cs 中注册
-# 4. 在 CoreServices 中添加访问器
-# 5. 编写单元测试
-```
+---
 
-### 2. 创建新AI官员
-
-```bash
-# 1. 继承 OfficerBase
-touch RimAI.Core/Source/Officers/MyNewOfficer.cs
-
-# 2. 实现抽象方法
-# 3. 在 ServiceContainer 中注册
-# 4. 添加UI集成
-```
-
-### 3. 调试流程
-
-```bash
-# 构建并启动调试
-dotnet build RimAI.Core/RimAI.Core.csproj --configuration Debug
-# 启动 RimWorld 进行调试
-
-# 查看日志
-# Windows: %USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios\Player.log
-# 关键日志前缀: [RimAI.Core], [ServiceContainer], [HistoryService], [PromptFactory]
-```
+*旧版内容已删除，以新的、更聚焦和导航性的内容替代*
 
 ## 🧪 测试和质量保证
 

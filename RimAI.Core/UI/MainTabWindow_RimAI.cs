@@ -8,6 +8,7 @@ using RimAI.Core.Architecture.Models;
 using System.Linq;
 using RimAI.Core.Settings;
 using System;
+using System.Text; // Added for StringBuilder
 
 namespace RimAI.Core.UI
 {
@@ -145,15 +146,17 @@ namespace RimAI.Core.UI
             
             try
             {
-                var fullResponse = await CoreServices.Governor.HandleUserQueryStreamAsync(userInput, chunk =>
+                var responseBuilder = new StringBuilder();
+                await CoreServices.Governor.HandleUserQueryStreamAsync(userInput, chunk =>
                 {
                     // This action is called for each piece of the response.
-                    thinkingMessage.Content += chunk;
+                    responseBuilder.Append(chunk);
+                    thinkingMessage.Content = responseBuilder.ToString();
                     ScrollToBottom(); // Keep scrolling to the bottom as new content arrives
                 });
 
                 // Now that we have the full response, add it to the history.
-                CoreServices.History.AddEntry(_conversationId, new ConversationEntry { ParticipantId = AiId, Role = "assistant", Content = fullResponse, GameTicksTimestamp = CoreServices.SafeAccessService.GetTicksGameSafe() });
+                CoreServices.History.AddEntry(_conversationId, new ConversationEntry { ParticipantId = AiId, Role = "assistant", Content = responseBuilder.ToString(), GameTicksTimestamp = CoreServices.SafeAccessService.GetTicksGameSafe() });
             }
             catch (System.Exception ex)
             {

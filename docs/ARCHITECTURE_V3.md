@@ -1,79 +1,3 @@
-```mermaid
-graph TB
-    
-    classDef layer fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef service fill:#e6f3ff,stroke:#0066cc,stroke-width:1px;
-    classDef brain fill:#e6ffe6,stroke:#006600,stroke-width:2px;
-    classDef external fill:#fff0e6,stroke:#ff6600,stroke-width:1px;
-    classDef io fill:#f2e6ff,stroke:#6600cc,stroke-width:1px;
-
-    subgraph "Layer 1: Presentation (RimWorld UI & Game Objects)"
-        UserUI("User Interaction<br/>(Governor, MainTabWindow)")
-    end
-    class UserUI layer
-
-    subgraph "Layer 2: Application (The Brain)"
-        OrchestrationService("IOrchestrationService")
-    end
-    class OrchestrationService brain
-
-    subgraph "Layer 3: Domain Services (Core Logic)"
-        PromptFactoryService("IPromptFactoryService")
-        HistoryService("IHistoryService")
-        EventAggregator("IEventAggregatorService")
-    end
-    class PromptFactoryService,HistoryService,EventAggregator service
-
-    subgraph "Layer 4: Infrastructure & Data (The Plumbing)"
-        subgraph "World I/O (Anti-Corruption)"
-            WorldDataService("IWorldDataService<br/>(Safe READ)")
-            CommandService("ICommandService<br/>(Safe WRITE)")
-        end
-        subgraph "LLM & Persistence"
-            LLMService("ILLMService")
-            PersistenceService("IPersistenceService")
-        end
-        subgraph "Low-Level Utilities"
-            SchedulerService("ISchedulerService")
-            CacheService("ICacheService")
-        end
-    end
-    class WorldDataService,CommandService,LLMService,PersistenceService,SchedulerService,CacheService io
-
-    subgraph "External Systems"
-        GameEngine("RimWorld Game State<br/>(Events, Data, Save/Load)")
-        FrameworkAPI("RimAI.Framework API")
-    end
-    class GameEngine,FrameworkAPI external
-
-    %% --- Main Flow ---
-    UserUI -- "1. User Query" --> OrchestrationService
-    OrchestrationService -- "2. Needs Prompt" --> PromptFactoryService
-    PromptFactoryService -- "3. Gathers Context" --> HistoryService
-    PromptFactoryService -- "3. Gathers Context" --> WorldDataService
-    PromptFactoryService -- "3. Gathers Context" --> EventAggregator
-    PromptFactoryService -- "4. Builds Prompt For" --> OrchestrationService
-    OrchestrationService -- "5. Calls LLM" --> LLMService
-    LLMService -- "6. Gets Function Call" --> OrchestrationService
-    OrchestrationService -- "7. Executes Action" --> CommandService
-    CommandService -- "8. Modifies World" --> GameEngine
-    OrchestrationService -- "9. Records Final Output" --> HistoryService
-    OrchestrationService -- "10. Streams Response" --> UserUI
-    
-    %% --- Infrastructure Connections ---
-    LLMService --> FrameworkAPI
-    LLMService --> CacheService
-    WorldDataService --> SchedulerService
-    CommandService --> SchedulerService
-    SchedulerService --> GameEngine
-    PersistenceService -- "on save/load" --> GameEngine
-    PersistenceService -- "manages" --> HistoryService
-    EventAggregator -- "listens to" --> GameEngine
-    
-    %% Implicitly, all services are registered in a ServiceContainer.
-    %% This layered view is cleaner than showing all connections to a central container.
-```
-
 # RimAI Core v3.0 架构文档
 
 ## 1. 核心设计哲学
@@ -522,3 +446,265 @@ public interface ICommandService
 
 **结论：**
 `ICommandService` 的设计，为我们宏伟的架构补上了最后一块“执行”拼图。它确保了AI的所有“写”操作都在一个**安全、可靠、可控**的框架内进行，使我们的AI真正从一个“思想家”，蜕变成了一个能知能行的“行动者”。
+
+---
+
+### 2.11. `IConfigurationService` (集中化配置服务)
+
+**角色与定位：**
+
+`IConfigurationService` 是整个 `Core` 模块中所有可配置参数的**唯一真实来源 (Single Source of Truth)**。它的存在是为了根除散落在代码各处的“魔法数字”（如超时时间、温度参数）和硬编码设置，是提升整个系统**可维护性、可配置性和用户友好度**的关键基石。
+
+任何需要根据外部设置调整自身行为的服务，都应依赖于此服务来获取配置，而非自行读取文件或持有状态。
+
+**核心职责：**
+
+1.  **统一加载 (Unified Loading):**
+    *   在Mod启动时，负责从 RimWorld 的Mod设置系统（`ModSettings`）中加载所有配置。
+    *   它将配置的**存储方式**与**使用方式**完全解耦。其他服务无需关心配置是存在XML里还是其他地方。
+
+2.  **强类型与只读访问 (Strongly-Typed & Read-Only Access):**
+    *   它向其他服务暴露一个清晰的、强类型的、结构化的配置对象（例如 `Config.LLM.Temperature`），而不是让服务通过字符串键来查询。这能最大化地利用编译时检查，避免拼写错误。
+    *   暴露的配置对象应该是**不可变的 (Immutable)**，防止任何服务在运行时意外修改全局配置。
+
+3.  **支持热重载 (Support for Hot-Reloading):**
+    *   当玩家在游戏内的设置菜单中修改了配置并保存后，`IConfigurationService` 能够重新加载配置，并通过C#事件 (`OnConfigurationChanged`) 通知所有依赖它的服务。这使得修改配置（如调整AI性格）可以立即生效，无需重启游戏。
+
+4.  **提供默认值 (Providing Defaults):**
+    *   当配置文件不存在或某些配置项缺失时，服务自身负责提供一套稳定、合理的默认值，保证系统在任何情况下都能正常启动。
+
+**核心设计与工作流程：**
+
+```csharp
+// 1. 定义一个结构化的、强类型的配置数据模型
+public class CoreConfig
+{
+    public LLMConfig LLM { get; init; } = new();
+    public CacheConfig Cache { get; init; } = new();
+    public EventAggregatorConfig EventAggregator { get; init; } = new();
+    // AI个性化配置未来也可以放这里
+}
+
+public class LLMConfig
+{
+    public double Temperature { get; init; } = 0.7;
+    public string ApiKey { get; init; } = string.Empty;
+}
+
+// ... 其他具体的配置类 ...
+
+// 2. 定义服务接口
+public interface IConfigurationService
+{
+    // 获取当前激活的、不可变的配置
+    CoreConfig Current { get; }
+
+    // 当配置发生变化时触发的事件
+    event Action<CoreConfig> OnConfigurationChanged;
+
+    // 由外部（如设置窗口）调用，以触发配置重载和通知
+    void Reload();
+}
+```
+
+**工作流程:**
+
+1.  **启动时：** `ServiceContainer` 创建 `ConfigurationService` 的实例，该实例从 `RimAISettings` 中加载数据，填充好一个 `CoreConfig` 对象，然后将自身注册为单例。
+2.  **使用时：** `ILLMService` 通过构造函数注入 `IConfigurationService`。在需要温度参数时，它会访问 `_configService.Current.LLM.Temperature`。
+3.  **更新时：** 玩家在设置界面 (`RimAISettingsWindow`) 中修改了参数并保存。设置窗口会调用 `IConfigurationService.Reload()`。
+4.  **通知时：** `Reload()` 方法会重新从 `RimAISettings` 加载最新的值，创建一个**新的** `CoreConfig` 实例，更新 `Current` 属性，并触发 `OnConfigurationChanged` 事件。所有订阅了此事件的服务都会收到通知并作出响应。
+
+**结论：**
+
+`IConfigurationService` 将配置的管理与使用完全分离，是构建一个灵活、健壮系统的核心。它使得其他服务更加纯粹，只关注其业务逻辑，同时极大地提升了最终用户的自定义体验。该服务的实现类**必须在 `ServiceContainer` 中作为单例注册，并由容器统一管理其生命周期。**
+
+---
+
+### 2.12. `IToolRegistryService` (工具注册服务)
+
+**角色与定位：**
+
+如果说 `ICommandService` 和 `IWorldDataService` 是 AI 的“手臂”和“眼睛”，那么 `IToolRegistryService` 就是一个**可扩展的“工具箱”**。它的存在，是为了让我们可以动态地为 AI 添加新的能力（工具），而无需修改其核心大脑 (`IOrchestrationService`) 的逻辑。
+
+它负责**自动发现、注册和执行**所有定义好的工具 (`IRimAITool`)。
+
+**核心职责：**
+
+1.  **自动发现与注册 (Automatic Discovery & Registration):**
+    *   在 Mod 启动时，服务会自动扫描所有已加载的程序集 (Assemblies)，找到所有实现了 `IRimAITool` 接口的公开类。
+    *   它会为每一个找到的工具类创建一个单例实例，并将其存储在一个内部的字典中，以工具的唯一名称 (`Name` 属性) 作为键。
+
+2.  **提供工具清单 (Providing Tool Manifest):**
+    *   它向 `IOrchestrationService` 提供一个方法，可以获取当前所有可用工具的 **JSON Schema** 列表。这个清单是 `IOrchestrationService` 用来告诉 LLM “你有哪些工具可以用”的关键数据。
+
+3.  **统一的、安全的工具执行 (Unified & Safe Tool Execution):**
+    *   提供一个统一的 `ExecuteToolAsync` 方法。`IOrchestrationService` 只需提供工具名称和参数，该服务便会负责找到对应的工具实例并执行它。
+    *   这保证了工具的执行逻辑被集中管理。
+
+**核心设计与工作流程：**
+
+```csharp
+// 1. 定义所有工具必须实现的接口
+public interface IRimAITool
+{
+    // 工具的唯一名称，供 LLM 调用
+    string Name { get; }
+    // 工具功能的自然语言描述，供 LLM 理解
+    string Description { get; }
+    // 获取工具的参数定义 (JSON Schema)
+    ToolFunction GetSchema();
+    // 执行工具的核心逻辑
+    Task<object> ExecuteAsync(Dictionary<string, object> parameters);
+}
+
+// 2. 定义工具注册服务接口
+public interface IToolRegistryService
+{
+    // 获取所有已注册工具的 Schema 列表
+    List<ToolFunction> GetAllToolSchemas();
+    // 根据名称执行一个工具
+    Task<object> ExecuteToolAsync(string toolName, Dictionary<string, object> parameters);
+}
+```
+
+**工具与核心服务的关系:**
+
+工具本身不是孤立的。它们是 `IWorldDataService` 和 `ICommandService` 的**直接消费者**，通过这种方式与游戏世界安全地交互。
+
+```csharp
+// 示例：一个获取殖民地状态的工具
+public class GetColonyStatusTool : IRimAITool
+{
+    public string Name => "get_colony_status";
+    public string Description => "获取殖民地当前状态的综合摘要，包括资源、居民心情和当前威胁。";
+
+    // 工具通过构造函数注入它需要的服务
+    private readonly IWorldDataService _worldDataService;
+    public GetColonyStatusTool(IWorldDataService worldDataService)
+    {
+        _worldDataService = worldDataService;
+    }
+
+    public ToolFunction GetSchema() { /* ... 返回描述此工具无参数的 Schema ... */ }
+
+    public async Task<object> ExecuteAsync(Dictionary<string, object> parameters)
+    {
+        // 调用核心服务来安全地获取数据
+        var colonyStatus = await _worldDataService.GetColonySummaryAsync();
+        return colonyStatus;
+    }
+}
+```
+
+**工作流程:**
+
+1.  **启动时：** `ServiceContainer` 创建 `ToolRegistryService` 实例。其构造函数会立即扫描程序集，找到所有 `IRimAITool` 的实现类，并通过 `ServiceContainer` 来创建它们的实例（这样工具自身也能获得依赖注入），然后将它们注册到内部字典中。
+2.  **编排时 (步骤1 - AI决策):**
+    *   `IOrchestrationService` 调用 `_toolRegistryService.GetAllToolSchemas()` 来获取当前所有可用的工具定义。
+    *   `IOrchestrationService` 将这个工具列表连同用户问题一起，通过 `IPromptFactoryService` 组装好，发给 LLM。
+3.  **执行时 (步骤2 - 决策执行):**
+    *   LLM 返回决定要调用的工具名称（如 `get_colony_status`）和参数。
+    *   `IOrchestrationService` 调用 `_toolRegistryService.ExecuteToolAsync("get_colony_status", parameters)`。
+    *   `ToolRegistryService` 在其内部字典中找到对应的工具实例，并调用其 `ExecuteAsync` 方法，最终将结果返回给 `IOrchestrationService`。
+
+**结论：**
+
+`IToolRegistryService` 是实现真正可扩展架构的“最后一块拼图”。它让 AI 的能力可以像安装插件一样被动态地增加，而无需触动其核心“大脑”的逻辑。该服务的实现类**必须在 `ServiceContainer` 中作为单例注册，并由容器统一管理其生命周期。**
+
+---
+
+### 2.13. 韧性与错误处理策略 (Resilience & Error Handling Strategy)
+
+**核心哲学：失败是信息，而非终点。**
+
+我们的系统不应视错误为意外的、需要被隐藏的崩溃。相反，我们应将错误视为一种宝贵的**信息**。根据错误信息的来源和类型，系统应有策略地进行**重试 (Retry)**、**回退 (Fallback)**，或将其**反馈给AI (Feedback to AI)**，让AI来决定如何向用户解释，从而将一次潜在的技术故障，转化为一次更智能、更人性化的交互。
+
+#### 2.13.1. 统一的自定义异常体系
+
+为了区分不同类型的故障，我们将依赖 `Source/Exceptions/` 目录下已有的自定义异常体系。所有服务在捕获到底层异常（如 `HttpRequestException`, `NullReferenceException`）后，都**必须**将其包装成以下更具业务含义的自定义异常再向上抛出。
+
+*   `LLMException`: 代表所有与大语言模型通信相关的错误（如API密钥无效、模型不可用、内容审查）。
+*   `ConnectionException`: 代表底层网络问题（如超时、DNS错误）。
+*   `ToolExecutionException`: 当一个 `IRimAITool` 在执行过程中失败时抛出。
+*   `ConfigurationException`: 当配置缺失或无效时抛出。
+*   `RimAIException`: 其他所有与本 Mod 相关的通用异常。
+
+#### 2.13.2. 分层处理策略
+
+每一层服务都有其特定的错误处理职责。
+
+##### a. `ILLMService` (LLM 通信韧性层)
+
+作为与外部世界通信的网关，`ILLMService` 是韧性策略的**第一道防线**。
+
+*   **策略：自动重试与熔断 (Retry & Circuit Breaker)**
+    1.  **捕获：** 捕获 `ConnectionException` 和代表可恢复服务端错误（如 HTTP 503）的 `LLMException`。
+    2.  **重试：** 内部实现一个带**指数退避**的重试逻辑（例如，第一次失败后等1秒，第二次等2秒，第三次等4秒，最多重试3次）。
+    3.  **熔断：** 如果在一定时间内（如1分钟内）失败率超过阈值（如50%），则激活“熔断器”。在接下来的5分钟内，任何新的 LLM 请求都将**立即失败**并抛出 `LLMException`，而不再进行任何网络尝试，从而避免资源浪费和对失败服务的雪崩式攻击。5分钟后，熔断器进入“半开”状态，允许一次请求通过，如果成功则关闭熔断器，否则继续保持打开。
+    4.  **最终失败：** 如果所有重试都失败了，或者熔断器是打开的，`ILLMService` 最终会向上层（`IOrchestrationService`）抛出一个 `LLMException`。
+
+##### b. `IWorldDataService` / `ICommandService` (游戏世界交互安全层)
+
+*   **策略：优雅失败与明确信息**
+    1.  **捕获：** 捕获所有在访问游戏世界时可能发生的异常（如 `NullReferenceException`，当一个对象不存在时）。
+    2.  **包装：** 将其包装成一个 `ToolExecutionException`，并在 `Message` 属性中提供清晰、对开发者友好的错误信息（例如：“Failed to get pawn info: Pawn with ID 'pawn_Human10' not found on map.”）。
+    3.  **向上抛出：** 将此异常抛给调用者（通常是 `IToolRegistryService` 内部的工具）。
+
+##### c. `IOrchestrationService` (智能错误处理中枢)
+
+作为“大脑”，`IOrchestrationService` 是错误处理策略的**最高决策者**。它负责将技术性错误转化为智能的AI行为。
+
+*   **策略：捕获、反馈、再循环 (Catch, Feedback, Re-cycle)**
+    1.  **捕获所有异常：** 在其核心工作流（如 `ExecuteToolAssistedQueryAsync`）的顶层，有一个全局的 `try-catch` 块，能捕获所有来自下层服务的异常（`LLMException`, `ToolExecutionException` 等）。
+    2.  **分类处理：**
+        *   **如果捕获到 `ToolExecutionException`:**
+            *   **绝不终止！** 这是最关键的策略。
+            *   将工具执行的失败结果（异常的 `Message`）视为一个**新的、关键的上下文信息**。
+            *   再次调用 `IPromptFactoryService`，构建一个**新的提示词**，其内容类似于：“用户的原始问题是‘我们殖民地情况怎么样？’。我尝试为此调用 `get_colony_status` 工具，但它失败了，返回的错误是‘xxx’。现在，请你不要再尝试调用任何工具，而是基于这个错误信息，为用户生成一段诚实且友好的自然语言回复。”
+            *   将这个新提示词发送给 `ILLMService` 进行一次**常规的、非工具调用的**LLM请求。
+            *   这样，AI 就会智能地向用户报告问题：“我本来想帮你查看殖民地的状态，但系统似乎出了点小问题，暂时无法获取数据。很抱歉给您带来不便。”
+        *   **如果捕获到 `LLMException` (来自 `ILLMService` 的最终失败):**
+            *   这通常意味着与AI的连接中断。
+            *   此时，服务应直接向UI层返回一个硬编码的、表示连接失败的友好提示（例如：“与AI核心的连接中断，请检查您的网络和API密钥设置。”）。
+        *   **如果捕获到其他意外异常:**
+            *   记录详细的错误日志供开发者排查。
+            *   向UI层返回一个通用的错误提示（“抱歉，发生了一个意外的内部错误。”）。
+
+---
+
+### 2.14. AI 角色与个性化架构 (Persona Architecture)
+
+**核心哲学：** AI 的"人格"与"智能"分离。`Persona` 定义了"**我是谁，我想什么**"，而 `IOrchestrationService` 提供了"**如何思考和执行**"的通用能力。在此架构中，`Persona` 是驱动者，`IOrchestrationService` 是被调用的高级工具。
+
+**智能体层 (The Agent Layer):**
+
+这是位于我们架构最顶层的、新的逻辑层，是所有 AI 主动行为的发源地。
+
+*   **智能体 (Agent):** 游戏中的每个"小人 (Pawn)"，以及位于主界面、服务于玩家的"RimAI 助手"，都是一个独立的智能体。
+*   **人格 (Persona):** 每个智能体都拥有一个 `Persona` 对象。它是该智能体性格、世界观和行为模式的载体。
+
+**`IPersonaService` (人格管理服务):**
+
+此服务是 `Core` 模块中所有 `Persona` 实例的**中央工厂和注册中心**。
+
+*   **核心职责:**
+    1.  **人格模板管理：** 负责从游戏配置（Defs）中加载所有预设的 `Persona` 模板（如："默认助手"、"暴躁的战士"、"好奇的研究员"）。
+    2.  **实例分配与创建：** 为游戏中的每个 Pawn 创建并关联一个 `Persona` 实例。如果一个 Pawn 还没有自己特定的人格，则为其分配一个默认的"群体人格"。
+    3.  **提供访问接口：** 提供 `GetPersonaForPawn(Pawn pawn)` 和 `GetAssistantPersona()` 等方法，让 UI 层可以获取到特定智能体的 `Persona`。
+
+**全新工作流程:**
+
+1.  **【触发】:**
+    *   **助手模式:** 玩家点击主界面 `Assistant Tab` 并输入问题。
+    *   **对话模式:** 玩家右键点击某个小人，选择"对话"，打开专属的 `PawnDialogWindow`。
+2.  **【获取人格】:** UI 层（无论是 `AssistantTab` 还是 `PawnDialogWindow`）作为客户端，首先调用 `IPersonaService` 来获取当前交互对象的 `Persona` 实例。
+3.  **【调用大脑】:** UI 层随后调用 `IOrchestrationService` 的核心方法，并传入两个关键参数：
+    *   `query`: 用户的提问或指令。
+    *   `personaContext`: 从 `Persona` 对象中获取的**系统提示词 (System Prompt)**。
+    *   *示例: `_orchestrationService.ExecuteToolAssistedQueryAsync(query, persona.SystemPrompt);`*
+4.  **【统一编排】:** `IOrchestrationService` 的内部逻辑保持不变，但它的行为现在被外部传入的 `personaContext` 动态影响。它会将这个独特的系统提示词交给 `IPromptFactoryService`，从而影响后续所有的 LLM 调用和工具决策。
+5.  **【结果反馈】:** `IOrchestrationService` 将最终结果返回给最初的调用者（`AssistantTab` 或 `PawnDialogWindow`），完成交互闭环。
+
+**结论：**
+
+通过引入 `Persona` 和 `IPersonaService`，我们将 AI 的"性格"从其"智力"中解耦出来。这使得添加新的 AI 人格变得简单，只需定义新的 `Persona` 模板即可，而无需改动任何核心服务。这个设计为 Mod 提供了极高的可扩展性和个性化深度。

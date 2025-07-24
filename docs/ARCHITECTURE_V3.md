@@ -1,4 +1,80 @@
-# RimAI.Core V3.0 架构设计文档
+```mermaid
+graph TB
+    
+    classDef layer fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef service fill:#e6f3ff,stroke:#0066cc,stroke-width:1px;
+    classDef brain fill:#e6ffe6,stroke:#006600,stroke-width:2px;
+    classDef external fill:#fff0e6,stroke:#ff6600,stroke-width:1px;
+    classDef io fill:#f2e6ff,stroke:#6600cc,stroke-width:1px;
+
+    subgraph "Layer 1: Presentation (RimWorld UI & Game Objects)"
+        UserUI("User Interaction<br/>(Governor, MainTabWindow)")
+    end
+    class UserUI layer
+
+    subgraph "Layer 2: Application (The Brain)"
+        OrchestrationService("IOrchestrationService")
+    end
+    class OrchestrationService brain
+
+    subgraph "Layer 3: Domain Services (Core Logic)"
+        PromptFactoryService("IPromptFactoryService")
+        HistoryService("IHistoryService")
+        EventAggregator("IEventAggregatorService")
+    end
+    class PromptFactoryService,HistoryService,EventAggregator service
+
+    subgraph "Layer 4: Infrastructure & Data (The Plumbing)"
+        subgraph "World I/O (Anti-Corruption)"
+            WorldDataService("IWorldDataService<br/>(Safe READ)")
+            CommandService("ICommandService<br/>(Safe WRITE)")
+        end
+        subgraph "LLM & Persistence"
+            LLMService("ILLMService")
+            PersistenceService("IPersistenceService")
+        end
+        subgraph "Low-Level Utilities"
+            SchedulerService("ISchedulerService")
+            CacheService("ICacheService")
+        end
+    end
+    class WorldDataService,CommandService,LLMService,PersistenceService,SchedulerService,CacheService io
+
+    subgraph "External Systems"
+        GameEngine("RimWorld Game State<br/>(Events, Data, Save/Load)")
+        FrameworkAPI("RimAI.Framework API")
+    end
+    class GameEngine,FrameworkAPI external
+
+    %% --- Main Flow ---
+    UserUI -- "1. User Query" --> OrchestrationService
+    OrchestrationService -- "2. Needs Prompt" --> PromptFactoryService
+    PromptFactoryService -- "3. Gathers Context" --> HistoryService
+    PromptFactoryService -- "3. Gathers Context" --> WorldDataService
+    PromptFactoryService -- "3. Gathers Context" --> EventAggregator
+    PromptFactoryService -- "4. Builds Prompt For" --> OrchestrationService
+    OrchestrationService -- "5. Calls LLM" --> LLMService
+    LLMService -- "6. Gets Function Call" --> OrchestrationService
+    OrchestrationService -- "7. Executes Action" --> CommandService
+    CommandService -- "8. Modifies World" --> GameEngine
+    OrchestrationService -- "9. Records Final Output" --> HistoryService
+    OrchestrationService -- "10. Streams Response" --> UserUI
+    
+    %% --- Infrastructure Connections ---
+    LLMService --> FrameworkAPI
+    LLMService --> CacheService
+    WorldDataService --> SchedulerService
+    CommandService --> SchedulerService
+    SchedulerService --> GameEngine
+    PersistenceService -- "on save/load" --> GameEngine
+    PersistenceService -- "manages" --> HistoryService
+    EventAggregator -- "listens to" --> GameEngine
+    
+    %% Implicitly, all services are registered in a ServiceContainer.
+    %% This layered view is cleaner than showing all connections to a central container.
+```
+
+# RimAI Core v3.0 架构文档
 
 ## 1. 核心设计哲学
 

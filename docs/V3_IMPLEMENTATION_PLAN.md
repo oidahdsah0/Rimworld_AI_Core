@@ -9,7 +9,7 @@
 一个清晰、有预见性的目录结构是项目能保持整洁的基石。我们将遵循“关注点分离”和“面向接口编程”的核心原则，规划 `Source/` 目录如下：
 
 ```
-Rimworld_AI_Core/
+RimAI.Core/
 └── Source/
     ├── Contracts/
     │   ├── Services/      # (契约) 所有服务接口 (如 ILLMService.cs)
@@ -184,3 +184,16 @@ Rimworld_AI_Core/
     - [ ] `Contracts/Services/IPersonaService.cs`: 定义接口。
     - [ ] `Services/PersonaService.cs`: 实现从 Defs 加载人格模板的逻辑。
     - [ ] `UI/`: 修改UI层，使其在调用 `IOrchestrationService` 时传入 `Persona` 的系统提示词。 
+
+---
+
+## 施工日志
+
+### 2024-07-26
+- **进度**:
+  - **阶段零：项目初始化** - ✅ 已完成
+    - 清理了 `RimAI.Core` 目录下的旧源文件。
+    - 根据 v3.0 实施计划，在 `RimAI.Core/` 内部创建了新的 `Source/` 目录结构。
+- **下一步**:
+  - 开始实施 **阶段一：奠定基石 (The Foundation)**。
+  - 首要任务：实现 DI 核心 (`ServiceContainer` 和 `CoreServices`)。 

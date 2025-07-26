@@ -1,5 +1,5 @@
 using RimAI.Core.Architecture.DI;
-using RimAI.Core.Contracts.Service;
+using RimAI.Core.Contracts.Services;
 using RimAI.Core.Services;
 using Verse;
 

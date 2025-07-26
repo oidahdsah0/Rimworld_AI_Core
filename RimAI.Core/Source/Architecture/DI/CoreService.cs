@@ -1,3 +1,5 @@
+using RimAI.Core.Contracts.Services;
+
 namespace RimAI.Core.Architecture.DI
 {
     public static class CoreService

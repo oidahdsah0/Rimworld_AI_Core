@@ -231,3 +231,16 @@ RimAI.Core/
 - **状态**: 核心骨架搭建完毕。Mod 现在拥有了服务管理和配置加载的能力。
 - **下一步**:
   - 开始实施 **阶段二：连接外部世界 (The I/O Layer)**。 
+### 2024-07-28
+- **进度**:
+  - **阶段二：连接外部世界 (The I/O Layer)** - 正在进行中。
+  - 已完成 `ISchedulerService` 和 `ICacheService` 的接口与实现。
+  - 已完成 `ILLMService` 的接口定义。
+- **状态**: 在准备实现 `LLMService.cs` 时，识别出一个重大的架构改进机会。
+- **关键决策与讨论**:
+  - **问题识别**: 我们发现 `RimAI.Framework` 的公共 API (`RimAIApi`) 直接暴露了其内部的数据模型 (`LLMRequestOptions`) 作为方法参数，这导致了上层模块（如我们的 `Core`）对 `Framework` 内部实现的耦合。
+  - **架构决策**: 由 `Core` 和 `Framework` 的共同作者决定，我们不应满足于在 `Core` 层做“适配器”，而应追求两个模块的共同纯净。我们将直接重构 `Framework` 的公共 API，使其接受原始类型参数（如 `string`, `double?`），而不是复杂的内部对象。
+  - **行动计划**: `Core` 模块的开发暂停，优先进入 `Framework` 模块，对其 API 进行重构，以实现真正的分层解耦。
+- **下一步**:
+  - **(已转移)** 前往 `RimAI.Framework` 项目，实施 API 重构。
+  - `Core` 模块将等待 `Framework` 新的、更干净的 API 发布后，再继续实现 `LLMService.cs`。 

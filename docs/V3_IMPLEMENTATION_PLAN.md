@@ -96,6 +96,8 @@ RimAI.Core/
 
 注意：在第一轮完成后，必然有第二轮编码、完善、补充。
 
+注解：✅代表已完成；🚧代表施工中；
+
 ### ✅ 阶段零：项目初始化
 
 - [✅] 清理 `Source/` 目录下的旧文件（或将其移动到 `Source/Old/` 备份）。
@@ -137,55 +139,55 @@ RimAI.Core/
 ### 🚧 阶段三：构建核心业务能力 (The Core Logic)
 
 -   **工具系统**
-    - [ ] `Contracts/Tools/IRimAITool.cs`: 定义工具接口 (`Name`, `Description`, `GetSchema`, `ExecuteAsync`)。
-    - [ ] `Contracts/Services/IToolRegistryService.cs`: 定义工具注册器接口。
-    - [ ] `Services/ToolRegistryService.cs`: 实现自动发现和注册 `IRimAITool` 的逻辑。
-    - [ ] `Tools/`: 创建至少一个示例工具 (如 `GetColonyStatusTool`) 进行测试。
+    - [  ] `Contracts/Tools/IRimAITool.cs`: 定义工具接口 (`Name`, `Description`, `GetSchema`, `ExecuteAsync`)。
+    - [  ] `Contracts/Services/IToolRegistryService.cs`: 定义工具注册器接口。
+    - [  ] `Services/ToolRegistryService.cs`: 实现自动发现和注册 `IRimAITool` 的逻辑。
+    - [  ] `Tools/`: 创建至少一个示例工具 (如 `GetColonyStatusTool`) 进行测试。
 -   **提示词工厂**
-    - [ ] `Contracts/Services/IPromptFactoryService.cs`: 定义接口 (`BuildPromptAsync`)。
-    - [ ] `Services/PromptFactoryService.cs`: 实现，注入并使用 `IWorldDataService`, `IToolRegistryService` 等。
+    - [  ] `Contracts/Services/IPromptFactoryService.cs`: 定义接口 (`BuildPromptAsync`)。
+    - [  ] `Services/PromptFactoryService.cs`: 实现，注入并使用 `IWorldDataService`, `IToolRegistryService` 等。
 -   **历史服务**
-    - [ ] `Contracts/Data/Conversation.cs`: 定义对话和条目的数据模型。
-    - [ ] `Contracts/Services/IHistoryService.cs`: 定义接口 (`RecordEntryAsync`, `GetHistoryAsync`)。
-    - [ ] `Services/HistoryService.cs`: 实现双索引内存存储。
+    - [  ] `Contracts/Data/Conversation.cs`: 定义对话和条目的数据模型。
+    - [  ] `Contracts/Services/IHistoryService.cs`: 定义接口 (`RecordEntryAsync`, `GetHistoryAsync`)。
+    - [  ] `Services/HistoryService.cs`: 实现双索引内存存储。
 -   **注册服务**
-    - [ ] `Lifecycle/RimAIMod.cs`: 注册所有本阶段完成的服务。
+    - [  ] `Lifecycle/RimAIMod.cs`: 注册所有本阶段完成的服务。
 
 ### 🚧 阶段四：激活大脑与整合 (The Brain & Integration)
 
 -   **编排服务**
-    - [ ] `Contracts/Services/IOrchestrationService.cs`: 定义核心接口 (`ExecuteToolAssistedQueryAsync`)。
-    - [ ] `Services/OrchestrationService.cs`: 实现完整的5步工具调用工作流。
-    - [ ] `Services/OrchestrationService.cs`: 注入并调用几乎所有三阶段及以前的服务。
+    - [  ] `Contracts/Services/IOrchestrationService.cs`: 定义核心接口 (`ExecuteToolAssistedQueryAsync`)。
+    - [  ] `Services/OrchestrationService.cs`: 实现完整的5步工具调用工作流。
+    - [  ] `Services/OrchestrationService.cs`: 注入并调用几乎所有三阶段及以前的服务。
 -   **UI 对接**
-    - [ ] `UI/`: 创建一个临时的调试窗口或主界面标签页。
-    - [ ] UI 代码通过 `CoreServices.OrchestrationService` 调用核心方法。
-    - [ ] 实现一个简单的文本框用于输入，一个区域用于显示流式输出。
+    - [  ] `UI/`: 创建一个临时的调试窗口或主界面标签页。
+    - [  ] UI 代码通过 `CoreServices.OrchestrationService` 调用核心方法。
+    - [  ] 实现一个简单的文本框用于输入，一个区域用于显示流式输出。
 -   **注册服务**
-    - [ ] `Lifecycle/RimAIMod.cs`: 注册 `IOrchestrationService`。
+    - [  ] `Lifecycle/RimAIMod.cs`: 注册 `IOrchestrationService`。
 
 ### 🚧 阶段五：健壮性、持久化与个性化 (Refinement & Polish)
 
 -   **持久化**
-    - [ ] `Contracts/Services/IPersistenceService.cs`: 定义接口。
-    - [ ] `Services/PersistenceService.cs`: 实现，内部使用 `Scribe` API。
-    - [ ] `Lifecycle/PersistenceManager.cs`: 创建 `GameComponent`，在 `ExposeData` 时调用 `IPersistenceService`。
-    - [ ] `Services/HistoryService.cs`: 添加 `GetState()` 和 `LoadState()` 方法供持久化服务调用。
+    - [  ] `Contracts/Services/IPersistenceService.cs`: 定义接口。
+    - [  ] `Services/PersistenceService.cs`: 实现，内部使用 `Scribe` API。
+    - [  ] `Lifecycle/PersistenceManager.cs`: 创建 `GameComponent`，在 `ExposeData` 时调用 `IPersistenceService`。
+    - [  ] `Services/HistoryService.cs`: 添加 `GetState()` 和 `LoadState()` 方法供持久化服务调用。
 -   **事件处理**
-    - [ ] `Contracts/Events/IEvent.cs`: 定义事件接口。
-    - [ ] `Contracts/Services/IEventBus.cs`: 定义底层总线接口。
-    - [ ] `Services/EventBus.cs`: 实现简单的发布订阅。
-    - [ ] `Contracts/Services/IEventAggregatorService.cs`: 定义智能聚合器接口。
-    - [ ] `Services/EventAggregatorService.cs`: 实现定时、节流、聚合逻辑。
+    - [  ] `Contracts/Events/IEvent.cs`: 定义事件接口。
+    - [  ] `Contracts/Services/IEventBus.cs`: 定义底层总线接口。
+    - [  ] `Services/EventBus.cs`: 实现简单的发布订阅。
+    - [  ] `Contracts/Services/IEventAggregatorService.cs`: 定义智能聚合器接口。
+    - [  ] `Services/EventAggregatorService.cs`: 实现定时、节流、聚合逻辑。
 -   **韧性**
-    - [ ] `Exceptions/`: 创建所有自定义异常类。
-    - [ ] `Services/LLMService.cs`: 添加重试和熔断逻辑。
-    - [ ] `Services/OrchestrationService.cs`: 添加 `try-catch` 块，实现对 `ToolExecutionException` 的智能反馈处理。
+    - [  ] `Exceptions/`: 创建所有自定义异常类。
+    - [  ] `Services/LLMService.cs`: 添加重试和熔断逻辑。
+    - [  ] `Services/OrchestrationService.cs`: 添加 `try-catch` 块，实现对 `ToolExecutionException` 的智能反馈处理。
 -   **个性化**
-    - [ ] `Contracts/Data/Persona.cs`: 定义人格数据模型。
-    - [ ] `Contracts/Services/IPersonaService.cs`: 定义接口。
-    - [ ] `Services/PersonaService.cs`: 实现从 Defs 加载人格模板的逻辑。
-    - [ ] `UI/`: 修改UI层，使其在调用 `IOrchestrationService` 时传入 `Persona` 的系统提示词。 
+    - [  ] `Contracts/Data/Persona.cs`: 定义人格数据模型。
+    - [  ] `Contracts/Services/IPersonaService.cs`: 定义接口。
+    - [  ] `Services/PersonaService.cs`: 实现从 Defs 加载人格模板的逻辑。
+    - [  ] `UI/`: 修改UI层，使其在调用 `IOrchestrationService` 时传入 `Persona` 的系统提示词。 
 
 ---
 

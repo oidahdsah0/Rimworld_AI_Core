@@ -189,58 +189,6 @@ RimAI.Core/
 
 ## 施工日志
 
-### 2024-07-26
-- **进度**:
-  - **阶段零：项目初始化** - ✅ 已完成
-    - 清理了 `RimAI.Core` 目录下的旧源文件。
-    - 根据 v3.0 实施计划，在 `RimAI.Core/` 内部创建了新的 `Source/` 目录结构。
-- **下一步**:
-  - 开始实施 **阶段一：奠定基石 (The Foundation)**。
-  - 首要任务：实现 DI 核心 (`ServiceContainer` 和 `CoreServices`)。
-
-### 2024-07-26 (续)
-- **进度**:
-  - ✅ **DI 核心** - 已完成
-    - `Architecture/DI/ServiceContainer.cs`: 已完成简化版的实现。
-    - `Architecture/DI/CoreServices.cs`: 已完成静态门面的创建。
-  - ✅ **配置服务 (契约部分)** - 已完成
-    - `Contracts/Data/CoreConfig.cs`: 已定义强类型的配置数据模型。
-    - `Contracts/Services/IConfigurationService.cs`: 已定义服务接口。
-- **当前中断点**:
-  - 正在进行 **阶段一：奠定基石 (The Foundation)**。
-  - 任务 **`Services/ConfigurationService.cs` 的实现** 已完成编码。
-- **下一步行动计划**:
-  - **任务**: 在Mod的生命周期入口 `RimAIMod.cs` 中，将我们目前创建的所有组件（`ServiceContainer`, `CoreServices`, `IConfigurationService`）组装起来。
-  - **具体步骤**:
-    1. 创建 `Lifecycle/RimAIMod.cs` 文件。
-    2. 在 `RimAIMod` 的构造函数中：
-       - 创建 `ServiceContainer` 的实例。
-       - 将该实例赋值给 `CoreServices.Container`。
-       - 在容器中注册 `IConfigurationService` 与其实现 `ConfigurationService`。
-       - （可选）在容器中注册容器自身，方便进行服务自省。
-    3. 在 `CoreServices` 中添加 `IConfigurationService` 的快捷访问属性。 
-### 2024-07-27
-- **进度**:
-  - ✅ **阶段一：奠定基石 (The Foundation)** - 全部完成！
-    - `Architecture/DI/ServiceContainer.cs`: 已实现。
-    - `Architecture/DI/CoreServices.cs` (在项目中为 `CoreService.cs`): 已创建静态门面，并添加 `Configuration` 快捷访问属性。
-    - `Contracts/Data/CoreConfig.cs`: 已定义。
-    - `Contracts/Services/IConfigurationService.cs`: 已定义。
-    - `Services/ConfigurationService.cs`: 已实现。
-    - `Lifecycle/RimAIMod.cs`: 已完成 DI 容器和配置服务的初始化与注册。
-- **状态**: 核心骨架搭建完毕。Mod 现在拥有了服务管理和配置加载的能力。
-- **下一步**:
-  - 开始实施 **阶段二：连接外部世界 (The I/O Layer)**。 
-### 2024-07-28
-- **进度**:
-  - **阶段二：连接外部世界 (The I/O Layer)** - 正在进行中。
-  - 已完成 `ISchedulerService` 和 `ICacheService` 的接口与实现。
-  - 已完成 `ILLMService` 的接口定义。
-- **状态**: 在准备实现 `LLMService.cs` 时，识别出一个重大的架构改进机会。
-- **关键决策与讨论**:
-  - **问题识别**: 我们发现 `RimAI.Framework` 的公共 API (`RimAIApi`) 直接暴露了其内部的数据模型 (`LLMRequestOptions`) 作为方法参数，这导致了上层模块（如我们的 `Core`）对 `Framework` 内部实现的耦合。
-  - **架构决策**: 由 `Core` 和 `Framework` 的共同作者决定，我们不应满足于在 `Core` 层做“适配器”，而应追求两个模块的共同纯净。我们将直接重构 `Framework` 的公共 API，使其接受原始类型参数（如 `string`, `double?`），而不是复杂的内部对象。
-  - **行动计划**: `Core` 模块的开发暂停，优先进入 `Framework` 模块，对其 API 进行重构，以实现真正的分层解耦。
-- **下一步**:
-  - **(已转移)** 前往 `RimAI.Framework` 项目，实施 API 重构。
-  - `Core` 模块将等待 `Framework` 新的、更干净的 API 发布后，再继续实现 `LLMService.cs`。 
+- **2025-07-25 (阶段一):** 完成了整个“奠定基石”阶段。DI容器 (`ServiceContainer`, `CoreServices`)、配置系统 (`IConfigurationService` 及其实现) 和Mod生命周期入口 (`RimAIMod`) 均已完成并注册，项目核心骨架搭建完毕。
+- **2025-07-26 (阶段二):** “连接外部世界”阶段启动。已完成 `ISchedulerService`, `ICacheService` 的接口和实现。在实现 `ILLMService` 时，识别出 `RimAI.Framework` 的API存在耦合问题。
+- **2025-07-26 (决策):** Core 模块开发暂停。**优先重构 Framework 模块的公共 API**，以实现更好的分层解耦。Core 模块将等待 Framework 新版 API 发布后再继续开发。 

@@ -2,6 +2,7 @@ using System;
 using RimAI.Core.Contracts.Data;
 using RimAI.Core.Contracts.Services;
 using Verse;
+using RimAI.Core.Lifecycle;
 
 namespace RimAI.Core.Services // Corrected namespace
 {
@@ -13,8 +14,7 @@ namespace RimAI.Core.Services // Corrected namespace
 
         public ConfigurationService()
         {
-            // Note: RimAISettings needs to be defined for this to work
-            // _settings = LoadedModManager.GetMod<RimAIMod>().GetSettings<RimAISettings>();
+            _settings = LoadedModManager.GetMod<RimAIMod>()?.GetSettings<RimAISettings>();
             
             Log.Message("[RimAI.Core] Initializing ConfigurationService...");
             LoadConfig();
@@ -36,12 +36,12 @@ namespace RimAI.Core.Services // Corrected namespace
             {
                 LLM = new LLMConfig
                 {
-                    // Temperature = _settings?.Temperature ?? 0.7,
-                    // ApiKey = _settings?.ApiKey ?? string.Empty
+                    Temperature = _settings?.Temperature ?? 0.7,
+                    ApiKey = _settings?.ApiKey ?? string.Empty
                 },
                 Cache = new CacheConfig
                 {
-                    // CacheDurationMinutes = _settings?.CacheDurationMinutes ?? 5
+                    CacheDurationMinutes = _settings?.CacheDurationMinutes ?? 5
                 }
             };
             Log.Message("[RimAI.Core] Configuration loaded.");

@@ -5,20 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - 2025-07-27
 
 ### Added
-- Initial project structure
-- Dual-layer architecture foundation
-- Three-Officer System framework
-- Direct Command Interface skeleton
-- W.I.F.E. System foundation
+- Framework v4.1 compatibility layer (`ILLMService` new `SendChatAsync`, `StreamResponseAsync`, `SendChatWithToolsAsync`)
+- `CacheKeyUtil` (SHA256 key generation for `UnifiedChatRequest`)
+- `IOrchestrationService` 流式接口 & `ContinueWithToolResultsAsync`
+- MVP 实现：`OrchestrationService`, `PromptFactoryService`, `ToolRegistryService`, `HistoryService`
+- Core contracts: `IRimAITool`, `IToolRegistryService`, `IPromptFactoryService`, `IHistoryService`
 
 ### Changed
-- N/A
+- `ILLMService` 旧接口标记 `[Obsolete]`; 计划 v3.2 移除
+- CacheService 泛型值改为 `UnifiedChatResponse`
 
 ### Deprecated
-- N/A
+- `SendMessageAsync`, `StreamMessageAsync`, `GetToolCallsAsync` (将在 v3.2 移除)
 
 ### Removed
 - N/A
@@ -27,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - N/A
 
 ### Security
-- N/A
+- Centralized tool execution path to prevent arbitrary game-state writes
 
 ## [1.0.0] - TBD
 

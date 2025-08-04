@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using RimAI.Framework.API;            // Result<T>
+using RimAI.Framework.Contracts;   // UnifiedChatRequest, ChatMessage, UnifiedChatChunk, ToolDefinition
 
 namespace RimAI.Core.Contracts.Services
 {
@@ -75,19 +77,44 @@ namespace RimAI.Core.Contracts.Services
     /// </summary>
     public interface ILLMService
     {
+        // ===== 旧接口（将于 v3.2 移除） =====
+
         /// <summary>
-        /// 发送消息并获取一个完整的、非流式的回复。
+        /// 【已弃用】发送消息并获取完整回复。请迁移至 <see cref="SendChatAsync"/>。
         /// </summary>
+        [System.Obsolete("Use SendChatAsync instead. Will be removed in v3.2.")]
         Task<LLMResponse> SendMessageAsync(List<LLMChatMessage> messages, LLMRequestOptions options = null);
 
         /// <summary>
-        /// 发送消息并以异步流的方式逐块获取回复，用于实时显示。
+        /// 【已弃用】流式回复接口。请迁移至 <see cref="StreamResponseAsync"/>。
         /// </summary>
+        [System.Obsolete("Use StreamResponseAsync instead. Will be removed in v3.2.")]
         IAsyncEnumerable<string> StreamMessageAsync(List<LLMChatMessage> messages, LLMRequestOptions options = null);
 
         /// <summary>
-        /// 发送包含可用工具列表的消息，并获取AI决定要调用的工具列表。
+        /// 【已弃用】工具调用辅助接口。请迁移至 SendChatWithToolsAsync。
         /// </summary>
+        [System.Obsolete("Use SendChatWithToolsAsync instead. Will be removed in v3.2.")]
         Task<List<LLMToolCall>> GetToolCallsAsync(List<LLMChatMessage> messages, List<LLMToolFunction> availableTools, LLMRequestOptions options = null);
+
+        // ===== 新接口（Framework v4.1 适配） =====
+
+        /// <summary>
+        /// 发送一次统一聊天请求，并获取完整结果（非流式）。
+        /// 返回 Result，需检查 IsSuccess。失败时请映射至相应异常或错误处理逻辑。
+        /// </summary>
+        Task<Result<UnifiedChatResponse>> SendChatAsync(UnifiedChatRequest request);
+
+        /// <summary>
+        /// 发送聊天请求并以异步流方式获取增量结果。
+        /// 每个流块都是 Result，需要在消费端检查 IsSuccess。
+        /// </summary>
+        IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request);
+
+        /// <summary>
+        /// 支持工具调用的场景，等价于 RimAIApi.GetCompletionWithToolsAsync 的封装。
+        /// 当模型返回 FinishReason = "tool_calls" 时，调用层应继续工具工作流。
+        /// </summary>
+        Task<Result<UnifiedChatResponse>> SendChatWithToolsAsync(List<ChatMessage> messages, List<ToolDefinition> tools);
     }
 }

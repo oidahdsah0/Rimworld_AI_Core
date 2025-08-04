@@ -29,6 +29,9 @@
     <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj" Condition="Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">
       <Private>false</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework.Contracts\RimAI.Framework.Contracts.csproj" Condition="Exists('..\\..\\Rimworld_AI_Framework\\RimAI.Framework.Contracts\\RimAI.Framework.Contracts.csproj')">
+      <Private>false</Private>
+    </ProjectReference>
     
     <!-- Use DLL reference for standalone development -->
     <Reference Include="RimAI.Framework" Condition="!Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">

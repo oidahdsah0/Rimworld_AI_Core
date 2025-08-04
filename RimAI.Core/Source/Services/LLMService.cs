@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;  // 引入 Newtonsoft.Json，用于序列化和反序列化
 using RimAI.Core.Contracts.Services;
 using RimAI.Framework.API;
-// 使用命名空间别名避免冲突
-using RimAIFrame = RimAI.Framework.LLM.Models;
+using RimAI.Framework.Contracts;
+
 
 namespace RimAI.Core.Services
 {
@@ -16,75 +16,109 @@ namespace RimAI.Core.Services
     {
         // --- 依赖注入 ---
         private readonly IConfigurationService _configService;
-        private readonly ICacheService<string, LLMResponse> _cacheService;
+        private readonly ICacheService<string, UnifiedChatResponse> _cacheService;
 
         // --- 构造函数 ---
         // 启动时注入依赖的服务
-        public LLMService(IConfigurationService configService, ICacheService<string, LLMResponse> cacheService)
+        public LLMService(IConfigurationService configService, ICacheService<string, UnifiedChatResponse> cacheService)
         {
             _configService = configService;
             _cacheService = cacheService;
         }
 
         // --- 实现接口 ---
+        // ===== 旧接口代理实现 =====
         public async Task<LLMResponse> SendMessageAsync(List<LLMChatMessage> messages, LLMRequestOptions options = null)
         {
-            // 生成缓存键
-            var cacheKey = GenerateCacheKey(messages, options);
-
-            // 检查缓存
-            if (_cacheService.TryGetValue(cacheKey, out var cachedResponse))
+            // 将旧消息模型简单映射为 Framework 的 ChatMessage
+            var chatMessages = messages.Select(m => new ChatMessage { Role = m.Role, Content = m.Content }).ToList();
+            var request = new UnifiedChatRequest { Messages = chatMessages };
+            var result = await SendChatAsync(request);
+            if (result.IsSuccess)
             {
-                return cachedResponse;  // 如果缓存命中，直接返回缓存结果
+                return new LLMResponse
+                {
+                    Content = result.Value.Message.Content,
+                    Model = "", // 可根据需要填充
+                    Usage = null,
+                    ToolCalls = result.Value.Message.ToolCalls
+                };
             }
-
-            // 缓存未命中，调用私有辅助方法执行实际的API调用
-            var response = await ExecuteApiCallAsync(messages, options);
-
-            // 如果API调用成功，将结果缓存
-            if (response.IsSuccess)
-            {
-                var cacheDuration = TimeSpan.FromMinutes(_configService.Current.Cache.CacheDurationMinutes);
-                _cacheService.Set(cacheKey, response, cacheDuration);
-            }
-
-            // 返回最终响应
-            return response;
+            return new LLMResponse { ErrorMessage = result.Error };
         }
 
-        public IAsyncEnumerable<string> StreamMessageAsync(List<LLMChatMessage> messages, LLMRequestOptions options = null)
+        public async IAsyncEnumerable<string> StreamMessageAsync(List<LLMChatMessage> messages, LLMRequestOptions options = null)
         {
-            throw new NotImplementedException();
+            var chatMessages = messages.Select(m => new ChatMessage { Role = m.Role, Content = m.Content }).ToList();
+            var request = new UnifiedChatRequest { Messages = chatMessages };
+
+            await foreach (var chunk in StreamResponseAsync(request))
+            {
+                if (chunk.IsSuccess && chunk.Value.ContentDelta != null)
+                {
+                    yield return chunk.Value.ContentDelta;
+                }
+            }
         }
 
-        public Task<List<LLMToolCall>> GetToolCallsAsync(List<LLMChatMessage> messages, List<LLMToolFunction> availableTools, LLMRequestOptions options = null)
+        public async Task<List<LLMToolCall>> GetToolCallsAsync(List<LLMChatMessage> messages, List<LLMToolFunction> availableTools, LLMRequestOptions options = null)
         {
-            throw new NotImplementedException();
+            var chatMessages = messages.Select(m => new ChatMessage { Role = m.Role, Content = m.Content }).ToList();
+            var tools = availableTools.Select(t => new ToolDefinition
+            {
+                Function = Newtonsoft.Json.Linq.JObject.FromObject(new
+                {
+                    name = t.Name,
+                    description = t.Description,
+                    parameters = t.Parameters
+                })
+            }).ToList();
+
+            var result = await SendChatWithToolsAsync(chatMessages, tools);
+            if (result.IsSuccess && result.Value.FinishReason == "tool_calls")
+            {
+                return result.Value.Message.ToolCalls.Select(tc => new LLMToolCall
+                {
+                    Id = tc.Id,
+                    Name = tc.FunctionName,
+                    Arguments = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(tc.Arguments)
+                }).ToList();
+            }
+            return new List<LLMToolCall>();
+        }
+
+        // ===== 新接口实现 =====
+        public async Task<Result<UnifiedChatResponse>> SendChatAsync(UnifiedChatRequest request)
+        {
+            var cacheKey = RimAI.Core.Architecture.Caching.CacheKeyUtil.GenerateChatRequestKey(request);
+            if (_cacheService.TryGetValue(cacheKey, out var cached))
+            {
+                return Result<UnifiedChatResponse>.Success(cached);
+            }
+
+            var result = await RimAIApi.GetCompletionAsync(request);
+            if (result.IsSuccess)
+            {
+                var duration = TimeSpan.FromMinutes(_configService.Current.Cache.CacheDurationMinutes);
+                _cacheService.Set(cacheKey, result.Value, duration);
+            }
+            return result;
+        }
+
+        public IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request)
+        {
+            // 直接返回底层异步流，不在这里缓存增量
+            return RimAIApi.StreamCompletionAsync(request);
+        }
+
+        public Task<Result<UnifiedChatResponse>> SendChatWithToolsAsync(List<ChatMessage> messages, List<ToolDefinition> tools)
+        {
+            return RimAIApi.GetCompletionWithToolsAsync(messages, tools);
         }
 
         // --- 私有辅助方法 (Private Helper Methods) ---
 
         // 生成缓存键的私有方法
-        private string GenerateCacheKey(object requestPayload, LLMRequestOptions options)
-        {
-            // 将请求内容和选项序列化为JSON字符串
-            var serializedPayload = JsonConvert.SerializeObject(requestPayload);
-            var serializedOptions = options != null ? JsonConvert.SerializeObject(options) : string.Empty;
-
-            // 使用SHA256计算哈希值
-            using (var sha256 = SHA256.Create())
-            {
-                var bytes = Encoding.UTF8.GetBytes(serializedPayload + serializedOptions);
-                var hashBytes = sha256.ComputeHash(bytes);
-
-                // 将哈希值转换为十六进制字符串
-                var sb = new StringBuilder();
-                foreach (var b in hashBytes)
-                {
-                    sb.Append(b.ToString("x2"));
-                }
-                return sb.ToString();
-            }
-        }
+        
     }
 }

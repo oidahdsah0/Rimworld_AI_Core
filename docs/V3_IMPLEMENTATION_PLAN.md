@@ -126,57 +126,59 @@ RimAI.Core/
     - [✅] `Architecture/Caching/CacheService.cs`: 实现基于 `Dictionary` 的线程安全内存缓存。
 -   **LLM 网关**
     - [✅] `Contracts/Services/ILLMService.cs`: 定义接口 (`GetResponseAsync`, `StreamResponseAsync` 等)。
-    - [🚧] `Services/LLMService.cs`: 实现对 `RimAI.Framework.API` 的基本调用封装。
-    - [🚧] `Services/LLMService.cs`: 注入并使用 `ICacheService` 和 `IConfigurationService`。
+    - [✅] `Services/LLMService.cs`: 实现对 `RimAI.Framework.API` 的基本调用封装。
+    - [✅] `Services/LLMService.cs`: 注入并使用 `ICacheService` 和 `IConfigurationService`。
 -   **游戏世界防腐层**
-    - [🚧] `Contracts/Services/IWorldDataService.cs`: 定义安全的“读”接口。
-    - [🚧] `Services/WorldDataService.cs`: 实现，内部强制使用 `ISchedulerService`。
-    - [🚧] `Contracts/Services/ICommandService.cs`: 定义安全的“写”接口。
-    - [🚧] `Services/CommandService.cs`: 实现，内部强制使用 `ISchedulerService`。
+    - [✅] `Contracts/Services/IWorldDataService.cs`: 定义安全的“读”接口。
+    - [✅] `Services/WorldDataService.cs`: 实现，内部强制使用 `ISchedulerService`。
+    - [✅] `Contracts/Services/ICommandService.cs`: 定义安全的“写”接口。
+    - [✅] `Services/CommandService.cs`: 实现，内部强制使用 `ISchedulerService`。
 -   **注册服务**
-    - [🚧] `Lifecycle/RimAIMod.cs`: 在启动时注册所有本阶段完成的服务。
+    - [✅] `Lifecycle/RimAIMod.cs`: 在启动时注册所有本阶段完成的服务。
 
 ### 🚧 阶段三：构建核心业务能力 (The Core Logic)
 
 -   **工具系统**
-    - [  ] `Contracts/Tools/IRimAITool.cs`: 定义工具接口 (`Name`, `Description`, `GetSchema`, `ExecuteAsync`)。
-    - [  ] `Contracts/Services/IToolRegistryService.cs`: 定义工具注册器接口。
-    - [  ] `Services/ToolRegistryService.cs`: 实现自动发现和注册 `IRimAITool` 的逻辑。
-    - [  ] `Tools/`: 创建至少一个示例工具 (如 `GetColonyStatusTool`) 进行测试。
+    - [✅] `Contracts/Tools/IRimAITool.cs`: 定义工具接口 (`Name`, `Description`, `GetSchema`, `ExecuteAsync`)。
+    - [✅] `Contracts/Services/IToolRegistryService.cs`: 定义工具注册器接口。
+    - [✅] `Services/ToolRegistryService.cs`: 实现自动发现和注册 `IRimAITool` 的逻辑。
+    - [✅] `Tools/`: 创建至少一个示例工具 (如 `GetColonyStatusTool`) 进行测试。
 -   **提示词工厂**
-    - [  ] `Contracts/Services/IPromptFactoryService.cs`: 定义接口 (`BuildPromptAsync`)。
-    - [  ] `Services/PromptFactoryService.cs`: 实现，注入并使用 `IWorldDataService`, `IToolRegistryService` 等。
+    - [✅] `Contracts/Services/IPromptFactoryService.cs`: 定义接口 (`BuildPromptAsync`)。
+    - [✅] `Services/PromptFactoryService.cs`: 实现，注入并使用 `IWorldDataService`, `IToolRegistryService` 等。
 -   **历史服务**
     - [  ] `Contracts/Data/Conversation.cs`: 定义对话和条目的数据模型。
-    - [  ] `Contracts/Services/IHistoryService.cs`: 定义接口 (`RecordEntryAsync`, `GetHistoryAsync`)。
-    - [  ] `Services/HistoryService.cs`: 实现双索引内存存储。
+    - [✅] `Contracts/Services/IHistoryService.cs`: 定义接口 (`RecordEntryAsync`, `GetHistoryAsync`)。
+    - [✅] `Services/HistoryService.cs`: 实现双索引内存存储。
 -   **注册服务**
-    - [  ] `Lifecycle/RimAIMod.cs`: 注册所有本阶段完成的服务。
+    - [✅] `Lifecycle/RimAIMod.cs`: 注册所有本阶段完成的服务。
 
 ### 🚧 阶段四：激活大脑与整合 (The Brain & Integration)
 
 -   **编排服务**
-    - [  ] `Contracts/Services/IOrchestrationService.cs`: 定义核心接口 (`ExecuteToolAssistedQueryAsync`)。
-    - [  ] `Services/OrchestrationService.cs`: 实现完整的5步工具调用工作流。
-    - [  ] `Services/OrchestrationService.cs`: 注入并调用几乎所有三阶段及以前的服务。
+    - [✅] `Contracts/Services/IOrchestrationService.cs`: 定义核心接口 (`ExecuteToolAssistedQueryAsync`)。
+    - [✅] `Services/OrchestrationService.cs`: 实现完整的5步工具调用工作流。
+    - [✅] `Services/OrchestrationService.cs`: 注入并调用几乎所有三阶段及以前的服务。
 -   **UI 对接**
-    - [  ] `UI/`: 创建一个临时的调试窗口或主界面标签页。
-    - [  ] UI 代码通过 `CoreServices.OrchestrationService` 调用核心方法。
-    - [  ] 实现一个简单的文本框用于输入，一个区域用于显示流式输出。
+    - [✅] `UI/`: 创建一个临时的调试窗口或主界面标签页。
+    - [✅] UI 代码通过 `CoreServices.OrchestrationService` 调用核心方法。
+    - [✅] 实现一个简单的文本框用于输入，一个区域用于显示流式输出。
 -   **注册服务**
-    - [  ] `Lifecycle/RimAIMod.cs`: 注册 `IOrchestrationService`。
+    - [✅] `Lifecycle/RimAIMod.cs`: 注册 `IOrchestrationService`。
 
 ### 🚧 阶段五：健壮性、持久化与个性化 (Refinement & Polish)
 
 -   **持久化**
-    - [  ] `Contracts/Services/IPersistenceService.cs`: 定义接口。
-    - [  ] `Services/PersistenceService.cs`: 实现，内部使用 `Scribe` API。
-    - [  ] `Lifecycle/PersistenceManager.cs`: 创建 `GameComponent`，在 `ExposeData` 时调用 `IPersistenceService`。
-    - [  ] `Services/HistoryService.cs`: 添加 `GetState()` 和 `LoadState()` 方法供持久化服务调用。
+    - [✅] `Contracts/Services/IPersistenceService.cs`: 定义接口。
+    - [✅] `Services/PersistenceService.cs`: 实现，内部使用 `Scribe` API。
+    - [✅] `Lifecycle/PersistenceManager.cs`: 创建 `GameComponent`，在 `ExposeData` 时调用 `IPersistenceService`。
+    - [✅] `Services/HistoryService.cs`: 添加 `GetState()` 和 `LoadState()` 方法供持久化服务调用。(已完成)
+### 🚧 事件处理（进行中）
+
 -   **事件处理**
-    - [  ] `Contracts/Events/IEvent.cs`: 定义事件接口。
-    - [  ] `Contracts/Services/IEventBus.cs`: 定义底层总线接口。
-    - [  ] `Services/EventBus.cs`: 实现简单的发布订阅。
+    - [✅] `Contracts/Events/IEvent.cs`: 定义事件接口。
+    - [✅] `Contracts/Services/IEventBus.cs`: 定义底层总线接口。
+    - [✅] `Services/EventBus.cs`: 实现简单的发布订阅。
     - [  ] `Contracts/Services/IEventAggregatorService.cs`: 定义智能聚合器接口。
     - [  ] `Services/EventAggregatorService.cs`: 实现定时、节流、聚合逻辑。
 -   **韧性**
@@ -195,13 +197,13 @@ RimAI.Core/
 
 | 状态 | 任务 |
 |------|------|
-| 🚧 | **阶段二点五：LLM 网关刷新 (Framework v4 对接)** |
+| ✅ | **阶段二点五：LLM 网关刷新 (Framework v4 对接)** |
 |  | • 更新 `Contracts/Services/ILLMService.cs`：新增 `StreamResponseAsync`，调整返回类型使用 `Result<T>` |
 |  | • 重写 `Services/LLMService.cs`：封装 `RimAIApi.*` 系列新方法，整合缓存/重试/熔断逻辑 |
 |  | • 更新 `Architecture/Caching/CacheService.cs`：支持基于 `UnifiedChatRequest` 的键生成 |
 |  | • 引入 `Contracts/Data/StreamingModels.cs`（或扩展现有模型）以适配 `UnifiedChatChunk` |
 |  | |
-| 🚧 | **阶段三同步调整：核心业务层刷新** |
+| ✅ | **阶段三同步调整：核心业务层刷新** |
 |  | • `IOrchestrationService`：支持流式转发与工具调用的新 `ToolCalls` 结构 |
 |  | • `IPromptFactoryService`：输出 `UnifiedChatRequest` ，移除旧 DTO |
 |  | • `IToolRegistryService`：工具 Schema 生成遵循 v4 `ToolDefinition` 规范 |
@@ -220,4 +222,6 @@ RimAI.Core/
 
 - **2025-07-25 (阶段一):** 完成了整个“奠定基石”阶段。DI容器 (`ServiceContainer`, `CoreServices`)、配置系统 (`IConfigurationService` 及其实现) 和Mod生命周期入口 (`RimAIMod`) 均已完成并注册，项目核心骨架搭建完毕。
 - **2025-07-26 (阶段二):** “连接外部世界”阶段启动。已完成 `ISchedulerService`, `ICacheService` 的接口和实现。在实现 `ILLMService` 时，识别出 `RimAI.Framework` 的API存在耦合问题。
-- **2025-07-26 (决策):** Core 模块开发暂停。**优先全面重构 Framework**，以实现更好的分层解耦，并增加新的功能。Core 模块将等待 Framework 新版 API 发布后再继续开发。 
+- **2025-07-26 (决策):** Core 模块开发暂停。**优先全面重构 Framework**，以实现更好的分层解耦，并增加新的功能。Core 模块将等待 Framework 新版 API 发布后再继续开发。
+- **2025-07-28 (阶段五持久化):** 完成持久化集成（IPersistenceService、PersistenceManager、History 快照 & 单测）。
+- **2025-07-29 (阶段四初步):** 实现 OrchestrationService、UI 原型 `MainTabWindow_RimAI`、事件总线 & TickEvent 钩子；更新文档与 ToDo 列表。 

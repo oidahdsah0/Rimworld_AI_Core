@@ -257,6 +257,21 @@ public interface IEvent
 
 ---
 
+### 2.5.4. v4.1 兼容性补充
+
+自 v3.1 起，`PromptFactoryService` 直接输出 `UnifiedChatRequest`，其 `Messages` 字段满足 OpenAI Chat API 结构，调用链示例：
+
+```csharp
+var request = await _promptFactory.BuildPromptAsync(userInput, personaSystemPrompt);
+await foreach (var chunk in _llm.StreamResponseAsync(request))
+{
+    if (chunk.IsSuccess && chunk.Value.ContentDelta != null)
+        RenderDelta(chunk.Value.ContentDelta);
+}
+```
+
+---
+
 ### 2.6. `ICacheService` (缓存服务)
 
 **角色与定位：**
@@ -275,7 +290,9 @@ public interface IEvent
 4.  **缓存未命中 (Cache Miss):** 若未找到缓存，`LLMService` 才会继续调用 `Framework` 的API。
 5.  在从 `Framework` 成功获取响应后，`LLMService` 会将新响应通过 `ICacheService.Set()` 存入缓存，并设置一个合理的过期时间（例如5分钟）。
 
-**结论：** 该设计通过将缓存逻辑强制性地、唯一地嵌入到 `ILLMService` 的处理流程中，确保了LLM请求的“防火墙”机制。`ICacheService` 的实现类**必须在 `ServiceContainer` 中作为单例注册，并由容器统一管理其生命周期。**
+**结论：** 该设计通过将缓存逻辑强制性地、唯一地嵌入到 `ILLMService` 的处理流程中，确保了LLM请求的“防火墙”机制。
+
+> v3.1 更新：缓存键统一由 `CacheKeyUtil.GenerateChatRequestKey(UnifiedChatRequest)` 生成（SHA256 of normalized JSON）。流式请求仅在完成后写入缓存。`ICacheService` 的实现类**必须在 `ServiceContainer` 中作为单例注册，并由容器统一管理其生命周期。**
 
 ---
 

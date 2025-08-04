@@ -93,6 +93,27 @@
 
 **结论：** `ILLMService` 作为 `Core` 模块与 `Framework` 模块通信的唯一网关，其实现类**必须在 `ServiceContainer` 中作为单例注册，并由容器统一管理其生命周期。** 它的存在保证了架构的解耦、可控和可测试性。
 
+#### 2.2.3. 适配 Framework v4.1 API 的关键变更
+
+为充分利用 Framework v4 引入的流式与 `Result<T>` 统一模型，`ILLMService` 与相关调用链需做以下调整：
+
+1. **接口扩展**  
+   • 新增 `StreamResponseAsync`，返回 `IAsyncEnumerable<Result<UnifiedChatChunk>>`，直接对接 `RimAIApi.StreamCompletionAsync`。  
+   • 保留现有非流式 `GetResponseAsync`（封装 `RimAIApi.GetCompletionAsync`）。
+2. **统一 `Result` 处理**  
+   • 所有下层调用返回 `Result<T>` 时，成功路径取 `Value`，失败路径根据 `Error` 映射至 `LLMException` 或 `ConnectionException`。  
+   • 在重试/熔断逻辑中，基于 `Result.IsSuccess` 判断，而非捕获异常。
+3. **数据模型升级**  
+   • Core 内部统一使用 `UnifiedChatRequest` / `ChatMessage` / `UnifiedChatChunk` 映射层，而不再自行定义 Chat DTO。  
+   • 在 `Translation` 层保留轻薄适配器，供未来切换模型。 
+4. **缓存键策略更新**  
+   • 缓存键由 `UnifiedChatRequest` 经规则化序列化 + 模型名 生成 SHA256。  
+   • 流式请求暂不缓存；仅在最终完成后写入缓存。
+5. **日志与监控**  
+   • 记录流式开始 / 每块 delta / 结束三类事件，便于性能分析与故障溯源。
+
+> 以上改动自 `v3.1` 起生效，旧接口将保持兼容至 `v3.2` 再行移除。
+
 ---
 
 ### 2.3. 数据安全访问层 (Safe Data Access Layer)

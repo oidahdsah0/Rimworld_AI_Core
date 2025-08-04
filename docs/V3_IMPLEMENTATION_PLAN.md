@@ -191,6 +191,31 @@ RimAI.Core/
 
 ---
 
+## 4. Framework v4 兼容翻新任务（2025-07-27 新增）
+
+| 状态 | 任务 |
+|------|------|
+| 🚧 | **阶段二点五：LLM 网关刷新 (Framework v4 对接)** |
+|  | • 更新 `Contracts/Services/ILLMService.cs`：新增 `StreamResponseAsync`，调整返回类型使用 `Result<T>` |
+|  | • 重写 `Services/LLMService.cs`：封装 `RimAIApi.*` 系列新方法，整合缓存/重试/熔断逻辑 |
+|  | • 更新 `Architecture/Caching/CacheService.cs`：支持基于 `UnifiedChatRequest` 的键生成 |
+|  | • 引入 `Contracts/Data/StreamingModels.cs`（或扩展现有模型）以适配 `UnifiedChatChunk` |
+|  | |
+| 🚧 | **阶段三同步调整：核心业务层刷新** |
+|  | • `IOrchestrationService`：支持流式转发与工具调用的新 `ToolCalls` 结构 |
+|  | • `IPromptFactoryService`：输出 `UnifiedChatRequest` ，移除旧 DTO |
+|  | • `IToolRegistryService`：工具 Schema 生成遵循 v4 `ToolDefinition` 规范 |
+|  | • `IHistoryService`：记录完整的用户输入与最终 AI 输出，忽略流式增量内容 |
+|  | |
+| 🚧 | **阶段四 UI / Persona 刷新** |
+|  | • UI 组件能够实时渲染 `StreamResponseAsync` 增量文本 |
+|  | • 调用链调整为 `await foreach` 消费流 |
+|  | |
+| ✅ | **兼容性维持** |
+|  | • 非流式旧接口保留到 v3.2，期间发出弃用警告 |
+
+---
+
 ## 施工日志
 
 - **2025-07-25 (阶段一):** 完成了整个“奠定基石”阶段。DI容器 (`ServiceContainer`, `CoreServices`)、配置系统 (`IConfigurationService` 及其实现) 和Mod生命周期入口 (`RimAIMod`) 均已完成并注册，项目核心骨架搭建完毕。

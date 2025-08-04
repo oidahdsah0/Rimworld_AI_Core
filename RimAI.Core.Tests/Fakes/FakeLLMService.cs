@@ -58,9 +58,6 @@ namespace RimAI.Core.Tests.Fakes
             }
         }
 
-        // legacy methods not used in tests
-        public Task<LLMResponse> SendMessageAsync(List<LLMChatMessage> messages, LLMRequestOptions options = null) => Task.FromResult<LLMResponse>(null);
-        public IAsyncEnumerable<string> StreamMessageAsync(List<LLMChatMessage> messages, LLMRequestOptions options = null) => default!;
-        public Task<List<LLMToolCall>> GetToolCallsAsync(List<LLMChatMessage> messages, List<LLMToolFunction> availableTools, LLMRequestOptions options = null) => Task.FromResult(new List<LLMToolCall>());
+        // 旧接口已移除
     }
 }

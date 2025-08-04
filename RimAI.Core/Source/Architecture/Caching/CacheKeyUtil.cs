@@ -16,7 +16,13 @@ namespace RimAI.Core.Architecture.Caching
         /// </summary>
         public static string GenerateChatRequestKey(UnifiedChatRequest request)
         {
-            var serialized = JsonConvert.SerializeObject(request);
+            var settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore,
+                DefaultValueHandling = DefaultValueHandling.Ignore,
+                Formatting = Formatting.None
+            };
+            var serialized = JsonConvert.SerializeObject(request, settings);
             var bytes = Encoding.UTF8.GetBytes(serialized);
             using var sha = SHA256.Create();
             var hash = sha.ComputeHash(bytes);

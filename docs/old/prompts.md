@@ -51,9 +51,13 @@ ARCHITECTURE_V3_DIAGRAM.md
 ARCHITECTURE_V3.md
 V3_IMPLEMENTATION_PLAN.md
 
+此外，Framework翻新，API更新，你一定要阅读：CN_v4.0_API调用指南.md
+
 列出文件都要仔细阅读！
 
 确保你了解我们正在推进的项目。
+
+=====
 
 你先阅读，准备好了之后我们就开始，从后一次更新的进度开始（重要）！
 

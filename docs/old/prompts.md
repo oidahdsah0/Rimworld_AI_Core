@@ -72,3 +72,9 @@ V3_IMPLEMENTATION_PLAN.md
 阅读CHECK_LIST.md
 
 根据末尾的进度日志，写一个新的、全流程、全方位的审查ToDos，我看一下。
+
+=====
+
+阅读Core项目下docs\v4下的4个设计文件（必读），确保你知道我们目前在做什么。
+
+阅读CN_v4.0_API调用指南.md，确保你知道如何调用已经写好的Framework（不可更改）。

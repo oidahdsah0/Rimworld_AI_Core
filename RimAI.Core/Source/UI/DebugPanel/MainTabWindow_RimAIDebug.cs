@@ -4,6 +4,7 @@ using Verse;
 using RimAI.Core.Infrastructure;
 using Newtonsoft.Json.Linq;
 using RimAI.Framework.Contracts;
+using System.Collections.Generic;
 
 namespace RimAI.Core.UI.DebugPanel
 {
@@ -14,100 +15,221 @@ namespace RimAI.Core.UI.DebugPanel
     public class MainTabWindow_RimAIDebug : MainTabWindow
     {
                 private const float ButtonHeight = 30f;
-        private const float ButtonWidth = 180f;
+        private const float ButtonWidth = 160f;
         private const float Padding = 10f;
+        private const float OutputAreaHeight = 240f;
+        private const int TotalButtons = 7;
 
-        public override Vector2 InitialSize => new(ButtonWidth + Padding * 2, ButtonHeight * 6 + Padding * 7);
+        private string _output = string.Empty;
+        private Vector2 _outputScroll = Vector2.zero;
 
-        public override void DoWindowContents(Rect inRect)
+        private void AppendOutput(string msg)
         {
-            var pingRect = new Rect(inRect.x + Padding, inRect.y + Padding, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(pingRect, "Ping"))
+            lock (this)
             {
-                CoreServices.Logger.Info("Ping button clicked – DI container state: OK");
+                _output += $"[{System.DateTime.Now:HH:mm:ss}] {msg}\n";
+            }
+        }
+
+        private const float ExtraWidth = 30f;
+        public override Vector2 InitialSize => new(
+            ButtonWidth * TotalButtons + Padding * (TotalButtons + 1) + ExtraWidth,
+            (ButtonHeight + Padding * 3 + OutputAreaHeight) * 2.0f);
+
+                public override void DoWindowContents(Rect inRect)
+        {
+            // 1. 顶部横向按钮 -----------------------------
+            float curX = inRect.x + Padding;
+            float curY = inRect.y + Padding;
+
+            // 本地函数用于创建按钮并推进 X 坐标
+            bool Button(string label)
+            {
+                var rect = new Rect(curX, curY, ButtonWidth, ButtonHeight);
+                bool clicked = Widgets.ButtonText(rect, label);
+                curX += ButtonWidth + Padding;
+                return clicked;
             }
 
-                        var reloadRect = new Rect(inRect.x + Padding, inRect.y + Padding * 2 + ButtonHeight, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(reloadRect, "Reload Config"))
+            // Ping
+            if (Button("Ping"))
+            {
+                AppendOutput("Ping button clicked – DI container state: OK");
+            }
+
+            // Reload Config
+            if (Button("Reload Config"))
             {
                 var configSvc = CoreServices.Locator.Get<RimAI.Core.Infrastructure.Configuration.IConfigurationService>();
                 configSvc.Reload();
-                CoreServices.Logger.Info($"Config Reloaded – New Temperature: {configSvc.Current.LLM.Temperature}");
+                AppendOutput($"Config Reloaded – New Temperature: {configSvc.Current.LLM.Temperature}");
             }
 
-            var startY = inRect.y + Padding * 3 + ButtonHeight * 2;
-            var echoRect = new Rect(inRect.x + Padding, startY, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(echoRect, "Chat Echo"))
+            // Chat Echo
+            if (Button("Chat Echo"))
             {
                 var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
-                var response = llm.GetResponseAsync("hello").GetAwaiter().GetResult();
-                CoreServices.Logger.Info($"Echo Response: {response} | Retries: {llm.LastRetries} | CacheHits: {llm.CacheHits}");
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var response = await llm.GetResponseAsync("hello");
+                        AppendOutput($"Echo Response: {response} | Retries: {llm.LastRetries} | CacheHits: {llm.CacheHits}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"Chat Echo failed: {ex.Message}");
+                    }
+                });
             }
 
-            // Stream Test
-            var streamRect = new Rect(inRect.x + Padding, startY + (ButtonHeight + Padding), ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(streamRect, "LLM Stream Test"))
+            // LLM Stream Test
+            if (Button("LLM Stream Test"))
             {
                 var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
                 var req = new UnifiedChatRequest
                 {
                     Stream = true,
-                    Messages = new System.Collections.Generic.List<ChatMessage> { new ChatMessage { Role = "user", Content = "你好，分段返回这句话。" } }
+                    Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = "你好，简单介绍下Rimworld这个游戏，一句话，尽量简短。" } }
                 };
-                CoreServices.Logger.Info("Start Streaming...");
+                AppendOutput("Start Streaming...");
                 System.Threading.Tasks.Task.Run(async () =>
                 {
                     await foreach (var chunk in llm.StreamResponseAsync(req))
                     {
-                        if (chunk.IsSuccess && chunk.Value.ContentDelta != null)
-                            CoreServices.Logger.Info($"Stream Δ: {chunk.Value.ContentDelta}");
+                        if (chunk.IsSuccess)
+                        {
+                            var delta = chunk.Value?.ContentDelta;
+                            if (!string.IsNullOrEmpty(delta))
+                                AppendOutput(delta);
+                            if (!string.IsNullOrEmpty(chunk.Value?.FinishReason))
+                                AppendOutput($"[FINISH: {chunk.Value.FinishReason}]");
+                        }
+                        else
+                        {
+                            AppendOutput($"[Error] {chunk.Error}");
+                        }
                     }
                 });
             }
 
             // JSON Test
-            var jsonRect = new Rect(inRect.x + Padding, startY + (ButtonHeight + Padding) * 2, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(jsonRect, "LLM JSON Test"))
+            if (Button("LLM JSON Test"))
             {
                 var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
-                var jsonResp = llm.GetResponseAsync("请用 JSON 格式返回 {\"key\":\"value\"}", true).GetAwaiter().GetResult();
-                CoreServices.Logger.Info($"JSON Response: {jsonResp}");
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var jreq = new UnifiedChatRequest
+                        {
+                            ForceJsonOutput = true,
+                            Stream = false,
+                            Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = "请用 JSON 格式返回一个测试用的电商产品信息，包含产品名称、价格、描述、图片URL。" } }
+                        };
+                        var jres = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(jreq);
+                        if (jres.IsSuccess)
+                            AppendOutput($"JSON Response: {jres.Value.Message.Content}");
+                        else
+                            AppendOutput($"JSON Error: {jres.Error}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"JSON Test failed: {ex.Message}");
+                    }
+                });
             }
 
             // Tools Test
-            var toolsRect = new Rect(inRect.x + Padding, startY + (ButtonHeight + Padding) * 3, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(toolsRect, "LLM Tools Test"))
+            if (Button("LLM Tools Test"))
             {
                 var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
-                                var functionObj = new JObject
+                var functionObj = new JObject
                 {
-                    ["name"] = "echo_tool",
-                    ["description"] = "Echo text",
+                    ["name"] = "sum_range",
+                    ["description"] = "Calculate the sum of integers from start to end (inclusive)",
                     ["parameters"] = new JObject
                     {
                         ["type"] = "object",
                         ["properties"] = new JObject
                         {
-                            ["text"] = new JObject { ["type"] = "string" }
-                        }
+                            ["start"] = new JObject { ["type"] = "integer", ["description"] = "Start number" },
+                            ["end"] = new JObject { ["type"] = "integer", ["description"] = "End number" }
+                        },
+                        ["required"] = new JArray { "start", "end" }
                     }
                 };
                 var toolDef = new ToolDefinition { Function = functionObj };
                 var req = new UnifiedChatRequest
                 {
-                    Messages = new System.Collections.Generic.List<ChatMessage> { new ChatMessage { Role = "user", Content = "使用 echo_tool 重复这句话: 你好" } },
+                    Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = "请使用 sum_range 工具计算 1 到 100 的和。", ToolCalls = null } },
                     Tools = new System.Collections.Generic.List<ToolDefinition> { toolDef }
                 };
-                var result = llm.GetResponseAsync("使用 echo_tool 重复这句话: 你好").GetAwaiter().GetResult();
-                CoreServices.Logger.Info($"Tools Test Response: {result}");
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var chatRes = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(req);
+                        if (chatRes.IsSuccess)
+                            AppendOutput($"Tools Test Response: {chatRes.Value.Message.Content}");
+                        else
+                            AppendOutput($"Tools Test Error: {chatRes.Error}");
+                        
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"Tools Test failed: {ex.Message}");
+                    }
+                });
             }
 
-            // Batch Test
-            var batchRect = new Rect(inRect.x + Padding, startY + (ButtonHeight + Padding) * 4, ButtonWidth, ButtonHeight);
-            if (Widgets.ButtonText(batchRect, "LLM Batch Test"))
+            // Batch Test (5 greetings in different languages)
+            if (Button("LLM Batch Test"))
             {
-                CoreServices.Logger.Info("Batch Test not implemented in P2 demo – placeholder.");
+                var prompts = new List<string>
+                {
+                    "Hello!",
+                    "你好！",
+                    "¡Hola!",
+                    "Bonjour!",
+                    "こんにちは！"
+                };
+                var requests = new List<UnifiedChatRequest>();
+                foreach (var p in prompts)
+                {
+                    requests.Add(new UnifiedChatRequest
+                    {
+                        Stream = false,
+                        Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = p } }
+                    });
+                }
+
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    AppendOutput("Batch requesting...");
+                    var results = await RimAI.Framework.API.RimAIApi.GetCompletionsAsync(requests);
+                    for (int i = 0; i < results.Count; i++)
+                    {
+                        var res = results[i];
+                        if (res.IsSuccess)
+                            AppendOutput($"[{i}] {prompts[i]} -> {res.Value.Message.Content}");
+                        else
+                            AppendOutput($"[{i}] {prompts[i]} -> Error: {res.Error}");
+                    }
+                });
             }
+
+            // 2. 输出窗口 -----------------------------
+            float outputY = curY + ButtonHeight + Padding;
+            var outputRect = new Rect(inRect.x + Padding, outputY, inRect.width - 2 * Padding, OutputAreaHeight);
+
+            var viewWidth = outputRect.width - 16f; // 考虑滚动条宽度
+            var viewHeight = Mathf.Max(OutputAreaHeight, Text.CalcHeight(_output, viewWidth));
+            var viewRect = new Rect(0, 0, viewWidth, viewHeight);
+
+            Widgets.BeginScrollView(outputRect, ref _outputScroll, viewRect);
+            Widgets.Label(viewRect, _output);
+            Widgets.EndScrollView();
         }
     }
 }

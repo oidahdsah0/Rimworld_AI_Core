@@ -1,6 +1,6 @@
 # RimAI.Core V4 逐步实施计划（IMPLEMENTATION_V4.md）
 
-> 更新日期：2025-08-04  
+> 更新日期：2025-08-05  
 > 所有人务必在开始开发前阅读本表。
 
 ## 阶段表
@@ -29,6 +29,13 @@
 | v4.0.0-alpha | 完成 P0~P2，可对话但未写入游戏 | core/v4.0.0-alpha |
 | v4.0.0-beta  | 完成 P0~P5，工具辅助查询完整 | core/v4.0.0-beta |
 | v4.0.0       | 完成 P0~P8，公开 Steam 预览版 | core/v4.0.0 |
+
+
+## 进度日志 (Progress Log)
+
+| 日期 | 状态 |
+|------|------|
+| 2025-08-05 | P0~P2 已完成并合并，生成 core/v4.0.0-alpha。Ping / Reload Config / Chat Echo 按钮全部通过。 |
 
 ---
 

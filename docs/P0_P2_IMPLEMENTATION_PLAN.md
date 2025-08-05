@@ -146,4 +146,29 @@ public record LLMConfig(double Temperature = 0.7, string ApiKey = "");
 
 ---
 
+## TODO Checklist (concise)
+
+### P0 Skeleton
+1. 创建 `RimAIMod` 入口，调用 `ServiceContainer.Init()`
+2. 实现最小版 `ServiceContainer`：手动注册 / 解析单例
+3. 实现受限静态门面 `CoreServices`
+4. 构建 `MainTabWindow_RimAIDebug`，添加 Ping 按钮
+
+### P1 DI & Config
+5. 为 `ServiceContainer` 增强：反射递归构造函数注入 + 循环依赖检测
+6. 新增 `RegisterInstance<T>(obj)` 帮助方法
+7. 定义配置模型 `CoreConfig / LLMConfig / CacheConfig …`
+8. 实现 `ConfigurationService`（加载设置、`Reload()`、变更事件）
+9. 在 `ServiceContainer.Init()` 注册 `ConfigurationService` 单例
+10. DebugPanel 添加 Reload Config 按钮
+
+### P2 LLM Gateway
+11. 定义 `ILLMService` 接口：`GetResponseAsync`
+12. 实现 `LLMService`：封装 `RimAIApi.GetCompletionAsync`，解析 `Result`
+13. 在 `ServiceContainer` 注册 `ILLMService` 单例
+14. DebugPanel 添加 Chat Echo 按钮（构造样例请求，展示回复/错误）
+15. 更新 CHANGELOG：加入 v4.0.0-alpha，并准备演示录屏
+
+---
+
 > **后续**：完成 P2 后，进入 P3 Scheduler & WorldAccess，届时将另行撰写 `P3_P4_IMPLEMENTATION_PLAN.md`。

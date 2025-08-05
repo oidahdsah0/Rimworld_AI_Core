@@ -14,7 +14,7 @@ namespace RimAI.Core.UI.DebugPanel
     /// </summary>
     public class MainTabWindow_RimAIDebug : MainTabWindow
     {
-                private const float ButtonHeight = 30f;
+        private const float ButtonHeight = 30f;
         private const float ButtonWidth = 160f;
         private const float Padding = 10f;
         private const float OutputAreaHeight = 240f;

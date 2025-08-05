@@ -31,6 +31,12 @@ namespace RimAI.Core.Infrastructure
                      RimAI.Core.Infrastructure.Cache.CacheService>();
             Register<RimAI.Core.Modules.LLM.ILLMService,
                      RimAI.Core.Modules.LLM.LLMService>();
+            // P3: SchedulerService 注册
+            Register<RimAI.Core.Infrastructure.ISchedulerService,
+                     RimAI.Core.Infrastructure.SchedulerService>();
+            // P3: WorldDataService 注册
+            Register<RimAI.Core.Modules.World.IWorldDataService,
+                     RimAI.Core.Modules.World.WorldDataService>();
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));

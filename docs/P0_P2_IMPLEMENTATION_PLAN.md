@@ -1,174 +1,122 @@
 # RimAI.Core V4 – P0~P2 详细实施方案
 
 > 版本：v4.0.0-alpha  
-> 更新日期：2025-08-04  
-> 范围：完成 Skeleton（P0）、DI & Config（P1）、LLM Gateway（P2）三阶段，实现最小可运行闭环。
-
----
-
-## 目录
-1. 背景与目标  
-2. 总里程碑与时间预估  
-3. 阶段交付一览  
-4. 详细任务拆解  
-   4.1 P0 Skeleton  
-   4.2 P1 DI & Config  
-   4.3 P2 LLM Gateway  
-5. Debug Panel 规范  
-6. 验收标准  
-7. 交付物清单
+> 更新日期：2025-08-05  
+> 范围：Skeleton（P0）、DI & Config（P1）、LLM Gateway（P2）  
+> 本文与 `ARCHITECTURE_V4.md` / `IMPLEMENTATION_V4.md` 同步，任何字段变更需同时更新。
 
 ---
 
 ## 1. 背景与目标
-本文件针对 **IMPLEMENTATION_V4.md** 中 P0~P2 的高阶描述，提供可直接执行的详细开发指引，确保在 3 天内实现：
-* Mod 可加载且无红色报错；
-* `ServiceContainer` 支持构造函数依赖注入；
-* `IConfigurationService` 可热重载并通知订阅者；
-* `ILLMService` 封装 `RimAIApi.GetCompletionAsync`，完成最小 LLM 闭环；
-* Debug Panel 提供按钮 **Ping / Reload Config / Chat Echo** 用于端到端验证。
 
-## 2. 总里程碑与时间预估
-| 阶段 | 目标 MVP | 主要代码范围 | 预计工时 |
-|------|----------|-------------|----------|
-| P0 | Mod 可加载 + Ping | Lifecycle、Infrastructure | 0.5 天 |
-| P1 | DI & Config | Infrastructure | 1 天 |
-| P2 | LLM Gateway + Chat Echo | Modules/LLM、UI | 1.5 天 |
-| **合计** | Skeleton→LLM 闭环 | — | **3 天** |
+在 v4 的“小步快跑”策略下，P0~P2 要完成 **端到端最小闭环**：Mod 成功加载 → DI 初始化 → 配置热重载 → LLM Echo。  
+**运行时兼容性前置条件：所有代码仅可使用 .NET Framework 4.7.2 可用 API**；若引用高版本特性将直接拒绝合并。
 
-> *并行性：P1 的 DI 与 Config 可并行；P2 的 DebugPanel 按钮可与 LLMService 实现并行。*
+核心交付：
+1. RimAIMod 入口 + ServiceContainer 初版。
+2. ConfigurationService（强类型配置 + `Reload()` 事件）。
+3. LLMService（封装 `RimAIApi.GetCompletionAsync`，含缓存与简单重试）。
+4. DebugPanel：Ping / Reload Config / Chat Echo + LLM 五项测试（流式 / 非流式 / JSON / Tools / 批量）。
 
-## 3. 阶段交付一览
+---
+
+## 2. 里程碑与时间预估
+
+| 阶段 | 目标 MVP | Debug 面板按钮 | 预计工时 |
+|------|----------|----------------|----------|
+| **P0** | Mod 可加载 + Ping | Ping | 0.5 天 |
+| **P1** | DI & 配置热重载 | Reload Config | 1 天 |
+| **P2** | LLM Echo（含缓存计数 + 流式/非流式/JSON/Tools/批量 测试） | Chat Echo + LLM Tests | 1.5 天 |
+| **合计** | — | — | **3 天** |
+
+---
+
+## 3. Gate 验收清单
+
+| 阶段 | Gate 条件（全部满足才可合并主干） |
+|------|-----------------------------------|
+| **P0** | ① RimAIMod 日志打印 `RimAI v4 Skeleton Loaded` ② `CoreServices.ServiceContainer` 非 null ③ RimWorld 主菜单无红色报错 |
+| **P1** | ① 构造函数 DI 解析通过 ② 调用 `Reload()` 事件触发并打印新温度 ③ DebugPanel 按钮显示最新配置 |
+| **P2** | ① `GetResponseAsync("hello")` 返回 "hello" ② DebugPanel 显示**缓存命中率**与**重试日志(≤3)** ③ LLM 请求耗时 < 3s (Mock) ④ DebugPanel 提供 流式 / 非流式 / JSON / Tools / 批量 请求测试全部通过 |
+
+每阶段合并时需附带 Gate 录像，放置于 `media/` 目录。
+
+---
+
+## 4. 阶段交付一览
+
 | 阶段 | 新增/修改文件 | 关键类 | DebugPanel 按钮 |
 |------|---------------|--------|-----------------|
-| P0 | `Lifecycle/RimAIMod.cs`  
-`Infrastructure/ServiceContainer.cs`  
-`Infrastructure/CoreServices.cs`  
-`UI/DebugPanel/MainTabWindow_RimAIDebug.cs` | `ServiceContainer` (Init) | Ping |
-| P1 | `Infrastructure/ConfigurationService.cs`  
-`Settings/CoreConfig.cs` 等模型 | `IConfigurationService` | Reload Config |
-| P2 | `Modules/LLM/ILLMService.cs`  
-`Modules/LLM/LLMService.cs`  
-DebugPanel 更新 | `LLMService` | Chat Echo |
-
-## 4. 详细任务拆解
-
-### 4.1 P0 Skeleton
-| # | 任务 | 负责人 | 预计时长 |
-|---|------|--------|----------|
-| 0-1 | 创建 `RimAIMod` 入口，调用 `ServiceContainer.Init()` | — | 0.1d |
-| 0-2 | `ServiceContainer` 基础实现：注册/解析单例（手动装配） | — | 0.2d |
-| 0-3 | `CoreServices` 静态门面（受限场景使用） | — | 0.05d |
-| 0-4 | DebugPanel 构建，按钮 **Ping**（`Messages.Message("RimAI Core Loaded")`） | — | 0.15d |
-
-**完成判定**：游戏主菜单加载无红字；开发者模式点击 Ping 弹窗成功。
+| P0 | `Lifecycle/RimAIMod.cs` `Infrastructure/ServiceContainer.cs` `Infrastructure/CoreServices.cs` `UI/DebugPanel/MainTabWindow_RimAIDebug.cs` | `ServiceContainer` (Init) | Ping |
+| P1 | `Infrastructure/ConfigurationService.cs` `Settings/CoreConfig.cs` 等 | `IConfigurationService` | Reload Config |
+| P2 | `Modules/LLM/ILLMService.cs` `Modules/LLM/LLMService.cs` + Panel 更新 | `LLMService` | Chat Echo |
 
 ---
 
-### 4.2 P1 DI & Config
-#### A. DI 增强
-1. 反射分析构造函数 → 递归解析依赖。  
-2. 提供 `RegisterInstance<T>(obj)` 便于注入现成对象。  
-3. 添加循环依赖检测（简单栈追踪）。
+## 5. 详细任务拆解
 
-#### B. 配置系统
-1. 数据模型
-```csharp
-public record CoreConfig
-{
-    public LLMConfig LLM { get; init; } = new();
-    public CacheConfig Cache { get; init; } = new();
-}
-public record LLMConfig(double Temperature = 0.7, string ApiKey = "");
-```
-2. `ConfigurationService`
-* 加载：从 `RimAIFrameworkSettings` 读取；若缺失用默认。  
-* 事件：`event Action<CoreConfig> OnConfigurationChanged;`  
-* `Reload()`：重新加载并触发事件。
-3. 在 `ServiceContainer.Init()` 中注册单例。
-4. DebugPanel 按钮 **Reload Config**：调用 `ConfigurationService.Reload()` 并打印温度值。
+### 5.1 P0 Skeleton
+1. 创建 `RimAIMod`，在 `OnLoaded` 调用 `ServiceContainer.Init()`。
+2. `ServiceContainer` 实现单例注册 & 手动解析（后续增强）。
+3. `CoreServices` 提供静态门面，Ping 按钮内部调用 `CoreServices.Logger.Info()`。
+4. DebugPanel 初版：左侧按钮区 + 右侧日志区；实现 **Ping**。
 
-**完成判定**：修改 Mod 设置中的 Temperature，点击 Reload Config 按钮后日志显示新值。
+### 5.2 P1 DI & Config
+A. **DI 增强**
+* 反射构造函数、递归解析、循环依赖检测。
+* `RegisterInstance<T>` 支持测试注入。
 
----
+B. **配置系统**
+* 定义 `CoreConfig` / `LLMConfig` / `CacheConfig`。默认值来自常量。
+* `ConfigurationService` 加载 RimWorld 设置；`Reload()` 触发 `OnConfigurationChanged`。
+* DebugPanel 按钮 **Reload Config**：重载后打印 `Current.LLM.Temperature`。
 
-### 4.3 P2 LLM Gateway
-#### A. 服务契约与实现
-| 接口 | 方法 |
-|-------|------|
-| `ILLMService` | `Task<string> GetResponseAsync(UnifiedChatRequest req, CancellationToken ct = default)` |
-
-`LLMService` 行为：
-1. 生成请求 → 调用 `RimAIApi.GetCompletionAsync(req)`；
-2. 解析 `Result<UnifiedChatResponse>`：若成功返回 `Message.Content`，否则抛/返回错误；
-3. 预留 `_cache`, `_retryPolicy` 字段，暂不实现逻辑；
-4. 构造注入 `IConfigurationService` 以读取温度等参数。
-
-注册：`ServiceContainer.Register<ILLMService, LLMService>();`
-
-#### B. DebugPanel 按钮 **Chat Echo**
-1. 预设 messages：system="You are helpful", user="Echo this"。  
-2. 构造 `UnifiedChatRequest`; 调用 `ILLMService.GetResponseAsync`;  
-3. 将返回文本追加到右侧多行文本框；  
-4. 若 `Result.IsSuccess==false`，打印 `Error`。
-
-**完成判定**：
-* API Key 正确时，Chat Echo 输出模型返回内容；
-* Key 缺失/错误时，控制台输出 `Result.Error` 字样且程序不中断。
+### 5.3 P2 LLM Gateway
+* 定义 `ILLMService`：`GetResponseAsync` (P2) + `StreamResponseAsync` (stub)。
+* `LLMService` 行为：调用 `RimAIApi`; 包装 `Result<T>`; 缓存键 = SHA256(request)。
+* 内置 `RetryPolicy`: 指数退避 1s/2s/4s；在 DebugPanel 输出 `[Retry #]`。
+* 缓存：首次 Miss → 调用 API; Hit → 直接返回并统计 `CacheHits`。
+* DebugPanel 按钮：
+  * **Chat Echo**（非流式）
+  * **LLM Stream Test**（流式）
+  * **LLM JSON Test**（JSON 模式）
+  * **LLM Tools Test**（工具调用）
+  * **LLM Batch Test**（批量请求）
+  所有按钮均需在日志中输出 `Response`、`Retries`、`CacheHits`（若适用）
 
 ---
 
-## 5. Debug Panel 规范
-| 区域 | 功能 |
-|------|------|
-| 左侧按钮列表 | 按阶段分组：`P0` Ping、`P1` Reload Config、`P2` Chat Echo；后续阶段依序追加 |
-| 右侧日志框 | 上滚显示按钮执行日志和 AI 回复；限制行数防溢出 |
-| 可见性 | 仅在 RimWorld 开启开发者模式 & 设置里勾选 "显示 RimAI Debug" 时显示 |
-
----
-
-## 6. 验收标准
-1. `core/v4.0.0-alpha` tag 下包含完整代码，能够通过 `msbuild /t:Build`。  
-2. RimWorld 启动后 **无**红色 error log。  
-3. DebugPanel 三按钮全部可正常执行：
-   * Ping → 绿字信息框；
-   * Reload Config → 温度值变化实时打印；
-   * Chat Echo → 模型返回文本或错误信息，不崩溃。
-4. 录屏演示以上流程并附到 PR。
+## 6. Debug Panel 规范
+同 `ARCHITECTURE_V4.md`：左侧按钮按阶段分组；右侧日志保留 100 行滚动；面板仅在开发者模式 + 设置勾选时可见。
 
 ---
 
 ## 7. 交付物清单
-* 源码：`Lifecycle/`, `Infrastructure/`, `Modules/LLM/`, `UI/DebugPanel/` 等新增文件。  
-* 此文档 `docs/P0_P2_IMPLEMENTATION_PLAN.md`。  
-* 更新 `CHANGELOG.md`（新增 v4.0.0-alpha 条目）。  
-* 测试录屏：`media/p0_p2_demo.mp4`（供审核）。
+* 源码：`Lifecycle/`, `Infrastructure/`, `Modules/LLM/`, `Settings/`, `UI/DebugPanel/`。
+* 文档：本文件、`IMPLEMENTATION_V4.md`, `ARCHITECTURE_V4.md` 更新。
+* 录像：`media/p0_p2_demo.mp4`。
+* CHANGELOG：新增 `v4.0.0-alpha`。
 
 ---
 
-## TODO Checklist (concise)
+## 8. TODO Checklist (快速视图)
 
 ### P0 Skeleton
-1. 创建 `RimAIMod` 入口，调用 `ServiceContainer.Init()`
-2. 实现最小版 `ServiceContainer`：手动注册 / 解析单例
-3. 实现受限静态门面 `CoreServices`
-4. 构建 `MainTabWindow_RimAIDebug`，添加 Ping 按钮
+- [ ] RimAIMod 入口 + 日志
+- [ ] ServiceContainer 手动注册
+- [ ] CoreServices 静态门面
+- [ ] DebugPanel + Ping
 
 ### P1 DI & Config
-5. 为 `ServiceContainer` 增强：反射递归构造函数注入 + 循环依赖检测
-6. 新增 `RegisterInstance<T>(obj)` 帮助方法
-7. 定义配置模型 `CoreConfig / LLMConfig / CacheConfig …`
-8. 实现 `ConfigurationService`（加载设置、`Reload()`、变更事件）
-9. 在 `ServiceContainer.Init()` 注册 `ConfigurationService` 单例
-10. DebugPanel 添加 Reload Config 按钮
+- [ ] 反射构造解析 & 循环依赖
+- [ ] RegisterInstance
+- [ ] CoreConfig/LLMConfig/CacheConfig 定义
+- [ ] ConfigurationService + Reload() 事件
+- [ ] DebugPanel Reload Config
 
 ### P2 LLM Gateway
-11. 定义 `ILLMService` 接口：`GetResponseAsync`
-12. 实现 `LLMService`：封装 `RimAIApi.GetCompletionAsync`，解析 `Result`
-13. 在 `ServiceContainer` 注册 `ILLMService` 单例
-14. DebugPanel 添加 Chat Echo 按钮（构造样例请求，展示回复/错误）
-15. 更新 CHANGELOG：加入 v4.0.0-alpha，并准备演示录屏
-
----
-
-> **后续**：完成 P2 后，进入 P3 Scheduler & WorldAccess，届时将另行撰写 `P3_P4_IMPLEMENTATION_PLAN.md`。
+- [ ] ILLMService 接口
+- [ ] LLMService 实现 + 缓存 + 重试
+- [ ] ServiceContainer 注册单例
+- [ ] DebugPanel LLM Tests（Chat Echo / Stream / JSON / Tools / Batch，展示缓存/重试）
+- [ ] 更新 CHANGELOG & 录像

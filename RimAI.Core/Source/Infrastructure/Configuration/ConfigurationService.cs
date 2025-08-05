@@ -1,26 +1,24 @@
-#nullable enable
+using System;
 using RimAI.Core.Settings;
-using Verse;
 
 namespace RimAI.Core.Infrastructure.Configuration
 {
     /// <summary>
-    /// Loads RimAI settings from RimWorld ModSettings (stubbed for P1 – uses defaults).
-    /// Supports hot-reload via OnConfigurationChanged.
+    /// P1 版本的配置服务：读取 RimWorld 的 ModSettings 将在后续阶段实现。
+    /// 目前返回默认 <see cref="CoreConfig"/>，并支持 Hot Reload 事件广播。
     /// </summary>
-    public class ConfigurationService : IConfigurationService
+    public sealed class ConfigurationService : IConfigurationService
     {
-        private CoreConfig _current = new();
+        private CoreConfig _current = CoreConfig.CreateDefault();
         public CoreConfig Current => _current;
 
-        public event System.Action<CoreConfig>? OnConfigurationChanged;
+        public event Action<CoreConfig> OnConfigurationChanged;
 
         public void Reload()
         {
-            // TODO: integrate with RimAIFrameworkSettings when available.
-            _current = new CoreConfig(); // For now, just reset to defaults
+            // TODO: RimWorld 设置读取逻辑（P3 或更高阶段）
+            _current = CoreConfig.CreateDefault();
             OnConfigurationChanged?.Invoke(_current);
-            Log.Message($"[RimAI.Core] Configuration reloaded. Temperature={_current.LLM.Temperature}");
         }
     }
 }

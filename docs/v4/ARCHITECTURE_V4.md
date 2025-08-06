@@ -80,6 +80,31 @@ graph TD
 
 ---
 
+## 4.5 Core Contracts Layer（稳定对外层）
+
+在代码结构上以 *RimAI.Core.Contracts* 独立程序集形式存在，只包含 **公共服务接口** 与 **数据 DTO**，无任何实现逻辑，遵循：
+* **“对外可见最小面”** —— 仅暴露第三方 Mod 可能调用的 API；
+* **接口签名冻结** —— 一旦发布不得破坏性修改，新增需走 SemVer 次版本；
+* **零 RimWorld 依赖** —— DTO 不直接引用 `Verse` 类型，确保无游戏版本耦合。
+
+| 分类 | 接口/DTO | 说明 |
+|------|----------|------|
+| 服务接口 | IOrchestrationService | `ExecuteToolAssistedQueryAsync` 提供五步编排入口，支持流式/非流式返回；只读 `GetAvailableTools()` 可选 |
+|          | IToolRegistryService  | 获取工具清单 / 执行工具（外部可主动调用已注册工具） |
+|          | IPersonaService      | 读取助手或特定 Pawn 的 Persona 信息 |
+|          | IHistoryService (Query) | 只暴露 `GetHistoryAsync` 查询；写入仍由 Core 内部控制 |
+|          | IConfigurationService (ReadOnly) | 暴露 `CoreConfig Current` 不可变快照 |
+| DTO | ColonySummary / CommandResult | 典型 World & Command 层返回对象 |
+|     | HistoricalContext / ConversationEntry | 对话历史结构体 |
+|     | Persona | SystemPrompt / Traits 等只读字段 |
+|     | ToolFunction / ToolCall | 直接 re-export Framework.Contracts 定义 |
+| 事件 | OrchestrationProgressEvent | 进度回调（阶段 + Payload） |
+|      | AIExceptionEvent | 封装异常与调用上下文
+
+> 外部开发者只需引用 `Framework.Contracts` + `Core.Contracts`，即可复用 AI 编排、扩展工具并监听事件。
+
+---
+
 ## 5. 模块详细设计（按首次出现阶段排序）
 
 ### 5.1 Infrastructure（P0–P1）

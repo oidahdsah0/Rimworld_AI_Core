@@ -20,7 +20,7 @@ namespace RimAI.Core.UI.DebugPanel
         private const float ButtonWidth = 160f;
         private const float Padding = 10f;
         private const float OutputAreaHeight = 240f;
-        private const int TotalButtons = 8;
+        private const int TotalButtons = 9;
 
         private string _output = string.Empty;
         private Vector2 _outputScroll = Vector2.zero;
@@ -240,6 +240,25 @@ namespace RimAI.Core.UI.DebugPanel
                     catch (System.Exception ex)
                     {
                         AppendOutput($"Tools Test failed: {ex.Message}");
+                    }
+                });
+            }
+
+            // Run Tool (get_colony_status)
+            if (Button("Run Tool"))
+            {
+                var registry = CoreServices.Locator.Get<RimAI.Core.Modules.Tooling.IToolRegistryService>();
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var result = await registry.ExecuteToolAsync("get_colony_status", new System.Collections.Generic.Dictionary<string, object>());
+                        var json = Newtonsoft.Json.JsonConvert.SerializeObject(result, Newtonsoft.Json.Formatting.None);
+                        AppendOutput($"Colony Status: {json}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"Run Tool failed: {ex.Message}");
                     }
                 });
             }

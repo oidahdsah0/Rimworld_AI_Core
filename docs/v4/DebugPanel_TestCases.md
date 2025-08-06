@@ -228,6 +228,33 @@ var res1 = await RimAIApi.GetCompletionAsync(req);
 
 ---
 
+## Run Tool (get_colony_status)
+
+| 属性 | 说明 |
+|------|------|
+| **按钮标签** | `Run Tool` |
+| **功能** | 直接通过 `IToolRegistryService.ExecuteToolAsync` 调用已注册的 `get_colony_status` 工具。|
+| **是否流式** | 否 |
+| **调用链** | `Debug UI` → `IToolRegistryService.ExecuteToolAsync` → `GetColonyStatusTool` → `IWorldDataService.GetColonySummaryAsync` |
+| **输出示例** |
+```
+Colony Status: {"ColonistCount":5,"FoodStockpile":120,"ThreatLevel":"Low"}
+```
+
+### 代码片段
+```csharp
+var registry = CoreServices.Locator.Get<IToolRegistryService>();
+var result = await registry.ExecuteToolAsync("get_colony_status", new Dictionary<string, object>());
+var json   = JsonConvert.SerializeObject(result);
+AppendOutput($"Colony Status: {json}");
+```
+
+### 关键点
+* “无参数”工具调用示例。
+* 返回结果对象在面板中序列化为单行 JSON 方便复制。
+
+---
+
 ## LLM Batch Test
 
 | 属性 | 说明 |

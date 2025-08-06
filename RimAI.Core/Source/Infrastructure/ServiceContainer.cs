@@ -37,6 +37,9 @@ namespace RimAI.Core.Infrastructure
             // P3: WorldDataService 注册
             Register<RimAI.Core.Modules.World.IWorldDataService,
                      RimAI.Core.Modules.World.WorldDataService>();
+            // P4: ToolRegistryService 注册
+            Register<RimAI.Core.Modules.Tooling.IToolRegistryService,
+                     RimAI.Core.Modules.Tooling.ToolRegistryService>();
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));

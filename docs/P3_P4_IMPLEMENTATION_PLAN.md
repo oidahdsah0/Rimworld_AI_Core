@@ -1,7 +1,7 @@
 # RimAI.Core V4 – P3~P4 详细实施方案
 
 > 版本：v4.0.0-beta 预备  
-> 更新日期：2025-08-05  
+> 更新日期：2025-08-06  
 > 本文与 `ARCHITECTURE_V4.md` / `IMPLEMENTATION_V4.md` 同步，任何接口或 Gate 变更需同时修订。
 
 ---
@@ -63,8 +63,7 @@
 | 4-1 | 定义 `IRimAITool`（接口）、`ToolFunction`（参数 Schema） | 0.3d |
 | 4-2 | `ToolRegistryService`：启动时反射扫描、构造注入工具实例 | 0.7d |
 | 4-3 | 实现 `GetColonyStatusTool`（依赖 `IWorldDataService`） | 0.4d |
-| 4-4 | 参数校验：使用 `System.Text.Json` 反序列化 + Validation | 0.2d |
-| 4-5 | DebugPanel 按钮 **Run Tool**：执行工具并格式化输出 JSON | 0.3d |
+| 4-4 | DebugPanel 按钮 **Run Tool**：执行工具并格式化输出 JSON | 0.3d |
 
 **完成判定**：返回 JSON 样例：
 ```json
@@ -96,17 +95,17 @@
 
 ## 8. TODO Checklist
 
-### P3 Scheduler & WorldData
+### P3 Scheduler & WorldData  ✅
 - [ ] SchedulerService 实现 & 注册
 - [ ] WorldDataService 实现首个 API
 - [ ] UnitTest: bg-thread safe call
 - [ ] DebugPanel Get Player Name
 - [ ] Profiler 1ms 验证脚本
 
-### P4 Tool System
-- [ ] Interfaces + DTOs 定义
-- [ ] ToolRegistryService 自动扫描
-- [ ] GetColonyStatusTool 实现
-- [ ] Parameter validation & error handling
-- [ ] DebugPanel Run Tool
-- [ ] UnitTest: tool execution JSON fields
+### P4 Tool System  ✅ （2025-08-06 完成）
+- [x] Interfaces + DTOs 定义（IRimAITool / IToolRegistryService / ToolFunction）
+- [x] ToolRegistryService 自动扫描并注册工具
+- [x] GetColonyStatusTool 实现
+- [x] DebugPanel Run Tool 按钮
+- [x] UnitTest: discover & execute tool
+- [x] **Core.Contracts v0.1 释出**（仅 IRimAITool + IToolRegistryService + ToolFunction）

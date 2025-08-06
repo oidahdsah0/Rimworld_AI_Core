@@ -1,6 +1,6 @@
 # RimAI.Core V4 逐步实施计划（IMPLEMENTATION_V4.md）
 
-> 最新更新：2025-08-05  
+> 最新更新：2025-08-06  
 > 本文件与 `ARCHITECTURE_V4.md` 保持一一对应，任何阶段状态变化都必须同时修改两处文档。
 
 ---
@@ -13,7 +13,7 @@
 | **P1 DI & Config** | 配置服务可热重载 | ① ServiceContainer 反射注册全部通过 ② 调用 `IConfigurationService.Reload()` 后事件触发 ③ Debug 面板按钮显示最新配置 | Reload Config | 1 天 |
 | **P2 LLM Gateway** | ILLMService Echo 测试 | ① `GetResponseAsync("hello")` 返回 "hello" ② 缓存命中率可在面板实时刷新 ③ 重试 3 次退避策略日志可见 ④ DebugPanel 覆盖 流式 / 非流式 / JSON / Tools / 批量 请求测试均通过 | Chat Echo + LLM Tests | 2 天 |
 | **P3 Scheduler + WorldData** | 主线程安全数据读取 | ① `ISchedulerService.ScheduleOnMainThread` 不阻塞 UI ② `IWorldDataService.GetPlayerNameAsync()` 返回玩家派系名称 ③ Profiler 每帧耗时 ≤ 1 ms | Get Player Name | 2 天 |
-| **P4 Tool System** | 工具注册与执行 | ① 启动时自动扫描并注册 `GetColonyStatusTool` ② `ToolRegistryService.ExecuteToolAsync` 返回正确 JSON ③ 工具执行期间无跨线程异常 | Run Tool | 2 天 |
+| **P4 Tool System** | 工具注册与执行 | ① Core.Contracts v0.1 发布（IRimAITool+IToolRegistryService）② 启动时自动扫描并注册 `GetColonyStatusTool` ③ `ExecuteToolAsync` 返回正确 JSON ④ 工具执行期间无跨线程异常 | Run Tool | 2 天 |
 | **P5 Orchestration (Min)** | 五步工作流闭环 | ① `ExecuteToolAssistedQueryAsync` 在 1 调用内完成工具决策 → 执行 → LLM 回复 ② 用户可通过面板提问“殖民地概况”并得到自然语言总结 ③ 熔断器 TODO 标记通过单元测试 | Ask Colony Status | 3 天 |
 | **P6 Persistence** | History 持久化 | ① 退出游戏后重新加载，上一局对话历史完整恢复 ② `IPersistenceService` 仅在 `Source/Infrastructure/Persistence` 目录调用 `Verse.Scribe` API | Record History | 2 天 |
 | **P7 Event Aggregator** | 高频事件节流 | ① 连续 5 次伤病事件仅触发 1 次 LLM 调用 ② 冷却窗口可在 Debug 面板重置 ③ AggregatedEvents 列表顺序按优先级降序 | List Aggregated Events | 2 天 |
@@ -50,6 +50,7 @@ Tag 策略与 CI 流程详见 `ARCHITECTURE_V4.md` 第 8 节。
 
 | 日期 | 状态 |
 |------|------|
-| 2025-08-05 | P0~P2 已完成并合并，生成 `core/v4.0.0-alpha`，Ping / Reload Config / Chat Echo 按钮全部通过。 |
+| 2025-08-05 | P0~P2 已完成并合并，生成 `core/v4.0.0-alpha`，所有按钮全部通过。 |
+| 2025-08-06 | P3 完成并验收；P4 Tool System 核心代码合并，Run Tool 按钮与单元测试通过，等待文档审核。 |
 
 > 后续新增阶段或修订，请在日志尾部追加行，不得覆盖历史。

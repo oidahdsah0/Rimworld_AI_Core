@@ -1,5 +1,7 @@
 using System.Threading.Tasks;
 using RimAI.Core.Infrastructure;
+using System.Collections.Generic;
+using System.Linq;
 using Verse;
 using RimWorld;
 
@@ -17,6 +19,21 @@ namespace RimAI.Core.Modules.World
         /// 异步获取玩家派系名称。
         /// </summary>
         Task<string> GetPlayerNameAsync();
+
+        /// <summary>
+        /// 获取殖民地的简要摘要（示例实现：殖民者数量、资源堆叠等）。
+        /// </summary>
+        Task<ColonySummary> GetColonySummaryAsync();
+    }
+
+    /// <summary>
+    /// 用于返回给工具层的殖民地摘要数据结构。
+    /// </summary>
+    public class ColonySummary
+    {
+        public int ColonistCount { get; set; }
+        public int FoodStockpile { get; set; }
+        public string ThreatLevel { get; set; }
     }
 
     internal sealed class WorldDataService : IWorldDataService
@@ -33,6 +50,37 @@ namespace RimAI.Core.Modules.World
         {
             // 使用调度器在主线程执行 RimWorld API 调用。
             return _scheduler.ScheduleOnMainThreadAsync(() => Faction.OfPlayer?.Name ?? string.Empty);
+        }
+
+        /// <inheritdoc />
+        public Task<ColonySummary> GetColonySummaryAsync()
+        {
+            return _scheduler.ScheduleOnMainThreadAsync(() =>
+            {
+                var colonists = PawnsFinder.AllMaps_FreeColonistsSpawned.Count;
+                // 粗略计算粮食堆叠（仅演示）
+                var food = ThingSetMaker_MakeThingList();
+                int foodCount = food.Sum(t => t.stackCount);
+                var threat = colonists < 6 ? "Low" : "High";
+
+                return new ColonySummary
+                {
+                    ColonistCount = colonists,
+                    FoodStockpile = foodCount,
+                    ThreatLevel = threat
+                };
+            });
+        }
+
+        private static List<Thing> ThingSetMaker_MakeThingList()
+        {
+            // 简化版食品计数：计数所有地图上类似食物的可堆叠物
+            var list = new List<Thing>();
+            foreach (var map in Find.Maps)
+            {
+                list.AddRange(map.listerThings.AllThings.Where(t => t.def.IsNutritionGivingIngestible));
+            }
+            return list;
         }
     }
 }

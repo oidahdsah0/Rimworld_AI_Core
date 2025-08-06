@@ -19,7 +19,7 @@ namespace RimAI.Core.UI.DebugPanel
         private const float ButtonHeight = 30f;
         private const float ButtonWidth = 160f;
         private const float Padding = 10f;
-        private const float OutputAreaHeight = 240f;
+        private const float OutputAreaHeight = 380f;
         private const int TotalButtons = 9;
 
         private string _output = string.Empty;
@@ -295,6 +295,91 @@ namespace RimAI.Core.UI.DebugPanel
                             AppendOutput($"[{i}] {prompts[i]} -> {res.Value.Message.Content}");
                         else
                             AppendOutput($"[{i}] {prompts[i]} -> Error: {res.Error}");
+                    }
+                });
+            }
+
+            // 第二行按钮 -----------------------------
+            curX = inRect.x + Padding;
+            curY += ButtonHeight + Padding;
+
+            if (Button("Colony FC Test"))
+            {
+                var registry = CoreServices.Locator.Get<RimAI.Core.Contracts.Tooling.IToolRegistryService>();
+                var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
+
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        // 1. 获取工具 schema
+                        var schema = registry.GetAllToolSchemas().FirstOrDefault(s => s.Name == "get_colony_status");
+                        if (schema == null)
+                        {
+                            AppendOutput("Colony FC Error: schema not found.");
+                            return;
+                        }
+
+                        // 2. 构造 OpenAI function definition
+                        var functionObj = new JObject
+                        {
+                            ["name"] = schema.Name,
+                            ["description"] = "获取殖民地状态的函数",
+                            ["parameters"] = JObject.Parse(schema.Arguments ?? "{}")
+                        };
+                        var toolDef = new ToolDefinition { Type = "function", Function = functionObj };
+
+                        // 3. 首次请求，征求 LLM 决策
+                        var initReq = new UnifiedChatRequest
+                        {
+                            Stream = false,
+                            Tools = new List<ToolDefinition> { toolDef },
+                            Messages = new List<ChatMessage>
+                            {
+                                new ChatMessage { Role = "user", Content = "请获取殖民地当前概况并用一句中文总结。" }
+                            }
+                        };
+
+                        var res1 = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(initReq);
+                        if (!res1.IsSuccess)
+                        {
+                            AppendOutput($"Colony FC Error: {res1.Error}");
+                            return;
+                        }
+
+                        var call = res1.Value.Message.ToolCalls?.FirstOrDefault();
+                        if (call == null)
+                        {
+                            AppendOutput("Colony FC Error: 模型未返回 tool_calls");
+                            return;
+                        }
+
+                        // 4. 本地执行工具
+                        var toolResult = await registry.ExecuteToolAsync(call.Function?.Name, new Dictionary<string, object>());
+                        var toolJson = Newtonsoft.Json.JsonConvert.SerializeObject(toolResult, Newtonsoft.Json.Formatting.None);
+
+                        // 5. 跟进请求携带工具结果
+                        var followReq = new UnifiedChatRequest
+                        {
+                            Stream = false,
+                            Tools = initReq.Tools,
+                            Messages = new List<ChatMessage>
+                            {
+                                new ChatMessage { Role = "user", Content = initReq.Messages[0].Content },
+                                new ChatMessage { Role = "assistant", ToolCalls = new List<ToolCall> { call } },
+                                new ChatMessage { Role = "tool", ToolCallId = call.Id, Content = toolJson }
+                            }
+                        };
+
+                        var res2 = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(followReq);
+                        if (res2.IsSuccess)
+                            AppendOutput($"Colony FC Response: {res2.Value.Message.Content}");
+                        else
+                            AppendOutput($"Colony FC Error: {res2.Error}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"Colony FC failed: {ex.Message}");
                     }
                 });
             }

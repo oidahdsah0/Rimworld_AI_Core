@@ -82,10 +82,18 @@
     <!-- Copy the loadFolders.xml file -->
     <Copy SourceFiles="loadFolders.xml" DestinationFolder="$(ModDir)" />
 
-    <!-- Step 3: Copy the compiled assembly to the correct versioned folder. -->
-    <Message Text="Step 3: Copying compiled DLL to $(ModDir)\1.6\Assemblies" Importance="high" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModDir)\1.6\Assemblies" />
-    <Copy SourceFiles="$(ProjectDir)$(OutDir)$(AssemblyName).pdb" DestinationFolder="$(ModDir)\1.6\Assemblies" Condition="Exists('$(ProjectDir)$(OutDir)$(AssemblyName).pdb')" />
+    <!-- Step 3: Copy the compiled assembly及其依赖到版本化目录 -->
+    <Message Text="Step 3: Copying compiled DLLs to $(ModDir)\\1.6\\Assemblies" Importance="high" />
+
+    <!-- 3.1 复制主 DLL & PDB -->
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModDir)\\1.6\\Assemblies" />
+    <Copy SourceFiles="$(ProjectDir)$(OutDir)$(AssemblyName).pdb" DestinationFolder="$(ModDir)\\1.6\\Assemblies" Condition="Exists('$(ProjectDir)$(OutDir)$(AssemblyName).pdb')" />
+
+    <!-- 3.2 复制同输出目录下的所有依赖 DLL (如 RimAI.Core.Contracts.dll、RimAI.Framework.dll 等) -->
+    <ItemGroup>
+      <DependencyDlls Include="$(ProjectDir)$(OutDir)*.dll" Exclude="$(TargetPath)" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DependencyDlls)" DestinationFolder="$(ModDir)\\1.6\\Assemblies" SkipUnchangedFiles="true" />
 
     <Message Text="RimAI Core successfully deployed!" Importance="high" />
   </Target>

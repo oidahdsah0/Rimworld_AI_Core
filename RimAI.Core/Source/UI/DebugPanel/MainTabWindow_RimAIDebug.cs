@@ -5,8 +5,11 @@ using RimAI.Core.Infrastructure;
 using Newtonsoft.Json.Linq;
 using RimAI.Framework.Contracts;
 using RimAI.Core.Modules.World;
+using RimAI.Core.Contracts.Services;
+using RimAI.Core.Contracts.Models;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace RimAI.Core.UI.DebugPanel
 {
@@ -32,11 +35,63 @@ namespace RimAI.Core.UI.DebugPanel
                 _output += $"[{System.DateTime.Now:HH:mm:ss}] {msg}\n";
             }
         }
+        
+        /// <summary>
+        /// 处理流式输出的辅助函数
+        /// </summary>
+        private async Task HandleStreamingOutputAsync(string streamName, IAsyncEnumerable<Result<UnifiedChatChunk>> stream)
+        {
+            try
+            {
+                lock (this)
+                {
+                    _output += $"[{System.DateTime.Now:HH:mm:ss}] {streamName}: "; // 开始流式输出，不加换行符
+                }
+
+                string finalFinishReason = null;
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                await foreach (var chunk in stream)
+                {
+                    if (chunk.IsSuccess)
+                    {
+                        var delta = chunk.Value?.ContentDelta;
+                        if (!string.IsNullOrEmpty(delta))
+                        {
+                            lock (this) { _output += delta; } // 在同一行追加内容
+                        }
+                        if (!string.IsNullOrEmpty(chunk.Value?.FinishReason))
+                        {
+                            finalFinishReason = chunk.Value.FinishReason;
+                        }
+                    }
+                    else
+                    {
+                        lock (this) { _output += $"[Error] {chunk.Error}"; }
+                    }
+                }
+                sw.Stop();
+
+                lock (this)
+                {
+                    _output += "\n"; // 流式传输结束后换行
+                }
+
+                if (finalFinishReason != null)
+                {
+                    AppendOutput($"[FINISH: {finalFinishReason}] (耗时: {sw.Elapsed.TotalSeconds:F2} s)"); // 在新行记录结束原因
+                }
+            }
+            catch (System.Exception ex)
+            {
+                AppendOutput($"{streamName} failed: {ex.Message}");
+            }
+        }
+
 
         private const float ExtraWidth = 30f;
         public override Vector2 InitialSize => new(
             ButtonWidth * TotalButtons + Padding * (TotalButtons + 1) + ExtraWidth,
-            (ButtonHeight + Padding * 3 + OutputAreaHeight) * 2.0f);
+            (ButtonHeight + Padding * 3 + OutputAreaHeight) * 1.05f);
 
                 public override void DoWindowContents(Rect inRect)
         {
@@ -98,7 +153,7 @@ namespace RimAI.Core.UI.DebugPanel
                         sw.Stop();
                         var ms = sw.Elapsed.TotalMilliseconds;
                         var colorTag = ms <= 1.0 ? "color=green" : "color=red";
-                        AppendOutput($"<${colorTag}>Player Faction Name: {name} (\u03B4 {ms:F2} ms)</${colorTag}>");
+                        AppendOutput($"<${colorTag}>Player Faction Name: {name} (Δ {ms:F2} ms)</${colorTag}>");
                     }
                     catch (System.Exception ex)
                     {
@@ -116,25 +171,8 @@ namespace RimAI.Core.UI.DebugPanel
                     Stream = true,
                     Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = "你好，简单介绍下Rimworld这个游戏，一句话，尽量简短。" } }
                 };
-                AppendOutput("Start Streaming...");
-                System.Threading.Tasks.Task.Run(async () =>
-                {
-                    await foreach (var chunk in llm.StreamResponseAsync(req))
-                    {
-                        if (chunk.IsSuccess)
-                        {
-                            var delta = chunk.Value?.ContentDelta;
-                            if (!string.IsNullOrEmpty(delta))
-                                AppendOutput(delta);
-                            if (!string.IsNullOrEmpty(chunk.Value?.FinishReason))
-                                AppendOutput($"[FINISH: {chunk.Value.FinishReason}]");
-                        }
-                        else
-                        {
-                            AppendOutput($"[Error] {chunk.Error}");
-                        }
-                    }
-                });
+                
+                System.Threading.Tasks.Task.Run(async () => await HandleStreamingOutputAsync("LLM Stream Test", llm.StreamResponseAsync(req)));
             }
 
             // JSON Test
@@ -267,39 +305,9 @@ namespace RimAI.Core.UI.DebugPanel
             if (Button("Ask Colony Status"))
             {
                 var orchestrator = CoreServices.Locator.Get<RimAI.Core.Contracts.IOrchestrationService>();
-
-                System.Threading.Tasks.Task.Run(async () =>
-                {
-                    try
-                    {
-                        var query = "殖民地概况？";
-                        AppendOutput("[P5] 开始编排 – " + query);
-                        var sw = System.Diagnostics.Stopwatch.StartNew();
-                        await foreach (var chunk in orchestrator.ExecuteToolAssistedQueryAsync(query))
-                        {
-                            if (chunk.IsSuccess)
-                            {
-                                var delta = chunk.Value?.ContentDelta;
-                                if (!string.IsNullOrEmpty(delta))
-                                    AppendOutput(delta);
-                                if (!string.IsNullOrEmpty(chunk.Value?.FinishReason))
-                                    {
-                                        AppendOutput($"[FINISH: {chunk.Value.FinishReason}]");
-                                        sw.Stop();
-                                        AppendOutput($"总耗时: {sw.Elapsed.TotalSeconds:F2} s");
-                                    }
-                            }
-                            else
-                            {
-                                AppendOutput($"[Error] {chunk.Error}");
-                            }
-                        }
-                    }
-                    catch (System.Exception ex)
-                    {
-                        AppendOutput($"Ask Colony Status failed: {ex.Message}");
-                    }
-                });
+                var query = "殖民地概况？";
+                var stream = orchestrator.ExecuteToolAssistedQueryAsync(query);
+                System.Threading.Tasks.Task.Run(async () => await HandleStreamingOutputAsync("Ask Colony Status", stream));
             }
 
             // Batch Test (5 greetings in different languages)
@@ -342,6 +350,61 @@ namespace RimAI.Core.UI.DebugPanel
             curX = inRect.x + Padding;
             curY += ButtonHeight + Padding;
 
+            if (Button("Record History"))
+            {
+                var history = CoreServices.Locator.Get<IHistoryService>();
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var participants = new List<string> { "__PLAYER__", "ColonyGovernor" };
+                        await history.RecordEntryAsync(participants, new ConversationEntry("__PLAYER__", "测试对话：你好，总督！", System.DateTime.UtcNow));
+                        await history.RecordEntryAsync(participants, new ConversationEntry("ColonyGovernor", "你好，指挥官！", System.DateTime.UtcNow));
+                        AppendOutput("示例对话已写入；请手动存档→主菜单→读档后验证历史是否持久化。");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"Record History failed: {ex.Message}");
+                    }
+                });
+            }
+
+            // Show History - 显示当前历史记录
+            if (Button("Show History"))
+            {
+                var history = CoreServices.Locator.Get<IHistoryService>();
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var participants = new List<string> { "__PLAYER__", "ColonyGovernor" };
+                        var context = await history.GetHistoryAsync(participants);
+                        
+                        AppendOutput($"=== 历史记录 ===");
+                        AppendOutput($"主线对话数: {context.MainHistory.Count}");
+                        
+                        foreach (var conv in context.MainHistory)
+                        {
+                            AppendOutput($"对话条目数: {conv.Entries.Count}");
+                            foreach (var entry in conv.Entries)
+                            {
+                                AppendOutput($"[{entry.Timestamp:HH:mm:ss}] {entry.SpeakerId}: {entry.Content}");
+                            }
+                        }
+                        
+                        if (context.MainHistory.Count == 0)
+                        {
+                            AppendOutput("没有找到历史记录。");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"Show History failed: {ex.Message}");
+                    }
+                });
+            }
+
+            // Colony FC Test
             if (Button("Colony FC Test"))
             {
                 var registry = CoreServices.Locator.Get<RimAI.Core.Contracts.Tooling.IToolRegistryService>();

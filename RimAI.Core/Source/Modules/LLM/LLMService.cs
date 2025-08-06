@@ -43,41 +43,41 @@ namespace RimAI.Core.Modules.LLM
             };
 
             var cacheKey = ComputeCacheKey(request);
-            if (_cache.TryGet(cacheKey, out string cached))
+            if (_cache.TryGet(cacheKey, out string cachedJsonResponse))
             {
                 LastFromCache = true;
-                return cached;
+                var cachedResponse = JsonConvert.DeserializeObject<UnifiedChatResponse>(cachedJsonResponse);
+                return cachedResponse.Message.Content;
             }
 
             var result = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
             if (!result.IsSuccess)
                 throw new Exception($"LLM Error: {result.Error}");
 
-            var content = result.Value.Message.Content;
-            _cache.Set(cacheKey, content, TimeSpan.FromMinutes(_config.Current.Cache.DefaultExpirationMinutes));
-            return content;
+            if (result.Value != null)
+            {
+                var jsonToCache = JsonConvert.SerializeObject(result.Value);
+                _cache.Set(cacheKey, jsonToCache, TimeSpan.FromMinutes(_config.Current.Cache.DefaultExpirationMinutes));
+            }
+            return result.Value.Message.Content;
         }
 
         public async Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default)
         {
             // 非流式请求，使用缓存逻辑
             var cacheKey = ComputeCacheKey(request);
-            if (_cache.TryGet(cacheKey, out string cachedJson))
+            if (_cache.TryGet(cacheKey, out string cachedJsonResponse))
             {
                 LastFromCache = true;
-                var cachedResponse = new UnifiedChatResponse
-                {
-                    FinishReason = "stop",
-                    Message = new ChatMessage { Role = "assistant", Content = cachedJson }
-                };
+                var cachedResponse = JsonConvert.DeserializeObject<UnifiedChatResponse>(cachedJsonResponse);
                 return Result<UnifiedChatResponse>.Success(cachedResponse);
             }
 
             var res = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
-            if (res.IsSuccess)
+            if (res.IsSuccess && res.Value != null)
             {
-                var content = res.Value.Message.Content;
-                _cache.Set(cacheKey, content, TimeSpan.FromMinutes(_config.Current.Cache.DefaultExpirationMinutes));
+                var jsonToCache = JsonConvert.SerializeObject(res.Value);
+                _cache.Set(cacheKey, jsonToCache, TimeSpan.FromMinutes(_config.Current.Cache.DefaultExpirationMinutes));
             }
             return res;
         }

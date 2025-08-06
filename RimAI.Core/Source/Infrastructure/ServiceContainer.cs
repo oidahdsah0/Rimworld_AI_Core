@@ -43,6 +43,12 @@ namespace RimAI.Core.Infrastructure
             // P5: OrchestrationService 注册
             Register<RimAI.Core.Contracts.IOrchestrationService,
                      RimAI.Core.Modules.Orchestration.OrchestrationService>();
+            // P6: HistoryService 注册
+            Register<RimAI.Core.Contracts.Services.IHistoryService,
+                     RimAI.Core.Services.HistoryService>();
+            // P6: PersistenceService 注册
+            Register<RimAI.Core.Infrastructure.Persistence.IPersistenceService,
+                     RimAI.Core.Infrastructure.Persistence.PersistenceService>();
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));

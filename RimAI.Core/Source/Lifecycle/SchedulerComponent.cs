@@ -13,10 +13,10 @@ namespace RimAI.Core.Lifecycle
     {
         private readonly SchedulerService _scheduler;
 
-        public SchedulerComponent(Game _)
+        public SchedulerComponent(Game game) : base()
         {
-            // 通过受限的 ServiceLocator 访问实例。
-            _scheduler = (SchedulerService)CoreServices.Locator.Get<ISchedulerService>();
+            // DI must be ready before any GameComponent is constructed.
+            _scheduler = (SchedulerService)Infrastructure.CoreServices.Locator.Get<ISchedulerService>();
         }
 
         public override void GameComponentTick()

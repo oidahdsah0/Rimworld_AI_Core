@@ -28,7 +28,17 @@ namespace RimAI.Core.Modules.Tooling
 
         public List<ToolFunction> GetAllToolSchemas()
         {
-            return _tools.Values.Select(t => t.GetSchema()).ToList();
+            // 构建包含 Description 的完整 schema
+            return _tools.Values.Select(t => 
+            {
+                var schema = t.GetSchema();
+                // 如果 schema 没有设置 Description，从工具本身获取
+                if (string.IsNullOrWhiteSpace(schema.Description))
+                {
+                    schema.Description = t.Description;
+                }
+                return schema;
+            }).ToList();
         }
 
         public async Task<object> ExecuteToolAsync(string toolName, Dictionary<string, object> parameters)

@@ -24,11 +24,12 @@ namespace RimAI.Core.Modules.Tooling.Tools
 
         public ToolFunction GetSchema()
         {
-            // 无参数工具
+            // 无参数工具，但包含描述信息
             return new ToolFunction
             {
                 Name = Name,
-                Arguments = "{}" // 空对象
+                Description = Description,  // 添加描述信息
+                Arguments = "{\"type\":\"object\",\"properties\":{}}"  // 标准的空对象 JSON Schema
             };
         }
 

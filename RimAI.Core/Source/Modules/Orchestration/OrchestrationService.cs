@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
@@ -9,6 +10,8 @@ using RimAI.Core.Contracts;
 using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Modules.LLM;
 using RimAI.Core.Infrastructure;
+using System.Security.Cryptography;
+using RimAI.Core.Infrastructure.Cache;
 
 namespace RimAI.Core.Modules.Orchestration
 {
@@ -19,24 +22,26 @@ namespace RimAI.Core.Modules.Orchestration
     {
         private readonly ILLMService _llm;
         private readonly IToolRegistryService _tools;
+        private readonly ICacheService _cache;
 
-        public OrchestrationService(ILLMService llm, IToolRegistryService tools)
+        public OrchestrationService(ILLMService llm, IToolRegistryService tools, ICacheService cache)
         {
             _llm = llm;
             _tools = tools;
+            _cache = cache;
         }
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteToolAssistedQueryAsync(string query, string personaSystemPrompt = "")
         {
             // Step 0: 构造 tools definition 列表供 LLM 决策
-            var toolSchemas = _tools.GetAllToolSchemas();
-            var toolDefinitions = toolSchemas.Select(s => new ToolDefinition
+            var toolDefinitions = _tools.GetAllToolSchemas().Select(schema => new ToolDefinition
             {
                 Type = "function",
                 Function = new JObject
                 {
-                    ["name"] = s.Name,
-                    ["parameters"] = JObject.Parse(string.IsNullOrWhiteSpace(s.Arguments) ? "{}" : s.Arguments)
+                    ["name"] = schema.Name,
+                    ["description"] = schema.Description,
+                    ["parameters"] = JObject.Parse(string.IsNullOrWhiteSpace(schema.Arguments) ? "{}" : schema.Arguments)
                 }
             }).ToList();
 
@@ -59,7 +64,14 @@ namespace RimAI.Core.Modules.Orchestration
             var call = decisionRes.Value.Message.ToolCalls?.FirstOrDefault();
             if (call == null || string.IsNullOrWhiteSpace(call.Function?.Name))
             {
-                yield return Result<UnifiedChatChunk>.Failure("LLM 未返回有效的 tool_calls。");
+                 // 如果不需要工具调用，直接返回LLM的回答
+                if (!string.IsNullOrEmpty(decisionRes.Value.Message.Content))
+                {
+                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = decisionRes.Value.Message.Content });
+                    yield break;
+                }
+
+                yield return Result<UnifiedChatChunk>.Failure("LLM 未返回有效的 tool_calls 或直接回答。");
                 yield break;
             }
 
@@ -78,7 +90,6 @@ namespace RimAI.Core.Modules.Orchestration
                 parseError = $"解析 tool 参数失败: {ex.Message}";
             }
 
-            // 在 try-catch 块外处理解析错误
             if (parseError != null)
             {
                 yield return Result<UnifiedChatChunk>.Failure(parseError);
@@ -94,25 +105,33 @@ namespace RimAI.Core.Modules.Orchestration
             }
             catch (Exception ex)
             {
-                // Step 4a: 工具执行失败，构造友好提示词
                 var errMessages = BuildBaseMessages(personaSystemPrompt, query);
                 errMessages.Add(new ChatMessage { Role = "assistant", Content = $"调用工具 {call.Function.Name} 失败: {ex.Message}" });
                 var errReq = new UnifiedChatRequest { Stream = true, Messages = errMessages };
                 errorStream = _llm.StreamResponseAsync(errReq);
             }
 
-            // 在 try-catch 块外处理错误流
             if (errorStream != null)
             {
                 await foreach (var chunk in errorStream)
                     yield return chunk;
                 yield break;
             }
+            
+            // --- 总结阶段缓存逻辑 ---
+            var toolResultJson = JsonConvert.SerializeObject(toolResult, Formatting.None);
+            var cacheKey = ComputeSummarizationCacheKey(query, toolResultJson);
 
-            // Step 3: 构造跟进请求，将工具结果交给 LLM 转自然语言
+            if (_cache.TryGet(cacheKey, out string cachedSummary))
+            {
+                yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = cachedSummary });
+                yield break;
+            }
+            
+            // --- 未命中缓存，正常发起流式请求 ---
             var followMessages = BuildBaseMessages(personaSystemPrompt, query);
             followMessages.Add(new ChatMessage { Role = "assistant", ToolCalls = new List<ToolCall> { call } });
-            followMessages.Add(new ChatMessage { Role = "tool", ToolCallId = call.Id, Content = JsonConvert.SerializeObject(toolResult, Formatting.None) });
+            followMessages.Add(new ChatMessage { Role = "tool", ToolCallId = call.Id, Content = toolResultJson });
 
             var followReq = new UnifiedChatRequest
             {
@@ -121,8 +140,35 @@ namespace RimAI.Core.Modules.Orchestration
                 Messages = followMessages
             };
 
+            var finalResponseBuilder = new StringBuilder();
             await foreach (var chunk in _llm.StreamResponseAsync(followReq))
+            {
+                if (chunk.IsSuccess && !string.IsNullOrEmpty(chunk.Value?.ContentDelta))
+                {
+                    finalResponseBuilder.Append(chunk.Value.ContentDelta);
+                }
                 yield return chunk;
+            }
+
+            // --- 将最终结果写入缓存 ---
+            var finalResponse = finalResponseBuilder.ToString();
+            if (!string.IsNullOrEmpty(finalResponse))
+            {
+                _cache.Set(cacheKey, finalResponse, TimeSpan.FromMinutes(5));
+            }
+        }
+        
+        private string ComputeSummarizationCacheKey(string query, string toolResultJson)
+        {
+            var combined = $"{query}|{toolResultJson}";
+            using (var sha = SHA256.Create())
+            {
+                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(combined));
+                var sb = new StringBuilder(bytes.Length * 2);
+                foreach (var b in bytes)
+                    sb.Append(b.ToString("x2"));
+                return sb.ToString();
+            }
         }
 
         private static List<ChatMessage> BuildBaseMessages(string personaPrompt, string userQuery)

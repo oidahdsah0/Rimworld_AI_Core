@@ -13,6 +13,11 @@ namespace RimAI.Core.Modules.LLM
         Task<string> GetResponseAsync(string prompt, bool forceJson = false, CancellationToken ct = default);
 
         /// <summary>
+        /// 统一请求模型的非流式响应，返回完整结构体。
+        /// </summary>
+        Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default);
+
+        /// <summary>
         /// 流式响应。
         /// </summary>
         IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request, CancellationToken ct = default);

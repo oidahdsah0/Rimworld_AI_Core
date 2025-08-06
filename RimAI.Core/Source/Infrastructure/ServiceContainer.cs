@@ -40,6 +40,9 @@ namespace RimAI.Core.Infrastructure
             // P4: ToolRegistryService 注册
             Register<RimAI.Core.Contracts.Tooling.IToolRegistryService,
                      RimAI.Core.Modules.Tooling.ToolRegistryService>();
+            // P5: OrchestrationService 注册
+            Register<RimAI.Core.Contracts.IOrchestrationService,
+                     RimAI.Core.Modules.Orchestration.OrchestrationService>();
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));

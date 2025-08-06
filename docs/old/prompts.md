@@ -78,3 +78,35 @@ V3_IMPLEMENTATION_PLAN.md
 阅读Core项目下docs\v4下的5个设计文件（必读），确保你知道我们目前在做什么。
 
 阅读CN_v4.0_API调用指南.md，确保你知道如何调用已经写好的Framework（不可更改）。
+
+=====
+
+P6 ‒ 持久化阶段（HistoryService 存档）任务总览：
+
+1. P6-1 HistoryState DTO  
+   • 在 `RimAI.Core.Contracts` 定义只包含主存储字典与倒排索引的不可变数据结构。
+
+2. P6-2 HistoryService 导入/导出 API  
+   • 为 `HistoryService` 增加 `GetStateForPersistence()` / `LoadStateFromPersistence(HistoryState state)` 两个公开方法。
+
+3. P6-3 PersistenceService  
+   • 新建 `Infrastructure/Persistence/PersistenceService.cs`，负责所有 `Verse.Scribe.*` 调用。  
+   • 实现 `PersistHistoryState(IHistoryService svc)`、`LoadHistoryState(IHistoryService svc)`。
+
+4. P6-4 PersistenceManager(GameComponent)  
+   • 在 `Lifecycle/` 目录创建组件，重写 `ExposeData()`，调用 `PersistenceService` 完成读/写。  
+
+5. P6-5 DI 注册  
+   • 在 `ServiceContainer.Init()` 中注册 `IPersistenceService` 与 `PersistenceManager` 单例。
+
+6. P6-6 单元测试 `PersistenceRoundTripTests`  
+   • 序列化一个带数据的 `HistoryService` → 反序列化 → 断言两张字典内容相同。
+
+7. P6-7 DebugPanel 按钮 “Record History”  
+   • 调用 `HistoryService.RecordEntryAsync` 写入两条示例对话后提示“请手动存档→读档验证”。
+
+8. P6-8 文档 & 交付  
+   • 更新 `CHANGELOG.md`、`IMPLEMENTATION_V4.md` Gate 状态；  
+   • 录制演示录像并标记 `core/v4.0.0` Tag。
+
+以上即 P6 全量任务，新对话可逐项实施。

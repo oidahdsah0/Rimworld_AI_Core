@@ -20,7 +20,7 @@ namespace RimAI.Core.UI.DebugPanel
         private const float ButtonWidth = 160f;
         private const float Padding = 10f;
         private const float OutputAreaHeight = 380f;
-        private const int TotalButtons = 9;
+        private const int TotalButtons = 10;
 
         private string _output = string.Empty;
         private Vector2 _outputScroll = Vector2.zero;
@@ -259,6 +259,45 @@ namespace RimAI.Core.UI.DebugPanel
                     catch (System.Exception ex)
                     {
                         AppendOutput($"Run Tool failed: {ex.Message}");
+                    }
+                });
+            }
+
+            // Ask Colony Status (P5)
+            if (Button("Ask Colony Status"))
+            {
+                var orchestrator = CoreServices.Locator.Get<RimAI.Core.Contracts.IOrchestrationService>();
+
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var query = "殖民地概况？";
+                        AppendOutput("[P5] 开始编排 – " + query);
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        await foreach (var chunk in orchestrator.ExecuteToolAssistedQueryAsync(query))
+                        {
+                            if (chunk.IsSuccess)
+                            {
+                                var delta = chunk.Value?.ContentDelta;
+                                if (!string.IsNullOrEmpty(delta))
+                                    AppendOutput(delta);
+                                if (!string.IsNullOrEmpty(chunk.Value?.FinishReason))
+                                    {
+                                        AppendOutput($"[FINISH: {chunk.Value.FinishReason}]");
+                                        sw.Stop();
+                                        AppendOutput($"总耗时: {sw.Elapsed.TotalSeconds:F2} s");
+                                    }
+                            }
+                            else
+                            {
+                                AppendOutput($"[Error] {chunk.Error}");
+                            }
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput($"Ask Colony Status failed: {ex.Message}");
                     }
                 });
             }

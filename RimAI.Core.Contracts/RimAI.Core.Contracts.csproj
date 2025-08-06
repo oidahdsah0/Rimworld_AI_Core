@@ -3,8 +3,13 @@
     <TargetFramework>net472</TargetFramework>
     <RootNamespace>RimAI.Core.Contracts</RootNamespace>
     <Nullable>disable</Nullable>
+    <LangVersion>8.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework.Contracts\RimAI.Framework.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 添加 Krafs.Rimworld.Ref 以获得 IAsyncEnumerable 支持 -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4535" />
   </ItemGroup>
 </Project>

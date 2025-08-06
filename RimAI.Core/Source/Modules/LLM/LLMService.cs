@@ -58,6 +58,30 @@ namespace RimAI.Core.Modules.LLM
             return content;
         }
 
+        public async Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default)
+        {
+            // 非流式请求，使用缓存逻辑
+            var cacheKey = ComputeCacheKey(request);
+            if (_cache.TryGet(cacheKey, out string cachedJson))
+            {
+                LastFromCache = true;
+                var cachedResponse = new UnifiedChatResponse
+                {
+                    FinishReason = "stop",
+                    Message = new ChatMessage { Role = "assistant", Content = cachedJson }
+                };
+                return Result<UnifiedChatResponse>.Success(cachedResponse);
+            }
+
+            var res = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
+            if (res.IsSuccess)
+            {
+                var content = res.Value.Message.Content;
+                _cache.Set(cacheKey, content, TimeSpan.FromMinutes(_config.Current.Cache.DefaultExpirationMinutes));
+            }
+            return res;
+        }
+
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
             await foreach (var chunk in RimAIApi.StreamCompletionAsync(request, ct))

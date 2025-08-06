@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using RimAI.Framework.Contracts;
+using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Infrastructure;
 
 namespace RimAI.Core.Modules.Tooling

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using RimAI.Core.Modules.World;
+using RimAI.Core.Contracts.Tooling;
 using RimAI.Framework.Contracts;
 
 namespace RimAI.Core.Modules.Tooling.Tools

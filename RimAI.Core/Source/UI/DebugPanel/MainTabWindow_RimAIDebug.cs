@@ -247,7 +247,7 @@ namespace RimAI.Core.UI.DebugPanel
             // Run Tool (get_colony_status)
             if (Button("Run Tool"))
             {
-                var registry = CoreServices.Locator.Get<RimAI.Core.Modules.Tooling.IToolRegistryService>();
+                var registry = CoreServices.Locator.Get<RimAI.Core.Contracts.Tooling.IToolRegistryService>();
                 System.Threading.Tasks.Task.Run(async () =>
                 {
                     try

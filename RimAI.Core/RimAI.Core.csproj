@@ -29,7 +29,8 @@
     <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj" Condition="Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">
       <Private>false</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework.Contracts\RimAI.Framework.Contracts.csproj" Condition="Exists('..\\..\\Rimworld_AI_Framework\\RimAI.Framework.Contracts\\RimAI.Framework.Contracts.csproj')">
+    <ProjectReference Include="..\\RimAI.Core.Contracts\\RimAI.Core.Contracts.csproj" />
+    <ProjectReference Include="..\\..\\Rimworld_AI_Framework\\RimAI.Framework.Contracts\\RimAI.Framework.Contracts.csproj" Condition="Exists('..\\..\\Rimworld_AI_Framework\\RimAI.Framework.Contracts\\RimAI.Framework.Contracts.csproj')">
       <Private>false</Private>
     </ProjectReference>
     

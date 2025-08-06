@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>RimAI.Core.Contracts</RootNamespace>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework.Contracts\RimAI.Framework.Contracts.csproj" />
+  </ItemGroup>
+</Project>

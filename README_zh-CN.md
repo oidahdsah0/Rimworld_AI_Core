@@ -1,15 +1,20 @@
-# 🏗️ RimAI Core - 企业级AI框架
+# 🏗️ RimAI Core - V4 架构
 
-[English](README.md) | [简体中文](README_zh-CN.md) | [文档](docs/)
+[English](README.md) | [简体中文](README_zh-CN.md) | [V4 架构文档](docs/v4/)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![RimWorld](https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)
 [![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
-[![Architecture](https://img.shields.io/badge/Architecture-Enterprise-red.svg)](docs/ARCHITECTURE.md)
+[![Architecture](https://img.shields.io/badge/Architecture-V4%20Incremental-blueviolet.svg)](docs/v4/ARCHITECTURE_V4.md)
 
-> **首个为RimWorld打造的企业级AI框架，采用SOLID原则、依赖注入、事件驱动架构，以及生产就绪的基础设施，实现智能殖民地管理。**
+> **RimAI Core v4：一个为 RimWorld 设计的、增量式的企业级 AI 框架，为快速迭代、可验证的进度和无与伦比的可扩展性而重构。V4 继承了 v3 强大的设计哲学，同时采用分阶段交付模型，以确保稳定性和持续改进。**
 
-**🏢 企业级架构** • **🧠 高级AI集成** • **🔧 生产就绪基础设施**
+**✨ V4 版本亮点:**
+- **分阶段交付**: 从 P0 到 P8 的增量式开发，确保每个阶段都交付一个可验证的、功能性的最小可行产品（MVP）。
+- **模块化架构**: 清晰定义的模块（LLM、WorldAccess、Tooling、Orchestration 等），实现高内聚和低耦合。
+- **稳定的合约层**: 一个专用的 `Contracts` 程序集，提供稳定、版本化的 API，让第三方 Mod 可以放心集成。
+- **健壮的基础设施**: 构建于依赖注入、集中式配置服务和弹性调度器的基础之上。
+- **智能编排**: 一个五步走的、工具辅助的查询工作流，支持复杂的、多步骤的 AI 交互。
 
 **作者**: [@oidahdsah0](https://github.com/oidahdsah0)  
 **创建时间**: 2025年7月16日  
@@ -17,166 +22,132 @@
 
 ---
 
-## 🧠 **核心理念：双层架构**
+## 🚀 快速上手
 
-RimAI Core 建立在革命性的**双层架构**之上，将智能与执行分离：
-
-### **第一层：LLM层 - 素材深度系统**
-- **Level 1**: 基础状态
-- **Level 2**: 详细分析
-- **Level 3**: 深度洞察
-- **Level 4**: 预测建模
-- **Level 5**: 战略规划
-
-### **第二层：执行层 - 动作系统**
-- **Query**: 信息检索和分析
-- **Suggest**: 建议但不执行
-- **Execute**: 直接的游戏世界动作
-- **Monitor**: 持续监控和反馈
-
----
-
-## 🎯 **核心功能**
-
-### **三官员系统**
-- **🏛️ 总督**: 整体殖民地管理和战略决策
-- **⚔️ 军事官**: 战斗策略和防御规划
-- **📦 后勤官**: 资源管理和生产优化
-
-### **直接指令界面**
-- 自然语言命令处理
-- 上下文感知的指令解释
-- 实时反馈和状态更新
-
-### **W.I.F.E. 系统**
-- **W**arden's **I**ntegrated **F**oresight **E**ngine (典狱长综合预见引擎)
-- 三个AI人格: MELCHIOR-1, BALTHASAR-2, CASPER-3（EVA-MAGI-EXTENTION）
-- 深度叙事整合与情感智能
-- 记忆同步和人格进化
-- 复活任务线和哲学深度
-
----
-
-## 🚀 **开始使用**
-
-### **先决条件**
+### 前置要求
 - RimWorld 1.6 或更高版本
-- [RimAI Framework](https://github.com/oidahdsah0/Rim_AI_Framework) (必需依赖项)
-- 支持的LLM服务的API访问权限 (OpenAI、DeepSeek、Ollama等)
+- [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework) (严格要求 v4.3+ 版本)
+- 可访问受支持的 LLM 服务（如 OpenAI, DeepSeek, Ollama 等）的 API 密钥
 
-### **安装**
-⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
-⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
-⚠️ **重要：必须严格按照 RimAI Framework Mod 页面的说明进行设置，否则AI无法启用！**
+### 安装指南
+⚠️ **至关重要：您必须严格遵循 RimAI Framework Mod 页面的设置说明，否则 AI 将无法工作！**
 
-1. 首先安装 [RimAI Framework](https://github.com/oidahdsah0/Rim_AI_Framework)
-2. 从 [Steam创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3529310374) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core
-3. 在Framework模组设置中配置您的LLM API设置
-4. 启动RimWorld并享受智能殖民地管理！
+1.  **首先安装 [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework)。**
+2.  从 [Steam 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core。
+3.  在 Framework 的 Mod 设置菜单中配置您的 LLM API 密钥。
+4.  启动 RimWorld 并通过 `Debug Panel`（调试面板）来测试 V4 的各项功能。
 
 ---
 
-## 📐 **企业级架构概览**
+## 📐 V4 架构概览
 
-### **核心架构模式**
-- **🏗️ 依赖注入容器**: ServiceContainer 统一管理服务生命周期
-- **🚌 事件驱动架构**: EventBus 实现组件间解耦通信
-- **🛡️ 安全访问层**: SafeAccessService 解决RimWorld API并发访问问题
-- **💾 智能缓存系统**: CacheService 提供多级缓存和性能优化
-- **🔄 异步编程模型**: 全栈async/await模式，确保UI响应性
+V4 架构旨在实现清晰性、可测试性和增量开发。它将不同的关注点分离到不同的层和模块中，确保系统既强大又易于维护。
 
-### **系统架构图**
+### V4 架构图
+
+```mermaid
+graph TB
+
+    subgraph "UI 层"
+        DebugPanel["调试面板"]
+        GameWindows["助手 / 对话窗口"]
+    end
+
+    subgraph "模块层"
+        Orchestration["模块: 智能编排"]
+        Tooling["模块: 工具系统"]
+        LLM["模块: LLM 网关"]
+        WorldAccess["模块: 世界访问"]
+        Persistence["模块: 持久化"]
+        Eventing["模块: 事件处理"]
+        Persona["模块: AI 人格"]
+    end
+
+    subgraph "基础设施层"
+        ServiceContainer["DI 容器"]
+        Scheduler["调度服务"]
+        Cache["缓存服务"]
+        Config["配置服务"]
+    end
+    
+    subgraph "合约层 (稳定 API)"
+        Contracts["接口 & 数据传输对象"]
+    end
+
+    subgraph "外部依赖"
+        RimWorld["RimWorld 游戏引擎"]
+        Framework["RimAI.Framework API"]
+    end
+
+    %% 流程
+    GameWindows --> Orchestration
+    Orchestration --> LLM
+    Orchestration --> Tooling
+    Tooling --> WorldAccess
+    Tooling --> Contracts
+    WorldAccess --> Scheduler
+    Scheduler --> RimWorld
+    LLM --> Cache
+    LLM --> Framework
+    
+    Modules Layer --> ServiceContainer
+    Modules Layer --> Contracts
+    Infrastructure Layer --> Contracts
 ```
-🏗️ RimAI Core - 企业级架构
-├── 🧠 LLM层 (智能决策)
-│   ├── 📝 提示词工程服务
-│   ├── 🏗️ 上下文构建服务
-│   ├── 🔍 响应解析服务
-│   └── 📊 素材深度分析
-├── ⚡ 执行层 (动作系统)
-│   ├── 🎯 命令解释器
-│   ├── 👁️ 游戏状态监视器
-│   ├── 🚀 动作执行器
-│   └── 📡 反馈生成器
-├── 🏢 基础设施层 (企业级)
-│   ├── 🗃️ 服务容器 (DI)
-│   ├── 🚌 事件总线
-│   ├── 🛡️ 安全访问服务
-│   └── 💾 缓存管理
-└── 🎨 用户界面
-    ├── 👨‍💼 官员控制面板
-    ├── 💻 命令终端界面
-    └── 📊 实时状态显示
-```
+
+### 核心服务与模块
+
+| 服务 / 模块 | 角色与职责 | 关键特性 |
+| :--- | :--- | :--- |
+| **`ServiceContainer`** | 管理服务生命周期和依赖关系。 | 通过构造函数注入强制执行 SOLID 原则。 |
+| **`ILLMService`** | 所有 LLM 通信的唯一网关。 | 集中处理缓存、重试和熔断机制。 |
+| **`IWorldDataService`** | 用于安全访问主线程游戏数据的防腐层。 | 使用 `ISchedulerService` 来防止线程问题。 |
+| **`IToolRegistryService`**| 发现并管理一个 AI 能力的“工具箱”。 | 无需修改核心代码即可动态扩展 AI 技能。 |
+| **`IOrchestrationService`**| 指挥五步工作流的“大脑”。 | 集成工具和数据以生成智能回复。 |
+| **`IPersistenceService`** | 管理 AI 状态的保存和加载。 | 将业务逻辑与 RimWorld 的 `Scribe` 系统解耦。 |
+| **`IPersonaService`** | 管理 AI 人格及其系统提示词。 | 将“AI 是谁”与“AI 能做什么”分离。 |
 
 ---
 
-## 🔧 **企业级技术栈**
+## 🔧 技术与原则
 
-### **核心技术特性**
-- **🏗️ SOLID原则**: 单一职责、开闭原则、里氏替换、接口隔离、依赖倒置
-- **🔄 异步编程**: 全面的async/await模式，避免UI阻塞
-- **🛡️ 异常安全**: 统一异常处理、重试机制、断路器模式
-- **📊 性能监控**: 内置指标收集、缓存统计、执行时间追踪
-- **🔧 可扩展架构**: 插件化设计、热插拔组件、模块化开发
-
-### **基础设施服务**
-| 服务 | 功能描述 | 企业级特性 |
-|------|----------|-----------|
-| **ServiceContainer** | 依赖注入容器 | 生命周期管理、循环依赖检测 |
-| **EventBus** | 事件驱动通信 | 异步发布、订阅管理、错误隔离 |
-| **SafeAccessService** | API安全访问 | 并发保护、自动重试、失败恢复 |
-| **CacheService** | 智能缓存 | 多级缓存、TTL管理、内存优化 |
-| **LLMService** | AI模型集成 | 连接池、请求限流、故障转移 |
-
-### **支持的LLM服务**
-- **🤖 OpenAI**: GPT-4、GPT-3.5-turbo (生产环境推荐)
-- **🧠 DeepSeek**: deepseek-chat (成本优化选择)
-- **🏠 Ollama**: 本地模型部署 (隐私优先)
-- **⚡ vLLM**: 高性能推理服务器
-- **🔌 兼容API**: 任何OpenAI格式的API服务
-
-### **部署要求**
-- **运行时**: .NET Framework 4.7.2 或更高版本
-- **游戏版本**: RimWorld 1.6+ (向后兼容)
-- **网络**: 互联网连接 (云端LLM) 或本地部署 (Ollama/vLLM)
-- **内存**: 推荐 8GB+ RAM (大型殖民地 + AI处理)
-- **存储**: 约50MB磁盘空间 (框架 + 缓存)
+- **SOLID 原则**: 整个架构构建在 SOLID 设计原则的基础之上。
+- **全栈异步**: 全栈的 async/await 模型确保了一个响应迅速、无阻塞的 UI。
+- **弹性设计**: 统一的异常体系、重试策略和熔断器确保了系统的健壮性。
+- **可测试性**: `Debug Panel` 为每个开发阶段提供脚本化的测试用例，确保端到端的功能。
+- **可扩展性**: `IRimAITool` 接口和 `IToolRegistryService` 允许轻松添加新的 AI 能力。
 
 ---
 
-## 🤝 **贡献**
+## 🤝 参与贡献
 
-我们欢迎贡献！请查看我们的[贡献指南](CONTRIBUTING.md)了解详情。
+我们欢迎各种形式的贡献！请参阅我们（即将发布）的 `CONTRIBUTING.md` 文件，了解开发流程、编码标准和拉取请求指南的详细信息。
 
-### **开发设置**
-1. 克隆此仓库
-2. 确保您有RimAI Framework项目可用
-3. 在Visual Studio或您喜欢的IDE中打开解决方案
-4. 构建和测试您的更改
+### 开发路线图
+V4 的实现被分解为 8 个阶段。您可以在 [V4 实施计划](docs/v4/IMPLEMENTATION_V4.md) 中跟踪项目进度。
 
----
-
-## 📄 **许可证**
-
-此项目根据MIT许可证授权 - 查看[LICENSE](LICENSE)文件了解详情。
-
----
-
-## 🙏 **致谢**
-
-- RimWorld模组社区的incredible支持
-- Ludeon Studios创造了RimWorld
-- AI/ML社区推进了语言模型技术
+| 阶段 | 里程碑 | 状态 |
+| :--- | :--- | :--- |
+| **P0** | 骨架 & DI | ✅ 已完成 |
+| **P1** | DI & 配置 | ✅ 已完成 |
+| **P2** | LLM 网关 | ✅ 已完成 |
+| **P3** | 调度器 & 世界数据 | ✅ 已完成 |
+| **P4** | 工具系统 | ✅ 已完成 |
+| **P5** | 智能编排 | ✅ 已完成 |
+| **P6** | 持久化 | ✅ 已完成 |
+| **P7** | 事件聚合器 | ⏳ 待定 |
+| **P8** | 人格 & UI | ⏳ 待定 |
 
 ---
 
-## 📞 **支持**
+## 📄 许可证
 
-- **问题**: [GitHub Issues](https://github.com/oidahdsah0/Rimworld_AI_Core/issues)
-- **讨论**: [GitHub Discussions](https://github.com/oidahdsah0/Rimworld_AI_Core/discussions)
-- **Steam创意工坊**: [工坊页面](https://steamcommunity.com/sharedfiles/filedetails/?id=3529310374)
+本项目采用 MIT 许可证 - 详情请参阅 [LICENSE](LICENSE) 文件。
 
 ---
 
-*用 ❤️ 为 RimWorld 社区构建*
+## 📞 支持
+
+- **问题反馈**: [GitHub Issues](https://github.com/oidahdsah0/Rimworld_AI_Core/issues)
+- **参与讨论**: [GitHub Discussions](https://github.com/oidahdsah0/Rimworld_AI_Core/discussions)
+- **创意工坊**: [Workshop Page](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD)

@@ -1,96 +1,61 @@
-🧠 **RimAI Core - Alpha (Developer Example)** - AI Colony Management Demo
+[h1]🧠 RimAI Core - Alpha (Developer Example) - AI Colony Management Demo[/h1]
 
-⚠️ **IMPORTANT: This is a Open Source Developer Example/Demonstration Mod**
-This mod is designed as a **comprehensive example** to showcase how modders can integrate with the RimAI Framework. It demonstrates best practices for AI-powered mod development and serves as a learning resource for the modding community. 
+[b]⚠️ **IMPORTANT: This is a Open Source Developer Example/Demonstration Mod**
+This mod is designed as a **comprehensive example** to showcase how modders can integrate with the RimAI Framework. It demonstrates best practices for AI-powered mod development and serves as a learning resource for the modding community. [/b]
 
 Github (Open Source)：github.com/oidahdsah0/Rimworld_AI_Core
 
-🔧 **Current Implementation Status**
-Currently, this example mod provides:
-• 💬 **Advanced Streaming Chat Dialog** with real-time AI responses
-• 🎯 **Modern UI Implementation** showcasing Framework integration
-• 🏛️ **AI Governor System** with colony analysis capabilities
-• ⚔️ **Military Officer** with threat assessment and tactical advice
-• 📦 **Logistics Officer** for resource management and optimization
-• 🧠 **Smart Governor** with detailed strategy planning
-• 🔄 **Multiple API Modes** (streaming, standard, JSON, creative)
-• 📚 **Comprehensive Source Code** for modder reference
+[hr][/hr]
 
-⚠️ **What This Example Now Includes:**
-• ✅ **Colony Analysis System** with JSON-structured data processing
-• ✅ **AI Officer Management** (Governor, Military, Logistics officers)
-• ✅ **Smart Decision Making** with context-aware recommendations
-• ✅ **Multiple Response Modes** (creative, factual, streaming, standard)
-• ✅ **Advanced Error Handling** with graceful fallbacks
-• ✅ **Real-time Streaming** with cancellation support
+[h1]✨ Key Features of V4[/h1]
 
-⚠️ **Still in Development:**
-• ⚡ **Deep Game Integration** (work-in-progress)
-• ⚡ **Automated Actions** (planned for future versions)
+[list]
+[*] [b]Intelligent AI Personas:[/b] Interact with distinct AI personalities, from a logical Assistant to unique characters for your colonists. Each persona has its own understanding and way of communicating, driven by a powerful, underlying system prompt architecture.
 
-🎯 **Target Audience**
-• 👨‍💻 **Mod Developers**: Learn how to integrate RimAI Framework
-• 🧪 **Testers**: Experiment with AI chat functionality
-• 🎓 **Students**: Study best practices for AI mod development
-• 🔬 **Researchers**: Explore RimWorld-AI integration possibilities
+[*] [b]Extensible Tool System:[/b] The AI is no longer just a spectator. With the new Tooling module, the AI can be equipped with a dynamic "toolbox" of abilities, allowing it to interact with the game world, read data, and eventually, execute commands on your behalf.
 
-⚡ **Key Demonstration Features**
-• 🌊 **Advanced Streaming API**: Live AI responses with real-time updates
-• 🔄 **Async Processing**: Non-blocking UI with proper cancellation support
-• 🎨 **Modern UI Design**: Clean, responsive interface examples
-• 🏠 **Local AI Support**: Works with Ollama, vLLM, and other local models
-• 🏛️ **AI Officers System**: Governor, Military, and Logistics specialists
-• 📊 **JSON Data Processing**: Structured analysis and reporting
-• 🎯 **Multiple API Modes**: Creative, factual, streaming, and standard options
-• 🔧 **Framework Integration**: Complete showcase of RimAI Framework capabilities
+[*] [b]Robust Orchestration Engine:[/b] Witness a sophisticated, five-step reasoning process. The AI can now receive a query, decide which tools to use, execute them to gather live game data, and then formulate a comprehensive, context-aware response.
 
-🔑 **Prerequisites**
-⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
-⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
-⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI will NOT work!**
+[*] [b]Safe & Responsive:[/b] Built with a dedicated scheduler and anti-corruption layer, all AI interactions with the game are thread-safe, ensuring a smooth, crash-free experience without freezing your UI.
 
-Before installing this example:
-• ✅ Install **RimAI Framework** (⚠️required dependency⚠️)
-• ✅ Configure your AI API settings (OpenAI, Ollama, etc.)
-• ✅ Ensure **Harmony** mod is installed
+[*] [b]Phased Development:[/b] V4 is being built incrementally, with each phase delivering a stable, verifiable set of features. You are getting access to the cutting edge as it's being developed.
+[/list]
 
-💰 **Cost Information**
-⚠️ **API costs are paid to your AI provider, not the mod author!**
-• Cloud services: Pay per token usage
-• Local deployments: No additional costs after setup
+[hr][/hr]
 
-📋 **Installation & Usage**
-⚠️ **WARNING: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or AI functionality will NOT work!**
+[h1]🚀 What Can You Do Right Now?[/h1]
 
-1. Install RimAI Framework first
-2. Install this example mod
-3. Configure AI API settings in Framework mod options
-4. Open the "RimAI" tab in-game to access:
-   • 💬 Basic AI chat interface
-   • 🏛️ Advanced AI assistant with governor functions
-   • 📊 Colony analysis and management suggestions
-   • ⚔️ Military threat assessment and tactical advice
-   • 📦 Resource management and logistics optimization
+The V4 release is a work in progress, but the foundation is already powerful. In its current state, you can:
+[list]
+[*] Engage in complex, context-aware conversations with the AI Assistant.
+[*] Use the [b]Debug Panel[/b] to test and witness the AI's core capabilities firsthand, from live data-fetching to tool execution.
+[*] Ask the AI questions about your colony, and it will use its new `Tooling` system to get live information (e.g., "What's our colony's status?").
+[*] Experience the speed and responsiveness of the new streaming and asynchronous architecture.
+[/list]
 
-🛡️ **Open Source & Educational**
-This project is completely open source! View the full source code, learn from the implementation, and contribute improvements on GitHub: github.com/oidahdsah0/Rimworld_AI_Core
+[hr][/hr]
 
-🎯 **Supported Versions**
-✅ RimWorld 1.6
+[h1]📋 Installation & Dependencies[/h1]
 
-🔮 **Current Version Features**
-This comprehensive example now includes:
-• 🏛️ **AI Governor System**: Strategic colony management with JSON-structured analysis
-• ⚔️ **Military Officer**: Threat assessment, tactical planning, and combat analysis
-• 📦 **Logistics Officer**: Resource monitoring, production optimization, and inventory management
-• 🧠 **Smart Governor**: Adaptive decision-making with streaming and standard response modes
-• 🔧 **Full Framework Integration**: Demonstrates all RimAI Framework capabilities
-• 📊 **Structured Data Processing**: JSON responses for reliable data handling
-• 🎯 **Multiple AI Personalities**: Creative, factual, and tactical response modes
+[b]⚠️ CRITICAL: YOU MUST INSTALL AND CONFIGURE THE [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3233516574]RIMAI FRAMEWORK[/url] FIRST! THIS MOD WILL NOT WORK WITHOUT IT.[/b]
 
-👨‍💻 **Author**: Kilokio
-📦 **Package ID**: kilokio.rimai.core
+[olist]
+[*] [b]Install the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3233516574]RimAI Framework[/url].[/b] This is a hard requirement.
+[*] Install this mod, RimAI Core.
+[*] In the game's mod settings, configure your chosen LLM provider (OpenAI, DeepSeek, Ollama, etc.) in the Framework's settings menu.
+[*] Load RimAI Core [b]after[/b] the Framework in your mod list.
+[/olist]
 
-🔥 **For Developers**: Study this example to learn RimAI Framework integration patterns!
+[hr][/hr]
 
-⭐ **Join the Community**: Contribute code, report issues, or suggest improvements on GitHub!
+[h1]🤝 Join the Development Journey[/h1]
+
+This project is fully open-source and community-driven. You are invited to be a part of its creation.
+
+[list]
+[*] [b]Contribute on GitHub:[/b] [url=https://github.com/oidahdsah0/Rimworld_AI_Core]Rimworld_AI_Core[/url]
+[*] [b]Report Issues:[/b] Found a bug? Let us know on the GitHub issue tracker.
+[*] [b]Suggest Features:[/b] Have a great idea? Join the discussion!
+[/list]
+
+[b]By subscribing to this mod, you are not just a user—you are a pioneer, experiencing and shaping the future of AI in RimWorld.[/b]

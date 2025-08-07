@@ -25,7 +25,7 @@ namespace RimAI.Core.UI.PersonaManager
         private int _selectedIndex = -1;
         private List<Persona> _cachedList;
 
-        private const float RowHeight = 28f;
+        private const float RowHeight = 50f;
         private const float NameColWidth = 160f;
         private const float PromptColWidth = 400f;
         private const float Padding = 10f;
@@ -40,7 +40,7 @@ namespace RimAI.Core.UI.PersonaManager
             UpdateCache();
         }
 
-        public override Vector2 InitialSize => new Vector2(720f, 480f);
+        public override Vector2 InitialSize => new Vector2(900f, 600f);
 
         private void UpdateCache()
         {

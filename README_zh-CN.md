@@ -26,6 +26,7 @@
 
 ### 前置要求
 - RimWorld 1.6 或更高版本
+- Harmony
 - [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework) (严格要求 v4.1+ 版本)
 - 可访问受支持的 LLM 服务（如 OpenAI, DeepSeek, Ollama 等）的 API 密钥
 

@@ -26,6 +26,7 @@
 
 ### Prerequisites
 - RimWorld 1.6 or later
+- Harmony
 - [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework) (v4.1+ is strictly required)
 - API access to a supported LLM service (OpenAI, DeepSeek, Ollama, etc.)
 

@@ -26,7 +26,7 @@
 
 ### Prerequisites
 - RimWorld 1.6 or later
-- [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework) (v4.3+ is strictly required)
+- [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework) (v4.1+ is strictly required)
 - API access to a supported LLM service (OpenAI, DeepSeek, Ollama, etc.)
 
 ### Installation

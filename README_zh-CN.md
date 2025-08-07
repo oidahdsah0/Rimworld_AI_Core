@@ -1,6 +1,6 @@
 # 🏗️ RimAI Core - V4 架构
 
-[English](README.md) | [简体中文](README_zh-CN.md) | [V4 架构文档](docs/v4/)
+[English](README.md) | [简体中文](README_zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![RimWorld](https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)

@@ -746,3 +746,6 @@ public class GetColonyStatusTool : IRimAITool
 **结论：**
 
 通过引入 `Persona` 和 `IPersonaService`，我们将 AI 的"性格"从其"智力"中解耦出来。这使得添加新的 AI 人格变得简单，只需定义新的 `Persona` 模板即可，而无需改动任何核心服务。这个设计为 Mod 提供了极高的可扩展性和个性化深度。
+
+> **V4 架构演进说明**:  
+> 在 V4 的最终设计中，Persona 系统得到了进一步的重大升级。它已从 V3 设想的“从 Defs 加载静态模板”模式，演变为一个**支持玩家动态创建、修改、删除并可随游戏存档持久化的成熟系统**。`IPersonaService` 的接口也相应地扩展为支持完整的 CRUD 操作，使其成为一个更加灵活和强大的核心服务。详情请参阅 `ARCHITECTURE_V4.md`。

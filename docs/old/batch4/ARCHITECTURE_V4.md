@@ -91,7 +91,7 @@ graph TD
 |------|----------|------|
 | 服务接口 | IOrchestrationService | `ExecuteToolAssistedQueryAsync` 提供五步编排入口，支持流式/非流式返回；只读 `GetAvailableTools()` 可选 |
 |          | IToolRegistryService  | 获取工具清单 / 执行工具（外部可主动调用已注册工具） |
-|          | IPersonaService      | 读取助手或特定 Pawn 的 Persona 信息 |
+|          | IPersonaService      | **(v4.1+)** 支持对 Persona 的 CRUD 操作；可随存档持久化。 |
 |          | IHistoryService (Query) | 只暴露 `GetHistoryAsync` 查询；写入仍由 Core 内部控制 |
 |          | IConfigurationService (ReadOnly) | 暴露 `CoreConfig Current` 不可变快照 |
 | DTO | ColonySummary / CommandResult | 典型 World & Command 层返回对象 |
@@ -148,8 +148,9 @@ graph TD
 
 ### 5.8 Persona & Streaming（P8）
 
-* **IPersonaService** – 从 Defs 读取模板；助手 & Pawn Persona。  
-* UI 层通过 `persona.SystemPrompt` 影响 Orchestration。  
+* **设计演进**: P8 阶段对 Persona 系统的设计进行了重大升级。它已从最初的“从 Defs 读取静态模板”演变为一个**支持玩家动态管理并可随存档持久化的成熟系统**。
+* **IPersonaService**: 接口将支持完整的 CRUD（创建、读取、更新、删除）操作。其实现将负责管理所有 `Persona` 实例，并与 `IPersistenceService` 对接，以实现数据的存盘与读档。
+* **UI**: 将会有一个独立的管理窗口供玩家进行 Persona 的 CRUD 操作。主聊天界面将动态加载这些人格供玩家选择。
 * `ILLMService.StreamResponseAsync` 支持 `IAsyncEnumerable`；UI 逐块渲染。
 
 ---

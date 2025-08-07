@@ -17,7 +17,7 @@
 | **P5 Orchestration (Min)** | 五步工作流闭环 | ① `ExecuteToolAssistedQueryAsync` 在 1 调用内完成工具决策 → 执行 → LLM 回复 ② 用户可通过面板提问“殖民地概况”并得到自然语言总结 ③ 熔断器 TODO 标记通过单元测试 | Ask Colony Status | 3 天 |
 | **P6 Persistence** | History 持久化 | ① 退出游戏后重新加载，上一局对话历史完整恢复 ② `IPersistenceService` 仅在 `Source/Infrastructure/Persistence` 目录调用 `Verse.Scribe` API | Record History | 2 天 |
 | **P7 Event Aggregator** | 高频事件节流 | ① 连续 5 次伤病事件仅触发 1 次 LLM 调用 ② 冷却窗口可在 Debug 面板重置 ③ AggregatedEvents 列表顺序按优先级降序 | List Aggregated Events | 2 天 |
-| **P8 Persona & Stream UI** | 人格生效 + 流式渲染 | ① `IPersonaService` 加载模板并在对话中插入 `SystemPrompt` ② UI 逐块渲染 `StreamResponseAsync` ③ Assistant persona 与 Pawn persona 可切换 | Chat with Assistant | 3 天 |
+| **P8 Persona & Stream UI** | 动态人格CRUD与持久化 | ① Persona 可被创建、更新、删除并随存档保存 ② 聊天UI可选用动态Persona并流式渲染回复 ③ `IPersonaService` 支持完整的CRUD接口 | Persona Manager UI | 4 天 |
 
 > 说明：每阶段提交 PR 时必须附带 **Gate 录像**，演示 Debug 面板按钮/脚本全绿。  
 > ⚠️ **兼容性要求**：所有提交必须在 .NET Framework 4.7.2 环境编译通过；严禁引入 4.7.2 以上版本专属 API/语法。

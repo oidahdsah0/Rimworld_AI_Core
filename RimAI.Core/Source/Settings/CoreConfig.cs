@@ -7,8 +7,30 @@ namespace RimAI.Core.Settings
     {
         public LLMConfig LLM { get; init; } = new();
         public CacheConfig Cache { get; init; } = new();
+        public EventAggregatorConfig EventAggregator { get; init; } = new();
 
         public static CoreConfig CreateDefault() => new();
+    }
+
+    /// <summary>
+    /// 事件聚合器配置。
+    /// </summary>
+    public sealed class EventAggregatorConfig
+    {
+        /// <summary>
+        /// 事件处理循环的间隔时间（分钟）。
+        /// </summary>
+        public double ProcessingIntervalMinutes { get; init; } = 1.0;
+
+        /// <summary>
+        /// 触发 LLM 调用后的冷却时间（分钟）。
+        /// </summary>
+        public double CooldownMinutes { get; init; } = 5.0;
+
+        /// <summary>
+        /// 在处理之前，缓冲区中可以容纳的最大事件数。
+        /// </summary>
+        public int MaxBufferSize { get; init; } = 20;
     }
 
     /// <summary>

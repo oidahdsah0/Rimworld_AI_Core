@@ -7,6 +7,7 @@ using RimAI.Framework.Contracts;
 using RimAI.Core.Modules.World;
 using RimAI.Core.Contracts.Services;
 using RimAI.Core.Contracts.Models;
+using RimAI.Core.Contracts.Eventing;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,6 +21,23 @@ namespace RimAI.Core.UI.DebugPanel
     /// </summary>
     public class MainTabWindow_RimAIDebug : MainTabWindow
     {
+        // A simple event implementation for testing purposes.
+        private class TestEvent : IEvent
+        {
+            public string Id { get; } = System.Guid.NewGuid().ToString();
+            public System.DateTime Timestamp { get; } = System.DateTime.UtcNow;
+            public EventPriority Priority { get; }
+            private readonly string _description;
+
+            public TestEvent(EventPriority priority, string description)
+            {
+                Priority = priority;
+                _description = description;
+            }
+
+            public string Describe() => _description;
+        }
+
         private const float ButtonHeight = 30f;
         private const float ButtonWidth = 160f;
         private const float Padding = 10f;
@@ -482,6 +500,21 @@ namespace RimAI.Core.UI.DebugPanel
                     {
                         AppendOutput($"Colony FC failed: {ex.Message}");
                     }
+                });
+            }
+            
+            if (Button("Trigger Test Events"))
+            {
+                var eventBus = CoreServices.Locator.Get<IEventBus>();
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    AppendOutput("Publishing 5 test events (3 Low, 1 High, 1 Critical)...");
+                    eventBus.Publish(new TestEvent(EventPriority.Low, "A trade caravan has arrived."));
+                    eventBus.Publish(new TestEvent(EventPriority.Low, "A new colonist, 'Steve', has joined."));
+                    eventBus.Publish(new TestEvent(EventPriority.High, "A psychic drone has started for female colonists."));
+                    eventBus.Publish(new TestEvent(EventPriority.Low, "Component assembly finished."));
+                    eventBus.Publish(new TestEvent(EventPriority.Critical, "A raid from the 'Savage Tribe' is attacking the colony."));
+                    AppendOutput("Events published.");
                 });
             }
 

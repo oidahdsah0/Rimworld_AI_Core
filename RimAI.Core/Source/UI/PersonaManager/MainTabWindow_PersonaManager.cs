@@ -33,7 +33,8 @@ namespace RimAI.Core.UI.PersonaManager
         public MainTabWindow_PersonaManager()
         {
             _personaService = CoreServices.Locator.Get<IPersonaService>();
-            forcePause = true;
+            forcePause = false; // 不暂停游戏
+            draggable = true;   // 允许拖动窗口
             doCloseX = true;
             closeOnAccept = false;
             closeOnCancel = false;
@@ -124,12 +125,25 @@ namespace RimAI.Core.UI.PersonaManager
 
             var persona = new Persona(_newName.Trim(), _newPrompt.Trim());
             bool ok;
-            if (_selectedIndex >= 0 && _selectedIndex < _cachedList.Count && string.Equals(_cachedList[_selectedIndex].Name, persona.Name, StringComparison.OrdinalIgnoreCase))
+            if (_selectedIndex >= 0 && _selectedIndex < _cachedList.Count)
             {
-                ok = _personaService.Update(persona);
+                var originalName = _cachedList[_selectedIndex].Name;
+                if (string.Equals(originalName, persona.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    // 仅内容变更
+                    ok = _personaService.Update(persona);
+                }
+                else
+                {
+                    // 发生重命名：先删除旧条目后新增
+                    _personaService.Delete(originalName);
+                    ok = _personaService.Add(persona);
+                    if (!ok) _error = "名称已存在";
+                }
             }
             else
             {
+                // 纯新增
                 ok = _personaService.Add(persona);
                 if (!ok) _error = "名称已存在";
             }
@@ -142,9 +156,11 @@ namespace RimAI.Core.UI.PersonaManager
             var name = _cachedList[_selectedIndex].Name;
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation($"确认删除人格 '{name}'?", () =>
             {
-                _personaService.Delete(name);
-                _selectedIndex = -1;
-                UpdateCache();
+                if (_personaService.Delete(name))
+                {
+                    _selectedIndex = -1;
+                    UpdateCache();
+                }
             }));
 
         }

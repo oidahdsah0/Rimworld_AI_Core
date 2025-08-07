@@ -55,8 +55,7 @@ namespace RimAI.Core.Modules.Persona
 
         public bool Delete(string name)
         {
-            if (string.IsNullOrWhiteSpace(name) || string.Equals(name, DefaultName, StringComparison.OrdinalIgnoreCase))
-                return false; // 禁止删除默认人格
+            if (string.IsNullOrWhiteSpace(name)) return false;
             return _personas.TryRemove(name, out _);
         }
 
@@ -77,8 +76,8 @@ namespace RimAI.Core.Modules.Persona
                 _personas[kvp.Key] = kvp.Value;
             }
 
-            // 数据完整性保障：若缺失默认人格则补齐
-            if (!_personas.ContainsKey(DefaultName))
+            // 数据完整性保障：仅当没有任何人格时才补齐默认人格
+            if (_personas.Count == 0)
             {
                 _personas.TryAdd(DefaultName, CreateDefaultPersona());
             }

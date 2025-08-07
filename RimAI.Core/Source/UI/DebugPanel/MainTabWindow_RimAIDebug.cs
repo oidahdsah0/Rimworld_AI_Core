@@ -44,7 +44,7 @@ namespace RimAI.Core.UI.DebugPanel
         private const float OutputAreaHeight = 380f;
         private const int TotalButtons = 10;
 
-        private string _output = string.Empty;
+        private readonly System.Text.StringBuilder _outputSb = new System.Text.StringBuilder();
         private Vector2 _outputScroll = Vector2.zero;
         private readonly ConcurrentQueue<string> _pendingChunks = new();
 
@@ -109,7 +109,7 @@ namespace RimAI.Core.UI.DebugPanel
             // 将后台线程生成的增量 flush 到输出
             while (_pendingChunks.TryDequeue(out var part))
             {
-                _output += part;
+                _outputSb.Append(part);
             }
 
             // 1. 顶部横向按钮 -----------------------------
@@ -421,6 +421,12 @@ namespace RimAI.Core.UI.DebugPanel
                 });
             }
 
+            // Open Persona Manager
+            if (Button("Persona Manager"))
+            {
+                Find.WindowStack.Add(new RimAI.Core.UI.PersonaManager.MainTabWindow_PersonaManager());
+            }
+
             // Colony FC Test
             if (Button("Colony FC Test"))
             {
@@ -523,11 +529,11 @@ namespace RimAI.Core.UI.DebugPanel
             var outputRect = new Rect(inRect.x + Padding, outputY, inRect.width - 2 * Padding, OutputAreaHeight);
 
             var viewWidth = outputRect.width - 16f; // 考虑滚动条宽度
-            var viewHeight = Mathf.Max(OutputAreaHeight, Text.CalcHeight(_output, viewWidth));
+            var viewHeight = Mathf.Max(OutputAreaHeight, Text.CalcHeight(_outputSb.ToString(), viewWidth));
             var viewRect = new Rect(0, 0, viewWidth, viewHeight);
 
             Widgets.BeginScrollView(outputRect, ref _outputScroll, viewRect);
-            Widgets.Label(viewRect, _output);
+            Widgets.Label(viewRect, _outputSb.ToString());
             Widgets.EndScrollView();
         }
     }

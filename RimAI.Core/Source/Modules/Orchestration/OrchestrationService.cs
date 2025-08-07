@@ -12,6 +12,7 @@ using RimAI.Core.Modules.LLM;
 using RimAI.Core.Infrastructure;
 using System.Security.Cryptography;
 using RimAI.Core.Infrastructure.Cache;
+using RimAI.Core.Contracts.Services;
 
 namespace RimAI.Core.Modules.Orchestration
 {
@@ -23,16 +24,26 @@ namespace RimAI.Core.Modules.Orchestration
         private readonly ILLMService _llm;
         private readonly IToolRegistryService _tools;
         private readonly ICacheService _cache;
+        private readonly IPersonaService _personaService;
 
-        public OrchestrationService(ILLMService llm, IToolRegistryService tools, ICacheService cache)
+        public OrchestrationService(ILLMService llm, IToolRegistryService tools, ICacheService cache, IPersonaService personaService)
         {
             _llm = llm;
             _tools = tools;
             _cache = cache;
+            _personaService = personaService;
         }
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteToolAssistedQueryAsync(string query, string personaSystemPrompt = "")
         {
+            // 如果调用方未显式传入系统提示词，则使用当前 PersonaService 中的默认人格。
+            if (string.IsNullOrWhiteSpace(personaSystemPrompt))
+            {
+                var def = _personaService.Get("Default");
+                if (def != null)
+                    personaSystemPrompt = def.SystemPrompt;
+            }
+
             // Step 0: 构造 tools definition 列表供 LLM 决策
             var toolDefinitions = _tools.GetAllToolSchemas().Select(schema => new ToolDefinition
             {

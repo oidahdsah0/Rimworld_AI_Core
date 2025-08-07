@@ -146,7 +146,7 @@ graph TD
 * **IEventBus** – 轻量 `Publish/Subscribe`。  
 * **IEventAggregatorService** – 定时器 & 冷却窗；仅聚合伤病事件 MVP。  
 
-### 5.8 Persona & Streaming（P8）
+### 5.8 Persona & Streaming（P8） ✅
 
 * **设计演进**: P8 阶段对 Persona 系统的设计进行了重大升级。它已从最初的“从 Defs 读取静态模板”演变为一个**支持玩家动态管理并可随存档持久化的成熟系统**。
 * **IPersonaService**: 接口将支持完整的 CRUD（创建、读取、更新、删除）操作。其实现将负责管理所有 `Persona` 实例，并与 `IPersistenceService` 对接，以实现数据的存盘与读档。

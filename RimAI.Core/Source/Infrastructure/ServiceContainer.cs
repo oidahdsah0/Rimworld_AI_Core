@@ -49,6 +49,9 @@ namespace RimAI.Core.Infrastructure
             // P6: PersistenceService 注册
             Register<RimAI.Core.Infrastructure.Persistence.IPersistenceService,
                      RimAI.Core.Infrastructure.Persistence.PersistenceService>();
+            // P8: PersonaService 注册
+            Register<RimAI.Core.Contracts.Services.IPersonaService,
+                     RimAI.Core.Modules.Persona.PersonaService>();
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));

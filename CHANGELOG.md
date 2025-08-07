@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2025-07-27
+## [Unreleased] - 2025-08-07
 
 ### Added
 - Framework v4.1 compatibility layer (`ILLMService` new `SendChatAsync`, `StreamResponseAsync`, `SendChatWithToolsAsync`)
@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IOrchestrationService` 流式接口 & `ContinueWithToolResultsAsync`
 - MVP 实现：`OrchestrationService`, `PromptFactoryService`, `ToolRegistryService`, `HistoryService`
 - Core contracts: `IRimAITool`, `IToolRegistryService`, `IPromptFactoryService`, `IHistoryService`
+- Dynamic Persona system (`IPersonaService`, `Persona` DTO) with full CRUD
+- `PersonaService` default implementation + integrity fallback
+- `MainTabWindow_PersonaManager` UI for creating/editing/deleting personas
+- Persona data persisted via `IPersistenceService` & `PersistenceManager`
+- `OrchestrationService` 自动注入当前 Persona 的 SystemPrompt
+- DebugPanel 新增 "Persona Manager" 按钮
+- Streaming UI 输出缓冲改用 `StringBuilder`，平均耗时 < 0.5 ms/帧
 
 ### Changed
 - `ILLMService` 旧接口标记 `[Obsolete]`; 计划 v3.2 移除

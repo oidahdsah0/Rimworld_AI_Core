@@ -18,5 +18,15 @@ namespace RimAI.Core.Infrastructure.Persistence
         /// 从存档加载状态并写入 <see cref="IHistoryService"/>。
         /// </summary>
         void LoadHistoryState(IHistoryService historyService);
+
+        /// <summary>
+        /// 将 <see cref="IPersonaService"/> 当前状态写入存档。
+        /// </summary>
+        void PersistPersonaState(IPersonaService personaService);
+
+        /// <summary>
+        /// 从存档加载状态并写入 <see cref="IPersonaService"/>。
+        /// </summary>
+        void LoadPersonaState(IPersonaService personaService);
     }
 }

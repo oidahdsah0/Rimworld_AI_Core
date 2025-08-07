@@ -1,9 +1,10 @@
 #nullable disable warnings
 using RimAI.Core.Contracts.Models;
 using RimAI.Core.Contracts.Services;
-using Verse;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Verse;
 
 namespace RimAI.Core.Infrastructure.Persistence
 {
@@ -12,6 +13,7 @@ namespace RimAI.Core.Infrastructure.Persistence
     /// </summary>
     internal sealed class PersistenceService : IPersistenceService
     {
+        private const string PersonasNode = "RimAI_Personas";
         private const string ConversationsNode = "RimAI_HistoryConversations";
         private const string InvertedIndexNode = "RimAI_HistoryInvertedIndex";
 
@@ -62,6 +64,33 @@ namespace RimAI.Core.Infrastructure.Persistence
         }
         #endregion
 
+        #region Serializable Persona helpers
+        private class SerPersona : IExposable
+        {
+            public string Name = string.Empty!;
+            public string SystemPrompt = string.Empty!;
+            public Dictionary<string, string> Traits = new();
+
+            public SerPersona() { }
+            public SerPersona(Persona src)
+            {
+                Name = src.Name;
+                SystemPrompt = src.SystemPrompt;
+                Traits = src.Traits.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            }
+            public Persona ToModel()
+            {
+                return new Persona(Name, SystemPrompt, Traits);
+            }
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref Name, nameof(Name));
+                Scribe_Values.Look(ref SystemPrompt, nameof(SystemPrompt));
+                Scribe_Collections.Look(ref Traits, nameof(Traits), LookMode.Value, LookMode.Value);
+            }
+        }
+        #endregion
+
         public void PersistHistoryState(IHistoryService historyService)
         {
             if (historyService == null) return;
@@ -98,6 +127,28 @@ namespace RimAI.Core.Infrastructure.Persistence
 
             var newState = new HistoryState(primary, inverted);
             historyService.LoadStateFromPersistence(newState);
+        }
+
+        public void PersistPersonaState(IPersonaService personaService)
+        {
+            if (personaService == null) return;
+
+            var state = personaService.GetStateForPersistence();
+            var serList = state.Personas.Values.Select(p => new SerPersona(p)).ToList();
+            Scribe_Collections.Look(ref serList, PersonasNode, LookMode.Deep);
+        }
+
+        public void LoadPersonaState(IPersonaService personaService)
+        {
+            if (personaService == null) return;
+
+            var serList = new List<SerPersona>();
+            Scribe_Collections.Look(ref serList, PersonasNode, LookMode.Deep);
+            if (serList == null) serList = new List<SerPersona>();
+
+            var dict = serList.ToDictionary(p => p.Name, p => p.ToModel(), StringComparer.OrdinalIgnoreCase);
+            var newState = new PersonaState(dict);
+            personaService.LoadStateFromPersistence(newState);
         }
     }
 }

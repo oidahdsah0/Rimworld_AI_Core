@@ -12,12 +12,14 @@ namespace RimAI.Core.Lifecycle
     {
         private readonly IPersistenceService _persistenceService;
         private readonly IHistoryService _historyService;
+        private readonly IPersonaService _personaService;
 
         public PersistenceManager(Game game) : base()
         {
             // DI must be ready before any GameComponent is constructed.
             _persistenceService = Infrastructure.CoreServices.Locator.Get<IPersistenceService>();
             _historyService     = Infrastructure.CoreServices.Locator.Get<IHistoryService>();
+            _personaService     = Infrastructure.CoreServices.Locator.Get<IPersonaService>();
         }
 
         public override void ExposeData()
@@ -26,9 +28,11 @@ namespace RimAI.Core.Lifecycle
             {
                 case LoadSaveMode.Saving:
                     _persistenceService.PersistHistoryState(_historyService);
+                    _persistenceService.PersistPersonaState(_personaService);
                     break;
                 case LoadSaveMode.LoadingVars:
                     _persistenceService.LoadHistoryState(_historyService);
+                    _persistenceService.LoadPersonaState(_personaService);
                     break;
             }
         }

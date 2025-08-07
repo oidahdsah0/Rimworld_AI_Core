@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![RimWorld](https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)
 [![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
-[![Architecture](https://img.shields.io/badge/Architecture-V4%20Incremental-blueviolet.svg)](docs/v4/ARCHITECTURE_V4.md)
+[![Status](https://img.shields.io/badge/Status-v4.1.1-orange.svg)](https://steamcommunity.com/sharedfiles/filedetails/?id=3529186453)
 
 > **RimAI Core v4：一个为 RimWorld 设计的、增量式的企业级 AI 框架，为快速迭代、可验证的进度和无与伦比的可扩展性而重构。V4 继承了 v3 强大的设计哲学，同时采用分阶段交付模型，以确保稳定性和持续改进。**
 

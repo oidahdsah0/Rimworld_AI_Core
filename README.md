@@ -2,10 +2,10 @@
 
 [English](README.md) | [简体中文](README_zh-CN.md) | [V4 Architecture Docs](docs/v4/)
 
-[![License: MIT](https.img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![RimWorld](https.img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)
-[![.NET Framework](https.img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
-[![Architecture](https://img.shields.io/badge/Architecture-V4%20Incremental-blueviolet.svg)](docs/v4/ARCHITECTURE_V4.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![RimWorld](https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)
+[![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
+[![Status](https://img.shields.io/badge/Status-v4.1.1-orange.svg)](https://steamcommunity.com/sharedfiles/filedetails/?id=3529186453)
 
 > **RimAI Core v4: An incremental, enterprise-grade AI framework for RimWorld, rebuilt for rapid iteration, verifiable progress, and unparalleled extensibility. V4 inherits the robust design philosophy of v3 while adopting a phased delivery model to ensure stability and continuous improvement.**
 

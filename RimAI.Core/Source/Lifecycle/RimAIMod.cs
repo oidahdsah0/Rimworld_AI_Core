@@ -15,6 +15,10 @@ namespace RimAI.Core.Lifecycle
             ServiceContainer.Init();
 
             // 输出启动日志，作为 P0 Gate 验收指标之一。
+            // 初始化事件聚合器，开始订阅并启动定时器
+            var aggregator = CoreServices.Locator.Get<RimAI.Core.Contracts.Eventing.IEventAggregatorService>();
+            aggregator.Initialize();
+
             CoreServices.Logger.Info("RimAI v4 Skeleton Loaded");
         }
     }

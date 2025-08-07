@@ -14,7 +14,7 @@ namespace RimAI.Core.UI.PersonaManager
     /// 人格管理窗口（P8 原型）。
     /// 允许玩家创建、编辑、删除自定义 Persona，并立即生效。
     /// </summary>
-    public class MainTabWindow_PersonaManager : MainTabWindow
+    public class MainTabWindow_PersonaManager : Window
     {
         private readonly IPersonaService _personaService;
 

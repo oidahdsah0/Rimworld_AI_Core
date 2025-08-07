@@ -52,6 +52,11 @@ namespace RimAI.Core.Infrastructure
             // P8: PersonaService 注册
             Register<RimAI.Core.Contracts.Services.IPersonaService,
                      RimAI.Core.Modules.Persona.PersonaService>();
+            // P8: Event Bus / Aggregator 注册
+            Register<RimAI.Core.Contracts.Eventing.IEventBus,
+                     RimAI.Core.Modules.Eventing.EventBus>();
+            Register<RimAI.Core.Contracts.Eventing.IEventAggregatorService,
+                     RimAI.Core.Modules.Eventing.EventAggregatorService>();
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));

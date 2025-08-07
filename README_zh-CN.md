@@ -53,7 +53,7 @@ graph TB
         GameWindows["助手 / 对话窗口"]
     end
 
-    subgraph "模块层"
+    subgraph ModulesLayer ["模块层"]
         Orchestration["模块: 智能编排"]
         Tooling["模块: 工具系统"]
         LLM["模块: LLM 网关"]
@@ -63,7 +63,7 @@ graph TB
         Persona["模块: AI 人格"]
     end
 
-    subgraph "基础设施层"
+    subgraph InfrastructureLayer ["基础设施层"]
         ServiceContainer["DI 容器"]
         Scheduler["调度服务"]
         Cache["缓存服务"]
@@ -90,9 +90,9 @@ graph TB
     LLM --> Cache
     LLM --> Framework
     
-    Modules Layer --> ServiceContainer
-    Modules Layer --> Contracts
-    Infrastructure Layer --> Contracts
+    ModulesLayer --> ServiceContainer
+    ModulesLayer --> Contracts
+    InfrastructureLayer --> Contracts
 ```
 
 ### 核心服务与模块

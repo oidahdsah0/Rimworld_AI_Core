@@ -53,7 +53,7 @@ graph TB
         GameWindows["Assistant / Dialog Windows"]
     end
 
-    subgraph "Modules Layer"
+    subgraph ModulesLayer ["Modules Layer"]
         Orchestration["Module: Orchestration"]
         Tooling["Module: Tooling"]
         LLM["Module: LLM"]
@@ -63,7 +63,7 @@ graph TB
         Persona["Module: Persona"]
     end
 
-    subgraph "Infrastructure Layer"
+    subgraph InfrastructureLayer ["Infrastructure Layer"]
         ServiceContainer["DI Container"]
         Scheduler["SchedulerService"]
         Cache["CacheService"]
@@ -90,9 +90,9 @@ graph TB
     LLM --> Cache
     LLM --> Framework
     
-    Modules Layer --> ServiceContainer
-    Modules Layer --> Contracts
-    Infrastructure Layer --> Contracts
+    ModulesLayer --> ServiceContainer
+    ModulesLayer --> Contracts
+    InfrastructureLayer --> Contracts
 ```
 
 ### Core Services & Modules

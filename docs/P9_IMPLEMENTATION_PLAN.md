@@ -155,6 +155,25 @@ summ:sha256(query + toolResultJson + join(sorted(docIds)))
 ```json
 Orchestration: {
   Strategy: "EmbeddingFirst" // 或 "Classic"
+  ,
+  Clarification: {
+    Enabled: true,            // 低置信或歧义时，先提1轮澄清问题
+    MinConfidence: 0.75,      // 低于该值触发澄清
+    MaxTurns: 1               // 最多澄清1轮（避免对话拖长）
+  },
+  Planning: {
+    EnableLightChaining: true, // 轻量多工具串联（最多2-3步）
+    MaxSteps: 3
+  },
+  Safety: {
+    MaxTokensPerQuery: 2048,   // 每次请求Token上限
+    MaxLatencyMs: 30000,       // 单次请求上限时长
+    MonthlyBudgetUSD: 5.0,     // 费用护栏（可选）
+    CircuitBreaker: {          // 断路器
+      ErrorThreshold: 5,
+      CooldownMs: 60000
+    }
+  }
 },
 Embedding: {
   Enabled: true,
@@ -166,7 +185,13 @@ Embedding: {
     Mode: "Auto",            // 可选: Classic | LightningFast | FastTop1 | NarrowTopK | Auto
     Top1Threshold: 0.82,      // FastTop1 的相似度阈值（余弦）
     LightningTop1Threshold: 0.86, // 闪电匹配 Top1 的更高置信阈值
-    IndexPath: "auto"         // 工具向量索引的存储路径（auto=默认配置目录）
+    IndexPath: "auto",        // 工具向量索引的存储路径（auto=默认配置目录）
+    DynamicThresholds: {
+      Enabled: true,          // 动态阈值，根据历史命中质量微调
+      Smoothing: 0.2,         // 平滑系数（0~1）
+      MinTop1: 0.78,
+      MaxTop1: 0.90
+    }
   }
 }
 ```
@@ -174,6 +199,10 @@ Embedding: {
 - `ConfigurationService` 增加默认值与热重载；`OrchestrationService` 在每次调用时读取当前快照。
  - 人格主 Tab 或设置界面提供模式切换（Classic/FastTop1/NarrowTopK/Auto）与“重建索引”按钮。
  - UI 同步显示并可切换 LightningFast；若当前置信度不足或工具不支持快速响应，将自动降级并在日志提示。
+ - UI 增加人工干预：
+   - 工具强制选择（覆盖自动匹配）/ 工具黑白名单（会话或全局）；
+   - Panic Switch 一键关闭 LightningFast/Embedding；
+   - 成本/时延小部件（显示本轮Token/费用/耗时）。
 
 ## 6. DI 注册与文件结构
 - 目录建议：
@@ -220,6 +249,12 @@ Embedding: {
 4) 性能：首次查询可接受冷启动（≤ 1.5s），同场景二次查询 ≤ 400ms（含缓存命中）。
 5) 当用户更换 Embedding 配置并保存后，立即触发“全量 Tool Re-Embedding”，并在日志中清晰记录（包含旧/新指纹、耗时、重建工具数）。
 6) LightningFast：Top1 置信度满足阈值，工具返回字符串并以流式方式呈现，无需第二次 LLM 跟进；当参数生成失败/不满足阈值/工具不支持时自动降级（FastTop1→NarrowTopK→Classic）。
+7) 低置信澄清：当置信度低或参数不确定性高时，先进行≤1轮澄清问答；用户回答后再继续匹配流程。
+8) 多工具串联：在 NarrowTopK 不确定或任务涉及步骤分解时，支持≤3步轻量串联（例如：侦测→汇总→建议），并产生连贯的最终输出。
+9) 执行校验：工具返回结果后执行最小一致性/范围/单位校验；失败时回退到 LLM 总结或切换 Classic；日志包含校验失败原因。
+10) 动态阈值：阈值根据近期命中质量自动微调（启用时），并遵守上下界；异常时自动回退默认值。
+11) 人为干预：UI 可强制选择工具或禁用指定工具；设置在会话内即时生效。
+12) 安全护栏：遵守 Token、时延、费用上限；断路器触发后进入冷却并在 UI/日志提示。
 
 ## 9. 任务拆解与里程碑
 - M1：接口与骨架
@@ -253,5 +288,33 @@ Embedding: {
 - M4：0.5d
 
 > 备注：本计划严格遵循 V4 的“渐进式交付 + 界面可验证”原则，每个里程碑都应附带短录像与最小演示脚本。
+
+## 13. 长尾场景与护栏（补充设计）
+
+- 多工具串联（轻量规划）：
+  - 触发条件：NarrowTopK 不确定（分数接近/跨度小）、或用户意图明显包含多动作；
+  - 策略：最多 2-3 步（如：检索→执行→总结），每步都可缓存与中断；
+  - 输出：保证最终话术连贯，并明确列出步骤与结果来源（可选）。
+
+- 低置信澄清：
+  - 当 Top1/参数置信低于阈值时，先以简短问题澄清；
+  - 限制 1 轮，避免对话过长；支持用户跳过澄清并继续。
+
+- 执行校验：
+  - 结果字段必备、取值范围/单位检查、空结果/异常路径处理；
+  - 失败回退：转 LLM 总结或 Classic，保障玩家体验不中断。
+
+- 动态阈值与降级：
+  - 根据近期命中质量指标（成功率、用户纠正率）微调阈值，平滑更新；
+  - 全链路降级顺序：LightningFast → FastTop1 → NarrowTopK → Classic；
+  - 超时/高错误率触发断路器，进入冷却后再恢复。
+
+- 人为干预与名单：
+  - UI 支持强制选工具/禁用工具（会话级/全局）；
+  - 黑白名单与 Persona 授权结合，优先过滤不可用工具。
+
+- 可观测性与安全：
+  - 记录命中分数、阈值、降级原因、澄清触发、串联步数、耗时与费用；
+  - 提供 Panic Switch 和上限护栏；所有 Embedding/LLM 调用在后台线程执行，主线程仅泵 UI。
 
 

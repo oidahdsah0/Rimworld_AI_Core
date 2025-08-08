@@ -141,6 +141,70 @@ summ:sha256(query + toolResultJson + join(sorted(docIds)))
   3) 索引文件缺失或指纹不匹配
  - 工具快速响应标志：不修改 `IRimAITool` 签名，通过参数字典传入保留键 `__fastResponse=true`；工具可选择支持该模式并返回面向玩家的最终字符串。
 
+### 3.6 逻辑链条（串联递归）— 报告驱动的提示词累积器（新增）
+
+目标：在不改变对外接口的前提下，引入“串联递归”的高级能力，以小步收集证据、提炼要点、逐步汇编“最终提示词（Final Prompt）”，用于最后一次 LLM 生成。默认串行，不与并发耦合。
+
+核心定义：
+- 黑板（Blackboard/Dossier）：本轮会话内的中间事实库，包含 RAG 命中、工具结果要点、澄清回答、阶段轨迹等。
+- 指纹去重：对每次工具动作构造 `sha256(toolName + stableArgsJson)`，记录于 `used_actions`，避免重复调用。
+- 停机护栏：满足任一条件即结束递归并进入最终总结：`MaxSteps`、`MaxLatencyMs`、`MonthlyBudgetUSD`、无新可用动作、模型判定“已足够”。
+
+产物（输出结构）：
+```json
+{
+  "final_prompt": "可作为系统提示词拼接到最终请求的整合文本",
+  "findings": [
+    { "slot": "colony", "summary": "…", "source_tool": "GetColonyStatus", "confidence": 0.92 }
+  ],
+  "citations": [ { "type": "tool", "ref": "GetColonyStatus#run1", "hash": "…" } ],
+  "gaps": ["仍缺少X数据"],
+  "plan_trace": ["Step1: …", "Step2: …"]
+}
+```
+
+LLM 计划 JSON（最小约定）：
+```json
+{
+  "decision": "continue|stop|clarify",
+  "reason": "why",
+  "parallel_calls": [
+    { "tool": "GetColonyStatus", "args": { "__fastResponse": true }, "slot": "colony" }
+  ],
+  "final_answer": null,
+  "clarification_question": null
+}
+```
+
+执行模型（默认串联，阶段内可选小并发，仅限只读工具）：
+```pseudo
+while not stopping:
+  plan = llm_plan(query, persona, blackboard, candidates)
+  if plan.decision == stop: break
+  if plan.decision == clarify: collect_user_answer(); continue
+  calls = dedupe(plan.parallel_calls, used_actions)
+  groups = partition_by_concurrency(calls) // main-thread / readonly / exclusive
+  results = execute_in_order(groups, allow_parallel_readonly)
+  blackboard = update_and_compress(blackboard, results, budget=Embedding.MaxContextChars)
+final_prompt = build_final_prompt(blackboard)
+```
+
+与策略的关系：
+- `EmbeddingFirstStrategy`：RAG 产出首先写入黑板，再进入逻辑链条循环。
+- `ClassicStrategy`：可直接进入逻辑链条循环（无 RAG 上下文）。
+
+实现注意：
+- 报告压缩：超过 `Embedding.MaxContextChars` 时做关键要点摘要或字段裁剪。
+- 可观测：记录阶段时间线（Stage/Tasks）、降级原因、澄清触发、消耗与命中情况。
+
+### 3.7 并发与递归的关系（明确定位）
+
+- 递归链条默认串行；并发不与递归强绑定，仅作为某一阶段内“只读工具”的加速选项。
+- 全局并发开关应用于“即时单次请求场景”或“递归阶段内只读任务小并发”，避免副作用与主线程冲突。
+- 工具需声明并发与副作用元数据，以便安全分组：
+  - `Concurrency = ReadOnly | RequiresMainThread | Exclusive`
+  - `HasSideEffects = true|false`
+
 ## 4. 数据来源与索引灌入
 最小可行策略（P9）：
 - 索引来源：历史对话摘要（`IHistoryService` 的 ConversationEntry）、Persona 说明扩展、必要的系统知识片段。
@@ -163,7 +227,11 @@ Orchestration: {
   },
   Planning: {
     EnableLightChaining: true, // 轻量多工具串联（最多2-3步）
-    MaxSteps: 3
+    MaxSteps: 3,
+    AllowParallel: false,      // 递归阶段内是否允许只读小并发
+    MaxParallelism: 2,         // 小并发的最大并行度
+    FanoutPerStage: 3,         // 每个阶段最多尝试的工具数（防爆炸）
+    SatisfactionThreshold: 0.8 // LLM 自评满意度阈值，达到则可提前停机
   },
   Safety: {
     MaxTokensPerQuery: 2048,   // 每次请求Token上限
@@ -186,6 +254,12 @@ Embedding: {
     Top1Threshold: 0.82,      // FastTop1 的相似度阈值（余弦）
     LightningTop1Threshold: 0.86, // 闪电匹配 Top1 的更高置信阈值
     IndexPath: "auto",        // 工具向量索引的存储路径（auto=默认配置目录）
+    AutoBuildOnStart: true,    // 游戏开始/小人落地时若索引不存在则自动构建
+    BlockDuringBuild: true,    // 构建期间阻断工具相关功能
+    ScoreWeights: {            // 分数聚合权重
+      Name: 0.6,
+      Description: 0.4
+    },
     DynamicThresholds: {
       Enabled: true,          // 动态阈值，根据历史命中质量微调
       Smoothing: 0.2,         // 平滑系数（0~1）
@@ -197,21 +271,25 @@ Embedding: {
 ```
 实现：
 - `ConfigurationService` 增加默认值与热重载；`OrchestrationService` 在每次调用时读取当前快照。
- - 人格主 Tab 或设置界面提供模式切换（Classic/FastTop1/NarrowTopK/Auto）与“重建索引”按钮。
- - UI 同步显示并可切换 LightningFast；若当前置信度不足或工具不支持快速响应，将自动降级并在日志提示。
- - UI 增加人工干预：
-   - 工具强制选择（覆盖自动匹配）/ 工具黑白名单（会话或全局）；
-   - Panic Switch 一键关闭 LightningFast/Embedding；
-   - 成本/时延小部件（显示本轮Token/费用/耗时）。
+  - 人格主 Tab 或设置界面提供模式切换（Classic/FastTop1/NarrowTopK/Auto）与“重建索引”按钮。
+  - UI 同步显示并可切换 LightningFast；若当前置信度不足或工具不支持快速响应，将自动降级并在日志提示。
+  - UI 增加人工干预：
+    - 工具强制选择（覆盖自动匹配）/ 工具黑白名单（会话或全局）；
+    - Panic Switch 一键关闭 LightningFast/Embedding；
+    - 成本/时延小部件（显示本轮Token/费用/耗时）。
+  - 递归链条：默认 `AllowParallel=false`；仅当工具标记 `ReadOnly` 时方可在该阶段内并发至 `MaxParallelism`。
 
 ## 6. DI 注册与文件结构
 - 目录建议：
   - `Source/Modules/Orchestration/Strategies/IOrchestrationStrategy.cs`
   - `Source/Modules/Orchestration/Strategies/ClassicStrategy.cs`
   - `Source/Modules/Orchestration/Strategies/EmbeddingFirstStrategy.cs`
+  - `Source/Modules/Orchestration/Planning/Planner.cs`（逻辑链条循环的实现）
+  - `Source/Modules/Orchestration/Planning/PlanModels.cs`（Plan JSON/Blackboard/Trace 定义）
   - `Source/Modules/Embedding/IEmbeddingService.cs` + `EmbeddingService.cs`
   - `Source/Modules/Embedding/IRagIndexService.cs` + `RagIndexService.cs`
   - `Source/Modules/Embedding/IToolVectorIndexService.cs` + `ToolVectorIndexService.cs`
+  - `Source/Modules/Tooling/Attributes/ToolConcurrencyAttribute.cs`（工具并发/副作用元数据）
 - DI：在 `ServiceContainer.Init()` 中注册：
   - `IEmbeddingService -> EmbeddingService`
   - `IRagIndexService -> RagIndexService`
@@ -241,6 +319,7 @@ Embedding: {
 ## 7. UI 与可观测性（最小）
 - 人格主 Tab：显示当前全局策略（Classic/EmbeddingFirst），提供只读状态与“重建索引”按钮（可选）。
 - 日志：在关键步骤打印 Info（命中 topK 文档 ID、缓存命中、降级路径）。
+- 编排时间线视图：在 DebugPanel 新增“时间线”页签，展示每个 Stage 的并行任务、耗时、工具与结果摘要、降级原因、澄清触发与最终 `final_prompt` 预览（前几百字）。
 
 ## 8. 验收标准（Gate）
 1) 配置切换策略无须重启游戏（热重载生效）。
@@ -255,6 +334,7 @@ Embedding: {
 10) 动态阈值：阈值根据近期命中质量自动微调（启用时），并遵守上下界；异常时自动回退默认值。
 11) 人为干预：UI 可强制选择工具或禁用指定工具；设置在会话内即时生效。
 12) 安全护栏：遵守 Token、时延、费用上限；断路器触发后进入冷却并在 UI/日志提示。
+13) 逻辑链条（串联递归）：至少完成 2 个 Stage 串联；其中 1 个 Stage 成功执行≥2个只读工具（可串行或小并发）；`final_prompt` 生成且长度受限于预算；时间线视图正确展示 `used_actions` 去重与停机原因。
 
 ## 9. 任务拆解与里程碑
 - M1：接口与骨架
@@ -267,10 +347,109 @@ Embedding: {
   - `IToolVectorIndexService` 与持久化文件
   - LightningFast / FastTop1 / NarrowTopK 流程接入、阈值与降级
   - 变更保存触发“全量 Tool Re-Embedding”
+- M2.7：逻辑链条（串联递归）
+  - `Planner` 骨架与 `PlanModels` 定义（Plan JSON/Blackboard/Trace）
+  - 指纹去重、停机护栏（MaxSteps/Latency/Budget/Satisfaction）
+  - 报告压缩与 `final_prompt` 生成；时间线最小展示
 - M3：数据灌入与可观测
   - 历史对话懒索引/异步索引；主 Tab 显示状态与“重建索引”（可选）
 - M4：打磨与回归
   - 性能优化与降级路径打通；对比 Classic/EmbeddingFirst 效果录像
+
+### 9.1 分段执行（PR 切片）
+
+> 目标：将 P9 拆分为可独立合并与回滚的最小增量（每片≤~600行变更），每片均可由 Debug 面板或日志进行端到端验证。
+
+#### S1 – 策略接口与骨架（对外无行为变化，对内可切换架构）
+- 代码范围（仅骨架）：
+  - 新增：`Source/Modules/Orchestration/Strategies/IOrchestrationStrategy.cs`
+  - 新增：`Source/Modules/Orchestration/Strategies/ClassicStrategy.cs`（迁出既有五步逻辑，功能等价）
+  - 新增：`Source/Modules/Orchestration/Strategies/EmbeddingFirstStrategy.cs`（空实现/NotImplemented，占位）
+  - 修改：`Source/Modules/Orchestration/OrchestrationService.cs` 接受 `IEnumerable<IOrchestrationStrategy>` 并以字典缓存；默认选择 `Classic`，没有配置项也能工作
+  - 修改（可选）：`Source/Settings/CoreConfig.cs` 预留 `Orchestration.Strategy` 字段与默认值：`Classic`（暂不在 UI 暴露）
+- Gate：
+  - 旧用例全绿，行为无变化（Classic 仍为唯一执行路径）
+  - Debug 日志能打印“Loaded strategies: Classic(+EmbeddingFirst stub)”
+- 回滚：删除策略接口与 EmbeddingFirst 占位文件，`OrchestrationService` 回退为单实现
+- 预计人日：0.5d（与 M1 对齐）
+
+#### S2 – Embedding 与 RAG 最小集成（EmbeddingFirst 可用，默认仍 Classic）
+- 代码范围：
+  - 新增：`Source/Modules/Embedding/IEmbeddingService.cs` + `EmbeddingService.cs`
+  - 新增：`Source/Modules/Embedding/IRagIndexService.cs` + `RagIndexService.cs`（内存索引，余弦相似度）
+  - 修改：`EmbeddingFirstStrategy` 实现 Step 0（查询→Embedding→TopK→上下文注入→继续工具流程）
+  - 修改：`CacheService` 旁路封装或在 `EmbeddingService` 内部实现 `embed:sha256(text)` 缓存（TTL=60m）
+  - 修改：`CoreConfig` 增加 `Embedding` 与 `Orchestration.Strategy`（默认 Classic），支持热重载（通过 `IConfigurationService`）
+- Gate：
+  - 切换配置为 `EmbeddingFirst` 后，RAG 命中（日志含 DocIds/Score），故障自动回退 Classic 并有降级提示
+  - 首次冷启动 ≤1.5s，同场景二次 ≤400ms（含缓存）
+- 录屏脚本：问答无工具参与场景对比 Classic/EmbeddingFirst 相关性
+- 回滚：`Orchestration.Strategy=Classic`，或 `Embedding.Enabled=false`
+- 预计人日：1.0d（S2 是 M2 的子集，保守留 1.0d）
+
+#### S2.5 – 工具向量库自动向量化（启动/落地检测 + 工具阻断，优先交付）
+- 代码范围：
+  - 新增：`Source/Modules/Embedding/IToolVectorIndexService.cs` + `ToolVectorIndexService.cs`
+  - 新增：工具索引文件格式（JSON），文件名：`tools_index_{provider}_{model}.json`（存放于 `Embedding.Tools.IndexPath`，auto=ModSettings 目录）
+  - 修改：在“游戏开始/小人落地”事件点检测索引是否存在；若不存在则启动全量向量化（期间禁止工具相关功能）
+  - 修改：向量化规则：每个真实工具名生成两条向量项（`name`、`description`），两者均指向同一真实工具名；匹配时对同名项的分数做求和聚合（`score = nameScore * w_name + descScore * w_desc`）
+  - 限制：工具数约≤100，对应索引项≤200（含 name/description）
+  - 完成后：自动保存索引文件并通知（日志 + UI 提示）；指纹随文件保存
+- Gate：
+  - 首次进入（或索引缺失）自动触发构建；构建期间任何工具相关路径被阻断（Orchestration 在工具环节直接降级/等待）
+  - 构建完毕：索引文件落地、日志打印 provider/model/dimension、项数与耗时；UI 弹出“工具向量库已就绪”提示
+  - 复现：删除索引文件后重进游戏，观察重新构建与阻断生效
+- 回滚：`Embedding.Tools.AutoBuildOnStart=false` 或 `Embedding.Tools.BlockDuringBuild=false`（不阻断，仅降级 Classic 全工具暴露）
+- 预计人日：0.4d（独立于匹配模式，优先交付）
+
+#### S3 – 工具向量库与匹配模式（Lightning/FastTop1/NarrowTopK/Classic）
+- 代码范围：
+  - 新增：`Source/Modules/Embedding/IToolVectorIndexService.cs` + `ToolVectorIndexService.cs`
+  - 修改：`ToolRegistryService` 在工具新增/删除/Schema 变化时标记“索引过期”
+  - 修改：在策略中接入工具匹配模式与降级链（LightningFast→FastTop1→NarrowTopK→Classic）；保留参数 `__fastResponse=true`
+  - 修改：`CoreConfig.Embedding.Tools` 阈值与 `IndexPath`、动态阈值
+  - 可选 UI：在 `PersonaManager` 或 `DebugPanel` 增加“重建工具索引”按钮（最小实现：触发日志+重建）
+- Gate：
+  - 更换 Embedding 配置后保存，立即触发“全量 Tool Re-Embedding”（日志含旧/新指纹、耗时、重建工具数）
+  - LightningFast 命中且工具返回字符串时，直接以流式方式输出；参数生成失败/置信不足自动降级
+- 回滚：将 `Tools.Mode` 设为 `Classic`
+- 预计人日：0.5d（对应 M2.5）
+
+#### S4 – 轻量“串联递归”规划器（默认串行，≤3 步）
+- 代码范围：
+  - 新增：`Source/Modules/Orchestration/Planning/PlanModels.cs`（Plan JSON/Blackboard/Trace/used_actions）
+  - 新增：`Source/Modules/Orchestration/Planning/Planner.cs`（串联循环；只读工具小并发开关预留但默认关闭）
+  - 修改：两条策略均可调用 Planner（EmbeddingFirst 先写入 RAG 命中后再进入循环）
+  - 修改：`CoreConfig.Orchestration.Planning`（MaxSteps/Fanout/SatisfactionThreshold 等）
+- Gate：
+  - 至少完成 2 个 Stage 串联，其中 1 个 Stage 成功执行≥2个只读工具（可串行）
+  - 生成 `final_prompt` 且长度受 `MaxContextChars` 约束；时间线日志包含 `used_actions` 去重与停机原因
+- 回滚：策略绕过 Planner 直接走“一次性工具+总结”的路径（保留 Classic 路径）
+- 预计人日：0.7d（对应 M2.7）
+
+#### S5 – 数据灌入与可观测（历史懒索引/异步索引 + 时间线视图最小版）
+- 代码范围：
+  - 修改：`HistoryService` 写入成功后异步调用 `IRagIndexService.UpsertAsync`（后台线程，非阻塞，不在主线程）
+  - 修改：首次查询时对最近 N 条历史做懒构建（可配置）
+  - 修改：DebugPanel 新增“时间线”页签（最小：Stage 列表、耗时、降级原因、命中 DocIds 概览、final_prompt 预览前几百字）
+- Gate：
+  - 读档后可按需重建索引；关闭自动重建时无加载抖动
+  - 时间线展示关键节点与降级原因；日志具备可追踪性（DocIds/Score/阈值/模式）
+- 回滚：关闭时间线页签与历史异步索引，保留懒索引或全关
+- 预计人日：1.0d（对应 M3）
+
+#### S6 – 打磨与回归（性能/稳定性/文档与录像）
+- 代码范围：
+  - 性能：Embedding/RAG/索引构建的批量化、小缓存命中优化、日志降噪
+  - 稳定：熔断器护栏、异常路径回退更清晰；动态阈值回退默认值
+  - 文档：更新 `ARCHITECTURE_V4.md` 与本文件 Gate 勾选；补充 DebugPanel 录屏与最小脚本
+- Gate：
+  - 全链路验收 1–13 条标准均可复现并通过
+  - 对比录像：Classic vs EmbeddingFirst 上下文相关性更优
+- 回滚：配置回退 Classic；关闭 Embedding/LightningFast
+- 预计人日：0.5d（对应 M4）
+
+备注：所有切片均遵循“可回退、可录像、可观测”的提交要求；每个 PR 必须附带：变更点清单、配置默认值与回滚指引、Debug 面板复现步骤与短录像链接。
 
 ## 10. 回滚方案
 - 配置 `Orchestration.Strategy = "Classic"` 即刻回退。

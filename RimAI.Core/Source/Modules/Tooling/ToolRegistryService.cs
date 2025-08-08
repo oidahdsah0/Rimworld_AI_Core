@@ -32,10 +32,28 @@ namespace RimAI.Core.Modules.Tooling
             return _tools.Values.Select(t => 
             {
                 var schema = t.GetSchema();
+                if (schema == null)
+                {
+                    // 回退到最小 schema
+                    return new ToolFunction
+                    {
+                        Name = t.Name,
+                        Description = t.Description ?? string.Empty,
+                        Arguments = "{}"
+                    };
+                }
                 // 如果 schema 没有设置 Description，从工具本身获取
                 if (string.IsNullOrWhiteSpace(schema.Description))
                 {
                     schema.Description = t.Description;
+                }
+                if (string.IsNullOrWhiteSpace(schema.Name))
+                {
+                    schema.Name = t.Name;
+                }
+                if (string.IsNullOrWhiteSpace(schema.Arguments))
+                {
+                    schema.Arguments = "{}";
                 }
                 return schema;
             }).ToList();
@@ -47,8 +65,14 @@ namespace RimAI.Core.Modules.Tooling
                 throw new ArgumentNullException(nameof(toolName));
             if (!_tools.TryGetValue(toolName, out var tool))
                 throw new InvalidOperationException($"[RimAI] Tool '{toolName}' 未注册。");
-            // 直接调用工具实现
-            return await tool.ExecuteAsync(parameters ?? new Dictionary<string, object>());
+            try
+            {
+                return await tool.ExecuteAsync(parameters ?? new Dictionary<string, object>());
+            }
+            catch (System.Exception ex)
+            {
+                throw new InvalidOperationException($"[RimAI] Tool '{toolName}' 执行失败: {ex.Message}", ex);
+            }
         }
 
         #endregion

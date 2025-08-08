@@ -35,10 +35,18 @@ namespace RimAI.Core.Modules.Eventing
                 }
             }
 
-            // 去重（同一处理器可能既订阅基类又订阅子类）
+            // 去重（同一处理器可能既订阅基类又订阅子类）并隔离调用
             foreach (var handler in handlersToInvoke.Distinct())
             {
-                handler.DynamicInvoke(@event);
+                try
+                {
+                    handler.DynamicInvoke(@event);
+                }
+                catch (Exception ex)
+                {
+                    // 隔离故障处理器，记录错误但不影响其他订阅者
+                    Core.Infrastructure.CoreServices.Logger.Warn($"[EventBus] handler error: {ex.Message}");
+                }
             }
         }
 

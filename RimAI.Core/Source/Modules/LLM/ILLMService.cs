@@ -14,11 +14,13 @@ namespace RimAI.Core.Modules.LLM
 
         /// <summary>
         /// 统一请求模型的非流式响应，返回完整结构体。
+        /// 命中缓存时 <see cref="LastFromCache"/> 为 true。
         /// </summary>
         Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default);
 
         /// <summary>
         /// 流式响应。
+        /// 任何异常将被转换为 <see cref="Result{UnifiedChatChunk}.Failure"/> 元素返回，避免调用方中断。
         /// </summary>
         IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request, CancellationToken ct = default);
 

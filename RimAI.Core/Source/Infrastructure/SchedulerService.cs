@@ -38,7 +38,7 @@ namespace RimAI.Core.Infrastructure
         public Task ScheduleOnMainThreadAsync(Action action)
         {
             if (action == null) throw new ArgumentNullException(nameof(action));
-            var tcs = new TaskCompletionSource<object>();
+            var tcs = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
             _queue.Enqueue(() =>
             {
                 try
@@ -58,7 +58,7 @@ namespace RimAI.Core.Infrastructure
         public Task<T> ScheduleOnMainThreadAsync<T>(Func<T> func)
         {
             if (func == null) throw new ArgumentNullException(nameof(func));
-            var tcs = new TaskCompletionSource<T>();
+            var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
             _queue.Enqueue(() =>
             {
                 try

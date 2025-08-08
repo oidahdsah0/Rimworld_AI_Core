@@ -36,7 +36,9 @@ namespace RimAI.Core.Modules.Orchestration
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteToolAssistedQueryAsync(string query, string personaSystemPrompt = "")
         {
-            // 如果调用方未显式传入系统提示词，则使用当前 PersonaService 中的默认人格。
+            query ??= string.Empty;
+            personaSystemPrompt ??= string.Empty;
+
             if (string.IsNullOrWhiteSpace(personaSystemPrompt))
             {
                 var def = _personaService.Get("Default");
@@ -50,9 +52,9 @@ namespace RimAI.Core.Modules.Orchestration
                 Type = "function",
                 Function = new JObject
                 {
-                    ["name"] = schema.Name,
-                    ["description"] = schema.Description,
-                    ["parameters"] = JObject.Parse(string.IsNullOrWhiteSpace(schema.Arguments) ? "{}" : schema.Arguments)
+                    ["name"] = schema?.Name ?? string.Empty,
+                    ["description"] = schema?.Description ?? string.Empty,
+                    ["parameters"] = JObject.Parse(string.IsNullOrWhiteSpace(schema?.Arguments) ? "{}" : schema.Arguments)
                 }
             }).ToList();
 
@@ -72,13 +74,14 @@ namespace RimAI.Core.Modules.Orchestration
                 yield break;
             }
 
-            var call = decisionRes.Value.Message.ToolCalls?.FirstOrDefault();
+            var call = decisionRes.Value?.Message?.ToolCalls?.FirstOrDefault();
             if (call == null || string.IsNullOrWhiteSpace(call.Function?.Name))
             {
                  // 如果不需要工具调用，直接返回LLM的回答
-                if (!string.IsNullOrEmpty(decisionRes.Value.Message.Content))
+                var direct = decisionRes.Value?.Message?.Content;
+                if (!string.IsNullOrEmpty(direct))
                 {
-                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = decisionRes.Value.Message.Content });
+                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = direct });
                     yield break;
                 }
 
@@ -87,23 +90,18 @@ namespace RimAI.Core.Modules.Orchestration
             }
 
             Dictionary<string, object> argsDict = new();
-            string parseError = null;
             try
             {
-                if (!string.IsNullOrWhiteSpace(call.Function.Arguments) && call.Function.Arguments != "{}")
+                var argsStr = call.Function?.Arguments;
+                if (!string.IsNullOrWhiteSpace(argsStr) && argsStr != "{}")
                 {
-                    var jObj = JObject.Parse(call.Function.Arguments);
-                    argsDict = jObj.ToObject<Dictionary<string, object>>();
+                    var jObj = JObject.Parse(argsStr);
+                    argsDict = jObj.ToObject<Dictionary<string, object>>() ?? new Dictionary<string, object>();
                 }
             }
             catch (Exception ex)
             {
-                parseError = $"解析 tool 参数失败: {ex.Message}";
-            }
-
-            if (parseError != null)
-            {
-                yield return Result<UnifiedChatChunk>.Failure(parseError);
+                yield return Result<UnifiedChatChunk>.Failure($"解析 tool 参数失败: {ex.Message}");
                 yield break;
             }
 
@@ -131,7 +129,7 @@ namespace RimAI.Core.Modules.Orchestration
             
             // --- 总结阶段缓存逻辑 ---
             var toolResultJson = JsonConvert.SerializeObject(toolResult, Formatting.None);
-            var cacheKey = ComputeSummarizationCacheKey(query, toolResultJson);
+            var cacheKey = ComputeSummarizationCacheKey(query, toolResultJson ?? string.Empty);
 
             if (_cache.TryGet(cacheKey, out string cachedSummary))
             {
@@ -189,7 +187,7 @@ namespace RimAI.Core.Modules.Orchestration
             {
                 msgs.Add(new ChatMessage { Role = "system", Content = personaPrompt });
             }
-            msgs.Add(new ChatMessage { Role = "user", Content = userQuery });
+            msgs.Add(new ChatMessage { Role = "user", Content = userQuery ?? string.Empty });
             return msgs;
         }
     }

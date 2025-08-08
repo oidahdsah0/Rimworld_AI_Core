@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace RimAI.Core.Infrastructure.Cache
 {
@@ -22,9 +23,14 @@ namespace RimAI.Core.Infrastructure.Cache
             {
                 if (DateTime.UtcNow <= entry.ExpirationUtc)
                 {
-                    _hit++;
-                    value = (T)entry.Value;
-                    return true;
+                    // 类型安全检查，避免错误的强制转换导致异常
+                    if (entry.Value is T typed)
+                    {
+                        Interlocked.Increment(ref _hit);
+                        value = typed;
+                        return true;
+                    }
+                    return false;
                 }
                 // 过期自动剔除
                 _dict.TryRemove(key, out _);

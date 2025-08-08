@@ -90,6 +90,7 @@ namespace RimAI.Core.Modules.Orchestration
             }
 
             Dictionary<string, object> argsDict = new();
+            string parseArgsError = null;
             try
             {
                 var argsStr = call.Function?.Arguments;
@@ -101,7 +102,11 @@ namespace RimAI.Core.Modules.Orchestration
             }
             catch (Exception ex)
             {
-                yield return Result<UnifiedChatChunk>.Failure($"解析 tool 参数失败: {ex.Message}");
+                parseArgsError = $"解析 tool 参数失败: {ex.Message}";
+            }
+            if (parseArgsError != null)
+            {
+                yield return Result<UnifiedChatChunk>.Failure(parseArgsError);
                 yield break;
             }
 

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using RimAI.Core.Infrastructure.Cache;
 using RimAI.Core.Infrastructure.Configuration;
+using RimAI.Core.Infrastructure.Extensions;
 using RimAI.Framework.API;
 using RimAI.Framework.Contracts;
 using RimAI.Core.Infrastructure;
@@ -86,27 +87,27 @@ namespace RimAI.Core.Modules.LLM
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
             // 流式过程中用 try/catch 将异常转换为失败块，避免 UI 中断
-            IAsyncEnumerable<Result<UnifiedChatChunk>> stream;
+            IAsyncEnumerable<Result<UnifiedChatChunk>> stream = null;
+            string initError = null;
             try
             {
                 stream = RimAIApi.StreamCompletionAsync(request, ct);
             }
             catch (Exception ex)
             {
-                yield return Result<UnifiedChatChunk>.Failure($"Stream init error: {ex.Message}");
+                initError = $"Stream init error: {ex.Message}";
+            }
+            if (initError != null)
+            {
+                yield return Result<UnifiedChatChunk>.Failure(initError);
                 yield break;
             }
 
-            try
+            await foreach (var chunk in stream.WrapErrors(
+                               ex => Result<UnifiedChatChunk>.Failure($"Stream error: {ex.Message}"),
+                               ct))
             {
-                await foreach (var chunk in stream)
-                {
-                    yield return chunk;
-                }
-            }
-            catch (Exception ex)
-            {
-                yield return Result<UnifiedChatChunk>.Failure($"Stream error: {ex.Message}");
+                yield return chunk;
             }
         }
 

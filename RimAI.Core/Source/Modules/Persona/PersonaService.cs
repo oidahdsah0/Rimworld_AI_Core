@@ -56,6 +56,8 @@ namespace RimAI.Core.Modules.Persona
         public bool Delete(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return false;
+            // 禁止删除默认人格
+            if (string.Equals(name, DefaultName, StringComparison.OrdinalIgnoreCase)) return false;
             return _personas.TryRemove(name, out _);
         }
 

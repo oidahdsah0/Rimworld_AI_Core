@@ -50,6 +50,7 @@ namespace RimAI.Core.Modules.LLM
                 return cachedResponse.Message.Content;
             }
 
+            LastFromCache = false;
             var result = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
             if (!result.IsSuccess)
                 throw new Exception($"LLM Error: {result.Error}");
@@ -64,7 +65,6 @@ namespace RimAI.Core.Modules.LLM
 
         public async Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default)
         {
-            // 非流式请求，使用缓存逻辑
             var cacheKey = ComputeCacheKey(request);
             if (_cache.TryGet(cacheKey, out string cachedJsonResponse))
             {
@@ -73,6 +73,7 @@ namespace RimAI.Core.Modules.LLM
                 return Result<UnifiedChatResponse>.Success(cachedResponse);
             }
 
+            LastFromCache = false;
             var res = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
             if (res.IsSuccess && res.Value != null)
             {
@@ -84,9 +85,28 @@ namespace RimAI.Core.Modules.LLM
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
-            await foreach (var chunk in RimAIApi.StreamCompletionAsync(request, ct))
+            // 流式过程中用 try/catch 将异常转换为失败块，避免 UI 中断
+            IAsyncEnumerable<Result<UnifiedChatChunk>> stream;
+            try
             {
-                yield return chunk;
+                stream = RimAIApi.StreamCompletionAsync(request, ct);
+            }
+            catch (Exception ex)
+            {
+                yield return Result<UnifiedChatChunk>.Failure($"Stream init error: {ex.Message}");
+                yield break;
+            }
+
+            try
+            {
+                await foreach (var chunk in stream)
+                {
+                    yield return chunk;
+                }
+            }
+            catch (Exception ex)
+            {
+                yield return Result<UnifiedChatChunk>.Failure($"Stream error: {ex.Message}");
             }
         }
 

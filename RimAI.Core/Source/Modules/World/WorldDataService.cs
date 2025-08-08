@@ -57,28 +57,41 @@ namespace RimAI.Core.Modules.World
         {
             return _scheduler.ScheduleOnMainThreadAsync(() =>
             {
-                var colonists = PawnsFinder.AllMaps_FreeColonistsSpawned.Count;
-                // 粗略计算粮食堆叠（仅演示）
-                var food = ThingSetMaker_MakeThingList();
-                int foodCount = food.Sum(t => t.stackCount);
-                var threat = colonists < 6 ? "Low" : "High";
-
-                return new ColonySummary
+                try
                 {
-                    ColonistCount = colonists,
-                    FoodStockpile = foodCount,
-                    ThreatLevel = threat
-                };
+                    var colonists = PawnsFinder.AllMaps_FreeColonistsSpawned?.Count ?? 0;
+                    // 粗略计算粮食堆叠（仅演示）
+                    var food = ThingSetMaker_MakeThingList();
+                    int foodCount = food?.Sum(t => t?.stackCount ?? 0) ?? 0;
+                    var threat = colonists < 6 ? "Low" : "High";
+
+                    return new ColonySummary
+                    {
+                        ColonistCount = colonists,
+                        FoodStockpile = foodCount,
+                        ThreatLevel = threat
+                    };
+                }
+                catch
+                {
+                    return new ColonySummary
+                    {
+                        ColonistCount = 0,
+                        FoodStockpile = 0,
+                        ThreatLevel = "Unknown"
+                    };
+                }
             });
         }
 
         private static List<Thing> ThingSetMaker_MakeThingList()
         {
-            // 简化版食品计数：计数所有地图上类似食物的可堆叠物
             var list = new List<Thing>();
+            if (Find.Maps == null) return list;
             foreach (var map in Find.Maps)
             {
-                list.AddRange(map.listerThings.AllThings.Where(t => t.def.IsNutritionGivingIngestible));
+                if (map?.listerThings?.AllThings == null) continue;
+                list.AddRange(map.listerThings.AllThings.Where(t => t?.def != null && t.def.IsNutritionGivingIngestible));
             }
             return list;
         }

@@ -62,6 +62,12 @@ namespace RimAI.Core.UI.DebugPanel
             {
                 _pendingChunks.Enqueue($"[{System.DateTime.Now:HH:mm:ss}] {streamName}: "); // 开始流式输出，不加换行符
 
+                if (stream == null)
+                {
+                    _pendingChunks.Enqueue("[Error] stream is null\n");
+                    return;
+                }
+
                 string finalFinishReason = null;
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 await foreach (var chunk in stream)
@@ -169,8 +175,10 @@ namespace RimAI.Core.UI.DebugPanel
                         var name = await world.GetPlayerNameAsync();
                         sw.Stop();
                         var ms = sw.Elapsed.TotalMilliseconds;
-                        var colorTag = ms <= 1.0 ? "color=green" : "color=red";
-                        AppendOutput($"<${colorTag}>Player Faction Name: {name} (Δ {ms:F2} ms)</${colorTag}>");
+                        var green = ms <= 1.0;
+                        var tagOpen = green ? "<color=green>" : "<color=red>";
+                        var tagClose = "</color>";
+                        AppendOutput($"{tagOpen}Player Faction Name: {name} (Δ {ms:F2} ms){tagClose}");
                     }
                     catch (System.Exception ex)
                     {
@@ -272,7 +280,7 @@ namespace RimAI.Core.UI.DebugPanel
                         var args = JObject.Parse(toolCall.Function?.Arguments ?? "{}");
                         int startVal = args["start"]?.Value<int>() ?? 0;
                         int endVal = args["end"]?.Value<int>() ?? 0;
-                        int sum = Enumerable.Range(startVal, endVal - startVal + 1).Sum();
+                        int sum = System.Math.Max(0, endVal - startVal + 1) == 0 ? 0 : Enumerable.Range(startVal, endVal - startVal + 1).Sum();
 
                         // Step 2: 构造带 tool 结果的跟进请求
                         var followReq = new UnifiedChatRequest
@@ -486,14 +494,13 @@ namespace RimAI.Core.UI.DebugPanel
                         // 5. 跟进请求携带工具结果
                         var followReq = new UnifiedChatRequest
                         {
-                            Stream = false,
-                            Tools = initReq.Tools,
                             Messages = new List<ChatMessage>
                             {
                                 new ChatMessage { Role = "user", Content = initReq.Messages[0].Content },
                                 new ChatMessage { Role = "assistant", ToolCalls = new List<ToolCall> { call } },
                                 new ChatMessage { Role = "tool", ToolCallId = call.Id, Content = toolJson }
-                            }
+                            },
+                            Tools = initReq.Tools
                         };
 
                         var res2 = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(followReq);

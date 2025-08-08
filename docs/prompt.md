@@ -1,3 +1,0 @@
-读取Core项目下ARCHITECTURE_V4_DIAGRAM.md、ARCHITECTURE_V4.md、README.md。
-
-确保你知道我们在做什么。

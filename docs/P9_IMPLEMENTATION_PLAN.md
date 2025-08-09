@@ -452,8 +452,7 @@ Embedding: {
 - 回滚：策略绕过 Planner 直接走“一次性工具+总结”的路径（保留 Classic 路径）
 - 预计人日：0.7d（对应 M2.7）
 
- 
-#### S5 – 打磨与回归（性能/稳定性/文档与录像）
+#### S6 – 打磨与回归（性能/稳定性/文档与录像）
 - 代码范围：
 - 性能：Embedding/RAG/索引构建的批量化、日志降噪（缓存优化由 Framework 负责）
   - 稳定：熔断器护栏、异常路径回退更清晰；动态阈值回退默认值
@@ -464,7 +463,7 @@ Embedding: {
 - 回滚：配置回退 Classic；关闭 Embedding/LightningFast
 - 预计人日：0.5d（对应 M4）
 
-#### S6 – 合约与内部接口收尾（Contracts 对齐）
+#### S7 – 合约与内部接口收尾（Contracts 对齐）
 - 代码范围：
   - 新增（Contracts 暴露，稳定 API）：`RimAI.Core.Contracts.Services.IConfigurationService (ReadOnly)` 或命名 `IConfigurationReader`（二选一，倾向保持文档命名），仅暴露 `Current` 不可变快照；不提供写入/重载方法
   - 新增（Contracts DTO）：`CoreConfigSnapshot`（无 `Verse` 依赖；字段为对外必要最小子集）

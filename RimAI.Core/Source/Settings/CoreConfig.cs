@@ -90,7 +90,7 @@ namespace RimAI.Core.Settings
     /// </summary>
     public sealed class OrchestrationProgressConfig
     {
-        public string DefaultTemplate { get; init; } = "[{Source}] {Stage}: {Message}";
+        public string DefaultTemplate { get; init; } = "{Stage}: {Message}";
         public System.Collections.Generic.Dictionary<string, string> StageTemplates { get; init; } = new();
         public int PayloadPreviewChars { get; init; } = 200;
     }

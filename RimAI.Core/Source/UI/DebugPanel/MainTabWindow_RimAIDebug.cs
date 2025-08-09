@@ -278,6 +278,7 @@ namespace RimAI.Core.UI.DebugPanel
             // Tools Test
             if (Button("LLM Tools Test"))
             {
+                AppendOutput("[提示] 此测试使用临时 function 工具 sum_range（非注册），直接走 LLM Tools 接口，不经过编排/匹配模式与索引，设置页对其不生效。");
                 var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
                 var functionObj = new JObject
                 {
@@ -358,6 +359,7 @@ namespace RimAI.Core.UI.DebugPanel
             // Run Tool (get_colony_status)
             if (Button("Run Tool"))
             {
+                AppendOutput("[提示] 直接通过 IToolRegistryService 执行 get_colony_status（绕过编排），不受‘工具匹配模式/向量索引’影响。");
                 var registry = CoreServices.Locator.Get<RimAI.Core.Contracts.Tooling.IToolRegistryService>();
                 System.Threading.Tasks.Task.Run(async () =>
                 {
@@ -377,6 +379,13 @@ namespace RimAI.Core.UI.DebugPanel
             // Ask Colony Status (P5)
             if (Button("Ask Colony Status"))
             {
+                try
+                {
+                    var cfg = CoreServices.Locator.Get<RimAI.Core.Infrastructure.Configuration.IConfigurationService>();
+                    var mode = cfg?.Current?.Embedding?.Tools?.Mode ?? "Classic";
+                    AppendOutput($"[提示] 通过编排服务执行，受设置页影响（模式={mode}，TopK/阈值/索引/动态阈值等）。");
+                }
+                catch { AppendOutput("[提示] 通过编排服务执行，受设置页影响。"); }
                 var orchestrator = CoreServices.Locator.Get<RimAI.Core.Contracts.IOrchestrationService>();
                 var query = "殖民地概况？";
                 var stream = orchestrator.ExecuteToolAssistedQueryAsync(query);
@@ -497,6 +506,7 @@ namespace RimAI.Core.UI.DebugPanel
             // Colony FC Test
             if (Button("Colony FC Test"))
             {
+                AppendOutput("[提示] 固定仅暴露 get_colony_status 的 function schema 给 LLM，不经过‘工具匹配模式’，设置页不生效（用于演示 LLM function-calling 流程）。");
                 var registry = CoreServices.Locator.Get<RimAI.Core.Contracts.Tooling.IToolRegistryService>();
                 var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
 

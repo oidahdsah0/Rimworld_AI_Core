@@ -8,43 +8,34 @@ namespace RimAI.Core.Infrastructure.Configuration
     /// P1 版本的配置服务：读取 RimWorld 的 ModSettings 将在后续阶段实现。
     /// 目前返回默认 <see cref="CoreConfig"/>，并支持 Hot Reload 事件广播。
     /// </summary>
-    public sealed class ConfigurationService : IConfigurationService, RimAI.Core.Contracts.Services.IConfigurationService
+        public sealed class ConfigurationService : IConfigurationService, RimAI.Core.Contracts.Services.IConfigurationService
     {
         private CoreConfig _current = CoreConfig.CreateDefault();
         public CoreConfig Current => _current;
+            private System.DateTime _lastIndexRebuildUtc = System.DateTime.MinValue;
+        private readonly object _indexGate = new object();
 
         public event Action<CoreConfig> OnConfigurationChanged;
 
         public void Reload()
         {
             // TODO: RimWorld 设置读取逻辑（P3 或更高阶段）
-            _current = CoreConfig.CreateDefault();
+            var oldCfg = _current;
+            var newCfg = CoreConfig.CreateDefault();
+            _current = newCfg;
             OnConfigurationChanged?.Invoke(_current);
 
-            // 配置变更后触发工具索引重建（标记过期并尝试异步构建）
-            try
-            {
-                var index = RimAI.Core.Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Embedding.IToolVectorIndexService>();
-                index?.MarkStale();
-                _ = index?.EnsureBuiltAsync();
-            }
-            catch { /* ignore */ }
+            TryRebuildToolIndexIfNeeded(oldCfg, newCfg);
         }
 
         public void Apply(CoreConfig snapshot)
         {
             if (snapshot == null) return;
+            var oldCfg = _current;
             _current = snapshot;
             OnConfigurationChanged?.Invoke(_current);
 
-            // 配置变更后触发工具索引重建
-            try
-            {
-                var index = RimAI.Core.Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Embedding.IToolVectorIndexService>();
-                index?.MarkStale();
-                _ = index?.EnsureBuiltAsync();
-            }
-            catch { /* ignore */ }
+            TryRebuildToolIndexIfNeeded(oldCfg, snapshot);
         }
 
         // Explicit interface implementation for external read-only contracts
@@ -64,7 +55,7 @@ namespace RimAI.Core.Infrastructure.Configuration
                     Strategy = cfg.Orchestration?.Strategy ?? "Classic",
                     Progress = new OrchestrationProgressConfigSnapshot
                     {
-                        DefaultTemplate = cfg.Orchestration?.Progress?.DefaultTemplate ?? "[{{Source}}] {{Stage}}: {{Message}}",
+                        DefaultTemplate = cfg.Orchestration?.Progress?.DefaultTemplate ?? "{{Stage}}: {{Message}}",
                         StageTemplates = cfg.Orchestration?.Progress?.StageTemplates ?? new System.Collections.Generic.Dictionary<string, string>(),
                         PayloadPreviewChars = cfg.Orchestration?.Progress?.PayloadPreviewChars ?? 200
                     },
@@ -106,6 +97,61 @@ namespace RimAI.Core.Infrastructure.Configuration
                     }
                 }
             };
+        }
+
+        /// <summary>
+        /// 仅当 Embedding/Tools 相关字段发生变化时触发向量索引重建；并做最小去抖（≥2秒）。
+        /// </summary>
+        private void TryRebuildToolIndexIfNeeded(CoreConfig oldCfg, CoreConfig newCfg)
+        {
+            try
+            {
+                if (!HasEmbeddingToolsChanged(oldCfg, newCfg)) return;
+                var now = System.DateTime.UtcNow;
+                lock (_indexGate)
+                {
+                    if ((now - _lastIndexRebuildUtc).TotalSeconds < 2) return;
+                    _lastIndexRebuildUtc = now;
+                }
+                var index = RimAI.Core.Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Embedding.IToolVectorIndexService>();
+                index?.MarkStale();
+                _ = index?.EnsureBuiltAsync();
+            }
+            catch { /* ignore */ }
+        }
+
+        private static bool HasEmbeddingToolsChanged(CoreConfig a, CoreConfig b)
+        {
+            if (a == null && b == null) return false;
+            if (a == null || b == null) return true;
+            var ta = a.Embedding?.Tools;
+            var tb = b.Embedding?.Tools;
+            if (ta == null && tb == null) return false;
+            if (ta == null || tb == null) return true;
+            if (!string.Equals(ta.Mode, tb.Mode, System.StringComparison.OrdinalIgnoreCase)) return true;
+            if (!string.Equals(ta.IndexPath, tb.IndexPath, System.StringComparison.OrdinalIgnoreCase)) return true;
+            if (ta.AutoBuildOnStart != tb.AutoBuildOnStart) return true;
+            if (ta.BlockDuringBuild != tb.BlockDuringBuild) return true;
+            if (!DoubleEquals(ta.Top1Threshold, tb.Top1Threshold)) return true;
+            if (!DoubleEquals(ta.LightningTop1Threshold, tb.LightningTop1Threshold)) return true;
+            if (!DoubleEquals(a.Embedding?.TopK ?? 0, b.Embedding?.TopK ?? 0)) return true;
+            if (!DoubleEquals(a.Embedding?.MaxContextChars ?? 0, b.Embedding?.MaxContextChars ?? 0)) return true;
+            var wa = ta.ScoreWeights; var wb = tb.ScoreWeights;
+            if (wa == null ^ wb == null) return true;
+            if (wa != null && (!DoubleEquals(wa.Name, wb.Name) || !DoubleEquals(wa.Description, wb.Description))) return true;
+            var da = ta.DynamicThresholds; var db = tb.DynamicThresholds;
+            if (da == null ^ db == null) return true;
+            if (da != null && (
+                da.Enabled != db.Enabled ||
+                !DoubleEquals(da.Smoothing, db.Smoothing) ||
+                !DoubleEquals(da.MinTop1, db.MinTop1) ||
+                !DoubleEquals(da.MaxTop1, db.MaxTop1))) return true;
+            return false;
+        }
+
+        private static bool DoubleEquals(double x, double y)
+        {
+            return System.Math.Abs(x - y) < 1e-9;
         }
     }
 }

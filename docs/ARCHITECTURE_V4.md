@@ -48,6 +48,8 @@
 | **P6 – Persistence** | • 退出 → 读档后 History 完整 ☐ |
 | **P7 – Event Aggregator** | • 5 次伤病事件仅 1 次触发 LLM ☐ |
 | **P8 – Persona & Stream UI** | • Assistant 对话流式返回 ☐  • Persona.SystemPrompt 生效 ☐ |
+| **P9 – 策略层 + Embedding/RAG** | • 可切换 Classic/EmbeddingFirst 策略 ☐  • 工具向量库与匹配模式（LightningFast/FastTop1/NarrowTopK）与降级链 ☐  • RAG 命中与自动回退 Classic 有明确日志 ☐  • 轻量串联递归（≤3 步）生成 `final_prompt` 并注入 ☐ |
+| **P10 – 历史/前情提要/提示组装** | • 历史仅记录“最终输出”且可分页/编辑 ☐  • 每 N 轮总结、每 10 轮叠加“前情提要” ☐  • `IPromptAssemblyService` 将固定提示/人物传记/前情提要/历史片段组装注入 ☐ |
 
 每阶段的代码合并需附带录屏证明 Gate 全绿，以及更新本章节的 ✅ 标记。
 
@@ -61,6 +63,9 @@ graph TD
     Orchestration --> Tooling
     Orchestration --> LLM["ILLMService"]
     Orchestration --> EventAgg
+    Orchestration --> Emb["Embedding/RAG"]
+    Orchestration --> PromptAsm["PromptAssembly"]
+    PromptAsm --> History["History/Recap"]
     Tooling --> WorldData
     Tooling --> Command
     WorldData --> Scheduler
@@ -96,6 +101,7 @@ graph TD
 |          | IConfigurationService (ReadOnly) | 暴露 `CoreConfig Current` 不可变快照 |
 | DTO | ColonySummary / CommandResult | 典型 World & Command 层返回对象 |
 |     | HistoricalContext / ConversationEntry | 对话历史结构体 |
+|     | CoreConfigSnapshot | 对外暴露的只读配置快照 |
 |     | Persona | SystemPrompt / Traits 等只读字段 |
 |     | ToolFunction / ToolCall | 直接 re-export Framework.Contracts 定义 |
 | 事件 | OrchestrationProgressEvent | 进度回调（阶段 + Payload） |
@@ -152,6 +158,31 @@ graph TD
 * **IPersonaService**: 接口将支持完整的 CRUD（创建、读取、更新、删除）操作。其实现将负责管理所有 `Persona` 实例，并与 `IPersistenceService` 对接，以实现数据的存盘与读档。
 * **UI**: 将会有一个独立的管理窗口供玩家进行 Persona 的 CRUD 操作。主聊天界面将动态加载这些人格供玩家选择。
 * `ILLMService.StreamResponseAsync` 支持 `IAsyncEnumerable`；UI 逐块渲染。
+
+---
+
+### 5.9 Orchestration 策略层 + Embedding/RAG（P9）
+
+- 策略层：通过内部接口 `IOrchestrationStrategy` 抽象编排实现；`OrchestrationService` 按 `CoreConfig.Orchestration.Strategy` 选择并委派（回退 Classic）。
+- 策略实现：
+  - `ClassicStrategy`：保留五步流程（工具决策→执行→复述）。
+  - `EmbeddingFirstStrategy`：在 Step 0 前置 RAG（`IEmbeddingService` + `IRagIndexService` 相似度检索），把检索上下文注入到对话再进入工具与总结。
+- 工具匹配模式：`LightningFast`（Top1 直出字符串，参数注入 `__fastResponse=true`）/`FastTop1`/`NarrowTopK`/`Classic`/`Auto`（按链路自动降级）。
+- 工具向量索引：`IToolVectorIndexService` 负责构建/加载 `tools_index_{provider}_{model}.json`（含指纹）；可在启动或设置保存后触发全量重建，支持“构建期间阻断工具相关功能”。
+- 轻量“串联递归”规划：`Planning/Planner` + `PlanModels`（黑板、去重 `sha256(tool+args)`、护栏 MaxSteps/Latency/Budget/Satisfaction）；构建 `final_prompt` 注入到最终请求；仅只读工具可小并发（默认关闭）。
+- 进度可观测：阶段进度通过 `OrchestrationProgressEvent` 广播，Debug 面板可实时打印阶段信息与可选 Payload。
+- 配置：新增 `CoreConfig.Orchestration`（Strategy/Clarification/Planning/Progress/Safety）与 `CoreConfig.Embedding`（TopK/MaxContextChars/Tools.Mode/阈值/IndexPath/动态阈值等）；保存热生效并可触发索引重建。
+
+---
+
+### 5.10 历史记录 / 前情提要 / 提示组装（P10）
+
+- 数据与持久化：历史仅保存“最终输出”（用户/AI/工具），每 N 轮生成“总结”、每 10 轮滚动叠加成“前情提要字典”；固定提示词与人物传记（段落型字典）文本入档；Embedding/RAG 严禁入档，仅运行期构建。
+- ID 与参与者：统一使用 `IParticipantIdService` 生成/解析 ID（如 `pawn:<loadId>`/`player:<saveInstanceId>`/`persona:<name>#<rev>`），支持 convKey = join('|', sort(participantIds)) 聚合与检索。
+- 历史服务扩展：`IHistoryService` 支持仅最终输出的写入、子集检索、编辑与分页；事件 `OnEntryRecorded` 供 `IRecapService` 监听。
+- 总结与前情提要：`IRecapService` 后台异步按轮次生成总结与叠加；提供 `RebuildRecapAsync`。
+- 提示组装：`IPromptAssemblyService` 统一拼装 system 提示：固定提示词 → 人物传记段落（1v1 时）→ 前情提要 K 条 → 相关历史片段 → 其它上下文；受 `CoreConfig.History.MaxPromptChars` 控制并记录裁剪信息。
+- UI：提供历史管理窗体（5 个 Tab：历史/前情提要/固定提示词/关联对话/人物传记），以及 Debug 面板对提示组装摘要与裁剪的预览。
 
 ---
 

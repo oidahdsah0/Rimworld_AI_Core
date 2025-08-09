@@ -36,7 +36,19 @@ namespace RimAI.Core.Modules.Tooling.Tools
         public async Task<object> ExecuteAsync(Dictionary<string, object> parameters)
         {
             var summary = await _worldDataService.GetColonySummaryAsync();
-            // 返回可序列化对象
+
+            // 支持 LightningFast：当编排层注入 __fastResponse=true 时，直接返回面向玩家的简短字符串
+            try
+            {
+                if (parameters != null && parameters.TryGetValue("__fastResponse", out var v) && v is bool b && b)
+                {
+                    var threatZh = string.IsNullOrEmpty(summary.ThreatLevel) ? "未知" : (summary.ThreatLevel == "Low" ? "低" : (summary.ThreatLevel == "High" ? "高" : summary.ThreatLevel));
+                    return $"殖民者 {summary.ColonistCount} 人，食物存量 {summary.FoodStockpile}，威胁等级：{threatZh}";
+                }
+            }
+            catch { /* ignore */ }
+
+            // 常规路径：返回对象，后续由 LLM 进行总结
             return summary;
         }
     }

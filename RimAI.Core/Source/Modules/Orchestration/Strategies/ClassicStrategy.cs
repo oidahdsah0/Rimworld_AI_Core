@@ -77,16 +77,77 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             // 若 LightningFast 且有直接文本结果，已在 SelectToolsAsync 中处理返回
 
             // 构造 tools definition 列表供 LLM 决策
-            var toolDefs = toolDefinitions.Select(schema => new ToolDefinition
+            var toolDefs = toolDefinitions.Select(schema =>
             {
-                Type = "function",
-                Function = new JObject
+                JObject parameters;
+                var paramJson = string.IsNullOrWhiteSpace(schema?.Arguments) ? "{}" : schema.Arguments;
+                try { parameters = JObject.Parse(paramJson); } catch { parameters = new JObject(); }
+                return new ToolDefinition
                 {
-                    ["name"] = schema?.Name ?? string.Empty,
-                    ["description"] = schema?.Description ?? string.Empty,
-                    ["parameters"] = JObject.Parse(string.IsNullOrWhiteSpace(schema?.Arguments) ? "{}" : schema.Arguments)
-                }
+                    Type = "function",
+                    Function = new JObject
+                    {
+                        ["name"] = schema?.Name ?? string.Empty,
+                        ["description"] = schema?.Description ?? string.Empty,
+                        ["parameters"] = parameters
+                    }
+                };
             }).ToList();
+
+            // LightningFast 零参数优化：若命中且所选工具为零参数，直接本地执行并直出
+            if (fastResponse && !string.IsNullOrWhiteSpace(selectedToolName))
+            {
+                string fastOut = null;
+                try
+                {
+                    var selectedSchema = toolDefinitions.FirstOrDefault(s => string.Equals(s?.Name, selectedToolName, StringComparison.OrdinalIgnoreCase));
+                    var argJson = selectedSchema?.Arguments;
+                    bool zeroArgs = false;
+                    try
+                    {
+                        var jo = string.IsNullOrWhiteSpace(argJson) ? null : JObject.Parse(argJson);
+                        var props = jo?["properties"] as JObject;
+                        var required = jo?["required"] as JArray;
+                        zeroArgs = (props == null || !props.Properties().Any()) && (required == null || !required.HasValues);
+                    }
+                    catch { zeroArgs = true; }
+
+                    if (zeroArgs)
+                    {
+                        var fastArgs = new Dictionary<string, object> { ["__fastResponse"] = true };
+                        object toolFastResult = await _tools.ExecuteToolAsync(selectedToolName, fastArgs);
+
+                        // 记录 fastResponse 结果类型
+                        try
+                        {
+                            CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                            {
+                                Source = "Orchestrator",
+                                Stage = "ToolMatch",
+                                Message = $"LightningFast: 零参数直出，resultType={(toolFastResult == null ? "null" : toolFastResult.GetType().Name)}"
+                            });
+                        }
+                        catch { }
+
+                        if (toolFastResult is string sfast && !string.IsNullOrEmpty(sfast))
+                        {
+                            fastOut = sfast;
+                        }
+                        // 若工具未返回字符串，回退到常规流程（让 LLM 进行参数/总结）
+                    }
+                }
+                catch { /* 忽略，走常规流程 */ }
+
+                if (!string.IsNullOrEmpty(fastOut))
+                {
+                    foreach (var part in SliceString(fastOut, 120))
+                    {
+                        yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = part });
+                        await Task.Yield();
+                    }
+                    yield break;
+                }
+            }
 
             // Step 1: 发送用户问题 + tools 给 LLM 决策
             var initMessages = BuildBaseMessages(personaSystemPrompt, query);
@@ -118,6 +179,18 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 yield return Result<UnifiedChatChunk>.Failure("LLM 未返回有效的 tool_calls 或直接回答。");
                 yield break;
             }
+
+            // 统一进度提示：最终选择的工具
+            try
+            {
+                CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                {
+                    Source = "Orchestrator",
+                    Stage = "ToolMatch",
+                    Message = $"最终工具选择：{call.Function?.Name ?? selectedToolName ?? "(unknown)"}"
+                });
+            }
+            catch { }
 
             var argsDict = new Dictionary<string, object>();
             string parseArgsError = null;
@@ -151,6 +224,17 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                     if (!argsDict.ContainsKey("__fastResponse")) argsDict["__fastResponse"] = true;
                 }
                 toolResult = await _tools.ExecuteToolAsync(call.Function.Name, argsDict);
+                // 记录 fastResponse 结果类型
+                try
+                {
+                    CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                    {
+                        Source = "Orchestrator",
+                        Stage = "ToolMatch",
+                        Message = $"执行完成：fastResponse={(fastResponse ? "true" : "false")}, resultType={(toolResult == null ? "null" : toolResult.GetType().Name)}"
+                    });
+                }
+                catch { }
             }
             catch (System.Exception ex)
             {
@@ -225,10 +309,33 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             var toolsCfg = cfg?.Embedding?.Tools;
             var mode = toolsCfg?.Mode ?? "Classic";
 
+            // 统一进度提示：当前匹配模式
+            try
+            {
+                CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                {
+                    Source = "Orchestrator",
+                    Stage = "ToolMatch",
+                    Message = $"当前匹配模式：{mode}"
+                });
+            }
+            catch { }
+
             // 构建期间阻断处理
             if (_toolIndex?.IsBuilding == true && (toolsCfg?.BlockDuringBuild ?? true))
             {
                 CoreServices.Logger.Warn("[ToolMatch] 索引构建中，降级 Classic（全工具暴露）。");
+                try
+                {
+                    CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                    {
+                        Source = "Orchestrator",
+                        Stage = "ToolMatch",
+                        Message = "索引构建中，降级 Classic（全工具暴露）",
+                        PayloadJson = string.Empty
+                    });
+                }
+                catch { }
                 return ("Classic", all, null, false);
             }
 
@@ -244,20 +351,23 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 var k = Math.Max(1, cfg?.Embedding?.TopK ?? 5);
                 var matches = await _toolIndex.SearchAsync(query, all, k, wName, wDesc);
                 if (matches == null || matches.Count == 0)
-                    return ("Classic", all, null, false);
+                {
+                    // 唯一模式不降级：空命中时退回到暴露全部工具但仍视为 NarrowTopK
+                    return ("NarrowTopK", all, null, false);
+                }
                 var names = new HashSet<string>(matches.Select(m => m.Tool), StringComparer.OrdinalIgnoreCase);
                 var schemas = all.Where(t => names.Contains(t.Name)).ToList();
                 CoreServices.Logger.Info($"[ToolMatch] NarrowTopK → {string.Join(", ", matches.Select(m => $"{m.Tool}:{m.Score:F2}"))}");
-                // 进度反馈：候选工具列表
+                // 进度反馈：候选工具列表（统一文案与 Stage）
                 try
                 {
                     var bus = CoreServices.Locator.Get<IEventBus>();
                     var payload = matches.Select(m => new { m.Tool, Score = m.Score }).ToList();
                     bus?.Publish(new OrchestrationProgressEvent
                     {
-                        Source = nameof(ClassicStrategy),
+                        Source = "Orchestrator",
                         Stage = "ToolMatch",
-                        Message = $"候选App：{string.Join(", ", matches.Select(m => m.Tool))}",
+                        Message = $"候选工具：{string.Join(", ", matches.Select(m => m.Tool))}",
                         PayloadJson = Newtonsoft.Json.JsonConvert.SerializeObject(payload)
                     });
                 }
@@ -292,59 +402,51 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
 
             if (string.Equals(mode, "LightningFast", StringComparison.OrdinalIgnoreCase))
             {
-                if (top1 != null && top1.Score >= lightThreshold)
+                // 唯一模式不降级：忽略阈值，若有Top1则用Top1，否则回退首个工具
+                var chosen = top1?.Tool ?? all.FirstOrDefault()?.Name;
+                var schema = all.FirstOrDefault(t => string.Equals(t.Name, chosen, StringComparison.OrdinalIgnoreCase));
+                if (schema != null)
                 {
-                    var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
-                    if (schema != null)
+                    try
                     {
-                        CoreServices.Logger.Info($"[ToolMatch] LightningFast Top1={top1.Tool} score={top1.Score:F2}");
-                        // 进度反馈：命中Top1
-                        try
+                        if (top1 != null)
                         {
                             CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
                             {
-                                Source = nameof(ClassicStrategy),
+                                Source = "Orchestrator",
                                 Stage = "ToolMatch",
-                                Message = $"找到一个可用App：{schema.Name}"
+                                Message = $"命中Top1：{schema.Name} ({top1.Score:F2})"
                             });
                         }
-                        catch { }
-                        return ("LightningFast", new List<ToolFunction> { schema }, top1.Tool, true);
                     }
+                    catch { }
+                    return ("LightningFast", new List<ToolFunction> { schema }, schema.Name, true);
                 }
-                // 降级到 FastTop1
-                mode = "FastTop1";
             }
 
             if (string.Equals(mode, "FastTop1", StringComparison.OrdinalIgnoreCase))
             {
-                if (top1 != null && top1.Score >= threshold)
+                // 唯一模式不降级：忽略阈值，若有Top1则用Top1，否则回退首个工具
+                var chosen = top1?.Tool ?? all.FirstOrDefault()?.Name;
+                var schema = all.FirstOrDefault(t => string.Equals(t.Name, chosen, StringComparison.OrdinalIgnoreCase));
+                if (schema != null)
                 {
-                    var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
-                    if (schema != null)
+                    try
                     {
-                        CoreServices.Logger.Info($"[ToolMatch] FastTop1 Top1={top1.Tool} score={top1.Score:F2}");
-                        // 明确记录 FastTop1 命中并将要走“单工具暴露”路径
-                        try
-                        {
-                            CoreServices.Logger.Info($"[ToolMatch] FastTop1 命中：将仅暴露工具 {schema.Name} 给 LLM 决策");
-                        }
-                        catch { }
-                        // 进度反馈：命中Top1
-                        try
+                        if (top1 != null)
                         {
                             CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
                             {
-                                Source = nameof(ClassicStrategy),
+                                Source = "Orchestrator",
                                 Stage = "ToolMatch",
-                                Message = $"找到一个可用App：{schema.Name}"
+                                Message = $"命中Top1：{schema.Name} ({top1.Score:F2})"
                             });
                         }
-                        catch { }
-                        return ("FastTop1", new List<ToolFunction> { schema }, top1.Tool, false);
                     }
+                    catch { }
+                    return ("FastTop1", new List<ToolFunction> { schema }, schema.Name, false);
                 }
-                // 降级到 NarrowTopK
+                // 若未找到schema，回到 NarrowTopK 但保留模式不降级
                 return await NarrowTopK();
             }
 

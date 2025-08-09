@@ -77,16 +77,76 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             var (mode, toolSchemas, selectedToolName, fastResponse) = await SelectToolsAsync(query, allSchemas);
 
             // 构造 tools 定义
-            var toolDefinitions = toolSchemas.Select(schema => new ToolDefinition
+            var toolDefinitions = toolSchemas.Select(schema =>
             {
-                Type = "function",
-                Function = new JObject
+                JObject parameters;
+                var paramJson = string.IsNullOrWhiteSpace(schema?.Arguments) ? "{}" : schema.Arguments;
+                try { parameters = JObject.Parse(paramJson); } catch { parameters = new JObject(); }
+                return new ToolDefinition
                 {
-                    ["name"] = schema?.Name ?? string.Empty,
-                    ["description"] = schema?.Description ?? string.Empty,
-                    ["parameters"] = JObject.Parse(string.IsNullOrWhiteSpace(schema?.Arguments) ? "{}" : schema.Arguments)
-                }
+                    Type = "function",
+                    Function = new JObject
+                    {
+                        ["name"] = schema?.Name ?? string.Empty,
+                        ["description"] = schema?.Description ?? string.Empty,
+                        ["parameters"] = parameters
+                    }
+                };
             }).ToList();
+
+            // LightningFast 零参数优化：若命中且所选工具为零参数，直接本地执行并直出
+            if (fastResponse && !string.IsNullOrWhiteSpace(selectedToolName))
+            {
+                string fastOut = null;
+                try
+                {
+                    var selectedSchema = toolSchemas.FirstOrDefault(s => string.Equals(s?.Name, selectedToolName, System.StringComparison.OrdinalIgnoreCase));
+                    var argJson = selectedSchema?.Arguments;
+                    bool zeroArgs = false;
+                    try
+                    {
+                        var jo = string.IsNullOrWhiteSpace(argJson) ? null : JObject.Parse(argJson);
+                        var props = jo?["properties"] as JObject;
+                        var required = jo?["required"] as JArray;
+                        zeroArgs = (props == null || !props.Properties().Any()) && (required == null || !required.HasValues);
+                    }
+                    catch { zeroArgs = true; }
+
+                    if (zeroArgs)
+                    {
+                        var fastArgs = new Dictionary<string, object> { ["__fastResponse"] = true };
+                        object toolFastResult = await _tools.ExecuteToolAsync(selectedToolName, fastArgs);
+                        // 记录 fastResponse 结果类型
+                        try
+                        {
+                            RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                            {
+                                Source = "Orchestrator",
+                                Stage = "ToolMatch",
+                                Message = $"LightningFast: 零参数直出，resultType={(toolFastResult == null ? "null" : toolFastResult.GetType().Name)}"
+                            });
+                        }
+                        catch { }
+
+                        if (toolFastResult is string sfast && !string.IsNullOrEmpty(sfast))
+                        {
+                            fastOut = sfast;
+                        }
+                        // 若工具未返回字符串，回退到常规流程
+                    }
+                }
+                catch { /* 忽略，走常规流程 */ }
+
+                if (!string.IsNullOrEmpty(fastOut))
+                {
+                    foreach (var part in SliceString(fastOut, 120))
+                    {
+                        yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = part });
+                        await System.Threading.Tasks.Task.Yield();
+                    }
+                    yield break;
+                }
+            }
 
             // 将 RAG 上下文注入 system 提示
             var systemPrompt = CombineSystemPrompt(persona, injectedContext);
@@ -112,6 +172,18 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 yield return Result<UnifiedChatChunk>.Failure("LLM 未返回有效的 tool_calls 或直接回答。");
                 yield break;
             }
+
+            // 统一进度提示：最终选择的工具
+            try
+            {
+                RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                {
+                    Source = "Orchestrator",
+                    Stage = "ToolMatch",
+                    Message = $"最终工具选择：{call.Function?.Name ?? selectedToolName ?? "(unknown)"}"
+                });
+            }
+            catch { }
 
             // 执行工具（简化：不做重试/校验，S2 最小实现）
             var argsDict = new Dictionary<string, object>();
@@ -204,10 +276,22 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             var toolsCfg = cfg?.Embedding?.Tools;
             var mode = toolsCfg?.Mode ?? "Classic";
 
+            // 统一进度提示：当前匹配模式
+            try
+            {
+                RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                {
+                    Source = "Orchestrator",
+                    Stage = "ToolMatch",
+                    Message = $"当前匹配模式：{mode}"
+                });
+            }
+            catch { }
+
             if (_toolIndex?.IsBuilding == true && (toolsCfg?.BlockDuringBuild ?? true))
             {
-                RimAI.Core.Infrastructure.CoreServices.Logger.Warn("[ToolMatch][Classic] 索引构建中，降级 Classic（全工具暴露）。");
-                try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = nameof(EmbeddingFirstStrategy), Stage = "ToolMatch:Classic", Message = "索引构建中，降级 Classic" }); } catch { }
+                RimAI.Core.Infrastructure.CoreServices.Logger.Warn("[ToolMatch] 索引构建中，降级 Classic（全工具暴露）。");
+                try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = "Orchestrator", Stage = "ToolMatch", Message = "索引构建中，降级 Classic（全工具暴露）" }); } catch { }
                 return ("Classic", all, null, false);
             }
 
@@ -221,18 +305,18 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 var k = Math.Max(1, cfg?.Embedding?.TopK ?? 5);
                 var matches = await _toolIndex.SearchAsync(query, all, k, wName, wDesc);
                 if (matches == null || matches.Count == 0)
-                    return ("Classic", all, null, false);
+                    return ("NarrowTopK", all, null, false);
                 var names = new HashSet<string>(matches.Select(m => m.Tool), StringComparer.OrdinalIgnoreCase);
                 var schemas = all.Where(t => names.Contains(t.Name)).ToList();
-                RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch][NarrowTopK] → {string.Join(", ", matches.Select(m => $"{m.Tool}:{m.Score:F2}"))}");
-                try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = nameof(EmbeddingFirstStrategy), Stage = "ToolMatch:NarrowTopK", Message = $"候选App：{string.Join(", ", matches.Select(m => m.Tool))}" }); } catch { }
+                RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch] NarrowTopK → {string.Join(", ", matches.Select(m => $"{m.Tool}:{m.Score:F2}"))}");
+                try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = "Orchestrator", Stage = "ToolMatch", Message = $"候选工具：{string.Join(", ", matches.Select(m => m.Tool))}" }); } catch { }
                 return ("NarrowTopK", schemas, null, false);
             }
 
             if (string.Equals(mode, "Classic", StringComparison.OrdinalIgnoreCase))
             {
-                RimAI.Core.Infrastructure.CoreServices.Logger.Info("[ToolMatch][Classic] 暴露全部工具");
-                try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = nameof(EmbeddingFirstStrategy), Stage = "ToolMatch:Classic", Message = "暴露全部工具" }); } catch { }
+                RimAI.Core.Infrastructure.CoreServices.Logger.Info("[ToolMatch] 暴露全部工具");
+                try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = "Orchestrator", Stage = "ToolMatch", Message = "暴露全部工具" }); } catch { }
                 return ("Classic", all, null, false);
             }
 
@@ -250,8 +334,8 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                     var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
                     if (schema != null)
                     {
-                        RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch][Auto→FastTop1] Top1={top1.Tool} score={top1.Score:F2}");
-                        try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = nameof(EmbeddingFirstStrategy), Stage = "ToolMatch:FastTop1", Message = $"命中Top1：{schema.Name} ({top1.Score:F2})" }); } catch { }
+                        RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch] Auto→FastTop1 Top1={top1.Tool} score={top1.Score:F2}");
+                        try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = nameof(EmbeddingFirstStrategy), Stage = "ToolMatch", Message = $"命中Top1：{schema.Name} ({top1.Score:F2})" }); } catch { }
                         return ("FastTop1", new List<ToolFunction> { schema }, top1.Tool, false);
                     }
                 }
@@ -260,30 +344,25 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
 
             if (string.Equals(mode, "LightningFast", StringComparison.OrdinalIgnoreCase))
             {
-                if (top1 != null && top1.Score >= lightThreshold)
+                // 唯一模式不降级：忽略阈值，若有Top1则用Top1，否则回退首个工具
+                var chosen = top1?.Tool ?? all.FirstOrDefault()?.Name;
+                var schema = all.FirstOrDefault(t => string.Equals(t.Name, chosen, StringComparison.OrdinalIgnoreCase));
+                if (schema != null)
                 {
-                    var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
-                    if (schema != null)
-                    {
-                        RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch][LightningFast] Top1={top1.Tool} score={top1.Score:F2}");
-                        try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = nameof(EmbeddingFirstStrategy), Stage = "ToolMatch:LightningFast", Message = $"命中Top1：{schema.Name} ({top1.Score:F2})" }); } catch { }
-                        return ("LightningFast", new List<ToolFunction> { schema }, top1.Tool, true);
-                    }
+                    try { if (top1 != null) RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = "Orchestrator", Stage = "ToolMatch", Message = $"命中Top1：{schema.Name} ({top1.Score:F2})" }); } catch { }
+                    return ("LightningFast", new List<ToolFunction> { schema }, schema.Name, true);
                 }
-                mode = "FastTop1"; // 降级
             }
 
             if (string.Equals(mode, "FastTop1", StringComparison.OrdinalIgnoreCase))
             {
-                if (top1 != null && top1.Score >= threshold)
+                // 唯一模式不降级：忽略阈值，若有Top1则用Top1，否则回退首个工具
+                var chosen = top1?.Tool ?? all.FirstOrDefault()?.Name;
+                var schema = all.FirstOrDefault(t => string.Equals(t.Name, chosen, StringComparison.OrdinalIgnoreCase));
+                if (schema != null)
                 {
-                    var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
-                    if (schema != null)
-                    {
-                        RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch][FastTop1] Top1={top1.Tool} score={top1.Score:F2}");
-                        try { RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = nameof(EmbeddingFirstStrategy), Stage = "ToolMatch:FastTop1", Message = $"命中Top1：{schema.Name} ({top1.Score:F2})" }); } catch { }
-                        return ("FastTop1", new List<ToolFunction> { schema }, top1.Tool, false);
-                    }
+                    try { if (top1 != null) RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent { Source = "Orchestrator", Stage = "ToolMatch", Message = $"命中Top1：{schema.Name} ({top1.Score:F2})" }); } catch { }
+                    return ("FastTop1", new List<ToolFunction> { schema }, schema.Name, false);
                 }
                 return await NarrowTopK();
             }

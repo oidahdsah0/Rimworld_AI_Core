@@ -326,7 +326,7 @@ Embedding: {
 - 人格主 Tab：显示当前全局策略（Classic/EmbeddingFirst），提供只读状态与“重建索引”按钮（可选）。
 - 日志：在关键步骤打印 Info（命中 topK 文档 ID、降级路径）。
 - 进度事件（新增）：编排/规划各阶段通过 `OrchestrationProgressEvent` 广播；DebugPanel 主输出实时展示每条进度与可选 Payload（最小实现已接入）。
-- 编排时间线视图：在 DebugPanel 新增“时间线”页签，展示每个 Stage 的并行任务、耗时、工具与结果摘要、降级原因、澄清触发与最终 `final_prompt` 预览（前几百字）（S5 最小版交付）。
+- 编排时间线视图：在 DebugPanel 新增“时间线”页签，展示每个 Stage 的并行任务、耗时、工具与结果摘要、降级原因、澄清触发与最终 `final_prompt` 预览（前几百字）（迁移至 P10）。
 
 ## 8. 验收标准（Gate）
 1) 配置切换策略无须重启游戏（热重载生效）。
@@ -445,25 +445,15 @@ Embedding: {
     - UI 验证：
       - Debug 面板（主输出）订阅 `OrchestrationProgressEvent`，实时打印阶段进度与可选 Payload JSON（如命中要点列表），便于录像与回归。
     - 待完善：
-      - used_actions 去重、停机护栏（MaxLatency/预算）与“时间线”专门页签展示留待 S5/S6 迭代；当前主输出已满足最小可观测。
+      - used_actions 去重、停机护栏（MaxLatency/预算）与“时间线”专门页签展示留待后续（见 P10）/S6 迭代；当前主输出已满足最小可观测。
 - Gate：
   - 至少完成 2 个 Stage 串联，其中 1 个 Stage 成功执行≥2个只读工具（可串行）
   - 生成 `final_prompt` 且长度受 `MaxContextChars` 约束；时间线日志包含 `used_actions` 去重与停机原因
 - 回滚：策略绕过 Planner 直接走“一次性工具+总结”的路径（保留 Classic 路径）
 - 预计人日：0.7d（对应 M2.7）
 
-#### S5 – 数据灌入与可观测（历史懒索引/异步索引 + 时间线视图最小版）
-- 代码范围：
-  - 修改：`HistoryService` 写入成功后异步调用 `IRagIndexService.UpsertAsync`（后台线程，非阻塞，不在主线程）
-  - 修改：首次查询时对最近 N 条历史做懒构建（可配置）
-  - 修改：DebugPanel 新增“时间线”页签（最小：Stage 列表、耗时、降级原因、命中 DocIds 概览、final_prompt 预览前几百字）
-- Gate：
-  - 读档后可按需重建索引；关闭自动重建时无加载抖动
-  - 时间线展示关键节点与降级原因；日志具备可追踪性（DocIds/Score/阈值/模式）
-- 回滚：关闭时间线页签与历史异步索引，保留懒索引或全关
-- 预计人日：1.0d（对应 M3）
-
-#### S6 – 打磨与回归（性能/稳定性/文档与录像）
+ 
+#### S5 – 打磨与回归（性能/稳定性/文档与录像）
 - 代码范围：
 - 性能：Embedding/RAG/索引构建的批量化、日志降噪（缓存优化由 Framework 负责）
   - 稳定：熔断器护栏、异常路径回退更清晰；动态阈值回退默认值
@@ -474,9 +464,7 @@ Embedding: {
 - 回滚：配置回退 Classic；关闭 Embedding/LightningFast
 - 预计人日：0.5d（对应 M4）
 
-备注：所有切片均遵循“可回退、可录像、可观测”的提交要求；每个 PR 必须附带：变更点清单、配置默认值与回滚指引、Debug 面板复现步骤与短录像链接。
-
-#### S7 – 合约与内部接口收尾（Contracts 对齐）
+#### S6 – 合约与内部接口收尾（Contracts 对齐）
 - 代码范围：
   - 新增（Contracts 暴露，稳定 API）：`RimAI.Core.Contracts.Services.IConfigurationService (ReadOnly)` 或命名 `IConfigurationReader`（二选一，倾向保持文档命名），仅暴露 `Current` 不可变快照；不提供写入/重载方法
   - 新增（Contracts DTO）：`CoreConfigSnapshot`（无 `Verse` 依赖；字段为对外必要最小子集）

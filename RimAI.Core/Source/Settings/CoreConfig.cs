@@ -9,6 +9,7 @@ namespace RimAI.Core.Settings
         public EventAggregatorConfig EventAggregator { get; init; } = new();
         public OrchestrationConfig Orchestration { get; init; } = new();
         public EmbeddingConfig Embedding { get; init; } = new();
+        public HistoryConfig History { get; init; } = new();
 
         public static CoreConfig CreateDefault() => new();
     }
@@ -139,5 +140,62 @@ namespace RimAI.Core.Settings
         public double Smoothing { get; init; } = 0.2;
         public double MinTop1 { get; init; } = 0.78;
         public double MaxTop1 { get; init; } = 0.90;
+    }
+
+    /// <summary>
+    /// 历史/前情提要配置（P10）。仅 Core 内部使用，外部快照不暴露。
+    /// </summary>
+    public sealed class HistoryConfig
+    {
+        /// <summary>
+        /// 每 N 轮生成一次总结。
+        /// </summary>
+        public int SummaryEveryNRounds { get; init; } = 5;
+
+        /// <summary>
+        /// 每 10 轮叠加/压缩一次前情提要（此处为阈值，通常为 10）。
+        /// </summary>
+        public int RecapUpdateEveryRounds { get; init; } = 10;
+
+        /// <summary>
+        /// 前情提要字典最大条目数。1=仅最新；0/负数=无限。
+        /// </summary>
+        public int RecapDictMaxEntries { get; init; } = 20;
+
+        /// <summary>
+        /// 单条前情提要最大长度（字符）。
+        /// </summary>
+        public int RecapMaxChars { get; init; } = 1200;
+
+        /// <summary>
+        /// 历史 UI 分页大小。
+        /// </summary>
+        public int HistoryPageSize { get; init; } = 100;
+
+        /// <summary>
+        /// 组装提示总长度预算（字符）。
+        /// </summary>
+        public int MaxPromptChars { get; init; } = 4000;
+
+        /// <summary>
+        /// 预算/延迟限制。
+        /// </summary>
+        public HistoryBudgetConfig Budget { get; init; } = new();
+    }
+
+    /// <summary>
+    /// 历史相关的预算/时延参数。
+    /// </summary>
+    public sealed class HistoryBudgetConfig
+    {
+        /// <summary>
+        /// 单次总结/叠加的最大延迟（毫秒）。
+        /// </summary>
+        public int MaxLatencyMs { get; init; } = 5000;
+
+        /// <summary>
+        /// 每月大模型调用预算上限（美元）。本阶段仅作文档展示，不做硬限制。
+        /// </summary>
+        public double MonthlyBudgetUSD { get; init; } = 5.0;
     }
 }

@@ -5,9 +5,8 @@
     <label>RimAI Debug</label>
     <description>RimAI V4 调试面板</description>
     <tabWindowClass>RimAI.Core.UI.DebugPanel.MainTabWindow_RimAIDebug, RimAI.Core</tabWindowClass>
-    <defaultOrder>998</defaultOrder>
+    <order>5</order>
     <buttonVisible>true</buttonVisible>
-    <iconPath>UI/Buttons/DevRoot</iconPath>
   </MainButtonDef>
 </Defs>
 

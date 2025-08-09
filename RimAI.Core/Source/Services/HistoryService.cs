@@ -19,7 +19,7 @@ namespace RimAI.Core.Services
         private readonly Dictionary<string, HashSet<string>> _invertedIndex = new();
         private readonly object _gate = new();
         
-        public event System.Action<string, ConversationEntry> OnEntryRecorded;
+        public event System.Action<string, ConversationEntry>? OnEntryRecorded;
 
         public Task RecordEntryAsync(IReadOnlyList<string> participantIds, ConversationEntry entry)
         {
@@ -148,7 +148,7 @@ namespace RimAI.Core.Services
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyList<string>> ListConversationKeysAsync(string filter = null, int? skip = null, int? take = null)
+        public Task<IReadOnlyList<string>> ListConversationKeysAsync(string? filter = null, int? skip = null, int? take = null)
         {
             List<string> keys;
             lock (_gate)
@@ -169,7 +169,7 @@ namespace RimAI.Core.Services
             if (queryIds == null || queryIds.Count == 0)
                 throw new ArgumentException("queryIds cannot be null or empty", nameof(queryIds));
 
-            HashSet<string> resultIds = null;
+            HashSet<string>? resultIds = null;
             lock (_gate)
             {
                 foreach (var id in queryIds)

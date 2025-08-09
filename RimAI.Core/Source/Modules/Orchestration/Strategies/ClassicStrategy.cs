@@ -324,6 +324,12 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                     if (schema != null)
                     {
                         CoreServices.Logger.Info($"[ToolMatch] FastTop1 Top1={top1.Tool} score={top1.Score:F2}");
+                        // 明确记录 FastTop1 命中并将要走“单工具暴露”路径
+                        try
+                        {
+                            CoreServices.Logger.Info($"[ToolMatch] FastTop1 命中：将仅暴露工具 {schema.Name} 给 LLM 决策");
+                        }
+                        catch { }
                         // 进度反馈：命中Top1
                         try
                         {

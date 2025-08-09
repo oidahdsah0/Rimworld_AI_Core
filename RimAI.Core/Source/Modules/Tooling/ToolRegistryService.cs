@@ -65,6 +65,21 @@ namespace RimAI.Core.Modules.Tooling
                 throw new ArgumentNullException(nameof(toolName));
             if (!_tools.TryGetValue(toolName, out var tool))
                 throw new InvalidOperationException($"[RimAI] Tool '{toolName}' 未注册。");
+
+            // S2.5（可选阻断）：如果配置开启在索引构建期间阻断工具调用，则进行拦截
+            try
+            {
+                var cfg = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Infrastructure.Configuration.IConfigurationService>();
+                var block = cfg?.Current?.Embedding?.Tools != null &&
+                            (cfg.Current.Embedding.Tools.GetType().GetProperty("BlockDuringBuild")?.GetValue(cfg.Current.Embedding.Tools) as bool? ?? false);
+                if (block)
+                {
+                    var toolIndex = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Embedding.IToolVectorIndexService>();
+                    if (toolIndex != null && toolIndex.IsBuilding)
+                        throw new InvalidOperationException("工具向量索引正在构建，暂不可用（可在设置中关闭阻断）。");
+                }
+            }
+            catch { /* 忽略阻断检查异常，避免影响工具执行 */ }
             try
             {
                 return await tool.ExecuteAsync(parameters ?? new Dictionary<string, object>());

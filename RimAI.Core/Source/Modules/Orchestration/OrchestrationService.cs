@@ -10,6 +10,7 @@ using RimAI.Core.Contracts;
 using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Modules.LLM;
 using RimAI.Core.Infrastructure;
+using RimAI.Core.Infrastructure.Configuration;
 using System.Security.Cryptography;
 using RimAI.Core.Infrastructure.Cache;
 using RimAI.Core.Contracts.Services;
@@ -21,179 +22,50 @@ namespace RimAI.Core.Modules.Orchestration
     /// </summary>
     internal sealed class OrchestrationService : IOrchestrationService
     {
-        private readonly ILLMService _llm;
-        private readonly IToolRegistryService _tools;
-        private readonly ICacheService _cache;
-        private readonly IPersonaService _personaService;
+        private readonly Dictionary<string, Strategies.IOrchestrationStrategy> _strategies;
+        private readonly Strategies.IOrchestrationStrategy _defaultStrategy;
+        private readonly IConfigurationService _config;
 
-        public OrchestrationService(ILLMService llm, IToolRegistryService tools, ICacheService cache, IPersonaService personaService)
+        public OrchestrationService(IEnumerable<Strategies.IOrchestrationStrategy> strategies, IConfigurationService config)
         {
-            _llm = llm;
-            _tools = tools;
-            _cache = cache;
-            _personaService = personaService;
+            // 将策略列表转为名称映射；默认 Classic
+            _strategies = (strategies ?? System.Linq.Enumerable.Empty<Strategies.IOrchestrationStrategy>())
+                .GroupBy(s => s.Name)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            _defaultStrategy = _strategies.TryGetValue("Classic", out var cls) ? cls : null;
+            _config = config;
+            RimAI.Core.Infrastructure.CoreServices.Logger.Info($"Loaded strategies: {string.Join(", ", _strategies.Keys)}");
         }
 
-        public async IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteToolAssistedQueryAsync(string query, string personaSystemPrompt = "")
+        public IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteToolAssistedQueryAsync(string query, string personaSystemPrompt = "")
         {
-            query ??= string.Empty;
-            personaSystemPrompt ??= string.Empty;
-
-            if (string.IsNullOrWhiteSpace(personaSystemPrompt))
-            {
-                var def = _personaService.Get("Default");
-                if (def != null)
-                    personaSystemPrompt = def.SystemPrompt;
-            }
-
-            // Step 0: 构造 tools definition 列表供 LLM 决策
-            var toolDefinitions = _tools.GetAllToolSchemas().Select(schema => new ToolDefinition
-            {
-                Type = "function",
-                Function = new JObject
-                {
-                    ["name"] = schema?.Name ?? string.Empty,
-                    ["description"] = schema?.Description ?? string.Empty,
-                    ["parameters"] = JObject.Parse(string.IsNullOrWhiteSpace(schema?.Arguments) ? "{}" : schema.Arguments)
-                }
-            }).ToList();
-
-            // Step 1: 发送用户问题 + tools 给 LLM 决策
-            var initMessages = BuildBaseMessages(personaSystemPrompt, query);
-            var initReq = new UnifiedChatRequest
-            {
-                Stream = false,
-                Tools  = toolDefinitions,
-                Messages = initMessages
-            };
-
-            var decisionRes = await _llm.GetResponseAsync(initReq);
-            if (!decisionRes.IsSuccess)
-            {
-                yield return Result<UnifiedChatChunk>.Failure(decisionRes.Error);
-                yield break;
-            }
-
-            var call = decisionRes.Value?.Message?.ToolCalls?.FirstOrDefault();
-            if (call == null || string.IsNullOrWhiteSpace(call.Function?.Name))
-            {
-                 // 如果不需要工具调用，直接返回LLM的回答
-                var direct = decisionRes.Value?.Message?.Content;
-                if (!string.IsNullOrEmpty(direct))
-                {
-                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = direct });
-                    yield break;
-                }
-
-                yield return Result<UnifiedChatChunk>.Failure("LLM 未返回有效的 tool_calls 或直接回答。");
-                yield break;
-            }
-
-            Dictionary<string, object> argsDict = new();
-            string parseArgsError = null;
+            var strategy = _defaultStrategy;
             try
             {
-                var argsStr = call.Function?.Arguments;
-                if (!string.IsNullOrWhiteSpace(argsStr) && argsStr != "{}")
-                {
-                    var jObj = JObject.Parse(argsStr);
-                    argsDict = jObj.ToObject<Dictionary<string, object>>() ?? new Dictionary<string, object>();
-                }
+                var name = _config?.Current?.Orchestration?.Strategy ?? "Classic";
+                if (!string.IsNullOrWhiteSpace(name) && _strategies.TryGetValue(name, out var s))
+                    strategy = s;
             }
-            catch (Exception ex)
+            catch { /* 配置读取失败时使用默认 */ }
+            if (strategy == null)
             {
-                parseArgsError = $"解析 tool 参数失败: {ex.Message}";
-            }
-            if (parseArgsError != null)
-            {
-                yield return Result<UnifiedChatChunk>.Failure(parseArgsError);
-                yield break;
+                return FallbackFailure($"未找到默认策略 Classic。已加载策略: {string.Join(", ", _strategies.Keys)}");
             }
 
-            object toolResult = null;
-            IAsyncEnumerable<Result<UnifiedChatChunk>> errorStream = null;
-            
-            try
+            var ctx = new Strategies.OrchestrationContext
             {
-                toolResult = await _tools.ExecuteToolAsync(call.Function.Name, argsDict);
-            }
-            catch (Exception ex)
-            {
-                var errMessages = BuildBaseMessages(personaSystemPrompt, query);
-                errMessages.Add(new ChatMessage { Role = "assistant", Content = $"调用工具 {call.Function.Name} 失败: {ex.Message}" });
-                var errReq = new UnifiedChatRequest { Stream = true, Messages = errMessages };
-                errorStream = _llm.StreamResponseAsync(errReq);
-            }
-
-            if (errorStream != null)
-            {
-                await foreach (var chunk in errorStream)
-                    yield return chunk;
-                yield break;
-            }
-            
-            // --- 总结阶段缓存逻辑 ---
-            var toolResultJson = JsonConvert.SerializeObject(toolResult, Formatting.None);
-            var cacheKey = ComputeSummarizationCacheKey(query, toolResultJson ?? string.Empty);
-
-            if (_cache.TryGet(cacheKey, out string cachedSummary))
-            {
-                yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = cachedSummary });
-                yield break;
-            }
-            
-            // --- 未命中缓存，正常发起流式请求 ---
-            var followMessages = BuildBaseMessages(personaSystemPrompt, query);
-            followMessages.Add(new ChatMessage { Role = "assistant", ToolCalls = new List<ToolCall> { call } });
-            followMessages.Add(new ChatMessage { Role = "tool", ToolCallId = call.Id, Content = toolResultJson });
-
-            var followReq = new UnifiedChatRequest
-            {
-                Stream = true,
-                Tools = toolDefinitions,
-                Messages = followMessages
+                Query = query ?? string.Empty,
+                PersonaSystemPrompt = personaSystemPrompt ?? string.Empty,
+                Cancellation = default
             };
-
-            var finalResponseBuilder = new StringBuilder();
-            await foreach (var chunk in _llm.StreamResponseAsync(followReq))
-            {
-                if (chunk.IsSuccess && !string.IsNullOrEmpty(chunk.Value?.ContentDelta))
-                {
-                    finalResponseBuilder.Append(chunk.Value.ContentDelta);
-                }
-                yield return chunk;
-            }
-
-            // --- 将最终结果写入缓存 ---
-            var finalResponse = finalResponseBuilder.ToString();
-            if (!string.IsNullOrEmpty(finalResponse))
-            {
-                _cache.Set(cacheKey, finalResponse, TimeSpan.FromMinutes(5));
-            }
-        }
-        
-        private string ComputeSummarizationCacheKey(string query, string toolResultJson)
-        {
-            var combined = $"{query}|{toolResultJson}";
-            using (var sha = SHA256.Create())
-            {
-                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(combined));
-                var sb = new StringBuilder(bytes.Length * 2);
-                foreach (var b in bytes)
-                    sb.Append(b.ToString("x2"));
-                return sb.ToString();
-            }
+            return strategy.ExecuteAsync(ctx);
         }
 
-        private static List<ChatMessage> BuildBaseMessages(string personaPrompt, string userQuery)
+        private static async IAsyncEnumerable<Result<UnifiedChatChunk>> FallbackFailure(string message)
         {
-            var msgs = new List<ChatMessage>();
-            if (!string.IsNullOrWhiteSpace(personaPrompt))
-            {
-                msgs.Add(new ChatMessage { Role = "system", Content = personaPrompt });
-            }
-            msgs.Add(new ChatMessage { Role = "user", Content = userQuery ?? string.Empty });
-            return msgs;
+            await System.Threading.Tasks.Task.CompletedTask;
+            yield return Result<UnifiedChatChunk>.Failure(message);
         }
     }
 }

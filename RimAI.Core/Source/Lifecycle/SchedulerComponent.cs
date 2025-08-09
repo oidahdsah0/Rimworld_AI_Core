@@ -1,4 +1,6 @@
 using RimAI.Core.Infrastructure;
+using RimAI.Core.Infrastructure.Configuration;
+using RimAI.Core.Modules.Embedding;
 using Verse;
 
 namespace RimAI.Core.Lifecycle
@@ -12,6 +14,7 @@ namespace RimAI.Core.Lifecycle
     public class SchedulerComponent : GameComponent
     {
         private readonly SchedulerService _scheduler;
+        private bool _toolIndexTickCheckTriggered;
 
         public SchedulerComponent(Game game) : base()
         {
@@ -25,6 +28,36 @@ namespace RimAI.Core.Lifecycle
             {
                 // 每 Tick 泵出队列，执行所有主线程任务。
                 _scheduler.Pump();
+
+                // S2.5（最小提示）：如索引正在构建，定期提示一次（每600 tick）。
+                // 后续可根据配置 BlockDuringBuild 决定是否阻断工具调用。
+                if (Find.TickManager.TicksGame % 600 == 0)
+                {
+                    var toolIndex = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Embedding.IToolVectorIndexService>();
+                    if (toolIndex.IsBuilding)
+                    {
+                        Infrastructure.CoreServices.Logger.Info("[ToolIndex] Building tool vector index...");
+                    }
+                }
+
+                // S2.5: 第 1000 Tick 触发一次自动构建检查（兼容无小人落地）
+                if (!_toolIndexTickCheckTriggered && Find.TickManager.TicksGame == 1000)
+                {
+                    try
+                    {
+                        var cfg = Infrastructure.CoreServices.Locator.Get<IConfigurationService>();
+                        if (cfg?.Current?.Embedding?.Tools?.AutoBuildOnStart ?? true)
+                        {
+                            var toolIndex = Infrastructure.CoreServices.Locator.Get<IToolVectorIndexService>();
+                            if (toolIndex != null && !toolIndex.IsReady && !toolIndex.IsBuilding)
+                            {
+                                _ = toolIndex.EnsureBuiltAsync();
+                            }
+                        }
+                    }
+                    catch { /* ignore */ }
+                    finally { _toolIndexTickCheckTriggered = true; }
+                }
             }
             catch (System.Exception ex)
             {

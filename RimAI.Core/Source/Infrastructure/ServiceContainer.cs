@@ -31,6 +31,11 @@ namespace RimAI.Core.Infrastructure
                      RimAI.Core.Infrastructure.Cache.CacheService>();
             Register<RimAI.Core.Modules.LLM.ILLMService,
                      RimAI.Core.Modules.LLM.LLMService>();
+            // P9-S2: Embedding & RAG
+            Register<RimAI.Core.Modules.Embedding.IEmbeddingService,
+                     RimAI.Core.Modules.Embedding.EmbeddingService>();
+            Register<RimAI.Core.Modules.Embedding.IRagIndexService,
+                     RimAI.Core.Modules.Embedding.RagIndexService>();
             // P3: SchedulerService 注册
             Register<RimAI.Core.Infrastructure.ISchedulerService,
                      RimAI.Core.Infrastructure.SchedulerService>();
@@ -43,6 +48,12 @@ namespace RimAI.Core.Infrastructure
             // P5: OrchestrationService 注册
             Register<RimAI.Core.Contracts.IOrchestrationService,
                      RimAI.Core.Modules.Orchestration.OrchestrationService>();
+            // P9-S1: 策略注册（Classic + EmbeddingFirst stub）
+            Register<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy,
+                     RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy>();
+            // EmbeddingFirst 先注册，后续可在配置切换
+            Register<RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy,
+                     RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy>();
             // P6: HistoryService 注册
             Register<RimAI.Core.Contracts.Services.IHistoryService,
                      RimAI.Core.Services.HistoryService>();
@@ -60,6 +71,22 @@ namespace RimAI.Core.Infrastructure
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));
+
+            // P9-S1: 组装策略集合供 OrchestrationService 注入（IEnumerable<IOrchestrationStrategy>）
+            var classic = (RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy)
+                Resolve(typeof(RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy));
+            var embeddingFirst = (RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy)
+                Resolve(typeof(RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy));
+            var stratList = new System.Collections.Generic.List<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy>
+            {
+                classic,
+                embeddingFirst
+            };
+            RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy>), stratList);
+
+            // S2.5: 注册工具向量索引服务
+            Register<RimAI.Core.Modules.Embedding.IToolVectorIndexService,
+                     RimAI.Core.Modules.Embedding.ToolVectorIndexService>();
 
             _initialized = true;
         }

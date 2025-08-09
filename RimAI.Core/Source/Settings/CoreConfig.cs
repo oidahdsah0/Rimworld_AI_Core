@@ -8,6 +8,8 @@ namespace RimAI.Core.Settings
         public LLMConfig LLM { get; init; } = new();
         public CacheConfig Cache { get; init; } = new();
         public EventAggregatorConfig EventAggregator { get; init; } = new();
+        public OrchestrationConfig Orchestration { get; init; } = new();
+        public EmbeddingConfig Embedding { get; init; } = new();
 
         public static CoreConfig CreateDefault() => new();
     }
@@ -58,5 +60,41 @@ namespace RimAI.Core.Settings
         /// 默认缓存过期时间（分钟）。
         /// </summary>
         public int DefaultExpirationMinutes { get; init; } = 5;
+    }
+
+    /// <summary>
+    /// 编排层配置。
+    /// </summary>
+    public sealed class OrchestrationConfig
+    {
+        /// <summary>
+        /// 策略选择：Classic | EmbeddingFirst。
+        /// </summary>
+        public string Strategy { get; init; } = "Classic";
+    }
+
+    /// <summary>
+    /// Embedding/RAG 相关配置（最小）。
+    /// </summary>
+    public sealed class EmbeddingConfig
+    {
+        public bool Enabled { get; init; } = true;
+        public int TopK { get; init; } = 5;
+        public int CacheMinutes { get; init; } = 60;
+        public int MaxContextChars { get; init; } = 2000;
+        public EmbeddingToolsConfig Tools { get; init; } = new();
+    }
+
+    /// <summary>
+    /// 工具向量库与匹配模式配置（预留，S2 仅占位）。
+    /// </summary>
+    public sealed class EmbeddingToolsConfig
+    {
+        public string Mode { get; init; } = "Classic"; // S2 暂不启用
+        public double Top1Threshold { get; init; } = 0.82;
+        public double LightningTop1Threshold { get; init; } = 0.86;
+        public string IndexPath { get; init; } = "auto";
+        public bool AutoBuildOnStart { get; init; } = true;
+        public bool BlockDuringBuild { get; init; } = true;
     }
 }

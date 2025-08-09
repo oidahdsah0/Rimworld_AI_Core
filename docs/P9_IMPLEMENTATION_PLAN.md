@@ -360,7 +360,7 @@ Embedding: {
 
 > 目标：将 P9 拆分为可独立合并与回滚的最小增量（每片≤~600行变更），每片均可由 Debug 面板或日志进行端到端验证。
 
-#### S1 – 策略接口与骨架（对外无行为变化，对内可切换架构）
+#### S1 – 策略接口与骨架（对外无行为变化，对内可切换架构）【状态：已完成】
 - 代码范围（仅骨架）：
   - 新增：`Source/Modules/Orchestration/Strategies/IOrchestrationStrategy.cs`
   - 新增：`Source/Modules/Orchestration/Strategies/ClassicStrategy.cs`（迁出既有五步逻辑，功能等价）
@@ -373,12 +373,12 @@ Embedding: {
 - 回滚：删除策略接口与 EmbeddingFirst 占位文件，`OrchestrationService` 回退为单实现
 - 预计人日：0.5d（与 M1 对齐）
 
-#### S2 – Embedding 与 RAG 最小集成（EmbeddingFirst 可用，默认仍 Classic）
+#### S2 – Embedding 与 RAG 最小集成（EmbeddingFirst 可用，默认仍 Classic）【状态：已完成】
 - 代码范围：
   - 新增：`Source/Modules/Embedding/IEmbeddingService.cs` + `EmbeddingService.cs`
   - 新增：`Source/Modules/Embedding/IRagIndexService.cs` + `RagIndexService.cs`（内存索引，余弦相似度）
   - 修改：`EmbeddingFirstStrategy` 实现 Step 0（查询→Embedding→TopK→上下文注入→继续工具流程）
-  - 修改：`CacheService` 旁路封装或在 `EmbeddingService` 内部实现 `embed:sha256(text)` 缓存（TTL=60m）
+  - 修改：`EmbeddingService` 对齐 `RimAI.Framework.API.RimAIApi.GetEmbeddingsAsync`，不重复实现 Provider/并发/翻译；仅保留轻量缓存（TTL 读取 `Embedding.CacheMinutes`）与错误处理
   - 修改：`CoreConfig` 增加 `Embedding` 与 `Orchestration.Strategy`（默认 Classic），支持热重载（通过 `IConfigurationService`）
 - Gate：
   - 切换配置为 `EmbeddingFirst` 后，RAG 命中（日志含 DocIds/Score），故障自动回退 Classic 并有降级提示
@@ -387,19 +387,20 @@ Embedding: {
 - 回滚：`Orchestration.Strategy=Classic`，或 `Embedding.Enabled=false`
 - 预计人日：1.0d（S2 是 M2 的子集，保守留 1.0d）
 
-#### S2.5 – 工具向量库自动向量化（启动/落地检测 + 工具阻断，优先交付）
+#### S2.5 – 工具向量库自动向量化（启动/第1000 Tick 检测 + 工具阻断，优先交付）【状态：已完成】
 - 代码范围：
   - 新增：`Source/Modules/Embedding/IToolVectorIndexService.cs` + `ToolVectorIndexService.cs`
   - 新增：工具索引文件格式（JSON），文件名：`tools_index_{provider}_{model}.json`（存放于 `Embedding.Tools.IndexPath`，auto=ModSettings 目录）
-  - 修改：在“游戏开始/小人落地”事件点检测索引是否存在；若不存在则启动全量向量化（期间禁止工具相关功能）
+  - 修改：在“游戏开始/第1000 Tick”检测索引是否存在；若不存在则启动全量向量化（期间可选阻断工具相关功能）
   - 修改：向量化规则：每个真实工具名生成两条向量项（`name`、`description`），两者均指向同一真实工具名；匹配时对同名项的分数做求和聚合（`score = nameScore * w_name + descScore * w_desc`）
   - 限制：工具数约≤100，对应索引项≤200（含 name/description）
   - 完成后：自动保存索引文件并通知（日志 + UI 提示）；指纹随文件保存
 - Gate：
-  - 首次进入（或索引缺失）自动触发构建；构建期间任何工具相关路径被阻断（Orchestration 在工具环节直接降级/等待）
-  - 构建完毕：索引文件落地、日志打印 provider/model/dimension、项数与耗时；UI 弹出“工具向量库已就绪”提示
+  - 首次进入（或索引缺失）自动触发构建；构建期间若开启阻断，任何工具相关路径被拦截（`ToolRegistryService.ExecuteToolAsync`）
+  - 构建完毕：索引文件落地、日志打印 provider/model/requestedDim(0=默认)/actualDim、项数与耗时；UI 弹出“工具向量库已就绪”提示
   - 复现：删除索引文件后重进游戏，观察重新构建与阻断生效
-- 回滚：`Embedding.Tools.AutoBuildOnStart=false` 或 `Embedding.Tools.BlockDuringBuild=false`（不阻断，仅降级 Classic 全工具暴露）
+  - 回滚：`Embedding.Tools.AutoBuildOnStart=false` 或 `Embedding.Tools.BlockDuringBuild=false`（不阻断，仅降级 Classic 全工具暴露）
+  - 细节：索引元数据包含 `{ provider, model, requestedDimension, dimension }`；加载时如发现与当前设置/实际维度不一致，应触发重建
 - 预计人日：0.4d（独立于匹配模式，优先交付）
 
 #### S3 – 工具向量库与匹配模式（Lightning/FastTop1/NarrowTopK/Classic）
@@ -450,6 +451,22 @@ Embedding: {
 - 预计人日：0.5d（对应 M4）
 
 备注：所有切片均遵循“可回退、可录像、可观测”的提交要求；每个 PR 必须附带：变更点清单、配置默认值与回滚指引、Debug 面板复现步骤与短录像链接。
+
+#### S7 – 合约与内部接口收尾（Contracts 对齐）
+- 代码范围：
+  - 新增（Contracts 暴露，稳定 API）：`RimAI.Core.Contracts.Services.IConfigurationService (ReadOnly)` 或命名 `IConfigurationReader`（二选一，倾向保持文档命名），仅暴露 `Current` 不可变快照；不提供写入/重载方法
+  - 新增（Contracts DTO）：`CoreConfigSnapshot`（无 `Verse` 依赖；字段为对外必要最小子集）
+  - 修改（Core 实现）：内部 `ConfigurationService` 同时实现 Contracts 只读接口 + 内部写接口 `RimAI.Core.Infrastructure.Configuration.IConfigurationService`
+  - 锁定（保留在 Core 内部，不进 Contracts）：`ILLMService`、`ISchedulerService`、`ICacheService`、`IPersistenceService`、`IEmbeddingService`、`IRagIndexService`、`IToolVectorIndexService`、`IOrchestrationStrategy`
+  - 文档：更新 `ARCHITECTURE_V4.md` 第 4.5 表格，标注 `IConfigurationService (ReadOnly)`；更新 `README_zh-CN.md` 模块职责表
+- Gate：
+  - `RimAI.Core.Contracts` 不引用 `Verse`/Unity 类型；新增接口与 DTO 通过编译
+  - Core 编译通过；现有功能行为不变（仅补充对外只读入口）
+  - 用一个最小示例（或单元测试）验证：第三方仅引用 Contracts 可读取只读配置快照
+  - 文档与代码签名一致（表格中的接口名称与源码匹配）
+- 回滚：
+  - 暂不在 Contracts 暴露配置接口；外部仅依赖 `IOrchestrationService`，内部接口不变
+- 预计人日：0.3d
 
 ## 10. 回滚方案
 - 配置 `Orchestration.Strategy = "Classic"` 即刻回退。

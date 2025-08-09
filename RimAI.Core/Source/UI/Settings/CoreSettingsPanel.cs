@@ -93,6 +93,75 @@ namespace RimAI.Core.UI.Settings
                 list.Gap(UIControlSpacing);
             }
 
+            // 保存/重置：仅作用于「工具匹配 - 模式」本区字段
+            DrawSaveResetRow(list, "保存本区设置",
+                onSave: () =>
+                {
+                    try
+                    {
+                        var config = CoreServices.Locator.Get<IConfigurationService>();
+                        var cur = config.Current;
+                        var draftTools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
+                        var newCfg = new CoreConfig
+                        {
+                            LLM = cur.LLM,
+                            EventAggregator = cur.EventAggregator,
+                            Orchestration = cur.Orchestration,
+                            Embedding = new EmbeddingConfig
+                            {
+                                Enabled = cur.Embedding?.Enabled ?? true,
+                                TopK = cur.Embedding?.TopK ?? 5,
+                                MaxContextChars = cur.Embedding?.MaxContextChars ?? 2000,
+                                Tools = new EmbeddingToolsConfig
+                                {
+                                    Mode = draftTools.Mode, // 仅更新模式
+                                    Top1Threshold = cur.Embedding?.Tools?.Top1Threshold ?? 0.82,
+                                    LightningTop1Threshold = cur.Embedding?.Tools?.LightningTop1Threshold ?? 0.86,
+                                    IndexPath = cur.Embedding?.Tools?.IndexPath ?? "auto",
+                                    AutoBuildOnStart = cur.Embedding?.Tools?.AutoBuildOnStart ?? true,
+                                    BlockDuringBuild = cur.Embedding?.Tools?.BlockDuringBuild ?? true,
+                                    ScoreWeights = cur.Embedding?.Tools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
+                                    DynamicThresholds = cur.Embedding?.Tools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
+                                }
+                            }
+                        };
+                        config.Apply(newCfg);
+                        Verse.Messages.Message("RimAI: 已应用 ‘工具匹配-模式’ 设置", RimWorld.MessageTypeDefOf.TaskCompletion, historical: false);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Verse.Messages.Message("RimAI: 应用失败 - " + ex.Message, RimWorld.MessageTypeDefOf.RejectInput, historical: false);
+                    }
+                },
+                resetLabel: "重置本区设置",
+                onReset: () =>
+                {
+                    // 恢复为默认 FastTop1 模式（不立即应用，仅更新草稿）
+                    _draft = new CoreConfig
+                    {
+                        LLM = _draft.LLM,
+                        EventAggregator = _draft.EventAggregator,
+                        Orchestration = _draft.Orchestration,
+                        Embedding = new EmbeddingConfig
+                        {
+                            Enabled = _draft?.Embedding?.Enabled ?? true,
+                            TopK = _draft?.Embedding?.TopK ?? 5,
+                            MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
+                            Tools = new EmbeddingToolsConfig
+                            {
+                                Mode = "FastTop1",
+                                Top1Threshold = _draft?.Embedding?.Tools?.Top1Threshold ?? 0.82,
+                                LightningTop1Threshold = _draft?.Embedding?.Tools?.LightningTop1Threshold ?? 0.86,
+                                IndexPath = _draft?.Embedding?.Tools?.IndexPath ?? "auto",
+                                AutoBuildOnStart = _draft?.Embedding?.Tools?.AutoBuildOnStart ?? true,
+                                BlockDuringBuild = _draft?.Embedding?.Tools?.BlockDuringBuild ?? true,
+                                ScoreWeights = _draft?.Embedding?.Tools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
+                                DynamicThresholds = _draft?.Embedding?.Tools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
+                            }
+                        }
+                    };
+                });
+
             list.GapLine();
             SectionTitle(list, $"{section++}. 工具匹配 - 参数");
             // 工具匹配参数
@@ -122,23 +191,52 @@ namespace RimAI.Core.UI.Settings
                 };
             }
 
-            // 区域重置按钮（仅重置“工具匹配 - 参数”相关项）
-            if (DrawResetButton(list, "重置本区设置"))
-            {
-                _draft = new CoreConfig
+            // 保存/重置：仅作用于「工具匹配 - 参数」本区字段
+            DrawSaveResetRow(list, "保存本区设置",
+                onSave: () =>
                 {
-                    LLM = _draft.LLM,
-                    EventAggregator = _draft.EventAggregator,
-                    Orchestration = _draft.Orchestration,
-                    Embedding = new EmbeddingConfig
+                    try
                     {
-                        Enabled = true,
-                        TopK = 5,
-                        MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
-                        Tools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig()
+                        var config = CoreServices.Locator.Get<IConfigurationService>();
+                        var cur = config.Current;
+                        var newCfg = new CoreConfig
+                        {
+                            LLM = cur.LLM,
+                            EventAggregator = cur.EventAggregator,
+                            Orchestration = cur.Orchestration,
+                            Embedding = new EmbeddingConfig
+                            {
+                                Enabled = cur.Embedding?.Enabled ?? true,
+                                TopK = _draft?.Embedding?.TopK ?? (cur.Embedding?.TopK ?? 5), // 仅更新 TopK
+                                MaxContextChars = cur.Embedding?.MaxContextChars ?? 2000,
+                                Tools = cur.Embedding?.Tools ?? new EmbeddingToolsConfig()
+                            }
+                        };
+                        config.Apply(newCfg);
+                        Verse.Messages.Message("RimAI: 已应用 ‘工具匹配-参数’ 设置", RimWorld.MessageTypeDefOf.TaskCompletion, historical: false);
                     }
-                };
-            }
+                    catch (System.Exception ex)
+                    {
+                        Verse.Messages.Message("RimAI: 应用失败 - " + ex.Message, RimWorld.MessageTypeDefOf.RejectInput, historical: false);
+                    }
+                },
+                resetLabel: "重置本区设置",
+                onReset: () =>
+                {
+                    _draft = new CoreConfig
+                    {
+                        LLM = _draft.LLM,
+                        EventAggregator = _draft.EventAggregator,
+                        Orchestration = _draft.Orchestration,
+                        Embedding = new EmbeddingConfig
+                        {
+                            Enabled = true,
+                            TopK = 5,
+                            MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
+                            Tools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig()
+                        }
+                    };
+                });
 
             list.GapLine();
             SectionTitle(list, $"{section++}. 工具匹配 - 阈值与权重");
@@ -223,34 +321,74 @@ namespace RimAI.Core.UI.Settings
                 toolsCfg = _draft.Embedding.Tools;
             }
 
-            // 区域重置按钮（仅重置“阈值与权重”）
-            if (DrawResetButton(list, "重置本区设置"))
-            {
-                var currentTools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
-                _draft = new CoreConfig
+            // 保存/重置：仅作用于「工具匹配 - 阈值与权重」本区字段
+            DrawSaveResetRow(list, "保存本区设置",
+                onSave: () =>
                 {
-                    LLM = _draft.LLM,
-                    EventAggregator = _draft.EventAggregator,
-                    Orchestration = _draft.Orchestration,
-                    Embedding = new EmbeddingConfig
+                    try
                     {
-                        Enabled = _draft?.Embedding?.Enabled ?? true,
-                        TopK = _draft?.Embedding?.TopK ?? 5,
-                        MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
-                        Tools = new EmbeddingToolsConfig
+                        var config = CoreServices.Locator.Get<IConfigurationService>();
+                        var cur = config.Current;
+                        var dt = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
+                        var newCfg = new CoreConfig
                         {
-                            Mode = currentTools?.Mode ?? "Classic",
-                            Top1Threshold = 0.82,
-                            LightningTop1Threshold = 0.86,
-                            IndexPath = currentTools?.IndexPath ?? "auto",
-                            AutoBuildOnStart = currentTools?.AutoBuildOnStart ?? true,
-                            BlockDuringBuild = currentTools?.BlockDuringBuild ?? true,
-                            ScoreWeights = new EmbeddingToolsScoreWeights { Name = 0.6, Description = 0.4 },
-                            DynamicThresholds = currentTools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
-                        }
+                            LLM = cur.LLM,
+                            EventAggregator = cur.EventAggregator,
+                            Orchestration = cur.Orchestration,
+                            Embedding = new EmbeddingConfig
+                            {
+                                Enabled = cur.Embedding?.Enabled ?? true,
+                                TopK = cur.Embedding?.TopK ?? 5,
+                                MaxContextChars = cur.Embedding?.MaxContextChars ?? 2000,
+                                Tools = new EmbeddingToolsConfig
+                                {
+                                    Mode = cur.Embedding?.Tools?.Mode ?? "Classic",
+                                    Top1Threshold = dt.Top1Threshold,
+                                    LightningTop1Threshold = dt.LightningTop1Threshold,
+                                    IndexPath = cur.Embedding?.Tools?.IndexPath ?? "auto",
+                                    AutoBuildOnStart = cur.Embedding?.Tools?.AutoBuildOnStart ?? true,
+                                    BlockDuringBuild = cur.Embedding?.Tools?.BlockDuringBuild ?? true,
+                                    ScoreWeights = dt.ScoreWeights ?? new EmbeddingToolsScoreWeights { Name = 0.6, Description = 0.4 },
+                                    DynamicThresholds = cur.Embedding?.Tools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
+                                }
+                            }
+                        };
+                        config.Apply(newCfg);
+                        Verse.Messages.Message("RimAI: 已应用 ‘阈值与权重’ 设置", RimWorld.MessageTypeDefOf.TaskCompletion, historical: false);
                     }
-                };
-            }
+                    catch (System.Exception ex)
+                    {
+                        Verse.Messages.Message("RimAI: 应用失败 - " + ex.Message, RimWorld.MessageTypeDefOf.RejectInput, historical: false);
+                    }
+                },
+                resetLabel: "重置本区设置",
+                onReset: () =>
+                {
+                    var currentTools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
+                    _draft = new CoreConfig
+                    {
+                        LLM = _draft.LLM,
+                        EventAggregator = _draft.EventAggregator,
+                        Orchestration = _draft.Orchestration,
+                        Embedding = new EmbeddingConfig
+                        {
+                            Enabled = _draft?.Embedding?.Enabled ?? true,
+                            TopK = _draft?.Embedding?.TopK ?? 5,
+                            MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
+                            Tools = new EmbeddingToolsConfig
+                            {
+                                Mode = currentTools?.Mode ?? "Classic",
+                                Top1Threshold = 0.82,
+                                LightningTop1Threshold = 0.86,
+                                IndexPath = currentTools?.IndexPath ?? "auto",
+                                AutoBuildOnStart = currentTools?.AutoBuildOnStart ?? true,
+                                BlockDuringBuild = currentTools?.BlockDuringBuild ?? true,
+                                ScoreWeights = new EmbeddingToolsScoreWeights { Name = 0.6, Description = 0.4 },
+                                DynamicThresholds = currentTools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
+                            }
+                        }
+                    };
+                });
 
             list.GapLine();
             SectionTitle(list, $"{section++}. 向量索引 - 构建与阻断");
@@ -291,34 +429,74 @@ namespace RimAI.Core.UI.Settings
                 toolsCfg = _draft.Embedding.Tools;
             }
 
-            // 区域重置按钮（仅重置“向量索引 - 构建与阻断”）
-            if (DrawResetButton(list, "重置本区设置"))
-            {
-                var currentTools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
-                _draft = new CoreConfig
+            // 保存/重置：仅作用于「向量索引 - 构建与阻断」本区字段
+            DrawSaveResetRow(list, "保存本区设置",
+                onSave: () =>
                 {
-                    LLM = _draft.LLM,
-                    EventAggregator = _draft.EventAggregator,
-                    Orchestration = _draft.Orchestration,
-                    Embedding = new EmbeddingConfig
+                    try
                     {
-                        Enabled = _draft?.Embedding?.Enabled ?? true,
-                        TopK = _draft?.Embedding?.TopK ?? 5,
-                        MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
-                        Tools = new EmbeddingToolsConfig
+                        var config = CoreServices.Locator.Get<IConfigurationService>();
+                        var cur = config.Current;
+                        var dt = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
+                        var newCfg = new CoreConfig
                         {
-                            Mode = currentTools?.Mode ?? "Classic",
-                            Top1Threshold = currentTools?.Top1Threshold ?? 0.82,
-                            LightningTop1Threshold = currentTools?.LightningTop1Threshold ?? 0.86,
-                            IndexPath = currentTools?.IndexPath ?? "auto",
-                            AutoBuildOnStart = true,
-                            BlockDuringBuild = true,
-                            ScoreWeights = currentTools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
-                            DynamicThresholds = currentTools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
-                        }
+                            LLM = cur.LLM,
+                            EventAggregator = cur.EventAggregator,
+                            Orchestration = cur.Orchestration,
+                            Embedding = new EmbeddingConfig
+                            {
+                                Enabled = cur.Embedding?.Enabled ?? true,
+                                TopK = cur.Embedding?.TopK ?? 5,
+                                MaxContextChars = cur.Embedding?.MaxContextChars ?? 2000,
+                                Tools = new EmbeddingToolsConfig
+                                {
+                                    Mode = cur.Embedding?.Tools?.Mode ?? "Classic",
+                                    Top1Threshold = cur.Embedding?.Tools?.Top1Threshold ?? 0.82,
+                                    LightningTop1Threshold = cur.Embedding?.Tools?.LightningTop1Threshold ?? 0.86,
+                                    IndexPath = cur.Embedding?.Tools?.IndexPath ?? "auto",
+                                    AutoBuildOnStart = dt.AutoBuildOnStart,
+                                    BlockDuringBuild = dt.BlockDuringBuild,
+                                    ScoreWeights = cur.Embedding?.Tools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
+                                    DynamicThresholds = cur.Embedding?.Tools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
+                                }
+                            }
+                        };
+                        config.Apply(newCfg);
+                        Verse.Messages.Message("RimAI: 已应用 ‘构建与阻断’ 设置", RimWorld.MessageTypeDefOf.TaskCompletion, historical: false);
                     }
-                };
-            }
+                    catch (System.Exception ex)
+                    {
+                        Verse.Messages.Message("RimAI: 应用失败 - " + ex.Message, RimWorld.MessageTypeDefOf.RejectInput, historical: false);
+                    }
+                },
+                resetLabel: "重置本区设置",
+                onReset: () =>
+                {
+                    var currentTools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
+                    _draft = new CoreConfig
+                    {
+                        LLM = _draft.LLM,
+                        EventAggregator = _draft.EventAggregator,
+                        Orchestration = _draft.Orchestration,
+                        Embedding = new EmbeddingConfig
+                        {
+                            Enabled = _draft?.Embedding?.Enabled ?? true,
+                            TopK = _draft?.Embedding?.TopK ?? 5,
+                            MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
+                            Tools = new EmbeddingToolsConfig
+                            {
+                                Mode = currentTools?.Mode ?? "Classic",
+                                Top1Threshold = currentTools?.Top1Threshold ?? 0.82,
+                                LightningTop1Threshold = currentTools?.LightningTop1Threshold ?? 0.86,
+                                IndexPath = currentTools?.IndexPath ?? "auto",
+                                AutoBuildOnStart = true,
+                                BlockDuringBuild = true,
+                                ScoreWeights = currentTools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
+                                DynamicThresholds = currentTools?.DynamicThresholds ?? new EmbeddingDynamicThresholds()
+                            }
+                        }
+                    };
+                });
 
             list.GapLine();
             SectionTitle(list, $"{section++}. 工具匹配 - 动态阈值");
@@ -381,34 +559,80 @@ namespace RimAI.Core.UI.Settings
             }
 
             // 轻量规划器（S4）
-            // 区域重置按钮（仅重置“动态阈值”）
-            if (DrawResetButton(list, "重置本区设置"))
-            {
-                var currentTools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
-                _draft = new CoreConfig
+            // 保存/重置：仅作用于「工具匹配 - 动态阈值」本区字段
+            DrawSaveResetRow(list, "保存本区设置",
+                onSave: () =>
                 {
-                    LLM = _draft.LLM,
-                    EventAggregator = _draft.EventAggregator,
-                    Orchestration = _draft.Orchestration,
-                    Embedding = new EmbeddingConfig
+                    try
                     {
-                        Enabled = _draft?.Embedding?.Enabled ?? true,
-                        TopK = _draft?.Embedding?.TopK ?? 5,
-                        MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
-                        Tools = new EmbeddingToolsConfig
+                        var config = CoreServices.Locator.Get<IConfigurationService>();
+                        var cur = config.Current;
+                        var dt = _draft?.Embedding?.Tools?.DynamicThresholds ?? new EmbeddingDynamicThresholds();
+                        var newCfg = new CoreConfig
                         {
-                            Mode = currentTools?.Mode ?? "Classic",
-                            Top1Threshold = currentTools?.Top1Threshold ?? 0.82,
-                            LightningTop1Threshold = currentTools?.LightningTop1Threshold ?? 0.86,
-                            IndexPath = currentTools?.IndexPath ?? "auto",
-                            AutoBuildOnStart = currentTools?.AutoBuildOnStart ?? true,
-                            BlockDuringBuild = currentTools?.BlockDuringBuild ?? true,
-                            ScoreWeights = currentTools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
-                            DynamicThresholds = new EmbeddingDynamicThresholds { Enabled = true, Smoothing = 0.2, MinTop1 = 0.78, MaxTop1 = 0.90 }
-                        }
+                            LLM = cur.LLM,
+                            EventAggregator = cur.EventAggregator,
+                            Orchestration = cur.Orchestration,
+                            Embedding = new EmbeddingConfig
+                            {
+                                Enabled = cur.Embedding?.Enabled ?? true,
+                                TopK = cur.Embedding?.TopK ?? 5,
+                                MaxContextChars = cur.Embedding?.MaxContextChars ?? 2000,
+                                Tools = new EmbeddingToolsConfig
+                                {
+                                    Mode = cur.Embedding?.Tools?.Mode ?? "Classic",
+                                    Top1Threshold = cur.Embedding?.Tools?.Top1Threshold ?? 0.82,
+                                    LightningTop1Threshold = cur.Embedding?.Tools?.LightningTop1Threshold ?? 0.86,
+                                    IndexPath = cur.Embedding?.Tools?.IndexPath ?? "auto",
+                                    AutoBuildOnStart = cur.Embedding?.Tools?.AutoBuildOnStart ?? true,
+                                    BlockDuringBuild = cur.Embedding?.Tools?.BlockDuringBuild ?? true,
+                                    ScoreWeights = cur.Embedding?.Tools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
+                                    DynamicThresholds = new EmbeddingDynamicThresholds
+                                    {
+                                        Enabled = dt.Enabled,
+                                        Smoothing = dt.Smoothing,
+                                        MinTop1 = dt.MinTop1,
+                                        MaxTop1 = dt.MaxTop1
+                                    }
+                                }
+                            }
+                        };
+                        config.Apply(newCfg);
+                        Verse.Messages.Message("RimAI: 已应用 ‘动态阈值’ 设置", RimWorld.MessageTypeDefOf.TaskCompletion, historical: false);
                     }
-                };
-            }
+                    catch (System.Exception ex)
+                    {
+                        Verse.Messages.Message("RimAI: 应用失败 - " + ex.Message, RimWorld.MessageTypeDefOf.RejectInput, historical: false);
+                    }
+                },
+                resetLabel: "重置本区设置",
+                onReset: () =>
+                {
+                    var currentTools = _draft?.Embedding?.Tools ?? new EmbeddingToolsConfig();
+                    _draft = new CoreConfig
+                    {
+                        LLM = _draft.LLM,
+                        EventAggregator = _draft.EventAggregator,
+                        Orchestration = _draft.Orchestration,
+                        Embedding = new EmbeddingConfig
+                        {
+                            Enabled = _draft?.Embedding?.Enabled ?? true,
+                            TopK = _draft?.Embedding?.TopK ?? 5,
+                            MaxContextChars = _draft?.Embedding?.MaxContextChars ?? 2000,
+                            Tools = new EmbeddingToolsConfig
+                            {
+                                Mode = currentTools?.Mode ?? "Classic",
+                                Top1Threshold = currentTools?.Top1Threshold ?? 0.82,
+                                LightningTop1Threshold = currentTools?.LightningTop1Threshold ?? 0.86,
+                                IndexPath = currentTools?.IndexPath ?? "auto",
+                                AutoBuildOnStart = currentTools?.AutoBuildOnStart ?? true,
+                                BlockDuringBuild = currentTools?.BlockDuringBuild ?? true,
+                                ScoreWeights = currentTools?.ScoreWeights ?? new EmbeddingToolsScoreWeights(),
+                                DynamicThresholds = new EmbeddingDynamicThresholds { Enabled = true, Smoothing = 0.2, MinTop1 = 0.78, MaxTop1 = 0.90 }
+                            }
+                        }
+                    };
+                });
 
             list.GapLine();
             SectionTitle(list, $"{section++}. 编排 - 轻量规划器（S4）");
@@ -474,30 +698,67 @@ namespace RimAI.Core.UI.Settings
             }
 
             // 进度模板（即时反馈行的渲染格式）
-            // 区域重置按钮（仅重置“轻量规划器”）
-            if (DrawResetButton(list, "重置本区设置"))
-            {
-                _draft = new CoreConfig
+            // 保存/重置：仅作用于「编排 - 轻量规划器（S4）」本区字段
+            DrawSaveResetRow(list, "保存本区设置",
+                onSave: () =>
                 {
-                    LLM = _draft.LLM,
-                    EventAggregator = _draft.EventAggregator,
-                    Orchestration = new OrchestrationConfig
+                    try
                     {
-                        Strategy = _draft.Orchestration.Strategy,
-                        Planning = new PlanningConfig
+                        var config = CoreServices.Locator.Get<IConfigurationService>();
+                        var cur = config.Current;
+                        var dp = _draft?.Orchestration?.Planning ?? new PlanningConfig();
+                        var newCfg = new CoreConfig
                         {
-                            EnableLightChaining = false,
-                            MaxSteps = 3,
-                            AllowParallel = false,
-                            MaxParallelism = 2,
-                            FanoutPerStage = 3,
-                            SatisfactionThreshold = 0.8
+                            LLM = cur.LLM,
+                            EventAggregator = cur.EventAggregator,
+                            Orchestration = new OrchestrationConfig
+                            {
+                                Strategy = cur.Orchestration?.Strategy ?? "Classic",
+                                Planning = new PlanningConfig
+                                {
+                                    EnableLightChaining = dp.EnableLightChaining,
+                                    MaxSteps = dp.MaxSteps,
+                                    AllowParallel = dp.AllowParallel,
+                                    MaxParallelism = dp.MaxParallelism,
+                                    FanoutPerStage = dp.FanoutPerStage,
+                                    SatisfactionThreshold = dp.SatisfactionThreshold
+                                },
+                                Progress = cur.Orchestration?.Progress ?? new OrchestrationProgressConfig()
+                            },
+                            Embedding = cur.Embedding
+                        };
+                        config.Apply(newCfg);
+                        Verse.Messages.Message("RimAI: 已应用 ‘轻量规划器’ 设置", RimWorld.MessageTypeDefOf.TaskCompletion, historical: false);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Verse.Messages.Message("RimAI: 应用失败 - " + ex.Message, RimWorld.MessageTypeDefOf.RejectInput, historical: false);
+                    }
+                },
+                resetLabel: "重置本区设置",
+                onReset: () =>
+                {
+                    _draft = new CoreConfig
+                    {
+                        LLM = _draft.LLM,
+                        EventAggregator = _draft.EventAggregator,
+                        Orchestration = new OrchestrationConfig
+                        {
+                            Strategy = _draft.Orchestration.Strategy,
+                            Planning = new PlanningConfig
+                            {
+                                EnableLightChaining = false,
+                                MaxSteps = 3,
+                                AllowParallel = false,
+                                MaxParallelism = 2,
+                                FanoutPerStage = 3,
+                                SatisfactionThreshold = 0.8
+                            },
+                            Progress = _draft.Orchestration.Progress
                         },
-                        Progress = _draft.Orchestration.Progress
-                    },
-                    Embedding = _draft.Embedding
-                };
-            }
+                        Embedding = _draft.Embedding
+                    };
+                });
 
             list.GapLine();
             SectionTitle(list, $"{section++}. 编排 - 进度模板");
@@ -555,27 +816,61 @@ namespace RimAI.Core.UI.Settings
                 progressCfg = _draft.Orchestration.Progress;
             }
 
-            // 区域重置按钮（仅重置“进度模板”）
-            if (DrawResetButton(list, "重置本区设置"))
-            {
-                _draft = new CoreConfig
+            // 保存/重置：仅作用于「编排 - 进度模板」本区字段
+            DrawSaveResetRow(list, "保存本区设置",
+                onSave: () =>
                 {
-                    LLM = _draft.LLM,
-                    EventAggregator = _draft.EventAggregator,
-                    Orchestration = new OrchestrationConfig
+                    try
                     {
-                        Strategy = _draft.Orchestration.Strategy,
-                        Planning = _draft.Orchestration.Planning,
-                        Progress = new OrchestrationProgressConfig
+                        var config = CoreServices.Locator.Get<IConfigurationService>();
+                        var cur = config.Current;
+                        var pr = _draft?.Orchestration?.Progress ?? new OrchestrationProgressConfig();
+                        var newCfg = new CoreConfig
                         {
-                            DefaultTemplate = "[${Source}] ${Stage}: ${Message}".Replace("${","{").Replace("}","}"),
-                            StageTemplates = new Dictionary<string, string>(),
-                            PayloadPreviewChars = 200
-                        }
-                    },
-                    Embedding = _draft.Embedding
-                };
-            }
+                            LLM = cur.LLM,
+                            EventAggregator = cur.EventAggregator,
+                            Orchestration = new OrchestrationConfig
+                            {
+                                Strategy = cur.Orchestration?.Strategy ?? "Classic",
+                                Planning = cur.Orchestration?.Planning ?? new PlanningConfig(),
+                                Progress = new OrchestrationProgressConfig
+                                {
+                                    DefaultTemplate = pr.DefaultTemplate,
+                                    StageTemplates = pr.StageTemplates,
+                                    PayloadPreviewChars = pr.PayloadPreviewChars
+                                }
+                            },
+                            Embedding = cur.Embedding
+                        };
+                        config.Apply(newCfg);
+                        Verse.Messages.Message("RimAI: 已应用 ‘进度模板’ 设置", RimWorld.MessageTypeDefOf.TaskCompletion, historical: false);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Verse.Messages.Message("RimAI: 应用失败 - " + ex.Message, RimWorld.MessageTypeDefOf.RejectInput, historical: false);
+                    }
+                },
+                resetLabel: "重置本区设置",
+                onReset: () =>
+                {
+                    _draft = new CoreConfig
+                    {
+                        LLM = _draft.LLM,
+                        EventAggregator = _draft.EventAggregator,
+                        Orchestration = new OrchestrationConfig
+                        {
+                            Strategy = _draft.Orchestration.Strategy,
+                            Planning = _draft.Orchestration.Planning,
+                            Progress = new OrchestrationProgressConfig
+                            {
+                                DefaultTemplate = "[${Source}] ${Stage}: ${Message}".Replace("${","{").Replace("}","}"),
+                                StageTemplates = new Dictionary<string, string>(),
+                                PayloadPreviewChars = 200
+                            }
+                        },
+                        Embedding = _draft.Embedding
+                    };
+                });
 
             // 常用阶段模板快捷编辑
             var commonStages = new[] { "ToolMatch", "Planner", "FinalPrompt" };
@@ -775,6 +1070,20 @@ namespace RimAI.Core.UI.Settings
             float width = 160f;
             var rect = new Rect(row.xMax - width, row.y, width, row.height);
             return Widgets.ButtonText(rect, label);
+        }
+
+        /// <summary>
+        /// 在当前区块尾部绘制 “保存本区设置 / 重置本区设置” 两个按钮，并绑定回调。
+        /// </summary>
+        private static void DrawSaveResetRow(Listing_Standard list, string saveLabel, System.Action onSave, string resetLabel, System.Action onReset)
+        {
+            var row = list.GetRect(28f);
+            float w = 160f;
+            float gap = 8f;
+            var saveRect = new Rect(row.xMax - (w * 2 + gap), row.y, w, row.height);
+            var resetRect = new Rect(row.xMax - w, row.y, w, row.height);
+            if (Widgets.ButtonText(saveRect, saveLabel)) onSave?.Invoke();
+            if (Widgets.ButtonText(resetRect, resetLabel)) onReset?.Invoke();
         }
 
         private static string GetDefaultIndexBasePath()

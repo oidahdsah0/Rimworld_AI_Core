@@ -1,5 +1,7 @@
 using RimAI.Core.Infrastructure;
 using Verse;
+using UnityEngine;
+using RimAI.Core.UI.Settings;
 
 namespace RimAI.Core.Lifecycle
 {
@@ -9,10 +11,15 @@ namespace RimAI.Core.Lifecycle
     /// </summary>
     public class RimAIMod : Mod
     {
+        private CoreSettingsPanel _panel;
+
         public RimAIMod(ModContentPack content) : base(content)
         {
             // 初始化依赖注入容器（P0 手动注册）。
             ServiceContainer.Init();
+
+            // 初始化设置面板
+            _panel = new CoreSettingsPanel();
 
             // S2.5：确保工具向量索引存在（首次构建）。构建期间可阻断工具功能（后续接入）。
             try
@@ -34,5 +41,12 @@ namespace RimAI.Core.Lifecycle
 
             CoreServices.Logger.Info("RimAI v4 Skeleton Loaded");
         }
+
+        public override void DoSettingsWindowContents(Rect inRect)
+        {
+            _panel?.Draw(inRect);
+        }
+
+        public override string SettingsCategory() => "RimAI Core";
     }
 }

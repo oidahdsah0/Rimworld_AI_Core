@@ -19,6 +19,31 @@ namespace RimAI.Core.Infrastructure.Configuration
             // TODO: RimWorld 设置读取逻辑（P3 或更高阶段）
             _current = CoreConfig.CreateDefault();
             OnConfigurationChanged?.Invoke(_current);
+
+            // 配置变更后触发工具索引重建（标记过期并尝试异步构建）
+            try
+            {
+                var index = RimAI.Core.Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Embedding.IToolVectorIndexService>();
+                index?.MarkStale();
+                _ = index?.EnsureBuiltAsync();
+            }
+            catch { /* ignore */ }
+        }
+
+        public void Apply(CoreConfig snapshot)
+        {
+            if (snapshot == null) return;
+            _current = snapshot;
+            OnConfigurationChanged?.Invoke(_current);
+
+            // 配置变更后触发工具索引重建
+            try
+            {
+                var index = RimAI.Core.Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Embedding.IToolVectorIndexService>();
+                index?.MarkStale();
+                _ = index?.EnsureBuiltAsync();
+            }
+            catch { /* ignore */ }
         }
     }
 }

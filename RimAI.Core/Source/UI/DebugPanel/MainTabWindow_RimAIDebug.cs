@@ -47,6 +47,7 @@ namespace RimAI.Core.UI.DebugPanel
         private readonly System.Text.StringBuilder _outputSb = new System.Text.StringBuilder();
         private Vector2 _outputScroll = Vector2.zero;
         private readonly ConcurrentQueue<string> _pendingChunks = new();
+        private bool _subscribed;
 
         private void AppendOutput(string msg)
         {
@@ -118,6 +119,53 @@ namespace RimAI.Core.UI.DebugPanel
                 _outputSb.Append(part);
             }
 
+            // 订阅编排进度事件（一次性）
+            if (!_subscribed)
+            {
+                _subscribed = true;
+                var bus = CoreServices.Locator.Get<IEventBus>();
+                bus?.Subscribe<IEvent>(evt =>
+                {
+                    try
+                    {
+                        var cfg = CoreServices.Locator.Get<RimAI.Core.Infrastructure.Configuration.IConfigurationService>();
+                        var pc = cfg?.Current?.Orchestration?.Progress;
+                        string template = pc?.DefaultTemplate ?? "[{Source}] {Stage}: {Message}";
+                        string source = null, stage = null, message = evt.Describe();
+                        string payload = null;
+                        var t = evt.GetType();
+                        var pStage = t.GetProperty("Stage");
+                        var pSource = t.GetProperty("Source");
+                        var pMessage = t.GetProperty("Message");
+                        var pPayload = t.GetProperty("PayloadJson");
+                        if (pStage != null) stage = pStage.GetValue(evt) as string;
+                        if (pSource != null) source = pSource.GetValue(evt) as string;
+                        if (pMessage != null) message = pMessage.GetValue(evt) as string ?? message;
+                        if (pc?.StageTemplates != null && stage != null && pc.StageTemplates.TryGetValue(stage, out var st))
+                            template = st;
+                        string line = template
+                            .Replace("{Source}", source ?? string.Empty)
+                            .Replace("{Stage}", stage ?? string.Empty)
+                            .Replace("{Message}", message ?? string.Empty);
+                        _pendingChunks.Enqueue($"[Progress] {line}\n");
+                        if (pPayload != null)
+                        {
+                            payload = pPayload.GetValue(evt) as string;
+                            int max = System.Math.Max(0, pc?.PayloadPreviewChars ?? 200);
+                            if (!string.IsNullOrEmpty(payload))
+                            {
+                                if (payload.Length > max) payload = payload.Substring(0, max) + "…";
+                                _pendingChunks.Enqueue($"  payload: {payload}\n");
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        _pendingChunks.Enqueue($"[Progress] {evt.Describe()}\n");
+                    }
+                });
+            }
+
             // 1. 顶部横向按钮 -----------------------------
             float curX = inRect.x + Padding;
             float curY = inRect.y + Padding;
@@ -154,7 +202,7 @@ namespace RimAI.Core.UI.DebugPanel
                     try
                     {
                         var response = await llm.GetResponseAsync("hello");
-                        AppendOutput($"Echo Response: {response} | Retries: {llm.LastRetries} | CacheHits: {llm.CacheHits}");
+                        AppendOutput($"Echo Response: {response} | Retries: {llm.LastRetries}");
                     }
                     catch (System.Exception ex)
                     {

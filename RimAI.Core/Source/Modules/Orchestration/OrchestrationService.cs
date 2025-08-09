@@ -12,7 +12,7 @@ using RimAI.Core.Modules.LLM;
 using RimAI.Core.Infrastructure;
 using RimAI.Core.Infrastructure.Configuration;
 using System.Security.Cryptography;
-using RimAI.Core.Infrastructure.Cache;
+// using RimAI.Core.Infrastructure.Cache; // 缓存已下沉至 Framework
 using RimAI.Core.Contracts.Services;
 
 namespace RimAI.Core.Modules.Orchestration

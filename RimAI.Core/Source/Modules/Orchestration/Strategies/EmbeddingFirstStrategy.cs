@@ -8,6 +8,11 @@ using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Modules.Embedding;
 using RimAI.Core.Modules.LLM;
 using RimAI.Framework.Contracts;
+using RimAI.Core.Settings;
+using RimAI.Core.Infrastructure;
+using System;
+using RimAI.Core.Modules.Orchestration.Planning;
+using RimAI.Core.Contracts.Eventing;
 
 namespace RimAI.Core.Modules.Orchestration.Strategies
 {
@@ -18,13 +23,20 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
         private readonly IRagIndexService _rag;
         private readonly ILLMService _llm;
         private readonly IToolRegistryService _tools;
+        private readonly RimAI.Core.Infrastructure.Configuration.IConfigurationService _config;
+        private readonly IToolVectorIndexService _toolIndex;
+        private readonly Planner _planner = new Planner();
 
-        public EmbeddingFirstStrategy(IEmbeddingService embedding, IRagIndexService rag, ILLMService llm, IToolRegistryService tools)
+        public EmbeddingFirstStrategy(IEmbeddingService embedding, IRagIndexService rag, ILLMService llm, IToolRegistryService tools,
+            RimAI.Core.Infrastructure.Configuration.IConfigurationService config,
+            IToolVectorIndexService toolIndex)
         {
             _embedding = embedding;
             _rag = rag;
             _llm = llm;
             _tools = tools;
+            _config = config;
+            _toolIndex = toolIndex;
         }
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteAsync(OrchestrationContext context)
@@ -37,13 +49,9 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             string failure = null;
             try { qv = await _embedding.GetEmbeddingAsync(query); }
             catch (System.Exception ex) { failure = $"Embedding 失败: {ex.Message}"; }
-            if (failure != null)
-            {
-                yield return Result<UnifiedChatChunk>.Failure(failure);
-                yield break;
-            }
+            // RAG 失败不直接中断，降级为无 RAG 上下文继续
 
-            var hits = await _rag.QueryAsync(qv, topK: 5);
+            var hits = (qv != null) ? await _rag.QueryAsync(qv, topK: 5) : new List<RagHit>();
             if (hits != null && hits.Count > 0)
             {
                 var preview = string.Join(", ", hits.Take(5).Select(h => $"{h.DocId}:{h.Score:F2}"));
@@ -51,8 +59,12 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             }
             var injectedContext = BuildInjectedContext(hits);
 
+            // 工具匹配模式（Classic/NarrowTopK/FastTop1/LightningFast）
+            var allSchemas = _tools.GetAllToolSchemas();
+            var (mode, toolSchemas, selectedToolName, fastResponse) = await SelectToolsAsync(query, allSchemas);
+
             // 构造 tools 定义
-            var toolDefinitions = _tools.GetAllToolSchemas().Select(schema => new ToolDefinition
+            var toolDefinitions = toolSchemas.Select(schema => new ToolDefinition
             {
                 Type = "function",
                 Function = new JObject
@@ -109,6 +121,11 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
 
             object toolResult = null;
             IAsyncEnumerable<Result<UnifiedChatChunk>> errorStream = null;
+            // LightningFast：为工具注入快速响应参数
+            if (fastResponse)
+            {
+                if (!argsDict.ContainsKey("__fastResponse")) argsDict["__fastResponse"] = true;
+            }
             try { toolResult = await _tools.ExecuteToolAsync(call.Function.Name, argsDict); }
             catch (System.Exception ex)
             {
@@ -127,6 +144,17 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 yield break;
             }
 
+            // LightningFast：若工具返回字符串，直接流式输出
+            if (fastResponse && toolResult is string s && !string.IsNullOrEmpty(s))
+            {
+                foreach (var part in SliceString(s, 120))
+                {
+                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = part });
+                    await Task.Yield();
+                }
+                yield break;
+            }
+
             var toolResultJson = Newtonsoft.Json.JsonConvert.SerializeObject(toolResult, Newtonsoft.Json.Formatting.None);
             var followMessages = new List<ChatMessage>
             {
@@ -135,8 +163,119 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 new ChatMessage{ Role = "assistant", ToolCalls = new List<ToolCall>{ call } },
                 new ChatMessage{ Role = "tool", ToolCallId = call.Id, Content = toolResultJson }
             };
+            // 若启用轻量规划器，则在系统提示中加入汇总的 final_prompt（不改变外部接口，仅增强 system 提示）
+            var planning = _config?.Current?.Orchestration?.Planning;
+            if (planning?.EnableLightChaining == true)
+            {
+                var ragSnippets = hits?.Select(h => h.Content);
+                var toolSummaries = new[] { Truncate(toolResultJson, 400) };
+                var result = await _planner.BuildFinalPromptAsync(query, systemPrompt, ragSnippets, toolSummaries, _config.Current.Embedding.MaxContextChars,
+                    new EventBusPlanProgressReporter());
+                followMessages[0] = new ChatMessage { Role = "system", Content = result.FinalPrompt };
+                RimAI.Core.Infrastructure.CoreServices.Locator.Get<IEventBus>()?.Publish(new RimAI.Core.Contracts.Eventing.OrchestrationProgressEvent
+                {
+                    Source = nameof(EmbeddingFirstStrategy),
+                    Stage = "Planner",
+                    Message = "已注入 final_prompt 到 system 提示",
+                    PayloadJson = string.Empty
+                });
+            }
+
             var followReq = new UnifiedChatRequest { Stream = true, Tools = toolDefinitions, Messages = followMessages };
             await foreach (var chunk in _llm.StreamResponseAsync(followReq)) yield return chunk;
+        }
+
+        private async Task<(string mode, List<ToolFunction> schemas, string selectedTool, bool fastResponse)> SelectToolsAsync(string query, List<ToolFunction> all)
+        {
+            var cfg = _config?.Current;
+            var toolsCfg = cfg?.Embedding?.Tools;
+            var mode = toolsCfg?.Mode ?? "Classic";
+
+            if (_toolIndex?.IsBuilding == true && (toolsCfg?.BlockDuringBuild ?? true))
+            {
+                RimAI.Core.Infrastructure.CoreServices.Logger.Warn("[ToolMatch] 索引构建中，降级 Classic（全工具暴露）。");
+                return ("Classic", all, null, false);
+            }
+
+            double wName = toolsCfg?.ScoreWeights?.Name ?? 0.6;
+            double wDesc = toolsCfg?.ScoreWeights?.Description ?? 0.4;
+            if (_toolIndex == null)
+                return ("Classic", all, null, false);
+
+            async Task<(string m, List<ToolFunction> s, string sel, bool fr)> NarrowTopK()
+            {
+                var k = Math.Max(1, cfg?.Embedding?.TopK ?? 5);
+                var matches = await _toolIndex.SearchAsync(query, all, k, wName, wDesc);
+                if (matches == null || matches.Count == 0)
+                    return ("Classic", all, null, false);
+                var names = new HashSet<string>(matches.Select(m => m.Tool), StringComparer.OrdinalIgnoreCase);
+                var schemas = all.Where(t => names.Contains(t.Name)).ToList();
+                RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch] NarrowTopK → {string.Join(", ", matches.Select(m => $"{m.Tool}:{m.Score:F2}"))}");
+                return ("NarrowTopK", schemas, null, false);
+            }
+
+            if (string.Equals(mode, "Classic", StringComparison.OrdinalIgnoreCase))
+                return ("Classic", all, null, false);
+
+            if (string.Equals(mode, "NarrowTopK", StringComparison.OrdinalIgnoreCase))
+                return await NarrowTopK();
+
+            var top1 = await _toolIndex.SearchTop1Async(query, all, wName, wDesc);
+            var threshold = toolsCfg?.Top1Threshold ?? 0.82;
+            var lightThreshold = toolsCfg?.LightningTop1Threshold ?? 0.86;
+
+            if (string.Equals(mode, "Auto", StringComparison.OrdinalIgnoreCase))
+            {
+                if (top1 != null && top1.Score >= threshold)
+                {
+                    var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
+                    if (schema != null)
+                    {
+                        RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch] Auto→FastTop1 Top1={top1.Tool} score={top1.Score:F2}");
+                        return ("FastTop1", new List<ToolFunction> { schema }, top1.Tool, false);
+                    }
+                }
+                return await NarrowTopK();
+            }
+
+            if (string.Equals(mode, "LightningFast", StringComparison.OrdinalIgnoreCase))
+            {
+                if (top1 != null && top1.Score >= lightThreshold)
+                {
+                    var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
+                    if (schema != null)
+                    {
+                        RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch] LightningFast Top1={top1.Tool} score={top1.Score:F2}");
+                        return ("LightningFast", new List<ToolFunction> { schema }, top1.Tool, true);
+                    }
+                }
+                mode = "FastTop1"; // 降级
+            }
+
+            if (string.Equals(mode, "FastTop1", StringComparison.OrdinalIgnoreCase))
+            {
+                if (top1 != null && top1.Score >= threshold)
+                {
+                    var schema = all.FirstOrDefault(t => string.Equals(t.Name, top1.Tool, StringComparison.OrdinalIgnoreCase));
+                    if (schema != null)
+                    {
+                        RimAI.Core.Infrastructure.CoreServices.Logger.Info($"[ToolMatch] FastTop1 Top1={top1.Tool} score={top1.Score:F2}");
+                        return ("FastTop1", new List<ToolFunction> { schema }, top1.Tool, false);
+                    }
+                }
+                return await NarrowTopK();
+            }
+
+            return ("Classic", all, null, false);
+        }
+
+        private static IEnumerable<string> SliceString(string s, int maxLen)
+        {
+            if (string.IsNullOrEmpty(s)) yield break;
+            for (int i = 0; i < s.Length; i += Math.Max(1, maxLen))
+            {
+                yield return s.Substring(i, Math.Min(maxLen, s.Length - i));
+            }
         }
 
         private static string BuildInjectedContext(IReadOnlyList<RagHit> hits)

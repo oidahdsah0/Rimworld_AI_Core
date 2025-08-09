@@ -25,10 +25,10 @@ class LLM,WorldAccess,Tooling,Orchestration,Persistence,Eventing,Persona module
 subgraph "Infrastructure Layer"
     ServiceContainer["DI Container"]
     Scheduler["SchedulerService"]
-    Cache["CacheService"]
+    %% Cache moved to Framework layer in v4: Core no longer provides CacheService
     Config["ConfigurationService"]
 end
-class ServiceContainer,Scheduler,Cache,Config infra
+class ServiceContainer,Scheduler,Config infra
 
 subgraph "Contracts (Stable)"
     Contracts["Interfaces & DTOs"]
@@ -51,7 +51,7 @@ WorldAccess --> RimWorld
 Tooling --> WorldAccess
 Scheduler --> RimWorld
 Persistence --> RimWorld
-LLM --> Cache
+%% LLM caching is handled by RimAI.Framework; Core's LLM talks only to Framework
 Modules Layer --> ServiceContainer
 Infrastructure Layer --> Contracts
 Modules Layer --> Contracts

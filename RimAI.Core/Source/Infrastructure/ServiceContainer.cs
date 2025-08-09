@@ -27,8 +27,7 @@ namespace RimAI.Core.Infrastructure
             // ---- 在此注册核心默认服务 ----
             Register<RimAI.Core.Infrastructure.Configuration.IConfigurationService,
                      RimAI.Core.Infrastructure.Configuration.ConfigurationService>();
-            Register<RimAI.Core.Infrastructure.Cache.ICacheService,
-                     RimAI.Core.Infrastructure.Cache.CacheService>();
+            // CacheService 已下沉至 Framework，Core 不再注册本地缓存实现
             Register<RimAI.Core.Modules.LLM.ILLMService,
                      RimAI.Core.Modules.LLM.LLMService>();
             // P9-S2: Embedding & RAG

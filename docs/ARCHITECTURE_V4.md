@@ -25,7 +25,7 @@
 
 | 分类 | V3 关键特性 | V4 处理策略 |
 |------|-------------|-------------|
-| **必保留** | ServiceContainer + 构造函数注入；CoreServices 受限使用；ILLMService 统一网关；Scheduler/WorldData 双层防腐；PromptFactory；五步编排；缓存、防火墙；自定义异常体系 | 保留接口与语义 *不变*，实现按阶段迁移；所有命名空间与类型保持向前兼容。 |
+| **必保留** | ServiceContainer + 构造函数注入；CoreServices 受限使用；ILLMService 统一网关；Scheduler/WorldData 双层防腐；PromptFactory；五步编排；防火墙；自定义异常体系 | 保留接口与语义 *不变*，实现按阶段迁移；所有命名空间与类型保持向前兼容。 |
 | **精简** | EventAggregator 默认 10 分钟冷却；History 双索引引擎；Persona 模板加载 | 仍保留，但延后至各自阶段；实现细节允许用更轻量方案起步（如内存 List → 字典）。 |
 | **移除** | 旧版 `SafeAccessService`、未使用的 `EventBus` 订阅 API、过度包装的 DTO | 在 P0 即删掉并在编译期强制失败，确保无人继续引用。 |
 
@@ -41,7 +41,7 @@
 |------|---------------------------|
 | **P0 – Skeleton** | • RimAIMod 加载 ☐  • DebugPanel.Ping 按钮 ☐ |
 | **P1 – DI & Config** | • ServiceContainer 注册自动化 ☐  • IConfigurationService.Reload 起效 ☐ |
-| **P2 – LLM Gateway** | • ILLMService.GetCompletionAsync 回声测试 ☐  • 缓存命中率计数可在面板查看 ☐  • DebugPanel 覆盖 流式 / 非流式 / JSON / Tools / 批量 请求测试 ☐ |
+| **P2 – LLM Gateway** | • ILLMService.GetCompletionAsync 回声测试 ☐  • DebugPanel 覆盖 流式 / 非流式 / JSON / Tools / 批量 请求测试 ☐ |
 | **P3 – Scheduler + WorldData** | • 主线程调度器无卡顿 ☐  • GetPlayerName 返回正确值 ☐ |
 | **P4 – Tool System** | • ToolRegistryService 支持自动发现 ☐  • GetColonyStatusTool 执行成功 ☐ |
 | **P5 – Orchestration (Min)** | • ExecuteToolAssistedQueryAsync 完成五步闭环 ☐  • “殖民地概况”问答成功 ☐ |
@@ -65,10 +65,10 @@ graph TD
     Tooling --> Command
     WorldData --> Scheduler
     Command --> Scheduler
-    LLM --> Cache
+    %% 缓存已下沉到 Framework，Core 不再持有缓存
     subgraph Infrastructure
         Scheduler
-        Cache
+        %% Cache
         Config[IConfigurationService]
         DI[ServiceContainer]
     end
@@ -111,14 +111,14 @@ graph TD
 
 1. **ServiceContainer** – 纯反射构造注入；禁止属性注入。  
 2. **ConfigurationService** – 将 RimWorld `ModSettings` 序列化为不可变对象 `CoreConfig`；Hot-Reload 通过事件广播。  
-3. **CacheService** – 仅在 P2 引入；实现 `TryGet` / `Set`；默认过期 5 分钟，可由 Config 调整。
+3. ~~CacheService~~ – 自 v4.1 起，缓存子系统已下沉至 RimAI.Framework，由 Framework 统一处理 Chat/Embedding 等请求的缓存与合流；Core 不再提供通用缓存实现。
 
 ### 5.2 LLM 模块（P2）
 
 | 接口 | 说明 |
 |------|------|
 | `ILLMService` | 网关 + 防火墙；公开 `GetResponseAsync` 和（P8）`StreamResponseAsync` |
-| `LLMService` | 内部装饰 `RetryPolicy`、`CacheService`；仅此文件 `using RimAIApi;` |
+| `LLMService` | 内部装饰 `RetryPolicy`；仅此文件 `using RimAIApi;`（缓存由 Framework 处理） |
 
 > 🚧 **简化**：重试策略先硬编码 3 次退避；熔断器延后到 P5 完成。
 
@@ -170,7 +170,7 @@ graph TD
 | 风险 | 阶段 | 应对策略 |
 |------|------|----------|
 | Harmony Patch 冲突 | P0–P8 | 所有 Patch 前缀 `RimAI_`，并集中注册；每日跑「冲突扫描脚本」。 |
-| ChatGPT API 费用激增 | P2+ | 默认缓存 5 分钟；Debug 面板显示月度 Token 使用量。 |
+| ChatGPT API 费用激增 | P2+ | 由 Framework 缓存与合流统一控制；Debug 面板显示月度 Token 使用量（待 Framework 暴露指标）。 |
 | 线程安全死锁 | P3+ | Scheduler 内部使用 `ConcurrentQueue` + 主线程泵出，无锁等待。 |
 | 存档兼容性破坏 | P6+ | IPersistenceService 在字段增删时保持 `Scribe_Deep` 列表顺序；旧字段标记 `[Obsolete("v3-remain")]`。 |
 

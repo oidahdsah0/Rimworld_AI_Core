@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using RimAI.Framework.Contracts;
 using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Infrastructure.Configuration;
 using Verse;
@@ -106,6 +107,8 @@ namespace RimAI.Core.Modules.Embedding
                     Entries = entries
                 };
 
+                // 根据 provider+model 决定实际文件名
+                IndexFilePath = ResolveIndexPath(index.Provider, index.Model);
                 Directory.CreateDirectory(Path.GetDirectoryName(IndexFilePath));
                 var json = JsonConvert.SerializeObject(index, Formatting.None);
                 File.WriteAllText(IndexFilePath, json, Encoding.UTF8);
@@ -126,6 +129,8 @@ namespace RimAI.Core.Modules.Embedding
             }
         }
 
+        public void MarkStale() { _ready = false; }
+
         private async Task WaitUntilReadyAsync()
         {
             var start = DateTime.UtcNow;
@@ -140,11 +145,26 @@ namespace RimAI.Core.Modules.Embedding
             var basePath = _config?.Current?.Embedding?.Tools?.IndexPath;
             if (string.IsNullOrWhiteSpace(basePath) || string.Equals(basePath, "auto", StringComparison.OrdinalIgnoreCase))
             {
-                // 使用 ModSettings 目录下固定文件名
+                // 默认目录（文件名由 provider+model 决定）
                 return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "RimWorld", "RimAI", "tools_index_hash64.json");
+                    "RimWorld", "RimAI");
             }
             return basePath;
+        }
+
+        private string ResolveIndexPath(string provider, string model)
+        {
+            var dir = ResolveIndexPath();
+            Directory.CreateDirectory(dir);
+            var file = $"tools_index_{Sanitize(provider)}_{Sanitize(model)}.json";
+            return Path.Combine(dir, file);
+        }
+
+        private static string Sanitize(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "auto";
+            foreach (var ch in Path.GetInvalidFileNameChars()) s = s.Replace(ch, '_');
+            return s;
         }
 
         private sealed class ToolVectorIndex
@@ -163,6 +183,65 @@ namespace RimAI.Core.Modules.Embedding
             public string Kind { get; set; } // name | description
             public float[] Vector { get; set; }
             public string Text { get; set; }
+        }
+
+        // ---- 查询 API（最小实现） ----
+        public async Task<IReadOnlyList<ToolMatch>> SearchAsync(string query, IEnumerable<ToolFunction> candidates, int topK, double weightName, double weightDescription)
+        {
+            await EnsureBuiltAsync();
+            if (!_ready) return Array.Empty<ToolMatch>();
+
+            ToolVectorIndex index;
+            try
+            {
+                var json = File.ReadAllText(IndexFilePath, Encoding.UTF8);
+                index = JsonConvert.DeserializeObject<ToolVectorIndex>(json);
+            }
+            catch
+            {
+                return Array.Empty<ToolMatch>();
+            }
+
+            var qNameVec = await _embedding.GetEmbeddingAsync(query ?? string.Empty);
+            var qDescVec = qNameVec; // 简化：统一使用同一向量
+
+            var groups = index.Entries.GroupBy(e => e.Tool, StringComparer.OrdinalIgnoreCase);
+            var result = new List<ToolMatch>();
+            var candidateSet = new HashSet<string>((candidates ?? Enumerable.Empty<ToolFunction>()).Select(c => c?.Name ?? string.Empty), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var g in groups)
+            {
+                var toolName = g.Key;
+                if (!candidateSet.Contains(toolName)) continue;
+                var nameEntry = g.FirstOrDefault(e => string.Equals(e.Kind, "name", StringComparison.OrdinalIgnoreCase));
+                var descEntry = g.FirstOrDefault(e => string.Equals(e.Kind, "description", StringComparison.OrdinalIgnoreCase));
+                double score = 0;
+                if (nameEntry?.Vector != null) score += weightName * Cosine(qNameVec, nameEntry.Vector);
+                if (descEntry?.Vector != null) score += weightDescription * Cosine(qDescVec, descEntry.Vector);
+                var schema = (candidates ?? Enumerable.Empty<ToolFunction>()).FirstOrDefault(t => string.Equals(t?.Name, toolName, StringComparison.OrdinalIgnoreCase));
+                result.Add(new ToolMatch { Tool = toolName, Score = score, Schema = schema });
+            }
+
+            return result
+                .OrderByDescending(m => m.Score)
+                .Take(Math.Max(1, topK))
+                .ToList();
+        }
+
+        public async Task<ToolMatch> SearchTop1Async(string query, IEnumerable<ToolFunction> candidates, double weightName, double weightDescription)
+        {
+            var list = await SearchAsync(query, candidates, topK: 1, weightName, weightDescription);
+            return list.FirstOrDefault();
+        }
+
+        private static double Cosine(IReadOnlyList<float> a, IReadOnlyList<float> b)
+        {
+            if (a == null || b == null) return 0;
+            var len = Math.Min(a.Count, b.Count);
+            double dot = 0, na = 0, nb = 0;
+            for (int i = 0; i < len; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+            if (na <= 1e-8 || nb <= 1e-8) return 0;
+            return dot / (Math.Sqrt(na) * Math.Sqrt(nb));
         }
     }
 }

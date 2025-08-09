@@ -20,8 +20,8 @@
 
 依赖关系：
 - `OrchestrationService` → `IOrchestrationStrategy`（按策略名解析）
-- `EmbeddingFirstStrategy` → `IEmbeddingService`、`IRagIndexService`、`ILLMService`、`IToolRegistryService`、`ICacheService`、`IConfigurationService`
-- `ClassicStrategy` → `ILLMService`、`IToolRegistryService`、`ICacheService`
+- `EmbeddingFirstStrategy` → `IEmbeddingService`、`IRagIndexService`、`ILLMService`、`IToolRegistryService`、`IConfigurationService`
+- `ClassicStrategy` → `ILLMService`、`IToolRegistryService`、`IConfigurationService`
 
 ## 2. 新增/调整的组件与接口（草案）
 以下接口与类型均置于 Core 内部命名空间（不进入 Contracts 稳定层），保持对外 API 稳定。
@@ -69,7 +69,7 @@ internal sealed class RagHit
 ```
 
 实现建议：
-- `EmbeddingService` 直接调用 `RimAI.Framework` 的 Embedding API；对输入做去重与缓存（`ICacheService`，key=`embed:sha256(text)`，TTL 默认 60 分钟）。
+- `EmbeddingService` 直接调用 `RimAI.Framework` 的 Embedding API；缓存与去重由 Framework 统一处理。
 - `RagIndexService` 先实现为内存向量索引（List + 余弦相似度），并在首期不做持久化（加载后可按需暖身/延迟构建）。
 
 ### 2.3 OrchestrationService 委派
@@ -96,12 +96,9 @@ Step 0: RAG 预处理（新增）
    - Step 1: 暴露工具 schema → LLM 决策 tool_calls
    - Step 2: 本地执行工具（异常时构造错误提示并直接流式复述）
    - Step 3: 携带工具结果跟进请求（流式）
-   - Step 4: 结果缓存（key 包含检索上下文哈希/文档ID集合）
+   - Step 4: 结果缓存由 Framework 层按需处理（可包含检索上下文哈希/文档ID集合等因素），Core 不再本地缓存
 
-缓存键建议：
-```
-summ:sha256(query + toolResultJson + join(sorted(docIds)))
-```
+<!-- 缓存键策略由 Framework 统一实现与维护，Core 文档不再定义本地缓存键规则 -->
 
 异常与回退：
 - Embedding/RAG 任一步失败 → 记录日志 → 降级为无上下文（仅 PersonaPrompt），随后继续工具流程；如仍失败则返回错误 Result。
@@ -233,6 +230,16 @@ Orchestration: {
     FanoutPerStage: 3,         // 每个阶段最多尝试的工具数（防爆炸）
     SatisfactionThreshold: 0.8 // LLM 自评满意度阈值，达到则可提前停机
   },
+  Progress: {
+    // 进度行模板：占位符 {Source} / {Stage} / {Message}
+    DefaultTemplate: "[{Source}] {Stage}: {Message}",
+    // 可按阶段覆盖模板，例如 ToolMatch/Planner/FinalPrompt
+    StageTemplates: {
+      // 示例：将 ToolMatch 阶段话术定制为“总督正在进行1阶段查找，{Message}”
+      // ToolMatch: "[总督] 正在进行1阶段查找，{Message}"
+    },
+    PayloadPreviewChars: 200
+  },
   Safety: {
     MaxTokensPerQuery: 2048,   // 每次请求Token上限
     MaxLatencyMs: 30000,       // 单次请求上限时长
@@ -248,9 +255,8 @@ Embedding: {
   Model: "auto",
   TopK: 5,
   MaxContextChars: 2000,
-  CacheMinutes: 60,
   Tools: {
-    Mode: "Auto",            // 可选: Classic | LightningFast | FastTop1 | NarrowTopK | Auto
+    Mode: "Auto",            // 可选: Classic | LightningFast | FastTop1 | NarrowTopK | Auto（当前默认实现为 FastTop1，可在设置中切换）
     Top1Threshold: 0.82,      // FastTop1 的相似度阈值（余弦）
     LightningTop1Threshold: 0.86, // 闪电匹配 Top1 的更高置信阈值
     IndexPath: "auto",        // 工具向量索引的存储路径（auto=默认配置目录）
@@ -318,14 +324,15 @@ Embedding: {
 
 ## 7. UI 与可观测性（最小）
 - 人格主 Tab：显示当前全局策略（Classic/EmbeddingFirst），提供只读状态与“重建索引”按钮（可选）。
-- 日志：在关键步骤打印 Info（命中 topK 文档 ID、缓存命中、降级路径）。
-- 编排时间线视图：在 DebugPanel 新增“时间线”页签，展示每个 Stage 的并行任务、耗时、工具与结果摘要、降级原因、澄清触发与最终 `final_prompt` 预览（前几百字）。
+- 日志：在关键步骤打印 Info（命中 topK 文档 ID、降级路径）。
+- 进度事件（新增）：编排/规划各阶段通过 `OrchestrationProgressEvent` 广播；DebugPanel 主输出实时展示每条进度与可选 Payload（最小实现已接入）。
+- 编排时间线视图：在 DebugPanel 新增“时间线”页签，展示每个 Stage 的并行任务、耗时、工具与结果摘要、降级原因、澄清触发与最终 `final_prompt` 预览（前几百字）（S5 最小版交付）。
 
 ## 8. 验收标准（Gate）
 1) 配置切换策略无须重启游戏（热重载生效）。
 2) EmbeddingFirst：在无工具参与的问题上，相较 Classic 出现更高的上下文相关性（人工可验证）。
 3) 发生 Embedding/RAG 故障时，自动回退 Classic 路径并给出日志提示。
-4) 性能：首次查询可接受冷启动（≤ 1.5s），同场景二次查询 ≤ 400ms（含缓存命中）。
+4) 性能：首次查询可接受冷启动（≤ 1.5s），同场景二次查询 ≤ 400ms（如命中 Framework 缓存）。
 5) 当用户更换 Embedding 配置并保存后，立即触发“全量 Tool Re-Embedding”，并在日志中清晰记录（包含旧/新指纹、耗时、重建工具数）。
 6) LightningFast：Top1 置信度满足阈值，工具返回字符串并以流式方式呈现，无需第二次 LLM 跟进；当参数生成失败/不满足阈值/工具不支持时自动降级（FastTop1→NarrowTopK→Classic）。
 7) 低置信澄清：当置信度低或参数不确定性高时，先进行≤1轮澄清问答；用户回答后再继续匹配流程。
@@ -378,7 +385,7 @@ Embedding: {
   - 新增：`Source/Modules/Embedding/IEmbeddingService.cs` + `EmbeddingService.cs`
   - 新增：`Source/Modules/Embedding/IRagIndexService.cs` + `RagIndexService.cs`（内存索引，余弦相似度）
   - 修改：`EmbeddingFirstStrategy` 实现 Step 0（查询→Embedding→TopK→上下文注入→继续工具流程）
-  - 修改：`EmbeddingService` 对齐 `RimAI.Framework.API.RimAIApi.GetEmbeddingsAsync`，不重复实现 Provider/并发/翻译；仅保留轻量缓存（TTL 读取 `Embedding.CacheMinutes`）与错误处理
+- 修改：`EmbeddingService` 对齐 `RimAI.Framework.API.RimAIApi.GetEmbeddingsAsync`，不重复实现 Provider/并发/翻译；缓存由 Framework 处理，Core 仅保留错误处理
   - 修改：`CoreConfig` 增加 `Embedding` 与 `Orchestration.Strategy`（默认 Classic），支持热重载（通过 `IConfigurationService`）
 - Gate：
   - 切换配置为 `EmbeddingFirst` 后，RAG 命中（日志含 DocIds/Score），故障自动回退 Classic 并有降级提示
@@ -403,25 +410,42 @@ Embedding: {
   - 细节：索引元数据包含 `{ provider, model, requestedDimension, dimension }`；加载时如发现与当前设置/实际维度不一致，应触发重建
 - 预计人日：0.4d（独立于匹配模式，优先交付）
 
-#### S3 – 工具向量库与匹配模式（Lightning/FastTop1/NarrowTopK/Classic）
+#### S3 – 工具向量库与匹配模式（Lightning/FastTop1/NarrowTopK/Classic）【状态：基本完成】
 - 代码范围：
   - 新增：`Source/Modules/Embedding/IToolVectorIndexService.cs` + `ToolVectorIndexService.cs`
   - 修改：`ToolRegistryService` 在工具新增/删除/Schema 变化时标记“索引过期”
   - 修改：在策略中接入工具匹配模式与降级链（LightningFast→FastTop1→NarrowTopK→Classic）；保留参数 `__fastResponse=true`
   - 修改：`CoreConfig.Embedding.Tools` 阈值与 `IndexPath`、动态阈值
   - 可选 UI：在 `PersonaManager` 或 `DebugPanel` 增加“重建工具索引”按钮（最小实现：触发日志+重建）
+  - 进度补充：
+    - 已实现：
+      - 索引文件命名 `tools_index_{provider}_{model}.json`，构建日志含 provider/model/dimension/项数/耗时；支持 `MarkStale()` 与 `EnsureBuiltAsync()`；设置保存触发全量重建；设置面板提供“重建索引/打开索引文件夹”。
+      - 策略接入模式选择与降级链（含 `Auto`）；LightningFast 命中且工具返回字符串时直接流式直出；参数注入 `__fastResponse=true`。
+      - 设置面板提供模式选择、TopK/阈值/权重、索引构建与阻断、动态阈值开关与范围。
+    - 待完善：
+      - 变更保存时“旧/新指纹对比日志（fingerprint diff）与重建工具数统计”将在 S6 补齐。
+      - 动态阈值在线平滑调整逻辑（已预留配置项），S6 阶段完善并可回退默认值。
 - Gate：
   - 更换 Embedding 配置后保存，立即触发“全量 Tool Re-Embedding”（日志含旧/新指纹、耗时、重建工具数）
   - LightningFast 命中且工具返回字符串时，直接以流式方式输出；参数生成失败/置信不足自动降级
 - 回滚：将 `Tools.Mode` 设为 `Classic`
 - 预计人日：0.5d（对应 M2.5）
 
-#### S4 – 轻量“串联递归”规划器（默认串行，≤3 步）
+#### S4 – 轻量“串联递归”规划器（默认串行，≤3 步）【状态：最小实现已完成】
 - 代码范围：
   - 新增：`Source/Modules/Orchestration/Planning/PlanModels.cs`（Plan JSON/Blackboard/Trace/used_actions）
   - 新增：`Source/Modules/Orchestration/Planning/Planner.cs`（串联循环；只读工具小并发开关预留但默认关闭）
   - 修改：两条策略均可调用 Planner（EmbeddingFirst 先写入 RAG 命中后再进入循环）
   - 修改：`CoreConfig.Orchestration.Planning`（MaxSteps/Fanout/SatisfactionThreshold 等）
+  - 进度补充：
+    - 已实现：
+      - `Planner.BuildFinalPromptAsync` 最小实现：汇总 Persona/RAG/工具要点 → 生成 `final_prompt` 并限长。
+      - 策略侧注入 `final_prompt` 到 system 提示（不改变对外接口）。
+      - 进度上报接口 `IPlanProgressReporter` + 默认实现 `EventBusPlanProgressReporter`，将阶段进度转换为 `OrchestrationProgressEvent` 发布。
+    - UI 验证：
+      - Debug 面板（主输出）订阅 `OrchestrationProgressEvent`，实时打印阶段进度与可选 Payload JSON（如命中要点列表），便于录像与回归。
+    - 待完善：
+      - used_actions 去重、停机护栏（MaxLatency/预算）与“时间线”专门页签展示留待 S5/S6 迭代；当前主输出已满足最小可观测。
 - Gate：
   - 至少完成 2 个 Stage 串联，其中 1 个 Stage 成功执行≥2个只读工具（可串行）
   - 生成 `final_prompt` 且长度受 `MaxContextChars` 约束；时间线日志包含 `used_actions` 去重与停机原因
@@ -441,7 +465,7 @@ Embedding: {
 
 #### S6 – 打磨与回归（性能/稳定性/文档与录像）
 - 代码范围：
-  - 性能：Embedding/RAG/索引构建的批量化、小缓存命中优化、日志降噪
+- 性能：Embedding/RAG/索引构建的批量化、日志降噪（缓存优化由 Framework 负责）
   - 稳定：熔断器护栏、异常路径回退更清晰；动态阈值回退默认值
   - 文档：更新 `ARCHITECTURE_V4.md` 与本文件 Gate 勾选；补充 DebugPanel 录屏与最小脚本
 - Gate：
@@ -457,7 +481,7 @@ Embedding: {
   - 新增（Contracts 暴露，稳定 API）：`RimAI.Core.Contracts.Services.IConfigurationService (ReadOnly)` 或命名 `IConfigurationReader`（二选一，倾向保持文档命名），仅暴露 `Current` 不可变快照；不提供写入/重载方法
   - 新增（Contracts DTO）：`CoreConfigSnapshot`（无 `Verse` 依赖；字段为对外必要最小子集）
   - 修改（Core 实现）：内部 `ConfigurationService` 同时实现 Contracts 只读接口 + 内部写接口 `RimAI.Core.Infrastructure.Configuration.IConfigurationService`
-  - 锁定（保留在 Core 内部，不进 Contracts）：`ILLMService`、`ISchedulerService`、`ICacheService`、`IPersistenceService`、`IEmbeddingService`、`IRagIndexService`、`IToolVectorIndexService`、`IOrchestrationStrategy`
+- 锁定（保留在 Core 内部，不进 Contracts）：`ILLMService`、`ISchedulerService`、`IPersistenceService`、`IEmbeddingService`、`IRagIndexService`、`IToolVectorIndexService`、`IOrchestrationStrategy`
   - 文档：更新 `ARCHITECTURE_V4.md` 第 4.5 表格，标注 `IConfigurationService (ReadOnly)`；更新 `README_zh-CN.md` 模块职责表
 - Gate：
   - `RimAI.Core.Contracts` 不引用 `Verse`/Unity 类型；新增接口与 DTO 通过编译
@@ -473,7 +497,7 @@ Embedding: {
 - 关闭 `Embedding.Enabled` 禁用所有 Embedding 调用（策略自动视为 Classic 流程）。
 
 ## 11. 风险与缓解
-- 成本与性能：Embedding 费用与延迟上升 → 结果缓存 + 文本去重 + 异步批处理。
+- 成本与性能：Embedding 费用与延迟上升 → Framework 层统一缓存/合流 + 文本去重 + 异步批处理。
 - 兼容性：保持 Contracts 不变；策略为内部实现细节。
 - 可维护性：策略隔离，便于 A/B 与未来策略（如 Event-Driven）。
 
@@ -489,7 +513,7 @@ Embedding: {
 
 - 多工具串联（轻量规划）：
   - 触发条件：NarrowTopK 不确定（分数接近/跨度小）、或用户意图明显包含多动作；
-  - 策略：最多 2-3 步（如：检索→执行→总结），每步都可缓存与中断；
+- 策略：最多 2-3 步（如：检索→执行→总结），缓存由 Framework 按需应用，可中断；
   - 输出：保证最终话术连贯，并明确列出步骤与结果来源（可选）。
 
 - 低置信澄清：

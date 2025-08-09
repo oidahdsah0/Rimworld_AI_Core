@@ -14,7 +14,6 @@ namespace RimAI.Core.Modules.LLM
 
         /// <summary>
         /// 统一请求模型的非流式响应，返回完整结构体。
-        /// 命中缓存时 <see cref="LastFromCache"/> 为 true。
         /// </summary>
         Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default);
 
@@ -29,14 +28,6 @@ namespace RimAI.Core.Modules.LLM
         /// </summary>
         int LastRetries { get; }
 
-        /// <summary>
-        /// 最近一次调用是否命中缓存。
-        /// </summary>
-        bool LastFromCache { get; }
-
-        /// <summary>
-        /// 累计缓存命中次数。
-        /// </summary>
-        int CacheHits { get; }
+        // 缓存相关标记与指标已下沉至 Framework，Core 不再暴露
     }
 }

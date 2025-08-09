@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using RimAI.Core.Infrastructure.Cache;
+// using RimAI.Core.Infrastructure.Cache; // 缓存已下沉至 Framework
 using RimAI.Core.Infrastructure.Configuration;
 using RimAI.Core.Infrastructure.Extensions;
 using RimAI.Framework.API;
@@ -17,22 +17,17 @@ namespace RimAI.Core.Modules.LLM
     internal sealed class LLMService : ILLMService
     {
         private readonly IConfigurationService _config;
-        private readonly ICacheService _cache;
 
         public int LastRetries { get; private set; }
-        public bool LastFromCache { get; private set; }
-        public int CacheHits => _cache.HitCount;
 
-        public LLMService(IConfigurationService config, ICacheService cache)
+        public LLMService(IConfigurationService config)
         {
             _config = config;
-            _cache = cache;
         }
 
         public async Task<string> GetResponseAsync(string prompt, bool forceJson = false, CancellationToken ct = default)
         {
             LastRetries = 0;
-            LastFromCache = false;
 
             var request = new UnifiedChatRequest
             {
@@ -43,44 +38,16 @@ namespace RimAI.Core.Modules.LLM
                 }
             };
 
-            var cacheKey = ComputeCacheKey(request);
-            if (_cache.TryGet(cacheKey, out string cachedJsonResponse))
-            {
-                LastFromCache = true;
-                var cachedResponse = JsonConvert.DeserializeObject<UnifiedChatResponse>(cachedJsonResponse);
-                return cachedResponse.Message.Content;
-            }
-
-            LastFromCache = false;
             var result = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
             if (!result.IsSuccess)
                 throw new Exception($"LLM Error: {result.Error}");
 
-            if (result.Value != null)
-            {
-                var jsonToCache = JsonConvert.SerializeObject(result.Value);
-                _cache.Set(cacheKey, jsonToCache, TimeSpan.FromMinutes(_config.Current.Cache.DefaultExpirationMinutes));
-            }
             return result.Value.Message.Content;
         }
 
         public async Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default)
         {
-            var cacheKey = ComputeCacheKey(request);
-            if (_cache.TryGet(cacheKey, out string cachedJsonResponse))
-            {
-                LastFromCache = true;
-                var cachedResponse = JsonConvert.DeserializeObject<UnifiedChatResponse>(cachedJsonResponse);
-                return Result<UnifiedChatResponse>.Success(cachedResponse);
-            }
-
-            LastFromCache = false;
             var res = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
-            if (res.IsSuccess && res.Value != null)
-            {
-                var jsonToCache = JsonConvert.SerializeObject(res.Value);
-                _cache.Set(cacheKey, jsonToCache, TimeSpan.FromMinutes(_config.Current.Cache.DefaultExpirationMinutes));
-            }
             return res;
         }
 
@@ -135,17 +102,6 @@ namespace RimAI.Core.Modules.LLM
             return finalRes;
         }
 
-        private static string ComputeCacheKey(UnifiedChatRequest req)
-        {
-            var json = JsonConvert.SerializeObject(req);
-            using (var sha = SHA256.Create())
-            {
-                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(json));
-                var sb = new StringBuilder(bytes.Length * 2);
-                foreach (var b in bytes)
-                    sb.Append(b.ToString("x2"));
-                return sb.ToString();
-            }
-        }
+        // 缓存键计算逻辑已移除，统一由 Framework 层处理缓存
     }
 }

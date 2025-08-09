@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using RimAI.Core.Infrastructure.Cache;
+// using RimAI.Core.Infrastructure.Cache; // 缓存已下沉至 Framework
 using RimAI.Core.Infrastructure.Configuration;
 using RimAI.Framework.API;
 using RimAI.Framework.Contracts;
@@ -19,24 +19,16 @@ namespace RimAI.Core.Modules.Embedding
     /// </summary>
     internal sealed class EmbeddingService : IEmbeddingService
     {
-        private readonly ICacheService _cache;
         private readonly IConfigurationService _config;
 
-        public EmbeddingService(ICacheService cache, IConfigurationService config)
+        public EmbeddingService(IConfigurationService config)
         {
-            _cache = cache;
             _config = config;
         }
 
         public async Task<float[]> GetEmbeddingAsync(string text)
         {
             text ??= string.Empty;
-            var key = $"embed:sha256:{ComputeSha256(text)}";
-            if (_cache.TryGet(key, out float[] cached) && cached != null)
-            {
-                return cached;
-            }
-
             var req = new UnifiedEmbeddingRequest { Inputs = new List<string> { text } };
             var res = await RimAIApi.GetEmbeddingsAsync(req, CancellationToken.None);
             if (!res.IsSuccess)
@@ -47,7 +39,6 @@ namespace RimAI.Core.Modules.Embedding
                 throw new Exception("Embedding response is empty.");
 
             var vec = data[0].Embedding.ToArray();
-            _cache.Set(key, vec, TimeSpan.FromMinutes(Math.Max(1, _config.Current.Embedding.CacheMinutes)));
             return vec;
         }
 

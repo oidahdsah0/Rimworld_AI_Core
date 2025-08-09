@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using RimAI.Framework.Contracts;
 using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Infrastructure;
+using RimAI.Core.Modules.Embedding;
 
 namespace RimAI.Core.Modules.Tooling
 {
@@ -143,6 +144,14 @@ namespace RimAI.Core.Modules.Tooling
                 if (instance == null) continue;
                 _tools[instance.Name] = instance;
                 CoreServices.Logger.Info($"Tool registered: {instance.Name}");
+
+                // 标记工具向量索引为过期
+                try
+                {
+                    var index = CoreServices.Locator.Get<IToolVectorIndexService>();
+                    index?.MarkStale();
+                }
+                catch { /* ignore */ }
             }
         }
 

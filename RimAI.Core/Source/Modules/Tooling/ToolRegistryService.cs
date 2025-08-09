@@ -119,10 +119,14 @@ namespace RimAI.Core.Modules.Tooling
                 types = e.Types.Where(t => t != null)!;
             }
 
+            // 去重：同程序集内的同名工具类型仅处理一次
+            var handledTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var type in types)
             {
                 if (!typeof(IRimAITool).IsAssignableFrom(type) || type.IsAbstract || type.IsInterface)
                     continue;
+                var typeKey = type.FullName ?? type.Name;
+                if (!handledTypes.Add(typeKey)) continue;
 
                 // 使用 ServiceContainer 构造，以便依赖注入
                 IRimAITool instance = null;
@@ -138,18 +142,45 @@ namespace RimAI.Core.Modules.Tooling
                     // Ignore – fallback to reflection below
                 }
 
-                // 若 DI 构造失败，降级使用无参构造
-                instance ??= Activator.CreateInstance(type) as IRimAITool;
+                // 若 DI 构造失败，降级使用无参构造（若仍失败则跳过该类型）
+                if (instance == null)
+                {
+                    try
+                    {
+                        instance = Activator.CreateInstance(type) as IRimAITool;
+                    }
+                    catch (Exception ex)
+                    {
+                        CoreServices.Logger.Warn($"[ToolRegistry] Skip tool type {type.FullName}: {ex.Message}");
+                        continue;
+                    }
+                }
 
                 if (instance == null) continue;
-                _tools[instance.Name] = instance;
-                CoreServices.Logger.Info($"Tool registered: {instance.Name}");
+                // 名称级去重：若重复命名则发出警告并跳过
+                if (string.IsNullOrWhiteSpace(instance.Name))
+                {
+                    CoreServices.Logger.Warn($"[ToolRegistry] Tool without name: {type.FullName}");
+                    continue;
+                }
+                if (_tools.ContainsKey(instance.Name))
+                {
+                    CoreServices.Logger.Warn($"[ToolRegistry] Duplicate tool name skipped: {instance.Name} ({type.FullName})");
+                    continue;
+                }
 
-                // 标记工具向量索引为过期
+                if (_tools.TryAdd(instance.Name, instance))
+                {
+                    CoreServices.Logger.Info($"Tool registered: {instance.Name}");
+                }
+
+                // 标记工具向量索引为过期（仅在实例已存在时，避免构造期触发循环依赖）
                 try
                 {
-                    var index = CoreServices.Locator.Get<IToolVectorIndexService>();
-                    index?.MarkStale();
+                    if (ServiceContainer.TryGetExisting<IToolVectorIndexService>(out var index))
+                    {
+                        index.MarkStale();
+                    }
                 }
                 catch { /* ignore */ }
             }

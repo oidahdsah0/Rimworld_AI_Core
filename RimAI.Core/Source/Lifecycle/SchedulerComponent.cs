@@ -41,7 +41,8 @@ namespace RimAI.Core.Lifecycle
                 }
 
                 // S2.5: 第 1000 Tick 触发一次自动构建检查（兼容无小人落地）
-                if (!_toolIndexTickCheckTriggered && Find.TickManager.TicksGame == 1000)
+                // 仅在进入正式游戏（非新建存档初始化流程）后执行，避免主菜单/加载阶段触发
+                if (!_toolIndexTickCheckTriggered && Find.TickManager.TicksGame == 1000 && Current.Game != null && Current.Game.InitData == null)
                 {
                     try
                     {

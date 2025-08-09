@@ -32,10 +32,26 @@ namespace RimAI.Core.Modules.Eventing
 
         public void Initialize()
         {
-            _eventBus.Subscribe<IEvent>(OnEventReceived);
+            try
+            {
+                _eventBus?.Subscribe<IEvent>(OnEventReceived);
+            }
+            catch (Exception ex)
+            {
+                Core.Infrastructure.CoreServices.Logger.Warn($"[EventAggregator] subscribe failed: {ex.Message}");
+            }
 
-            var interval = TimeSpan.FromMinutes(_configService.Current.EventAggregator.ProcessingIntervalMinutes);
-            _timer = new Timer(ProcessBuffer, null, interval, interval);
+            try
+            {
+                var minutes = _configService?.Current?.EventAggregator?.ProcessingIntervalMinutes;
+                if (minutes == null || minutes <= 0) minutes = 1.0;
+                var interval = TimeSpan.FromMinutes(minutes.Value);
+                _timer = new Timer(ProcessBuffer, null, interval, interval);
+            }
+            catch (Exception ex)
+            {
+                Core.Infrastructure.CoreServices.Logger.Warn($"[EventAggregator] timer init failed: {ex.Message}");
+            }
         }
 
         private void OnEventReceived(IEvent @event)
@@ -60,9 +76,10 @@ namespace RimAI.Core.Modules.Eventing
             List<IEvent> eventsToProcess;
             lock (_bufferLock)
             {
-                if (_eventBuffer.Count == 0 || _eventBuffer.All(e => e.Priority < EventPriority.High))
+                if (_eventBuffer.Count == 0 || _eventBuffer.All(e => (e?.Priority ?? EventPriority.Low) < EventPriority.High))
                 {
-                    if (_eventBuffer.Count < _configService.Current.EventAggregator.MaxBufferSize)
+                    var max = _configService?.Current?.EventAggregator?.MaxBufferSize ?? 256;
+                    if (_eventBuffer.Count < max)
                     {
                         _isProcessing = 0;
                         return;
@@ -80,6 +97,7 @@ namespace RimAI.Core.Modules.Eventing
             try
             {
                 eventsToProcess = eventsToProcess
+                    .Where(e => e != null)
                     .OrderByDescending(e => e.Priority)
                     .ThenBy(e => e.Timestamp)
                     .ToList();
@@ -95,7 +113,9 @@ namespace RimAI.Core.Modules.Eventing
             {
                 try
                 {
-                    var cooldown = TimeSpan.FromMinutes(_configService.Current.EventAggregator.CooldownMinutes);
+                    var mins = _configService?.Current?.EventAggregator?.CooldownMinutes;
+                    if (mins == null || mins < 0) mins = 0.5; // 默认30秒冷却
+                    var cooldown = TimeSpan.FromMinutes(mins.Value);
                     await Task.Delay(cooldown, _cancellationTokenSource.Token);
                 }
                 catch (OperationCanceledException)

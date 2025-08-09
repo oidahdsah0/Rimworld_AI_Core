@@ -11,6 +11,7 @@ using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Infrastructure.Configuration;
 using Verse;
 using RimWorld;
+using System.Runtime.InteropServices;
 
 namespace RimAI.Core.Modules.Embedding
 {
@@ -39,8 +40,23 @@ namespace RimAI.Core.Modules.Embedding
             _toolRegistry = toolRegistry;
             _config = config;
             IndexFilePath = ResolveIndexPath();
-            // If file exists at startup, mark ready
-            try { if (File.Exists(IndexFilePath)) _ready = true; } catch { /* ignore */ }
+            // 启动阶段：若已存在任何索引文件，尝试加载最新的一份，避免重复构建
+            try
+            {
+                var dir = ResolveIndexPath();
+                if (Directory.Exists(dir))
+                {
+                    var files = Directory.GetFiles(dir, "tools_index_*.json");
+                    if (files != null && files.Length > 0)
+                    {
+                        // 最新修改时间的索引文件
+                        var latest = files.OrderByDescending(f => new FileInfo(f).LastWriteTimeUtc).First();
+                        IndexFilePath = latest;
+                        _ready = true;
+                    }
+                }
+            }
+            catch { /* ignore */ }
         }
 
         public async Task EnsureBuiltAsync()
@@ -109,8 +125,15 @@ namespace RimAI.Core.Modules.Embedding
 
                 // 根据 provider+model 决定实际文件名
                 IndexFilePath = ResolveIndexPath(index.Provider, index.Model);
-                Directory.CreateDirectory(Path.GetDirectoryName(IndexFilePath));
+                var dir = Path.GetDirectoryName(IndexFilePath);
+                if (string.IsNullOrWhiteSpace(dir)) dir = ResolveIndexPath();
+                Directory.CreateDirectory(dir);
                 var json = JsonConvert.SerializeObject(index, Formatting.None);
+                // 基本校验后落盘
+                if (index.Dimension <= 0 || index.Entries == null || index.Entries.Count == 0)
+                {
+                    throw new InvalidOperationException("Invalid tool index content (empty or dimension=0)");
+                }
                 File.WriteAllText(IndexFilePath, json, Encoding.UTF8);
 
                 _ready = true;
@@ -142,14 +165,52 @@ namespace RimAI.Core.Modules.Embedding
 
         private string ResolveIndexPath()
         {
+            // 优先读取配置；否则落到 RimWorld LocalLow Config 路径
             var basePath = _config?.Current?.Embedding?.Tools?.IndexPath;
-            if (string.IsNullOrWhiteSpace(basePath) || string.Equals(basePath, "auto", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(basePath) && !string.Equals(basePath, "auto", StringComparison.OrdinalIgnoreCase))
             {
-                // 默认目录（文件名由 provider+model 决定）
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "RimWorld", "RimAI");
+                return basePath;
             }
-            return basePath;
+
+            try
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    var appDataDir = Directory.GetParent(local)?.Parent?.FullName ?? local; // .../AppData
+                    var localLow = Path.Combine(appDataDir, "LocalLow");
+                    return Path.Combine(localLow,
+                        "Ludeon Studios",
+                        "RimWorld by Ludeon Studios",
+                        "Config",
+                        "RimAI_Core");
+                }
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    var home = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+                    return Path.Combine(home,
+                        "Library", "Application Support",
+                        "Ludeon Studios",
+                        "RimWorld by Ludeon Studios",
+                        "Config",
+                        "RimAI_Core");
+                }
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    var home = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+                    return Path.Combine(home,
+                        ".config", "unity3d",
+                        "Ludeon Studios",
+                        "RimWorld by Ludeon Studios",
+                        "Config",
+                        "RimAI_Core");
+                }
+            }
+            catch { /* ignore */ }
+
+            // 最后兜底到原先 LocalAppData/RimWorld/RimAI
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "RimWorld", "RimAI");
         }
 
         private string ResolveIndexPath(string provider, string model)

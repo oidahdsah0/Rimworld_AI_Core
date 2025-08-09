@@ -16,6 +16,7 @@ namespace RimAI.Core.Infrastructure
         private static readonly Dictionary<Type, object> _singletons = new();
         private static readonly Dictionary<Type, Type> _registrations = new();
         private static bool _initialized;
+        private static readonly object _syncRoot = new object();
 
         /// <summary>
         /// 初始化容器并注册核心内部服务（如 ConfigurationService）。
@@ -47,26 +48,29 @@ namespace RimAI.Core.Infrastructure
             // P5: OrchestrationService 注册
             Register<RimAI.Core.Contracts.IOrchestrationService,
                      RimAI.Core.Modules.Orchestration.OrchestrationService>();
-            // P9-S1: 策略注册（Classic + EmbeddingFirst stub）
-            Register<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy,
-                     RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy>();
-            // EmbeddingFirst 先注册，后续可在配置切换
-            Register<RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy,
-                     RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy>();
+            // S2.5: 注册工具向量索引服务（需在策略解析前就绪）
+            Register<RimAI.Core.Modules.Embedding.IToolVectorIndexService,
+                     RimAI.Core.Modules.Embedding.ToolVectorIndexService>();
+            // P8: PersonaService 注册（策略构造需要）
+            Register<RimAI.Core.Contracts.Services.IPersonaService,
+                     RimAI.Core.Modules.Persona.PersonaService>();
+            // P8: Event Bus / Aggregator 注册（非构造期依赖，但提前注册更安全）
+            Register<RimAI.Core.Contracts.Eventing.IEventBus,
+                     RimAI.Core.Modules.Eventing.EventBus>();
+            Register<RimAI.Core.Contracts.Eventing.IEventAggregatorService,
+                     RimAI.Core.Modules.Eventing.EventAggregatorService>();
             // P6: HistoryService 注册
             Register<RimAI.Core.Contracts.Services.IHistoryService,
                      RimAI.Core.Services.HistoryService>();
             // P6: PersistenceService 注册
             Register<RimAI.Core.Infrastructure.Persistence.IPersistenceService,
                      RimAI.Core.Infrastructure.Persistence.PersistenceService>();
-            // P8: PersonaService 注册
-            Register<RimAI.Core.Contracts.Services.IPersonaService,
-                     RimAI.Core.Modules.Persona.PersonaService>();
-            // P8: Event Bus / Aggregator 注册
-            Register<RimAI.Core.Contracts.Eventing.IEventBus,
-                     RimAI.Core.Modules.Eventing.EventBus>();
-            Register<RimAI.Core.Contracts.Eventing.IEventAggregatorService,
-                     RimAI.Core.Modules.Eventing.EventAggregatorService>();
+            // P9-S1: 策略注册（Classic + EmbeddingFirst stub）
+            Register<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy,
+                     RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy>();
+            // EmbeddingFirst 先注册，后续可在配置切换
+            Register<RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy,
+                     RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy>();
 
             // 预先构造配置服务实例，便于后续使用。
             Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));
@@ -83,10 +87,6 @@ namespace RimAI.Core.Infrastructure
             };
             RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy>), stratList);
 
-            // S2.5: 注册工具向量索引服务
-            Register<RimAI.Core.Modules.Embedding.IToolVectorIndexService,
-                     RimAI.Core.Modules.Embedding.ToolVectorIndexService>();
-
             _initialized = true;
         }
 
@@ -94,7 +94,23 @@ namespace RimAI.Core.Infrastructure
 
         public static void Register<TInterface, TImplementation>() where TImplementation : TInterface
         {
-            _registrations[typeof(TInterface)] = typeof(TImplementation);
+            lock (_syncRoot)
+            {
+                var key = typeof(TInterface);
+                var newImpl = typeof(TImplementation);
+                if (_registrations.TryGetValue(key, out var existing))
+                {
+                    if (existing == newImpl)
+                    {
+                        CoreServices.Logger.Warn($"[DI] Duplicate registration ignored: {key.FullName} → {newImpl.FullName}");
+                    }
+                    else
+                    {
+                        CoreServices.Logger.Warn($"[DI] Registration override: {key.FullName} from {existing.FullName} → {newImpl.FullName}");
+                    }
+                }
+                _registrations[key] = newImpl;
+            }
         }
 
         public static void RegisterInstance<TInterface>(TInterface instance) where TInterface : class
@@ -106,7 +122,10 @@ namespace RimAI.Core.Infrastructure
         {
             if (serviceType == null) throw new ArgumentNullException(nameof(serviceType));
             if (instance == null) throw new ArgumentNullException(nameof(instance));
-            _singletons[serviceType] = instance;
+            lock (_syncRoot)
+            {
+                _singletons[serviceType] = instance;
+            }
         }
 
         #endregion
@@ -115,30 +134,57 @@ namespace RimAI.Core.Infrastructure
 
         public static T Get<T>() where T : class => (T)Resolve(typeof(T));
 
+        /// <summary>
+        /// 尝试获取已构造的单例实例（若不存在则不触发构造）。
+        /// </summary>
+        public static bool TryGetExisting<T>(out T instance) where T : class
+        {
+            if (_singletons.TryGetValue(typeof(T), out var existing))
+            {
+                instance = (T)existing;
+                return true;
+            }
+            instance = null;
+            return false;
+        }
+
         private static object Resolve(Type serviceType)
         {
-            // 1. 已有实例
-            if (_singletons.TryGetValue(serviceType, out var existing)) return existing;
+            return Resolve(serviceType, new HashSet<Type>());
+        }
 
-            // 2. 找到注册的实现
-            if (!_registrations.TryGetValue(serviceType, out var implType))
+        private static object Resolve(Type serviceType, HashSet<Type> resolutionStack)
+        {
+            lock (_syncRoot)
             {
-                // 若请求的是实现自身，允许直接构造
-                implType = serviceType.IsInterface ? null : serviceType;
-                if (implType == null)
-                    throw new InvalidOperationException($"[RimAI] Service {serviceType.FullName} 未注册。");
-            }
+                // 1. 已有实例
+                if (_singletons.TryGetValue(serviceType, out var existing)) return existing;
 
-            // 3. 反射构造
-            var instance = CreateInstance(implType, new HashSet<Type>());
-            _singletons[serviceType] = instance;
-            return instance;
+                // 2. 找到注册的实现
+                if (!_registrations.TryGetValue(serviceType, out var implType))
+                {
+                    // 若请求的是实现自身，允许直接构造
+                    implType = serviceType.IsInterface ? null : serviceType;
+                    if (implType == null)
+                        throw new InvalidOperationException($"[RimAI] Service {serviceType.FullName} 未注册。");
+                }
+
+                // 3. 反射构造（携带共享的解析栈以检测循环依赖）
+                var instance = CreateInstance(implType, resolutionStack);
+                _singletons[serviceType] = instance;
+                return instance;
+            }
         }
 
         private static object CreateInstance(Type implType, HashSet<Type> resolutionStack)
         {
             if (resolutionStack.Contains(implType))
-                throw new InvalidOperationException($"[RimAI] 循环依赖检测: {implType.FullName}.");
+            {
+                var chain = string.Join(" → ", resolutionStack.Select(t => t.FullName).Concat(new[] { implType.FullName }));
+                var msg = $"[RimAI] 循环依赖: {chain}";
+                try { CoreServices.Logger.Error(msg); } catch { /* ignore */ }
+                throw new InvalidOperationException(msg);
+            }
             resolutionStack.Add(implType);
 
             // 选择参数最多的公共构造函数
@@ -157,7 +203,7 @@ namespace RimAI.Core.Infrastructure
                 args = new object[parameters.Length];
                 for (int i = 0; i < parameters.Length; i++)
                 {
-                    args[i] = Resolve(parameters[i].ParameterType);
+                    args[i] = Resolve(parameters[i].ParameterType, resolutionStack);
                 }
             }
 

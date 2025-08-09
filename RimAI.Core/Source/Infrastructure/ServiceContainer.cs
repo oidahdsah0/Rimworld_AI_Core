@@ -85,6 +85,12 @@ namespace RimAI.Core.Infrastructure
             Register<RimAI.Core.Modules.Orchestration.IPromptAssemblyService,
                      RimAI.Core.Modules.Orchestration.PromptAssemblyService>();
 
+            // P10-M3: 固定提示词 & 人物传记（内存 MVP）
+            Register<RimAI.Core.Modules.Persona.IFixedPromptService,
+                     RimAI.Core.Modules.Persona.FixedPromptService>();
+            Register<RimAI.Core.Modules.Persona.IBiographyService,
+                     RimAI.Core.Modules.Persona.BiographyService>();
+
             // 预先构造配置服务实例，便于后续使用。
             var cfgImpl = Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));
             // 将同一实现同时注册为对外只读接口实例，避免双实例不一致

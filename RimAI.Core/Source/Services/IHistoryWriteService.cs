@@ -15,6 +15,8 @@ namespace RimAI.Core.Services
         
         // --- P10-M1: 扩展能力（内部） ---
         System.Threading.Tasks.Task EditEntryAsync(string convKey, int entryIndex, string newContent);
+        System.Threading.Tasks.Task DeleteEntryAsync(string convKey, int entryIndex);
+        System.Threading.Tasks.Task RestoreEntryAsync(string convKey, int entryIndex, ConversationEntry entry);
         System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string>> ListConversationKeysAsync(string filter = null, int? skip = null, int? take = null);
         System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Conversation>> GetConversationsBySubsetAsync(System.Collections.Generic.IReadOnlyList<string> queryIds);
 

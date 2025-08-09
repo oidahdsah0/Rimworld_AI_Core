@@ -43,7 +43,7 @@ namespace RimAI.Core.UI.Settings
 
             // 预留滚动条区域（固定内容高度，避免自动计算导致控件不渲染）
             var outRect = inRect;
-            var contentHeight = 2000f; // 固定初始高度，可按需调整
+            var contentHeight = 2600f; // 固定初始高度，可按需调整
             var viewRect = new Rect(0f, 0f, outRect.width - 16f, contentHeight);
             Widgets.BeginScrollView(outRect, ref _scrollPos, viewRect);
             list.Begin(viewRect);

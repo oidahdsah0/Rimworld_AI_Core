@@ -181,6 +181,11 @@ namespace RimAI.Core.Settings
         /// 预算/延迟限制。
         /// </summary>
         public HistoryBudgetConfig Budget { get; init; } = new();
+
+        /// <summary>
+        /// 历史删除操作的撤销窗口（秒）。0/负数表示不提供撤销。
+        /// </summary>
+        public int UndoWindowSeconds { get; init; } = 3;
     }
 
     /// <summary>

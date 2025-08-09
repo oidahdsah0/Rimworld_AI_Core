@@ -114,6 +114,61 @@ namespace RimAI.Core.Modules.History
             return Array.Empty<RecapItem>();
         }
 
+        public IReadOnlyList<RecapSnapshotItem> GetRecapItems(string convKey)
+        {
+            var items = GetRecap(convKey);
+            return items
+                .Select(i => new RecapSnapshotItem(i.Id, i.Text, i.CreatedAt))
+                .OrderByDescending(x => x.CreatedAt)
+                .ToList();
+        }
+
+        public bool UpdateRecapItem(string convKey, string itemId, string newText)
+        {
+            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(itemId)) return false;
+            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            lock (gate)
+            {
+                if (!_recapDict.TryGetValue(convKey, out var list)) return false;
+                var idx = list.FindIndex(x => x.Id == itemId);
+                if (idx < 0) return false;
+                var old = list[idx];
+                list[idx] = new RecapItem(old.Id, Truncate(newText ?? string.Empty, Math.Max(200, (_config?.Current?.History?.RecapMaxChars ?? 1200))), old.CreatedAt);
+                return true;
+            }
+        }
+
+        public bool RemoveRecapItem(string convKey, string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(itemId)) return false;
+            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            lock (gate)
+            {
+                if (!_recapDict.TryGetValue(convKey, out var list)) return false;
+                var idx = list.FindIndex(x => x.Id == itemId);
+                if (idx < 0) return false;
+                list.RemoveAt(idx);
+                return true;
+            }
+        }
+
+        public bool ReorderRecapItem(string convKey, string itemId, int newIndex)
+        {
+            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(itemId)) return false;
+            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            lock (gate)
+            {
+                if (!_recapDict.TryGetValue(convKey, out var list)) return false;
+                var idx = list.FindIndex(x => x.Id == itemId);
+                if (idx < 0) return false;
+                newIndex = Math.Max(0, Math.Min(newIndex, list.Count - 1));
+                var item = list[idx];
+                list.RemoveAt(idx);
+                list.Insert(newIndex, item);
+                return true;
+            }
+        }
+
         // --- 核心实现 ---
         private async Task TrySummarizeAsync(string convKey, HistoryConfig cfg)
         {
@@ -263,6 +318,29 @@ namespace RimAI.Core.Modules.History
                 Id = id;
                 Text = text;
                 CreatedAt = createdAt;
+            }
+        }
+
+        // RecapViewItem removed; use RecapSnapshotItem defined in IRecapService
+
+        public IReadOnlyDictionary<string, IReadOnlyList<RecapSnapshotItem>> ExportSnapshot()
+        {
+            var dict = new Dictionary<string, IReadOnlyList<RecapSnapshotItem>>();
+            foreach (var kvp in _recapDict)
+            {
+                var list = kvp.Value?.Select(x => new RecapSnapshotItem(x.Id, x.Text, x.CreatedAt)).ToList() ?? new List<RecapSnapshotItem>();
+                dict[kvp.Key] = list;
+            }
+            return dict;
+        }
+
+        public void ImportSnapshot(IReadOnlyDictionary<string, IReadOnlyList<RecapSnapshotItem>> snapshot)
+        {
+            _recapDict.Clear();
+            if (snapshot == null) return;
+            foreach (var kvp in snapshot)
+            {
+                _recapDict[kvp.Key] = kvp.Value?.Select(x => new RecapItem(x.Id, x.Text, x.CreatedAt)).ToList() ?? new List<RecapItem>();
             }
         }
     }

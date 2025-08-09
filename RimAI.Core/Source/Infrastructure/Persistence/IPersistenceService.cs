@@ -29,5 +29,35 @@ namespace RimAI.Core.Infrastructure.Persistence
         /// 从存档加载状态并写入 <see cref="IPersonaService"/>。
         /// </summary>
         void LoadPersonaState(IPersonaService personaService);
+
+        /// <summary>
+        /// 按会话键持久化固定提示词（convKey => (participantId => text)）。
+        /// </summary>
+        void PersistFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService);
+
+        /// <summary>
+        /// 加载固定提示词快照。
+        /// </summary>
+        void LoadFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService);
+
+        /// <summary>
+        /// 按会话键持久化人物传记（仅 1v1）。
+        /// </summary>
+        void PersistBiographies(RimAI.Core.Modules.Persona.IBiographyService biographyService);
+
+        /// <summary>
+        /// 加载人物传记快照。
+        /// </summary>
+        void LoadBiographies(RimAI.Core.Modules.Persona.IBiographyService biographyService);
+
+        /// <summary>
+        /// 按会话键持久化前情提要（Recap 字典）。
+        /// </summary>
+        void PersistRecap(RimAI.Core.Modules.History.IRecapService recapService);
+
+        /// <summary>
+        /// 加载前情提要快照。
+        /// </summary>
+        void LoadRecap(RimAI.Core.Modules.History.IRecapService recapService);
     }
 }

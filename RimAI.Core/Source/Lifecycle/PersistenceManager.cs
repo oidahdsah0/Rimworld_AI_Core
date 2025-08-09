@@ -14,13 +14,19 @@ namespace RimAI.Core.Lifecycle
         private readonly IPersistenceService _persistenceService;
         private readonly IHistoryWriteService _historyService;
         private readonly IPersonaService _personaService;
+        private readonly RimAI.Core.Modules.Persona.IFixedPromptService _fixedPromptService;
+        private readonly RimAI.Core.Modules.Persona.IBiographyService _biographyService;
+        private readonly RimAI.Core.Modules.History.IRecapService _recapService;
 
         public PersistenceManager(Game game) : base()
         {
             // DI must be ready before any GameComponent is constructed.
-            _persistenceService = Infrastructure.CoreServices.Locator.Get<IPersistenceService>();
-            _historyService     = Infrastructure.CoreServices.Locator.Get<IHistoryWriteService>();
-            _personaService     = Infrastructure.CoreServices.Locator.Get<IPersonaService>();
+            _persistenceService  = Infrastructure.CoreServices.Locator.Get<IPersistenceService>();
+            _historyService      = Infrastructure.CoreServices.Locator.Get<IHistoryWriteService>();
+            _personaService      = Infrastructure.CoreServices.Locator.Get<IPersonaService>();
+            _fixedPromptService  = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IFixedPromptService>();
+            _biographyService    = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IBiographyService>();
+            _recapService        = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.History.IRecapService>();
         }
 
         public override void ExposeData()
@@ -30,10 +36,16 @@ namespace RimAI.Core.Lifecycle
                 case LoadSaveMode.Saving:
                     _persistenceService.PersistHistoryState(_historyService);
                     _persistenceService.PersistPersonaState(_personaService);
+                    _persistenceService.PersistFixedPrompts(_fixedPromptService);
+                    _persistenceService.PersistBiographies(_biographyService);
+                    _persistenceService.PersistRecap(_recapService);
                     break;
                 case LoadSaveMode.LoadingVars:
                     _persistenceService.LoadHistoryState(_historyService);
                     _persistenceService.LoadPersonaState(_personaService);
+                    _persistenceService.LoadFixedPrompts(_fixedPromptService);
+                    _persistenceService.LoadBiographies(_biographyService);
+                    _persistenceService.LoadRecap(_recapService);
                     break;
             }
         }

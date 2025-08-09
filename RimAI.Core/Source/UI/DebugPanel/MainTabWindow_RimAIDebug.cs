@@ -503,6 +503,54 @@ namespace RimAI.Core.UI.DebugPanel
                 Find.WindowStack.Add(new RimAI.Core.UI.PersonaManager.MainTabWindow_PersonaManager());
             }
 
+            // Open History Manager (P10-M3)
+            if (Button("History Manager"))
+            {
+                try
+                {
+                    Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager());
+                }
+                catch (System.Exception ex)
+                {
+                    AppendOutput($"Open History Manager failed: {ex.Message}");
+                }
+            }
+
+            // Dump Snapshot (P10-M3+)
+            if (Button("Dump Snapshot"))
+            {
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        var recap = CoreServices.Locator.Get<RimAI.Core.Modules.History.IRecapService>();
+                        var fixedSvc = CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IFixedPromptService>();
+                        var bioSvc = CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IBiographyService>();
+                        var history = CoreServices.Locator.Get<RimAI.Core.Contracts.Services.IHistoryQueryService>();
+
+                        var participants = new System.Collections.Generic.List<string> { "player:__SAVE__", "pawn:DEMO" };
+                        var convKey = string.Join("|", participants.OrderBy(x => x, System.StringComparer.Ordinal));
+                        var ctxTask = history.GetHistoryAsync(participants);
+                        ctxTask.Wait();
+
+                        AppendOutput($"[Snapshot] convKey={convKey}");
+                        AppendOutput("- Fixed Prompts:");
+                        foreach (var kv in fixedSvc.GetAll(convKey)) AppendOutput($"  {kv.Key}: {kv.Value}");
+                        AppendOutput("- Biographies:");
+                        foreach (var it in bioSvc.List(convKey)) AppendOutput($"  [{it.CreatedAt:HH:mm:ss}] {it.Text}");
+                        AppendOutput("- Recap:");
+                        foreach (var it in recap.GetRecapItems(convKey)) AppendOutput($"  [{it.CreatedAt:HH:mm:ss}] {it.Text}");
+                        AppendOutput("- History (last entries):");
+                        foreach (var c in ctxTask.Result.MainHistory)
+                            foreach (var e in c.Entries) AppendOutput($"  [{e.Timestamp:HH:mm:ss}] {e.SpeakerId}: {e.Content}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput("Dump Snapshot failed: " + ex.Message);
+                    }
+                });
+            }
+
             // Colony FC Test
             if (Button("Colony FC Test"))
             {

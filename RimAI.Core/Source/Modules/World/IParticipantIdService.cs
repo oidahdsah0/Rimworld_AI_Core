@@ -1,5 +1,3 @@
-using System;
-
 namespace RimAI.Core.Modules.World
 {
     /// <summary>
@@ -19,7 +17,7 @@ namespace RimAI.Core.Modules.World
         string GetPlayerId();
 
         /// <summary>
-        /// 基于 Persona 名称与版本生成稳定 ID（persona:&lt;name&gt;#&lt;rev&gt;）。
+        /// 基于 Persona 名称与版本生成稳定 ID（persona:<name>#<rev>）。
         /// </summary>
         string ForPersona(string name, int rev);
 

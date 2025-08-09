@@ -196,6 +196,48 @@ namespace RimAI.Core.Services
             }
         }
 
+        public Task DeleteEntryAsync(string convKey, int entryIndex)
+        {
+            if (string.IsNullOrWhiteSpace(convKey)) throw new ArgumentException("convKey cannot be null or empty", nameof(convKey));
+            if (entryIndex < 0) throw new ArgumentOutOfRangeException(nameof(entryIndex));
+
+            lock (_gate)
+            {
+                if (!_primaryStore.TryGetValue(convKey, out var conv))
+                    throw new KeyNotFoundException($"Conversation not found: {convKey}");
+                if (entryIndex >= conv.Entries.Count)
+                    throw new ArgumentOutOfRangeException(nameof(entryIndex));
+
+                var list = conv.Entries.ToList();
+                list.RemoveAt(entryIndex);
+                _primaryStore[convKey] = new Conversation(list);
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task RestoreEntryAsync(string convKey, int entryIndex, ConversationEntry entry)
+        {
+            if (string.IsNullOrWhiteSpace(convKey)) throw new ArgumentException("convKey cannot be null or empty", nameof(convKey));
+            if (entryIndex < 0) throw new ArgumentOutOfRangeException(nameof(entryIndex));
+            if (entry == null) throw new ArgumentNullException(nameof(entry));
+
+            lock (_gate)
+            {
+                if (!_primaryStore.TryGetValue(convKey, out var conv))
+                {
+                    _primaryStore[convKey] = new Conversation(new List<ConversationEntry> { entry });
+                }
+                else
+                {
+                    var list = conv.Entries.ToList();
+                    entryIndex = Math.Min(Math.Max(0, entryIndex), list.Count);
+                    list.Insert(entryIndex, entry);
+                    _primaryStore[convKey] = new Conversation(list);
+                }
+            }
+            return Task.CompletedTask;
+        }
+
         private static string GetConversationId(IReadOnlyList<string> participantIds)
         {
             var sorted = participantIds.OrderBy(id => id, StringComparer.Ordinal);

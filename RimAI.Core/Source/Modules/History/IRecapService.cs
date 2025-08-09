@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using RimAI.Core.Contracts.Models;
 
 namespace RimAI.Core.Modules.History
@@ -29,6 +30,41 @@ namespace RimAI.Core.Modules.History
         /// （调试用）获取指定会话键的累计轮次计数。
         /// </summary>
         int GetCounter(string convKey);
+
+        /// <summary>
+        /// 读取指定会话键的前情提要字典（倒序）。
+        /// </summary>
+        IReadOnlyList<RecapSnapshotItem> GetRecapItems(string convKey);
+
+        /// <summary>
+        /// 更新字典项文本。
+        /// </summary>
+        bool UpdateRecapItem(string convKey, string itemId, string newText);
+
+        /// <summary>
+        /// 删除字典项。
+        /// </summary>
+        bool RemoveRecapItem(string convKey, string itemId);
+
+        /// <summary>
+        /// 重排字典项到指定索引。
+        /// </summary>
+        bool ReorderRecapItem(string convKey, string itemId, int newIndex);
+
+        // 快照（持久化）
+        IReadOnlyDictionary<string, IReadOnlyList<RecapSnapshotItem>> ExportSnapshot();
+        void ImportSnapshot(IReadOnlyDictionary<string, IReadOnlyList<RecapSnapshotItem>> snapshot);
+    }
+
+    internal readonly struct RecapSnapshotItem
+    {
+        public string Id { get; }
+        public string Text { get; }
+        public System.DateTime CreatedAt { get; }
+        public RecapSnapshotItem(string id, string text, System.DateTime createdAt)
+        {
+            Id = id; Text = text; CreatedAt = createdAt;
+        }
     }
 }
 

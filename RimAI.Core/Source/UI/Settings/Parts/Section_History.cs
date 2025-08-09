@@ -46,6 +46,11 @@ namespace RimAI.Core.UI.Settings.Parts
             int newPrompt = Mathf.Clamp(Mathf.RoundToInt(list.Slider(curPrompt, 1000, 8000)), 1000, 8000);
             list.Gap(SettingsUIUtil.UIControlSpacing);
 
+            int curUndo = h.UndoWindowSeconds;
+            SettingsUIUtil.LabelWithTip(list, $"删除撤销窗口(秒): {curUndo}", "历史删除后的可撤销窗口时长，0=不提供撤销。");
+            int newUndo = Mathf.Clamp(Mathf.RoundToInt(list.Slider(curUndo, 0, 15)), 0, 15);
+            list.Gap(SettingsUIUtil.UIControlSpacing);
+
             var b = h.Budget ?? new HistoryBudgetConfig();
             int curLatency = b.MaxLatencyMs;
             SettingsUIUtil.LabelWithTip(list, $"单次总结最大延迟(ms): {curLatency}", "LLM 总结/叠加调用的超时上限。");
@@ -60,7 +65,7 @@ namespace RimAI.Core.UI.Settings.Parts
 
             bool changed = newN != curN || newTen != curTen || newMaxEntries != curMaxEntries ||
                            newMaxChars != curMaxChars || newPage != curPage || newPrompt != curPrompt ||
-                           newLatency != curLatency || System.Math.Abs(newBudget - curBudget) > 0.0001;
+                           newLatency != curLatency || System.Math.Abs(newBudget - curBudget) > 0.0001 || newUndo != curUndo;
 
             if (changed)
             {
@@ -70,20 +75,21 @@ namespace RimAI.Core.UI.Settings.Parts
                     EventAggregator = draft.EventAggregator,
                     Orchestration = draft.Orchestration,
                     Embedding = draft.Embedding,
-                    History = new HistoryConfig
-                    {
-                        SummaryEveryNRounds = newN,
-                        RecapUpdateEveryRounds = newTen,
-                        RecapDictMaxEntries = newMaxEntries,
-                        RecapMaxChars = newMaxChars,
-                        HistoryPageSize = newPage,
-                        MaxPromptChars = newPrompt,
-                        Budget = new HistoryBudgetConfig
+                        History = new HistoryConfig
                         {
-                            MaxLatencyMs = newLatency,
-                            MonthlyBudgetUSD = newBudget
+                            SummaryEveryNRounds = newN,
+                            RecapUpdateEveryRounds = newTen,
+                            RecapDictMaxEntries = newMaxEntries,
+                            RecapMaxChars = newMaxChars,
+                            HistoryPageSize = newPage,
+                            MaxPromptChars = newPrompt,
+                            UndoWindowSeconds = newUndo,
+                            Budget = new HistoryBudgetConfig
+                            {
+                                MaxLatencyMs = newLatency,
+                                MonthlyBudgetUSD = newBudget
+                            }
                         }
-                    }
                 };
             }
 
@@ -109,6 +115,7 @@ namespace RimAI.Core.UI.Settings.Parts
                                 RecapMaxChars = d.RecapMaxChars,
                                 HistoryPageSize = d.HistoryPageSize,
                                 MaxPromptChars = d.MaxPromptChars,
+                                UndoWindowSeconds = d.UndoWindowSeconds,
                                 Budget = new HistoryBudgetConfig
                                 {
                                     MaxLatencyMs = d.Budget?.MaxLatencyMs ?? 5000,

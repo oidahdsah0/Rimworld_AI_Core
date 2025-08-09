@@ -16,6 +16,9 @@ namespace RimAI.Core.Infrastructure.Persistence
         private const string PersonasNode = "RimAI_Personas";
         private const string ConversationsNode = "RimAI_HistoryConversations";
         private const string InvertedIndexNode = "RimAI_HistoryInvertedIndex";
+        private const string FixedPromptsNode = "RimAI_FixedPrompts"; // convKey => (pid => text)
+        private const string BiographiesNode = "RimAI_Biographies";   // convKey => List<BiographyItem>
+        private const string RecapNode = "RimAI_Recap";               // convKey => List<RecapItem>
 
         #region Serializable helpers
         private class SerConversationEntry : IExposable
@@ -150,5 +153,153 @@ namespace RimAI.Core.Infrastructure.Persistence
             var newState = new PersonaState(dict);
             personaService.LoadStateFromPersistence(newState);
         }
+
+        #region Fixed Prompts & Biographies
+        private class SerFixedPromptEntry : IExposable
+        {
+            public string ConvKey = string.Empty;
+            public Dictionary<string, string> Map = new();
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref ConvKey, nameof(ConvKey));
+                Scribe_Collections.Look(ref Map, nameof(Map), LookMode.Value, LookMode.Value);
+            }
+        }
+
+        private class SerBiographyItem : IExposable
+        {
+            public string Id;
+            public string Text;
+            public long Ticks;
+            public SerBiographyItem() { }
+            public SerBiographyItem(RimAI.Core.Modules.Persona.BiographyItem src)
+            {
+                Id = src.Id; Text = src.Text; Ticks = src.CreatedAt.Ticks;
+            }
+            public RimAI.Core.Modules.Persona.BiographyItem ToModel()
+            {
+                return new RimAI.Core.Modules.Persona.BiographyItem(Id, Text, new DateTime(Ticks));
+            }
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref Id, nameof(Id));
+                Scribe_Values.Look(ref Text, nameof(Text));
+                Scribe_Values.Look(ref Ticks, nameof(Ticks));
+            }
+        }
+
+        private class SerBiographyRecord : IExposable
+        {
+            public string ConvKey = string.Empty;
+            public List<SerBiographyItem> Items = new();
+            public SerBiographyRecord() { }
+            public SerBiographyRecord(string key, IReadOnlyList<RimAI.Core.Modules.Persona.BiographyItem> items)
+            {
+                ConvKey = key; Items = items.Select(i => new SerBiographyItem(i)).ToList();
+            }
+            public KeyValuePair<string, List<RimAI.Core.Modules.Persona.BiographyItem>> ToModel()
+            {
+                return new KeyValuePair<string, List<RimAI.Core.Modules.Persona.BiographyItem>>(ConvKey, Items.Select(i => i.ToModel()).ToList());
+            }
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref ConvKey, nameof(ConvKey));
+                Scribe_Collections.Look(ref Items, nameof(Items), LookMode.Deep);
+            }
+        }
+
+        private class SerRecapItem : IExposable
+        {
+            public string Id;
+            public string Text;
+            public long Ticks;
+            public SerRecapItem() { }
+            public SerRecapItem(RimAI.Core.Modules.History.RecapSnapshotItem src)
+            {
+                Id = src.Id; Text = src.Text; Ticks = src.CreatedAt.Ticks;
+            }
+            public RimAI.Core.Modules.History.RecapSnapshotItem ToModel() => new RimAI.Core.Modules.History.RecapSnapshotItem(Id, Text, new DateTime(Ticks));
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref Id, nameof(Id));
+                Scribe_Values.Look(ref Text, nameof(Text));
+                Scribe_Values.Look(ref Ticks, nameof(Ticks));
+            }
+        }
+
+        private class SerRecapRecord : IExposable
+        {
+            public string ConvKey = string.Empty;
+            public List<SerRecapItem> Items = new();
+            public SerRecapRecord() { }
+            public SerRecapRecord(string key, IReadOnlyList<RimAI.Core.Modules.History.RecapSnapshotItem> items)
+            {
+                ConvKey = key; Items = items.Select(i => new SerRecapItem(i)).ToList();
+            }
+            public KeyValuePair<string, List<RimAI.Core.Modules.History.RecapSnapshotItem>> ToModel()
+            {
+                return new KeyValuePair<string, List<RimAI.Core.Modules.History.RecapSnapshotItem>>(ConvKey, Items.Select(i => i.ToModel()).ToList());
+            }
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref ConvKey, nameof(ConvKey));
+                Scribe_Collections.Look(ref Items, nameof(Items), LookMode.Deep);
+            }
+        }
+
+        public void PersistFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService)
+        {
+            if (fixedPromptService == null) return;
+            var snap = fixedPromptService.ExportSnapshot();
+            var list = snap.Select(kvp => new SerFixedPromptEntry { ConvKey = kvp.Key, Map = kvp.Value.ToDictionary(x => x.Key, x => x.Value) }).ToList();
+            Scribe_Collections.Look(ref list, FixedPromptsNode, LookMode.Deep);
+        }
+
+        public void LoadFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService)
+        {
+            if (fixedPromptService == null) return;
+            var list = new List<SerFixedPromptEntry>();
+            Scribe_Collections.Look(ref list, FixedPromptsNode, LookMode.Deep);
+            list ??= new List<SerFixedPromptEntry>();
+            var snap = list.ToDictionary(e => e.ConvKey, e => (IReadOnlyDictionary<string, string>) (e.Map ?? new Dictionary<string, string>()));
+            fixedPromptService.ImportSnapshot(snap);
+        }
+
+        public void PersistBiographies(RimAI.Core.Modules.Persona.IBiographyService biographyService)
+        {
+            if (biographyService == null) return;
+            var snap = biographyService.ExportSnapshot();
+            var list = snap.Select(kvp => new SerBiographyRecord(kvp.Key, kvp.Value)).ToList();
+            Scribe_Collections.Look(ref list, BiographiesNode, LookMode.Deep);
+        }
+
+        public void LoadBiographies(RimAI.Core.Modules.Persona.IBiographyService biographyService)
+        {
+            if (biographyService == null) return;
+            var list = new List<SerBiographyRecord>();
+            Scribe_Collections.Look(ref list, BiographiesNode, LookMode.Deep);
+            list ??= new List<SerBiographyRecord>();
+            var snap = list.Select(r => r.ToModel()).ToDictionary(k => k.Key, v => (IReadOnlyList<RimAI.Core.Modules.Persona.BiographyItem>)v.Value);
+            biographyService.ImportSnapshot(snap);
+        }
+        
+        public void PersistRecap(RimAI.Core.Modules.History.IRecapService recapService)
+        {
+            if (recapService == null) return;
+            var snap = recapService.ExportSnapshot();
+            var list = snap.Select(kvp => new SerRecapRecord(kvp.Key, kvp.Value)).ToList();
+            Scribe_Collections.Look(ref list, RecapNode, LookMode.Deep);
+        }
+
+        public void LoadRecap(RimAI.Core.Modules.History.IRecapService recapService)
+        {
+            if (recapService == null) return;
+            var list = new List<SerRecapRecord>();
+            Scribe_Collections.Look(ref list, RecapNode, LookMode.Deep);
+            list ??= new List<SerRecapRecord>();
+            var snap = list.Select(r => r.ToModel()).ToDictionary(k => k.Key, v => (IReadOnlyList<RimAI.Core.Modules.History.RecapSnapshotItem>)v.Value);
+            recapService.ImportSnapshot(snap);
+        }
+        #endregion
     }
 }

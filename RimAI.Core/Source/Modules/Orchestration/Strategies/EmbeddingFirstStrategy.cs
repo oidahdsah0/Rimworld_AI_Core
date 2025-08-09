@@ -27,9 +27,12 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
         private readonly IToolVectorIndexService _toolIndex;
         private readonly Planner _planner = new Planner();
 
+        private readonly IPromptAssemblyService _promptAssembler;
+
         public EmbeddingFirstStrategy(IEmbeddingService embedding, IRagIndexService rag, ILLMService llm, IToolRegistryService tools,
             RimAI.Core.Infrastructure.Configuration.IConfigurationService config,
-            IToolVectorIndexService toolIndex)
+            IToolVectorIndexService toolIndex,
+            IPromptAssemblyService promptAssembler)
         {
             _embedding = embedding;
             _rag = rag;
@@ -37,12 +40,22 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             _tools = tools;
             _config = config;
             _toolIndex = toolIndex;
+            _promptAssembler = promptAssembler;
         }
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteAsync(OrchestrationContext context)
         {
             var query = context.Query ?? string.Empty;
             var persona = context.PersonaSystemPrompt ?? string.Empty;
+            try
+            {
+                var assembled = await _promptAssembler.BuildSystemPromptAsync(System.Array.Empty<string>());
+                if (!string.IsNullOrWhiteSpace(assembled))
+                {
+                    persona = string.IsNullOrWhiteSpace(persona) ? assembled : (assembled + "\n" + persona);
+                }
+            }
+            catch { /* ignore */ }
 
             // Step 0: RAG 预处理
             float[] qv = null;

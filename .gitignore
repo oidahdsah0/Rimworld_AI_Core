@@ -325,11 +325,12 @@ MigrationBackup/
 *.dll
 *.pdb
 *.xml
-!About.xml
-!About/*.xml
-!Defs/**/*.xml
-!Languages/**/*.xml
-!Patches/**/*.xml
-!Textures/**/*
-!Sounds/**/*
-!loadFolders.xml
+# Un-ignore mod content in any nested mod folder (e.g., RimAI.Core/...).
+!**/About.xml
+!**/About/*.xml
+!**/Defs/**/*.xml
+!**/Languages/**/*.xml
+!**/Patches/**/*.xml
+!**/Textures/**/*
+!**/Sounds/**/*
+!**/loadFolders.xml

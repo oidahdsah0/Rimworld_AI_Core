@@ -77,6 +77,14 @@ namespace RimAI.Core.Infrastructure
             Register<RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy,
                      RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy>();
 
+            // P10-M1: 新增内部服务注册
+            Register<RimAI.Core.Modules.World.IParticipantIdService,
+                     RimAI.Core.Modules.World.ParticipantIdService>();
+            Register<RimAI.Core.Modules.History.IRecapService,
+                     RimAI.Core.Modules.History.RecapService>();
+            Register<RimAI.Core.Modules.Orchestration.IPromptAssemblyService,
+                     RimAI.Core.Modules.Orchestration.PromptAssemblyService>();
+
             // 预先构造配置服务实例，便于后续使用。
             var cfgImpl = Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));
             // 将同一实现同时注册为对外只读接口实例，避免双实例不一致
@@ -93,6 +101,15 @@ namespace RimAI.Core.Infrastructure
                 embeddingFirst
             };
             RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy>), stratList);
+
+            // P10-M1: 订阅历史新增事件 → RecapService（一次性订阅）
+            try
+            {
+                var historyWrite = (RimAI.Core.Services.IHistoryWriteService)Resolve(typeof(RimAI.Core.Services.IHistoryWriteService));
+                var recap = (RimAI.Core.Modules.History.IRecapService)Resolve(typeof(RimAI.Core.Modules.History.IRecapService));
+                historyWrite.OnEntryRecorded += recap.OnEntryRecorded;
+            }
+            catch { /* ignore */ }
 
             _initialized = true;
         }

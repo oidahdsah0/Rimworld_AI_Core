@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <MainButtonDef>
+    <defName>RimAI_DebugPanel</defName>
+    <label>RimAI Debug</label>
+    <description>RimAI V4 调试面板</description>
+    <tabWindowClass>RimAI.Core.UI.DebugPanel.MainTabWindow_RimAIDebug, RimAI.Core</tabWindowClass>
+    <defaultOrder>998</defaultOrder>
+    <buttonVisible>true</buttonVisible>
+    <iconPath>UI/Buttons/DevRoot</iconPath>
+  </MainButtonDef>
+</Defs>
+
+

@@ -32,22 +32,36 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
         private readonly Infrastructure.Configuration.IConfigurationService _config;
         private readonly Modules.Embedding.IToolVectorIndexService _toolIndex;
         private readonly Planner _planner = new Planner();
+        private readonly IPromptAssemblyService _promptAssembler;
 
         public ClassicStrategy(ILLMService llm, IToolRegistryService tools, IPersonaService personaService,
             Infrastructure.Configuration.IConfigurationService config,
-            Modules.Embedding.IToolVectorIndexService toolIndex)
+            Modules.Embedding.IToolVectorIndexService toolIndex,
+            IPromptAssemblyService promptAssembler)
         {
             _llm = llm;
             _tools = tools;
             _personaService = personaService;
             _config = config;
             _toolIndex = toolIndex;
+            _promptAssembler = promptAssembler;
         }
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> ExecuteAsync(OrchestrationContext context)
         {
             var query = context.Query ?? string.Empty;
             var personaSystemPrompt = context.PersonaSystemPrompt ?? string.Empty;
+
+            // P10-M1: 预留提示组装调用（当前返回空字符串，不改变行为）
+            try
+            {
+                var assembled = await _promptAssembler.BuildSystemPromptAsync(System.Array.Empty<string>());
+                if (!string.IsNullOrWhiteSpace(assembled))
+                {
+                    personaSystemPrompt = string.IsNullOrWhiteSpace(personaSystemPrompt) ? assembled : (assembled + "\n" + personaSystemPrompt);
+                }
+            }
+            catch { /* ignore */ }
 
             if (string.IsNullOrWhiteSpace(personaSystemPrompt))
             {

@@ -446,6 +446,8 @@ namespace RimAI.Core.UI.DebugPanel
             if (Button("Show History"))
             {
                 var history = CoreServices.Locator.Get<RimAI.Core.Contracts.Services.IHistoryQueryService>();
+                var historyWrite = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+                var recap = CoreServices.Locator.Get<RimAI.Core.Modules.History.IRecapService>();
                 System.Threading.Tasks.Task.Run(async () =>
                 {
                     try
@@ -469,6 +471,15 @@ namespace RimAI.Core.UI.DebugPanel
                         {
                             AppendOutput("没有找到历史记录。");
                         }
+
+                        try
+                        {
+                            // 读取 Recap 计数调试信息
+                            var convKey = string.Join("|", participants.OrderBy(x => x, System.StringComparer.Ordinal));
+                            var n = recap?.GetCounter(convKey) ?? 0;
+                            AppendOutput($"[调试] Recap 轮次计数（{convKey}）= {n}");
+                        }
+                        catch { /* ignore */ }
                     }
                     catch (System.Exception ex)
                     {

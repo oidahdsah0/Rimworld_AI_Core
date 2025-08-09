@@ -91,7 +91,7 @@ namespace RimAI.Core.Infrastructure.Persistence
         }
         #endregion
 
-        public void PersistHistoryState(IHistoryService historyService)
+        public void PersistHistoryState(RimAI.Core.Services.IHistoryWriteService historyService)
         {
             if (historyService == null) return;
 
@@ -106,7 +106,7 @@ namespace RimAI.Core.Infrastructure.Persistence
             Scribe_Collections.Look(ref invIndex, InvertedIndexNode, LookMode.Value, LookMode.Value);
         }
 
-        public void LoadHistoryState(IHistoryService historyService)
+        public void LoadHistoryState(RimAI.Core.Services.IHistoryWriteService historyService)
         {
             if (historyService == null) return;
 

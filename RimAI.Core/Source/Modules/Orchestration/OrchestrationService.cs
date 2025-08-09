@@ -10,7 +10,8 @@ using RimAI.Core.Contracts;
 using RimAI.Core.Contracts.Tooling;
 using RimAI.Core.Modules.LLM;
 using RimAI.Core.Infrastructure;
-using RimAI.Core.Infrastructure.Configuration;
+using InfraConfig = RimAI.Core.Infrastructure.Configuration.IConfigurationService;
+using ContractsConfig = RimAI.Core.Contracts.Services.IConfigurationService;
 using System.Security.Cryptography;
 // using RimAI.Core.Infrastructure.Cache; // 缓存已下沉至 Framework
 using RimAI.Core.Contracts.Services;
@@ -24,9 +25,9 @@ namespace RimAI.Core.Modules.Orchestration
     {
         private readonly Dictionary<string, Strategies.IOrchestrationStrategy> _strategies;
         private readonly Strategies.IOrchestrationStrategy _defaultStrategy;
-        private readonly IConfigurationService _config;
+        private readonly InfraConfig _config;
 
-        public OrchestrationService(IEnumerable<Strategies.IOrchestrationStrategy> strategies, IConfigurationService config)
+        public OrchestrationService(IEnumerable<Strategies.IOrchestrationStrategy> strategies, InfraConfig config)
         {
             // 将策略列表转为名称映射；默认 Classic
             _strategies = (strategies ?? System.Linq.Enumerable.Empty<Strategies.IOrchestrationStrategy>())

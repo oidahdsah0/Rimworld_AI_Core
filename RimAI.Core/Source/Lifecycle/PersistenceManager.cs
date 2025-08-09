@@ -1,5 +1,6 @@
 using RimAI.Core.Contracts.Services;
 using RimAI.Core.Infrastructure.Persistence;
+using RimAI.Core.Services;
 using Verse;
 
 namespace RimAI.Core.Lifecycle
@@ -11,14 +12,14 @@ namespace RimAI.Core.Lifecycle
     public class PersistenceManager : GameComponent
     {
         private readonly IPersistenceService _persistenceService;
-        private readonly IHistoryService _historyService;
+        private readonly IHistoryWriteService _historyService;
         private readonly IPersonaService _personaService;
 
         public PersistenceManager(Game game) : base()
         {
             // DI must be ready before any GameComponent is constructed.
             _persistenceService = Infrastructure.CoreServices.Locator.Get<IPersistenceService>();
-            _historyService     = Infrastructure.CoreServices.Locator.Get<IHistoryService>();
+            _historyService     = Infrastructure.CoreServices.Locator.Get<IHistoryWriteService>();
             _personaService     = Infrastructure.CoreServices.Locator.Get<IPersonaService>();
         }
 

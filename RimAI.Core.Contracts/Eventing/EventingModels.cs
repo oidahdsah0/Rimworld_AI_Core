@@ -91,5 +91,23 @@ namespace RimAI.Core.Contracts.Eventing
 
         public string Describe() => $"[{Source}] {Stage}: {Message}";
     }
+
+    /// <summary>
+    /// 统一的 AI 异常事件。用于对外可观测性（日志/UI）。
+    /// </summary>
+    public sealed class AIExceptionEvent : IEvent
+    {
+        public string Id { get; } = System.Guid.NewGuid().ToString();
+        public System.DateTime Timestamp { get; } = System.DateTime.UtcNow;
+        public EventPriority Priority { get; } = EventPriority.High;
+
+        public string Source { get; set; } = string.Empty;
+        public string ExceptionType { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string StackTrace { get; set; } = string.Empty;
+        public string ContextJson { get; set; } = string.Empty;
+
+        public string Describe() => $"[{Source}] {ExceptionType}: {Message}";
+    }
 }
 

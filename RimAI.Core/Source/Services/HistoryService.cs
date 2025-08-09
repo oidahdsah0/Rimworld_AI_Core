@@ -13,7 +13,7 @@ namespace RimAI.Core.Services
     /// 目标：提供 P6 持久化所需的状态导入/导出能力，
     /// 线程安全采用 <see cref="lock"/> 简单保护即可满足当前需求。
     /// </summary>
-    internal sealed class HistoryService : IHistoryService
+    internal sealed class HistoryService : IHistoryService, RimAI.Core.Contracts.Services.IHistoryQueryService, IHistoryWriteService
     {
         private readonly Dictionary<string, Conversation> _primaryStore = new();
         private readonly Dictionary<string, HashSet<string>> _invertedIndex = new();

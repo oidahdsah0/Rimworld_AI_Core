@@ -3,7 +3,7 @@
     <TargetFramework>net472</TargetFramework>
     <RootNamespace>RimAI.Core.Contracts</RootNamespace>
     <Nullable>disable</Nullable>
-    <LangVersion>8.0</LangVersion>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Rimworld_AI_Framework\RimAI.Framework.Contracts\RimAI.Framework.Contracts.csproj" />

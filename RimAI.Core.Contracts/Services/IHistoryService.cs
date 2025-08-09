@@ -15,6 +15,7 @@ namespace RimAI.Core.Contracts.Services
         /// </summary>
         /// <param name="participantIds">参与者稳定 ID 列表（排序后生成会话键）。</param>
         /// <param name="entry">条目内容。</param>
+        [System.Obsolete("外部请改用 IHistoryQueryService；写入能力为内部实现细节。")]
         Task RecordEntryAsync(IReadOnlyList<string> participantIds, ConversationEntry entry);
 
         /// <summary>
@@ -26,11 +27,13 @@ namespace RimAI.Core.Contracts.Services
         /// <summary>
         /// 导出内部状态，供持久化层序列化。
         /// </summary>
+        [System.Obsolete("外部不应依赖快照；此方法为内部持久化使用。")] 
         HistoryState GetStateForPersistence();
 
         /// <summary>
         /// 从持久化状态恢复内部数据结构。
         /// </summary>
+        [System.Obsolete("外部不应恢复内部状态；此方法为内部持久化使用。")]
         void LoadStateFromPersistence(HistoryState state);
     }
 }

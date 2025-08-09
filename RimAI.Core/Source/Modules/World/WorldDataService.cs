@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Verse;
 using RimWorld;
+using RimAI.Core.Contracts.Models;
 
 namespace RimAI.Core.Modules.World
 {
@@ -26,15 +27,7 @@ namespace RimAI.Core.Modules.World
         Task<ColonySummary> GetColonySummaryAsync();
     }
 
-    /// <summary>
-    /// 用于返回给工具层的殖民地摘要数据结构。
-    /// </summary>
-    public class ColonySummary
-    {
-        public int ColonistCount { get; set; }
-        public int FoodStockpile { get; set; }
-        public string ThreatLevel { get; set; }
-    }
+    // ColonySummary 已提升到 Contracts 层作为对外 DTO
 
     internal sealed class WorldDataService : IWorldDataService
     {

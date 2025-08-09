@@ -425,7 +425,7 @@ namespace RimAI.Core.UI.DebugPanel
 
             if (Button("Record History"))
             {
-                var history = CoreServices.Locator.Get<IHistoryService>();
+                var history = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
                 System.Threading.Tasks.Task.Run(async () =>
                 {
                     try
@@ -445,7 +445,7 @@ namespace RimAI.Core.UI.DebugPanel
             // Show History - 显示当前历史记录
             if (Button("Show History"))
             {
-                var history = CoreServices.Locator.Get<IHistoryService>();
+                var history = CoreServices.Locator.Get<RimAI.Core.Contracts.Services.IHistoryQueryService>();
                 System.Threading.Tasks.Task.Run(async () =>
                 {
                     try

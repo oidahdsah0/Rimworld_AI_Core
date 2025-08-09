@@ -62,6 +62,11 @@ namespace RimAI.Core.Infrastructure
             // P6: HistoryService 注册
             Register<RimAI.Core.Contracts.Services.IHistoryService,
                      RimAI.Core.Services.HistoryService>();
+            // 对外只读历史查询接口复用同一实例 + 内部写接口
+            Register<RimAI.Core.Contracts.Services.IHistoryQueryService,
+                     RimAI.Core.Services.HistoryService>();
+            Register<RimAI.Core.Services.IHistoryWriteService,
+                     RimAI.Core.Services.HistoryService>();
             // P6: PersistenceService 注册
             Register<RimAI.Core.Infrastructure.Persistence.IPersistenceService,
                      RimAI.Core.Infrastructure.Persistence.PersistenceService>();
@@ -73,7 +78,9 @@ namespace RimAI.Core.Infrastructure
                      RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy>();
 
             // 预先构造配置服务实例，便于后续使用。
-            Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));
+            var cfgImpl = Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));
+            // 将同一实现同时注册为对外只读接口实例，避免双实例不一致
+            RegisterInstance(typeof(RimAI.Core.Contracts.Services.IConfigurationService), cfgImpl);
 
             // P9-S1: 组装策略集合供 OrchestrationService 注入（IEnumerable<IOrchestrationStrategy>）
             var classic = (RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy)

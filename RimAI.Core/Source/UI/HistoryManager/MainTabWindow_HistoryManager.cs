@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using RimAI.Core.Contracts.Models;
-using RimAI.Core.Contracts.Services;
 using RimAI.Core.Infrastructure;
 using RimAI.Core.Modules.History;
 using RimAI.Core.Modules.World;
@@ -23,7 +22,6 @@ namespace RimAI.Core.UI.HistoryManager
     /// </summary>
     public class MainTabWindow_HistoryManager : Window
     {
-        private readonly IHistoryQueryService _historyQuery;
         private readonly RimAI.Core.Services.IHistoryWriteService _historyWrite;
         private readonly IParticipantIdService _pid;
         private readonly IRecapService _recap;
@@ -45,13 +43,11 @@ namespace RimAI.Core.UI.HistoryManager
         private string _editBuffer = string.Empty;
         private bool _demoPrepared = false;
 
-        private const float Padding = 10f;
         private const float RowSpacing = 6f;
         private const float LinkSpacing = 12f;
 
         public MainTabWindow_HistoryManager()
         {
-            _historyQuery = CoreServices.Locator.Get<IHistoryQueryService>();
             _historyWrite = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
             _pid = CoreServices.Locator.Get<IParticipantIdService>();
             _recap = CoreServices.Locator.Get<IRecapService>();
@@ -74,7 +70,7 @@ namespace RimAI.Core.UI.HistoryManager
             if (!string.IsNullOrWhiteSpace(presetConvKey))
             {
                 _demoPrepared = true; // 禁止自动生成 Demo
-                _convKeyInput = CanonicalizeConvKey(presetConvKey);
+                _convKeyInput = HistoryUIState.CanonicalizeConvKey(presetConvKey);
                 HistoryUIState.CurrentConvKey = _convKeyInput;
                 _ = ReloadKeysAsync();
                 _ = ReloadEntriesAsync();
@@ -189,7 +185,7 @@ namespace RimAI.Core.UI.HistoryManager
                 if (Widgets.ButtonText(r, label, drawBackground: on))
                 {
                     // 切换 Tab 时，确保 convKey 与 cid 与全局状态一致
-                    var canon = CanonicalizeConvKey(_convKeyInput);
+                    var canon = HistoryUIState.CanonicalizeConvKey(_convKeyInput);
                     if (!string.Equals(canon, _convKeyInput, System.StringComparison.Ordinal))
                     {
                         _ = LoadByConvKeyAsync(canon);
@@ -231,8 +227,17 @@ namespace RimAI.Core.UI.HistoryManager
         #region Tab1 历史记录（行内修改/删除）
         private void DrawTabHistory(Rect rect)
         {
-            var pageSize = Math.Max(1, _config?.Current?.History?.HistoryPageSize ?? 100);
             var entries = _entries ?? new List<ConversationEntry>();
+
+            // 空状态提示：当无任何历史记录时，在面板中明确显示
+            if (entries.Count == 0)
+            {
+                Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
+                    string.IsNullOrWhiteSpace(_convKeyInput)
+                        ? "无历史对话。请输入或选择会话键后点击加载。"
+                        : $"无历史对话：{_convKeyInput}");
+                return;
+            }
 
             var viewH = Math.Max(rect.height - 8f, entries.Count * 46f + 40f);
             var viewRect = new Rect(0, 0, rect.width - 16f, viewH);
@@ -371,7 +376,7 @@ namespace RimAI.Core.UI.HistoryManager
             {
                 try
                 {
-                    var list = _historyWrite.FindByConvKeyAsync(_convKeyInput).GetAwaiter().GetResult();
+                    var list = GetCandidatesByKeyAsync(_convKeyInput).GetAwaiter().GetResult();
                     _convCandidates = list?.ToList() ?? new List<string>();
                     _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty;
                 }
@@ -385,7 +390,7 @@ namespace RimAI.Core.UI.HistoryManager
                 {
                     if (_convCandidates == null || _convCandidates.Count == 0)
                     {
-                        var list = _historyWrite.FindByConvKeyAsync(_convKeyInput).GetAwaiter().GetResult();
+                        var list = GetCandidatesByKeyAsync(_convKeyInput).GetAwaiter().GetResult();
                         _convCandidates = list?.ToList() ?? new List<string>();
                     }
                     for (int i = _convCandidates.Count - 1; i >= 0; i--)
@@ -671,42 +676,17 @@ namespace RimAI.Core.UI.HistoryManager
         private async Task LoadByConvKeyAsync(string convKey, string preferredConversationId = null)
         {
             var typed = convKey ?? string.Empty;
-            var canon = CanonicalizeConvKey(typed);
+            var canon = HistoryUIState.CanonicalizeConvKey(typed);
             _convKeyInput = typed; // 保留用户输入原样
             HistoryUIState.CurrentConvKey = _convKeyInput;
+            // 立即清空当前选择与记录，防止在异步加载期间残留旧数据（例如仍显示上一次的 ALLY 会话）
+            _entries = new List<ConversationEntry>();
+            HistoryUIState.CurrentConversationId = string.Empty;
             _selectedConversationId = string.Empty;
             _convCandidates.Clear();
             try
             {
-                var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
-                _convCandidates = list?.ToList() ?? new List<string>();
-                if (_convCandidates.Count == 0 && !string.Equals(canon, _convKeyInput, StringComparison.Ordinal))
-                {
-                    var list2 = await _historyWrite.FindByConvKeyAsync(canon);
-                    _convCandidates = list2?.ToList() ?? new List<string>();
-                }
-
-                // 回退：若按 convKey 未找到，则尝试按参与者列举（兼容 player id 变更或顺序问题）
-                if (_convCandidates.Count == 0)
-                {
-                    var ids = canon.Split('|');
-                    HashSet<string> inter = null;
-                    foreach (var pid in ids)
-                    {
-                        if (string.IsNullOrWhiteSpace(pid)) { inter = null; break; }
-                        var setForPid = new HashSet<string>(StringComparer.Ordinal);
-                        try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) setForPid.Add(c); } catch { }
-                        if (pid.StartsWith("player:", StringComparison.Ordinal))
-                        {
-                            // 兼容旧档：尝试 __SAVE__ 作为备选
-                            try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) setForPid.Add(c); } catch { }
-                        }
-                        if (inter == null) inter = setForPid;
-                        else inter.IntersectWith(setForPid);
-                        if (inter.Count == 0) break;
-                    }
-                    _convCandidates = inter?.ToList() ?? new List<string>();
-                }
+                _convCandidates = await FindCandidatesWithFallbackAsync(_convKeyInput);
 
                 if (_convCandidates.Count == 0)
                 {
@@ -731,35 +711,7 @@ namespace RimAI.Core.UI.HistoryManager
 
         private async Task<List<string>> GetCandidatesByKeyAsync(string convKey)
         {
-            var typed = convKey ?? string.Empty;
-            var canon = CanonicalizeConvKey(typed);
-            var list = await _historyWrite.FindByConvKeyAsync(typed);
-            var cands = list?.ToList() ?? new List<string>();
-            if (cands.Count == 0 && !string.Equals(typed, canon, StringComparison.Ordinal))
-            {
-                var list2 = await _historyWrite.FindByConvKeyAsync(canon);
-                cands = list2?.ToList() ?? new List<string>();
-            }
-            if (cands.Count == 0)
-            {
-                var ids = canon.Split('|');
-                HashSet<string> inter = null;
-                foreach (var pid in ids)
-                {
-                    if (string.IsNullOrWhiteSpace(pid)) { inter = null; break; }
-                    var setForPid = new HashSet<string>(StringComparer.Ordinal);
-                    try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) setForPid.Add(c); } catch { }
-                    if (pid.StartsWith("player:", StringComparison.Ordinal))
-                    {
-                        try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) setForPid.Add(c); } catch { }
-                    }
-                    if (inter == null) inter = setForPid;
-                    else inter.IntersectWith(setForPid);
-                    if (inter.Count == 0) break;
-                }
-                cands = inter?.ToList() ?? new List<string>();
-            }
-            return cands;
+            return await FindCandidatesWithFallbackAsync(convKey);
         }
 
         private async Task ReloadEntriesAsync()
@@ -776,29 +728,7 @@ namespace RimAI.Core.UI.HistoryManager
             {
                 try
                 {
-                    var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
-                    _convCandidates = list?.ToList() ?? new List<string>();
-                    if (_convCandidates.Count == 0)
-                    {
-                        // 同 LoadByConvKey 回退逻辑（交集）
-                        var canon = CanonicalizeConvKey(_convKeyInput);
-                        var ids = canon.Split('|');
-                        HashSet<string> inter = null;
-                        foreach (var pid in ids)
-                        {
-                            if (string.IsNullOrWhiteSpace(pid)) { inter = null; break; }
-                            var setForPid = new HashSet<string>(StringComparer.Ordinal);
-                            try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) setForPid.Add(c); } catch { }
-                            if (pid.StartsWith("player:", StringComparison.Ordinal))
-                            {
-                                try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) setForPid.Add(c); } catch { }
-                            }
-                            if (inter == null) inter = setForPid;
-                            else inter.IntersectWith(setForPid);
-                            if (inter.Count == 0) break;
-                        }
-                        _convCandidates = inter?.ToList() ?? new List<string>();
-                    }
+                    _convCandidates = await FindCandidatesWithFallbackAsync(_convKeyInput);
                     _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
                     HistoryUIState.CurrentConversationId = _selectedConversationId;
                 }
@@ -825,11 +755,40 @@ namespace RimAI.Core.UI.HistoryManager
             }
         }
 
-        private static string CanonicalizeConvKey(string key)
+        private async Task<List<string>> FindCandidatesWithFallbackAsync(string convKey)
         {
-            if (string.IsNullOrWhiteSpace(key)) return string.Empty;
-            var ids = key.Split('|').Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim());
-            return string.Join("|", ids.OrderBy(x => x, StringComparer.Ordinal));
+            var typed = convKey ?? string.Empty;
+            var canon = HistoryUIState.CanonicalizeConvKey(typed);
+            // 1) 先用原样键，再用规范化键
+            var list = await _historyWrite.FindByConvKeyAsync(typed);
+            var cands = list?.ToList() ?? new List<string>();
+            if (cands.Count == 0 && !string.Equals(typed, canon, StringComparison.Ordinal))
+            {
+                var list2 = await _historyWrite.FindByConvKeyAsync(canon);
+                cands = list2?.ToList() ?? new List<string>();
+            }
+            // 2) 仍为空则回退到“参与者交集”
+            if (cands.Count == 0)
+            {
+                var ids = canon.Split('|');
+                HashSet<string> inter = null;
+                foreach (var pid in ids)
+                {
+                    if (string.IsNullOrWhiteSpace(pid)) { inter = null; break; }
+                    var setForPid = new HashSet<string>(StringComparer.Ordinal);
+                    try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) setForPid.Add(c); } catch { }
+                    if (pid.StartsWith("player:", StringComparison.Ordinal))
+                    {
+                        // 兼容旧档 player:__SAVE__
+                        try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) setForPid.Add(c); } catch { }
+                    }
+                    if (inter == null) inter = setForPid;
+                    else inter.IntersectWith(setForPid);
+                    if (inter.Count == 0) break;
+                }
+                cands = inter?.ToList() ?? new List<string>();
+            }
+            return cands;
         }
         #endregion
     }

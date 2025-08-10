@@ -31,6 +31,8 @@ namespace RimAI.Core.Modules.History
         private readonly ConcurrentDictionary<string, object> _locks = new();
         // 标记：当前是否处于“一键重述”回放阶段（用于放宽超时与限流）
         private readonly ConcurrentDictionary<string, byte> _rebuildFlags = new();
+        // 上游 LLM 繁忙时的全局冷却（避免短时间内重复触发重试与警告日志）
+        private System.DateTime _llmBusyUntilUtc = System.DateTime.MinValue;
 
         public RecapService(ILLMService llm, IHistoryWriteService history, IHistoryQueryService historyQuery, InfraConfigService config)
         {
@@ -225,11 +227,27 @@ namespace RimAI.Core.Modules.History
                 string text = null;
                 try
                 {
-                    text = await _llm.GetResponseAsync(prompt, forceJson: false, ct: cts.Token);
+                    if (System.DateTime.UtcNow < _llmBusyUntilUtc)
+                    {
+                        // 跳过 LLM，直接退化
+                        text = string.Join("\n", all.Select(e => e.Content));
+                    }
+                    else
+                    {
+                        text = await _llm.GetResponseAsync(prompt, forceJson: false, ct: cts.Token);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    CoreServices.Logger.Warn($"[Recap] Summarize failed: {ex.Message} (fallback)");
+                    if (IsVendorBusy(ex.Message))
+                    {
+                        _llmBusyUntilUtc = System.DateTime.UtcNow.AddSeconds(30);
+                        CoreServices.Logger.Info("[Recap] LLM busy → enter 30s cooldown; using fallback");
+                    }
+                    else
+                    {
+                        CoreServices.Logger.Warn($"[Recap] Summarize failed: {ex.Message} (fallback)");
+                    }
                     // 退化为拼接 + 裁剪
                     text = string.Join("\n", all.Select(e => e.Content));
                 }
@@ -277,11 +295,26 @@ namespace RimAI.Core.Modules.History
                 string text = null;
                 try
                 {
-                    text = await _llm.GetResponseAsync(prompt, forceJson: false, ct: cts.Token);
+                    if (System.DateTime.UtcNow < _llmBusyUntilUtc)
+                    {
+                        text = string.Join("\n", all.Select(e => e.Content));
+                    }
+                    else
+                    {
+                        text = await _llm.GetResponseAsync(prompt, forceJson: false, ct: cts.Token);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    CoreServices.Logger.Warn($"[Recap] Aggregate failed: {ex.Message} (fallback)");
+                    if (IsVendorBusy(ex.Message))
+                    {
+                        _llmBusyUntilUtc = System.DateTime.UtcNow.AddSeconds(30);
+                        CoreServices.Logger.Info("[Recap] LLM busy → enter 30s cooldown; using fallback");
+                    }
+                    else
+                    {
+                        CoreServices.Logger.Warn($"[Recap] Aggregate failed: {ex.Message} (fallback)");
+                    }
                     // 退化为拼接 + 裁剪
                     text = string.Join("\n", all.Select(e => e.Content));
                 }
@@ -343,6 +376,14 @@ namespace RimAI.Core.Modules.History
                 lines.Add("- " + e.Content);
             }
             return string.Join("\n", lines);
+        }
+
+        private static bool IsVendorBusy(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message)) return false;
+            return message.Contains("System is too busy now", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("\"code\": 50508", StringComparison.Ordinal)
+                || message.Contains("50508", StringComparison.Ordinal);
         }
 
         internal readonly struct RecapItem

@@ -81,6 +81,12 @@
     </ItemGroup>
     <Copy SourceFiles="@(DefFiles)" DestinationFolder="$(ModDir)\Defs\%(RecursiveDir)" />
 
+    <!-- Copy the Textures folder (icons, UI assets, etc.) -->
+    <ItemGroup>
+      <TextureFiles Include="Textures\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TextureFiles)" DestinationFolder="$(ModDir)\Textures\%(RecursiveDir)" SkipUnchangedFiles="true" />
+
     <!-- Copy the loadFolders.xml file -->
     <Copy SourceFiles="loadFolders.xml" DestinationFolder="$(ModDir)" />
 

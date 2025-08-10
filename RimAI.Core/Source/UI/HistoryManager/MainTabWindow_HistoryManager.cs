@@ -45,6 +45,12 @@ namespace RimAI.Core.UI.HistoryManager
 
         private const float RowSpacing = 6f;
         private const float LinkSpacing = 12f;
+        private const float HeaderRowHeight = 26f;
+        private const float ControlGap = 8f;
+        private const float RightButtonWidth = 100f;
+        private const float HeaderLabelWidth = 80f;
+        private const float TabHeight = 26f;
+        private const float LeftMetaColWidth = 180f; // 时间+说话人列宽
 
         public MainTabWindow_HistoryManager()
         {
@@ -77,7 +83,7 @@ namespace RimAI.Core.UI.HistoryManager
             }
         }
 
-        public override Vector2 InitialSize => new Vector2(1000f, 640f);
+        public override Vector2 InitialSize => new Vector2(1080f, 660f);
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -92,44 +98,46 @@ namespace RimAI.Core.UI.HistoryManager
 
         private void DrawHeader(Rect inRect, ref float y)
         {
-            // 加载键输入与选择
-            Widgets.Label(new Rect(inRect.x, y, 80f, 24f), "会话键");
-            _convKeyInput = Widgets.TextField(new Rect(inRect.x + 80f, y, inRect.width - 300f, 24f), _convKeyInput);
-            if (Widgets.ButtonText(new Rect(inRect.x + inRect.width - 210f, y, 80f, 24f), "刷新"))
+            // Row 1: 会话键输入 + 右侧操作
+            var row1 = new Rect(inRect.x, y, inRect.width, HeaderRowHeight);
+            Widgets.Label(new Rect(row1.x, row1.y, HeaderLabelWidth, row1.height), "会话键");
+            float textWidth = row1.width - HeaderLabelWidth - RightButtonWidth * 2 - ControlGap * 3;
+            _convKeyInput = Widgets.TextField(new Rect(row1.x + HeaderLabelWidth, row1.y, textWidth, row1.height), _convKeyInput);
+            if (Widgets.ButtonText(new Rect(row1.x + HeaderLabelWidth + textWidth + ControlGap, row1.y, RightButtonWidth, row1.height), "刷新"))
             {
                 _ = ReloadKeysAsync();
             }
-            if (Widgets.ButtonText(new Rect(inRect.x + inRect.width - 120f, y, 100f, 24f), "加载"))
+            if (Widgets.ButtonText(new Rect(row1.x + HeaderLabelWidth + textWidth + ControlGap + RightButtonWidth + ControlGap, row1.y, RightButtonWidth, row1.height), "加载"))
             {
-                // 明确按文本框内容加载；内部优先原样键，找不到再规范化
                 _ = LoadByConvKeyAsync(_convKeyInput);
             }
-            y += 28f;
+            y += HeaderRowHeight + RowSpacing;
 
-            // 参与者友好名提示
+            // Row 2: 参与者友好名
             if (!string.IsNullOrWhiteSpace(_convKeyInput))
             {
                 var parts = _convKeyInput.Split('|');
                 var names = parts.Select(p => _pid.GetDisplayName(p)).ToList();
-                Widgets.Label(new Rect(inRect.x, y, inRect.width, 24f), $"参与者：{string.Join(", ", names)}");
-                y += 28f;
+                Widgets.Label(new Rect(inRect.x, y, inRect.width, HeaderRowHeight), $"参与者：{string.Join(", ", names)}");
+                y += HeaderRowHeight + RowSpacing;
             }
 
-            // 行内：下拉选择 convKey + 会话ID + 仅对二者生效的加载按钮
-            // 初始化默认选择
+            // 初始化下拉默认值（避免空状态下的 UI 抖动）
             if (string.IsNullOrWhiteSpace(_selectedConvKey))
             {
                 _selectedConvKey = _allConvKeys.FirstOrDefault() ?? _convKeyInput;
-                // 预载该键的候选 cid
                 try { _menuCandidates = GetCandidatesByKeyAsync(_selectedConvKey).GetAwaiter().GetResult() ?? new List<string>(); }
                 catch { _menuCandidates = new List<string>(); }
                 _selectedConversationIdMenu = _menuCandidates.LastOrDefault() ?? string.Empty;
             }
 
-            float x0 = inRect.x;
-            var keyBtn = new Rect(x0, y, Math.Min(360f, inRect.width * 0.45f), 24f);
-            var cidBtn = new Rect(keyBtn.xMax + 8f, y, Math.Min(360f, inRect.width * 0.35f), 24f);
-            var loadSelBtn = new Rect(cidBtn.xMax + 8f, y, 90f, 24f);
+            // Row 3: 下拉选择 convKey + 会话ID + 加载所选
+            var row3 = new Rect(inRect.x, y, inRect.width, HeaderRowHeight);
+            float btnWidthKey = Math.Min(420f, row3.width * 0.5f - ControlGap * 1.5f);
+            float btnWidthCid = Math.Min(360f, row3.width * 0.35f - ControlGap * 1.5f);
+            var keyBtn = new Rect(row3.x, row3.y, btnWidthKey, row3.height);
+            var cidBtn = new Rect(keyBtn.xMax + ControlGap, row3.y, btnWidthCid, row3.height);
+            var loadSelBtn = new Rect(cidBtn.xMax + ControlGap, row3.y, RightButtonWidth, row3.height);
 
             if (Widgets.ButtonText(keyBtn, string.IsNullOrWhiteSpace(_selectedConvKey) ? "选择会话键" : _selectedConvKey))
             {
@@ -169,18 +177,19 @@ namespace RimAI.Core.UI.HistoryManager
                     _ = LoadByConvKeyAsync(_selectedConvKey, _selectedConversationIdMenu);
                 }
             }
-            y += 28f;
+            y += HeaderRowHeight; // 末行不额外加 RowSpacing，交给调用方统一留白
         }
 
         private void DrawTabs(Rect inRect, ref float y)
         {
             var tabs = new[] { "历史记录", "前情提要", "固定提示词", "关联对话", "人物传记" };
+            float startY = y;
             float curX = inRect.x;
             for (int i = 0; i < tabs.Length; i++)
             {
                 var label = tabs[i];
                 var size = Text.CalcSize(label);
-                var r = new Rect(curX, y, size.x + 20f, 24f);
+                var r = new Rect(curX, startY, size.x + 24f, TabHeight);
                 bool on = _activeTab == i;
                 if (Widgets.ButtonText(r, label, drawBackground: on))
                 {
@@ -196,7 +205,6 @@ namespace RimAI.Core.UI.HistoryManager
                     }
                     else
                     {
-                        // 同步当前选择的 cid（若不同步则尝试根据convKey刷新）
                         if (!string.IsNullOrWhiteSpace(HistoryUIState.CurrentConversationId) && HistoryUIState.CurrentConvKey == _convKeyInput)
                         {
                             _selectedConversationId = HistoryUIState.CurrentConversationId;
@@ -208,8 +216,12 @@ namespace RimAI.Core.UI.HistoryManager
                     }
                     _activeTab = i;
                 }
-                curX += r.width + 8f;
+                curX += r.width + ControlGap;
             }
+            // Tabs 下方分隔线，并下推 y，避免与正文重叠
+            float bottomY = startY + TabHeight;
+            Widgets.DrawLineHorizontal(inRect.x, bottomY + 2f, inRect.width);
+            y = bottomY + 2f; // 让调用方在此基础上再加额外间距
         }
 
         private void DrawBody(Rect body)
@@ -229,39 +241,67 @@ namespace RimAI.Core.UI.HistoryManager
         {
             var entries = _entries ?? new List<ConversationEntry>();
 
-            // 空状态提示：当无任何历史记录时，在面板中明确显示
+            // 空状态提示
             if (entries.Count == 0)
             {
-                Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f),
+                Widgets.Label(new Rect(rect.x, rect.y, rect.width, HeaderRowHeight),
                     string.IsNullOrWhiteSpace(_convKeyInput)
                         ? "无历史对话。请输入或选择会话键后点击加载。"
                         : $"无历史对话：{_convKeyInput}");
                 return;
             }
 
-            var viewH = Math.Max(rect.height - 8f, entries.Count * 46f + 40f);
+            // 计算视图高度（粗略估计 + 余量）
+            float estimated = 0f;
+            foreach (var e in entries)
+            {
+                var contentWidth = rect.width - 16f - LeftMetaColWidth - 12f; // 减滚动条+左列+间距
+                var h = Math.Max(22f, Text.CalcHeight(e.Content ?? string.Empty, contentWidth));
+                estimated += h + 18f + RowSpacing + 6f; // 内容 + 链接行 + 间隔
+            }
+            var viewH = Math.Max(rect.height - 8f, estimated + 40f);
             var viewRect = new Rect(0, 0, rect.width - 16f, viewH);
             Widgets.BeginScrollView(rect, ref _scrollMain, viewRect);
 
-            float y = 0f;
+            float curY = 0f;
+            var oldWrap = Text.WordWrap;
+            Text.WordWrap = true;
             for (int i = 0; i < entries.Count; i++)
             {
                 var e = entries[i];
-                var msgRect = new Rect(0, y, viewRect.width, 22f);
-                Widgets.Label(msgRect, $"[{e.Timestamp:HH:mm:ss}] {e.SpeakerId}: {e.Content}");
+                var rowY = curY;
 
-                // 第二行：轻量链接按钮
-                y += 22f;
-                float linkX = msgRect.x + 8f;
+                // 预计算高度
+                float contentWidth = viewRect.width - LeftMetaColWidth - 12f;
+                float contentHeight = Math.Max(22f, Text.CalcHeight(e.Content ?? string.Empty, contentWidth));
+                float opHeight = (_editingIndex == i) ? (24f + 26f + 18f) : 18f; // 编辑框+按钮间隔+按钮
+                float rowHeight = contentHeight + 2f + opHeight + RowSpacing + 4f;
+
+                // 背景交替高亮（先画背景）
+                if (i % 2 == 1)
+                {
+                    var backRect = new Rect(0, rowY, viewRect.width, rowHeight);
+                    Widgets.DrawLightHighlight(backRect);
+                }
+
+                // 左列（时间+说话人）
+                var leftRect = new Rect(0, rowY, LeftMetaColWidth, 22f);
+                Widgets.Label(leftRect, $"[{e.Timestamp:HH:mm:ss}] {e.SpeakerId}");
+
+                // 右列（多行内容）
+                var contentRect = new Rect(LeftMetaColWidth + 8f, rowY, contentWidth, contentHeight);
+                Widgets.Label(contentRect, e.Content ?? string.Empty);
+
+                // 链接/编辑区
+                float linksY = rowY + contentHeight + 2f;
+                float linkX = contentRect.x;
                 if (_editingIndex == i)
                 {
-                    // 行内编辑器
-                    var editRect = new Rect(linkX, y, viewRect.width - 16f, 22f);
+                    var editRect = new Rect(contentRect.x, linksY, contentWidth, 24f);
                     _editBuffer = Widgets.TextField(editRect, _editBuffer ?? string.Empty);
 
-                    // 保存 / 取消（链接样式）
-                    var saveRect = new Rect(linkX, y + 24f, 60f, 18f);
-                    var cancelRect = new Rect(linkX + 60f + LinkSpacing, y + 24f, 60f, 18f);
+                    var saveRect = new Rect(linkX, linksY + 26f, 60f, 18f);
+                    var cancelRect = new Rect(linkX + 60f + LinkSpacing, linksY + 26f, 60f, 18f);
                     if (LinkButton(saveRect, "保存"))
                     {
                         _ = SaveEditAsync(i, _editBuffer);
@@ -271,13 +311,12 @@ namespace RimAI.Core.UI.HistoryManager
                         _editingIndex = -1;
                         _editBuffer = string.Empty;
                     }
-                    y += 24f + 22f + RowSpacing;
                 }
                 else
                 {
-                    var editRect = new Rect(linkX, y, 40f, 18f);
-                    var delRect = new Rect(linkX + 40f + LinkSpacing, y, 40f, 18f);
-                    var undoRect = new Rect(linkX + 80f + LinkSpacing * 2, y, 60f, 18f);
+                    var editRect = new Rect(linkX, linksY, 40f, 18f);
+                    var delRect = new Rect(linkX + 40f + LinkSpacing, linksY, 40f, 18f);
+                    var undoRect = new Rect(linkX + 80f + LinkSpacing * 2, linksY, 60f, 18f);
                     if (LinkButton(editRect, "修改"))
                     {
                         _editingIndex = i;
@@ -291,9 +330,11 @@ namespace RimAI.Core.UI.HistoryManager
                     {
                         _ = UndoDeleteAsync();
                     }
-                    y += 18f + RowSpacing;
                 }
+
+                curY = rowY + rowHeight;
             }
+            Text.WordWrap = oldWrap;
 
             Widgets.EndScrollView();
         }

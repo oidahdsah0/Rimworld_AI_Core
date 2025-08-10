@@ -439,9 +439,9 @@ namespace RimAI.Core.UI.DebugPanel
                 {
                     try
                     {
-                        var participants = new List<string> { "player:__SAVE__", "pawn:ColonyGovernor" };
+                        var participants = new List<string> { CoreServices.Locator.Get<IParticipantIdService>().GetPlayerId(), "pawn:ColonyGovernor" };
                         var convId = history.CreateConversation(participants);
-                        await history.AppendEntryAsync(convId, new ConversationEntry("player:__SAVE__", "测试对话：你好，总督！", System.DateTime.UtcNow));
+                        await history.AppendEntryAsync(convId, new ConversationEntry(CoreServices.Locator.Get<IParticipantIdService>().GetPlayerId(), "测试对话：你好，总督！", System.DateTime.UtcNow));
                         await history.AppendEntryAsync(convId, new ConversationEntry("pawn:ColonyGovernor", "你好，指挥官！", System.DateTime.UtcNow));
                         AppendOutput("示例对话已写入；请手动存档→主菜单→读档后验证历史是否持久化。");
                     }
@@ -462,7 +462,7 @@ namespace RimAI.Core.UI.DebugPanel
                 {
                     try
                     {
-                        var participants = new List<string> { "player:__SAVE__", "pawn:ColonyGovernor" };
+                        var participants = new List<string> { CoreServices.Locator.Get<IParticipantIdService>().GetPlayerId(), "pawn:ColonyGovernor" };
                         var context = await history.GetHistoryAsync(participants);
                         
                         AppendOutput($"=== 历史记录 ===");
@@ -513,7 +513,7 @@ namespace RimAI.Core.UI.DebugPanel
                 try
                 {
                     // 若存在 player:__SAVE__|pawn:DEMO 的会话键，优先打开该会话
-                    string preset = "player:__SAVE__|pawn:DEMO";
+                    string preset = $"{CoreServices.Locator.Get<IParticipantIdService>().GetPlayerId()}|pawn:DEMO";
                     Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager(preset));
                 }
                 catch (System.Exception ex)
@@ -534,7 +534,7 @@ namespace RimAI.Core.UI.DebugPanel
                         var bioSvc = CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IBiographyService>();
                         var history = CoreServices.Locator.Get<RimAI.Core.Contracts.Services.IHistoryQueryService>();
 
-                        var participants = new System.Collections.Generic.List<string> { "player:__SAVE__", "pawn:DEMO" };
+                        var participants = new System.Collections.Generic.List<string> { CoreServices.Locator.Get<IParticipantIdService>().GetPlayerId(), "pawn:DEMO" };
                         var convKey = string.Join("|", participants.OrderBy(x => x, System.StringComparer.Ordinal));
                         var ctxTask = history.GetHistoryAsync(participants);
                         ctxTask.Wait();
@@ -575,7 +575,7 @@ namespace RimAI.Core.UI.DebugPanel
                     try
                     {
                         var conv = CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IPersonaConversationService>();
-                        var participants = new System.Collections.Generic.List<string> { "player:__SAVE__", "pawn:DEMO" };
+                        var participants = new System.Collections.Generic.List<string> { CoreServices.Locator.Get<IParticipantIdService>().GetPlayerId(), "pawn:DEMO" };
                         var stream = conv.ChatAsync(participants, "Default", "今天天气怎么样？", new RimAI.Core.Modules.Persona.PersonaChatOptions { Stream = true, WriteHistory = false });
                         await foreach (var chunk in stream)
                         {

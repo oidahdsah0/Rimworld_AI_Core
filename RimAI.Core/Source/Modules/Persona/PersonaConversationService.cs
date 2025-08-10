@@ -147,7 +147,7 @@ namespace RimAI.Core.Modules.Persona
                 {
                     var now = DateTime.UtcNow;
                     var convId = _historyWrite.CreateConversation(participantIds);
-                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(participantIds.FirstOrDefault(id => id.StartsWith("player:")) ?? "player:__SAVE__", userInput ?? string.Empty, now));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(participantIds.FirstOrDefault(id => id.StartsWith("player:")) ?? _pid.GetPlayerId(), userInput ?? string.Empty, now));
                     await _historyWrite.AppendEntryAsync(convId, new ConversationEntry("assistant", final ?? string.Empty, now.AddMilliseconds(1)));
                 }
             }

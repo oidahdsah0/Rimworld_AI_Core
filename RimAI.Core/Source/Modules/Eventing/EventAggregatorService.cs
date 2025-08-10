@@ -103,7 +103,17 @@ namespace RimAI.Core.Modules.Eventing
                     .ToList();
 
                 var prompt = BuildPromptFromEvents(eventsToProcess);
-                await _llmService.GetResponseAsync(prompt);
+                var req = new RimAI.Framework.Contracts.UnifiedChatRequest
+                {
+                    Stream = false,
+                    Messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>
+                    {
+                        new RimAI.Framework.Contracts.ChatMessage{ Role = "user", Content = prompt }
+                    },
+                    ConversationId = $"event:agg:{System.DateTime.UtcNow:yyyyMMddHHmm}:{eventsToProcess.Count}"
+                };
+                var res = await _llmService.GetResponseAsync(req);
+                // 调用失败无需抛出，中断即可（冷却依然生效）
             }
             catch (Exception ex)
             {

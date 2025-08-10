@@ -21,9 +21,10 @@ namespace RimAI.Core.Compatibility
                 var list = new List<Gizmo>(__result ?? System.Array.Empty<Gizmo>());
                 // 历史记录按钮
                 list.Add(RimAI.Core.UI.History.HistoryShortcutGizmo.CreateForPawn(__instance));
-                // 新增：闲聊 & 命令 按钮（打开聊天窗口）
+                // 新增：闲聊 & 命令 & 任命 按钮（打开聊天/任命菜单）
                 list.Add(RimAI.Core.UI.History.HistoryShortcutGizmo.CreateSmalltalkForPawn(__instance));
                 list.Add(RimAI.Core.UI.History.HistoryShortcutGizmo.CreateCommandForPawn(__instance));
+                list.Add(RimAI.Core.UI.History.HistoryShortcutGizmo.CreateAppointForPawn(__instance));
                 __result = list;
             }
             catch { /* ignore */ }

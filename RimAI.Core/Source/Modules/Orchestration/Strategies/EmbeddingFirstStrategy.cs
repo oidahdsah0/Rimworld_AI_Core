@@ -47,6 +47,7 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
         {
             var query = context.Query ?? string.Empty;
             var persona = context.PersonaSystemPrompt ?? string.Empty;
+            var baseConvId = $"orc:{ComputeShortHash(persona + "\n" + query)}";
             // 策略层与 PersonaConversation 的职责边界：
             // 此处不组装 Chat/Command 素材，保留 personaSystemPrompt 透传。
 
@@ -145,6 +146,7 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             var systemPrompt = CombineSystemPrompt(persona, injectedContext);
             var initMessages = new List<ChatMessage> { new ChatMessage { Role = "system", Content = systemPrompt }, new ChatMessage { Role = "user", Content = query } };
             var initReq = new UnifiedChatRequest { Stream = false, Tools = toolDefinitions, Messages = initMessages };
+            initReq.ConversationId = baseConvId;
 
             var decisionRes = await _llm.GetResponseAsync(initReq);
             if (!decisionRes.IsSuccess)
@@ -214,6 +216,7 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                     new ChatMessage{ Role = "assistant", Content = $"调用工具 {call.Function.Name} 失败: {ex.Message}" }
                 };
                 var errReq = new UnifiedChatRequest { Stream = true, Messages = errMessages };
+                errReq.ConversationId = baseConvId;
                 errorStream = _llm.StreamResponseAsync(errReq);
             }
             if (errorStream != null)
@@ -260,7 +263,24 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             }
 
             var followReq = new UnifiedChatRequest { Stream = true, Tools = toolDefinitions, Messages = followMessages };
+            followReq.ConversationId = baseConvId;
             await foreach (var chunk in _llm.StreamResponseAsync(followReq)) yield return chunk;
+        }
+
+        private static string ComputeShortHash(string input)
+        {
+            try
+            {
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(input ?? string.Empty);
+                    var hash = sha1.ComputeHash(bytes);
+                    var sb = new System.Text.StringBuilder(20);
+                    for (int i = 0; i < Math.Min(hash.Length, 10); i++) sb.Append(hash[i].ToString("x2"));
+                    return sb.ToString();
+                }
+            }
+            catch { return "0000000000"; }
         }
 
         private async Task<(string mode, List<ToolFunction> schemas, string selectedTool, bool fastResponse)> SelectToolsAsync(string query, List<ToolFunction> all)

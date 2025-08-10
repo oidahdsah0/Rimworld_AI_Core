@@ -1,5 +1,8 @@
 using RimWorld;
 using Verse;
+using System.Linq;
+using RimAI.Core.Contracts.Services;
+using RimAI.Core.Modules.Persona;
 
 namespace RimAI.Core.UI.History
 {
@@ -83,6 +86,60 @@ namespace RimAI.Core.UI.History
                     catch
                     {
                         Find.WindowStack.Add(new RimAI.Core.UI.Chat.MainTabWindow_Chat(string.Empty, "命令"));
+                    }
+                }
+            };
+        }
+
+        public static Command_Action CreateAppointForPawn(Pawn pawn)
+        {
+            return new Command_Action
+            {
+                defaultLabel = "任命",
+                defaultDesc = "为该殖民者任命人格。",
+                icon = ContentFinder<UnityEngine.Texture2D>.Get("UI/Buttons/OpenCommand"),
+                action = () =>
+                {
+                    try
+                    {
+                        var pidSvc = Infrastructure.CoreServices.Locator.Get<Modules.World.IParticipantIdService>();
+                        var personaSvc = Infrastructure.CoreServices.Locator.Get<IPersonaService>();
+                        var bindingSvc = Infrastructure.CoreServices.Locator.Get<IPersonaBindingService>();
+
+                        string pawnId = pidSvc.FromVerseObject(pawn);
+                        var names = (personaSvc.GetAll() ?? System.Array.Empty<RimAI.Core.Contracts.Models.Persona>())
+                            .Select(p => p.Name)
+                            .OrderBy(n => n, System.StringComparer.OrdinalIgnoreCase)
+                            .ToList();
+
+                        var options = new System.Collections.Generic.List<FloatMenuOption>();
+                        if (names.Count == 0)
+                        {
+                            options.Add(new FloatMenuOption("无可用人格", null));
+                        }
+                        else
+                        {
+                            foreach (var name in names)
+                            {
+                                options.Add(new FloatMenuOption(name, () =>
+                                {
+                                    try
+                                    {
+                                        bindingSvc.Bind(pawnId, name, 0);
+                                        Messages.Message($"已为 {pawn?.LabelShort ?? pawnId} 任命人格：{name}", MessageTypeDefOf.TaskCompletion, false);
+                                    }
+                                    catch (System.Exception ex)
+                                    {
+                                        Messages.Message("任命失败: " + ex.Message, MessageTypeDefOf.RejectInput, false);
+                                    }
+                                }));
+                            }
+                        }
+                        Find.WindowStack.Add(new FloatMenu(options));
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Messages.Message("打开任命菜单失败: " + ex.Message, MessageTypeDefOf.RejectInput, false);
                     }
                 }
             };

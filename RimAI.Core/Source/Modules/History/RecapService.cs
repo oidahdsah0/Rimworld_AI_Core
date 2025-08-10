@@ -10,6 +10,7 @@ using RimAI.Core.Services;
 using RimAI.Core.Infrastructure;
 using RimAI.Core.Infrastructure.Configuration;
 using RimAI.Core.Settings;
+using RimAI.Framework.Contracts;
 using RimAI.Core.Contracts.Services;
 using InfraConfigService = RimAI.Core.Infrastructure.Configuration.IConfigurationService;
 
@@ -263,7 +264,14 @@ namespace RimAI.Core.Modules.History
                     }
                     else
                     {
-                        text = await _llm.GetResponseAsync(prompt, forceJson: false, ct: cts.Token);
+                        var req = new UnifiedChatRequest
+                        {
+                            Stream = false,
+                            Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = prompt } }
+                        };
+                        req.ConversationId = $"recap:summary:{conversationId}:{ComputeShortHash(prompt)}";
+                        var res = await _llm.GetResponseAsync(req, cts.Token);
+                        if (res.IsSuccess) text = res.Value?.Message?.Content; else throw new Exception(res.Error);
                     }
                 }
                 catch (Exception ex)
@@ -333,7 +341,14 @@ namespace RimAI.Core.Modules.History
                     }
                     else
                     {
-                        text = await _llm.GetResponseAsync(prompt, forceJson: false, ct: cts.Token);
+                        var req = new UnifiedChatRequest
+                        {
+                            Stream = false,
+                            Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = prompt } }
+                        };
+                        req.ConversationId = $"recap:aggregate:{conversationId}:{ComputeShortHash(prompt)}";
+                        var res = await _llm.GetResponseAsync(req, cts.Token);
+                        if (res.IsSuccess) text = res.Value?.Message?.Content; else throw new Exception(res.Error);
                     }
                 }
                 catch (Exception ex)
@@ -374,6 +389,22 @@ namespace RimAI.Core.Modules.History
             {
                 CoreServices.Logger.Warn($"[Recap] TryAggregateEveryTenAsync error: {ex.Message}");
             }
+        }
+
+        private static string ComputeShortHash(string input)
+        {
+            try
+            {
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(input ?? string.Empty);
+                    var hash = sha1.ComputeHash(bytes);
+                    var sb = new System.Text.StringBuilder(20);
+                    for (int i = 0; i < Math.Min(hash.Length, 10); i++) sb.Append(hash[i].ToString("x2"));
+                    return sb.ToString();
+                }
+            }
+            catch { return "0000000000"; }
         }
 
         private static string Truncate(string text, int max)

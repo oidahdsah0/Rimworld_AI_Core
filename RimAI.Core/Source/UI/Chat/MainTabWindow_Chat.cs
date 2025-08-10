@@ -8,6 +8,7 @@ using RimAI.Core.Infrastructure;
 using RimAI.Core.Modules.World;
 using RimAI.Core.Modules.Persona;
 using RimAI.Core.Infrastructure.Configuration;
+using RimAI.Core.Contracts.Eventing;
 using UnityEngine;
 using Verse;
 using RimWorld;
@@ -34,8 +35,13 @@ namespace RimAI.Core.UI.Chat
         private DateTime _pendingTimestamp;
         private string _streamAssistantBuffer = null;
         private readonly ConcurrentQueue<string> _streamQueue = new ConcurrentQueue<string>();
-        private string _streamAssistantMessage = null;
-        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _pendingStreamDeltas = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        private DateTime _streamLastDeltaAtUtc = DateTime.MinValue;
+        private DateTime _streamStartedAtUtc = DateTime.MinValue;
+        // 命令模式阶段性进度输出
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _progressQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        private readonly System.Text.StringBuilder _progressSb = new System.Text.StringBuilder();
+        private bool _progressSubscribed = false;
+        private System.Action<IEvent> _progressHandler = null;
 
         private readonly string _modeTitle; // "闲聊" / "命令" 等
         private readonly IConfigurationService _config;
@@ -118,6 +124,7 @@ namespace RimAI.Core.UI.Chat
             float inputHeight = 60f; // 略微降低输入区与按钮高度
             var historyRect = new Rect(inRect.x, y, inRect.width, inRect.height - (y - inRect.y) - (inputHeight + RowSpacing));
             var inputRect = new Rect(inRect.x, historyRect.yMax + RowSpacing, inRect.width, inputHeight);
+            FlushProgressLines();
             FlushStreamDeltas();
             DrawHistory(historyRect);
             DrawInputBar(inputRect);
@@ -132,6 +139,7 @@ namespace RimAI.Core.UI.Chat
                 if (!string.IsNullOrEmpty(delta))
                 {
                     _streamAssistantBuffer = (_streamAssistantBuffer ?? string.Empty) + delta;
+                    _streamLastDeltaAtUtc = DateTime.UtcNow;
                     any = true;
                 }
             }
@@ -139,6 +147,15 @@ namespace RimAI.Core.UI.Chat
             {
                 // 轻推滚动条以促使重绘时更靠近底部
                 _scroll.y = Mathf.Max(0, _scroll.y - 0.0001f);
+            }
+        }
+
+        private void FlushProgressLines()
+        {
+            if (_progressQueue == null) return;
+            while (_progressQueue.TryDequeue(out var line))
+            {
+                _progressSb.AppendLine(line);
             }
         }
 
@@ -161,8 +178,35 @@ namespace RimAI.Core.UI.Chat
             }
 
             var oldFont = Text.Font; var oldAnchor = Text.Anchor;
-            Text.Font = GameFont.Medium; Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(titleRect, GetHeaderText());
+            Text.Font = GameFont.Medium;
+
+            // 左侧：标题（模式 + 参与者显示名）
+            var leftRect = titleRect;
+            Rect rightRect = default;
+            string personaLabel = null;
+            if (string.Equals(_modeTitle, "命令", StringComparison.Ordinal))
+            {
+                // 预留右侧区域显示人格
+                float rightW = 240f;
+                leftRect = new Rect(titleRect.x, titleRect.y, Mathf.Max(0f, titleRect.width - rightW), titleRect.height);
+                rightRect = new Rect(leftRect.xMax, titleRect.y, rightW, titleRect.height);
+                var personaName = GetBoundPersonaName();
+                personaLabel = string.IsNullOrWhiteSpace(personaName) ? "未任命" : $"人格：{personaName}";
+            }
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(leftRect, GetHeaderText());
+
+            // 右侧：人格名（命令模式）
+            if (personaLabel != null)
+            {
+                var colorOld = GUI.color;
+                GUI.color = string.Equals(personaLabel, "未任命", StringComparison.Ordinal) ? new Color(0.9f, 0.3f, 0.3f, 1f) : Color.white;
+                Text.Anchor = TextAnchor.MiddleRight;
+                Widgets.Label(rightRect, personaLabel);
+                GUI.color = colorOld;
+            }
+
             Text.Font = oldFont; Text.Anchor = oldAnchor;
             y += HeaderRowHeight;
         }
@@ -172,6 +216,21 @@ namespace RimAI.Core.UI.Chat
             if (string.IsNullOrWhiteSpace(_convKeyInput)) return _modeTitle;
             var names = _convKeyInput.Split('|').Select(id => _pidService.GetDisplayName(id));
             return $"{_modeTitle}：{string.Join(" ↔ ", names)}";
+        }
+
+        private string GetBoundPersonaName()
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(_convKeyInput)) return null;
+                var pawnId = _convKeyInput.Split('|').FirstOrDefault(id => id.StartsWith("pawn:", StringComparison.Ordinal));
+                if (string.IsNullOrWhiteSpace(pawnId)) return null;
+                var binder = CoreServices.Locator.Get<IPersonaBindingService>();
+                var binding = binder?.GetBinding(pawnId);
+                var name = binding?.PersonaName;
+                return string.IsNullOrWhiteSpace(name) ? null : name;
+            }
+            catch { return null; }
         }
 
         private void DrawHistory(Rect rect)
@@ -189,9 +248,9 @@ namespace RimAI.Core.UI.Chat
             {
                 estimated += Mathf.Max(22f, Text.CalcHeight(_pendingPlayerMessage, cWidthEst)) + 8f + RowSpacing + 4f;
             }
-            if (!string.IsNullOrEmpty(_streamAssistantMessage))
+            if (!string.IsNullOrEmpty(_streamAssistantBuffer))
             {
-                estimated += Mathf.Max(22f, Text.CalcHeight(_streamAssistantMessage, cWidthEst)) + 8f + RowSpacing + 4f;
+                estimated += Mathf.Max(22f, Text.CalcHeight(_streamAssistantBuffer, cWidthEst)) + 8f + RowSpacing + 4f;
             }
             var viewH = Math.Max(rect.height - 8f, estimated + 16f);
             var viewRect = new Rect(0, 0, rect.width - 16f, viewH);
@@ -247,6 +306,23 @@ namespace RimAI.Core.UI.Chat
                 curY = rowY + rowHeight;
             }
 
+            // 命令模式阶段性进度（只显示，不入历史）
+            if (string.Equals(_modeTitle, "命令", StringComparison.Ordinal))
+            {
+                var progressText = _progressSb.ToString();
+                if (!string.IsNullOrEmpty(progressText))
+                {
+                    float rowY = curY;
+                    float cWidth = viewRect.width - LeftMetaColWidth - 8f;
+                    float contentHeight = Math.Max(22f, Text.CalcHeight(progressText, cWidth));
+                    float rowHeight = contentHeight + RowSpacing + 8f;
+                    Widgets.Label(new Rect(0, rowY, LeftMetaColWidth, 22f), "[Progress] Orchestrator");
+                    var contentRect = new Rect(LeftMetaColWidth + 6f, rowY, cWidth, contentHeight);
+                    Widgets.Label(contentRect, progressText);
+                    curY = rowY + rowHeight;
+                }
+            }
+
             // 渲染“AI 流式中”的临时内容（只显示，不入历史）
             if (!string.IsNullOrEmpty(_streamAssistantBuffer))
             {
@@ -255,7 +331,8 @@ namespace RimAI.Core.UI.Chat
                 float contentHeight = Math.Max(22f, Text.CalcHeight(_streamAssistantBuffer, cWidth));
                 float rowHeight = contentHeight + RowSpacing + 8f;
                 // AI 行无底色
-                Widgets.Label(new Rect(0, rowY, LeftMetaColWidth, 22f), $"[{DateTime.UtcNow:HH:mm:ss}] assistant");
+                var ts = (_streamStartedAtUtc == DateTime.MinValue ? DateTime.UtcNow : _streamStartedAtUtc);
+                Widgets.Label(new Rect(0, rowY, LeftMetaColWidth, 22f), $"[{ts:HH:mm:ss}] assistant");
                 var contentRect = new Rect(LeftMetaColWidth + 6f, rowY, cWidth, contentHeight);
                 Widgets.Label(contentRect, _streamAssistantBuffer);
                 curY = rowY + rowHeight;
@@ -301,7 +378,7 @@ namespace RimAI.Core.UI.Chat
             }
             GUI.enabled = oldEnabled;
 
-            // 取消按钮（有在途请求时可点击）
+                // 取消按钮（有在途请求时可点击）
             bool canCancel = _isSending && _cts != null;
             oldEnabled = GUI.enabled;
             GUI.enabled = canCancel;
@@ -314,7 +391,7 @@ namespace RimAI.Core.UI.Chat
                     _inputText = _pendingPlayerMessage;
                     _pendingPlayerMessage = null;
                 }
-                _streamAssistantMessage = null;
+                    _streamAssistantBuffer = null;
                 _isSending = false;
             }
             GUI.enabled = oldEnabled;
@@ -343,6 +420,78 @@ namespace RimAI.Core.UI.Chat
         // 已按用户要求取消对回车的拦截逻辑
 
 
+        private void SubscribeProgressOnce()
+        {
+            if (!string.Equals(_modeTitle, "命令", StringComparison.Ordinal)) return;
+            if (_progressSubscribed) return;
+            try
+            {
+                var bus = CoreServices.Locator.Get<IEventBus>();
+                _progressHandler = (IEvent evt) =>
+                {
+                    try
+                    {
+                        var cfg = CoreServices.Locator.Get<RimAI.Core.Infrastructure.Configuration.IConfigurationService>();
+                        var pc = cfg?.Current?.Orchestration?.Progress;
+                        string template = pc?.DefaultTemplate ?? "[{Source}] {Stage}: {Message}";
+                        string source = null, stage = null, message = evt.Describe();
+                        string payload = null;
+                        var t = evt.GetType();
+                        var pStage = t.GetProperty("Stage");
+                        var pSource = t.GetProperty("Source");
+                        var pMessage = t.GetProperty("Message");
+                        var pPayload = t.GetProperty("PayloadJson");
+                        if (pStage != null) stage = pStage.GetValue(evt) as string;
+                        if (pSource != null) source = pSource.GetValue(evt) as string;
+                        if (pMessage != null) message = pMessage.GetValue(evt) as string ?? message;
+                        if (pc?.StageTemplates != null && stage != null && pc.StageTemplates.TryGetValue(stage, out var st))
+                            template = st;
+                        string line = template
+                            .Replace("{Source}", source ?? string.Empty)
+                            .Replace("{Stage}", stage ?? string.Empty)
+                            .Replace("{Message}", message ?? string.Empty);
+                        _progressQueue.Enqueue(line);
+                        if (pPayload != null)
+                        {
+                            payload = pPayload.GetValue(evt) as string;
+                            int max = System.Math.Max(0, pc?.PayloadPreviewChars ?? 200);
+                            if (!string.IsNullOrEmpty(payload))
+                            {
+                                if (payload.Length > max) payload = payload.Substring(0, max) + "…";
+                                _progressQueue.Enqueue("  payload: " + payload);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        _progressQueue.Enqueue("[Progress] " + evt.Describe());
+                    }
+                };
+                bus?.Subscribe(_progressHandler);
+                _progressSubscribed = true;
+            }
+            catch { /* ignore */ }
+        }
+
+        private void UnsubscribeProgress()
+        {
+            if (!_progressSubscribed) return;
+            try
+            {
+                var bus = CoreServices.Locator.Get<IEventBus>();
+                if (_progressHandler != null)
+                {
+                    bus?.Unsubscribe(_progressHandler);
+                }
+            }
+            catch { }
+            finally
+            {
+                _progressSubscribed = false;
+                _progressHandler = null;
+            }
+        }
+
         private async Task SendAsync()
         {
             if (_isSending) return;
@@ -367,6 +516,8 @@ namespace RimAI.Core.UI.Chat
 
                 var svc = CoreServices.Locator.Get<IPersonaConversationService>();
                 _streamAssistantBuffer = string.Empty;
+                _streamStartedAtUtc = DateTime.UtcNow;
+                _streamLastDeltaAtUtc = _streamStartedAtUtc;
                 // 在后台线程消费流并投递增量，窗口帧循环中 Flush 并绘制
                 await System.Threading.Tasks.Task.Run(async () =>
                 {
@@ -376,6 +527,11 @@ namespace RimAI.Core.UI.Chat
                         if (string.Equals(_modeTitle, "命令", StringComparison.Ordinal))
                         {
                             var opts = new PersonaCommandOptions { Stream = true, WriteHistory = true };
+                            // 新一轮命令前清空进度与流式缓冲
+                            try { _progressSb.Clear(); } catch { }
+                            _streamAssistantBuffer = string.Empty;
+                            // 订阅进度事件（仿 Debug 页）
+                            SubscribeProgressOnce();
                             await foreach (var chunk in svc.CommandAsync(parts, null, _pendingPlayerMessage, opts, ct))
                             {
                                 if (ct.IsCancellationRequested) break;
@@ -386,7 +542,22 @@ namespace RimAI.Core.UI.Chat
                                     {
                                         _streamQueue.Enqueue(delta);
                                         final += delta;
+                                        _streamLastDeltaAtUtc = DateTime.UtcNow;
                                     }
+                                }
+                                else
+                                {
+                                    // 将错误信息也输出到进度区域，避免静默失败
+                                    var err = chunk.Error ?? "未知错误";
+                                    _progressQueue.Enqueue("[Error] " + err);
+                                }
+                                // FinishReason 报告时立即跳出
+                                if (!string.IsNullOrEmpty(chunk.Value?.FinishReason)) break;
+                                // 静默 watchdog：120s 无新 delta 则取消（命令模式可能较慢）
+                                if ((DateTime.UtcNow - _streamLastDeltaAtUtc).TotalSeconds > 120)
+                                {
+                                    try { _cts?.Cancel(); } catch { }
+                                    break;
                                 }
                             }
                             if (!ct.IsCancellationRequested)
@@ -412,7 +583,14 @@ namespace RimAI.Core.UI.Chat
                                     {
                                         _streamQueue.Enqueue(delta);
                                         final += delta;
+                                        _streamLastDeltaAtUtc = DateTime.UtcNow;
                                     }
+                                }
+                                if (!string.IsNullOrEmpty(chunk.Value?.FinishReason)) break;
+                                if ((DateTime.UtcNow - _streamLastDeltaAtUtc).TotalSeconds > 60)
+                                {
+                                    try { _cts?.Cancel(); } catch { }
+                                    break;
                                 }
                             }
                             if (!ct.IsCancellationRequested)
@@ -438,10 +616,9 @@ namespace RimAI.Core.UI.Chat
                     }
                     finally
                     {
-                        if (!ct.IsCancellationRequested)
-                        {
-                            try { await ReloadEntriesAsync(); } catch { }
-                        }
+                        try { if (!ct.IsCancellationRequested) await ReloadEntriesAsync(); } catch { }
+                        // 退订进度事件
+                        UnsubscribeProgress();
                         _streamAssistantBuffer = null;
                         _pendingPlayerMessage = null;
                         _isSending = false;

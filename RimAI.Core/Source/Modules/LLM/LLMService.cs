@@ -37,6 +37,8 @@ namespace RimAI.Core.Modules.LLM
                     new ChatMessage { Role = "user", Content = prompt }
                 }
             };
+            // 为单轮便捷接口自动设置会话ID（以内容哈希稳定标识，避免API拒绝）
+            request.ConversationId = $"adhoc:single:{ComputeShortHash(prompt ?? string.Empty)}";
 
             var result = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
             if (!result.IsSuccess)
@@ -47,12 +49,14 @@ namespace RimAI.Core.Modules.LLM
 
         public async Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken ct = default)
         {
+            EnsureConversationId(request, "adhoc:unified");
             var res = await ExecuteWithRetryAsync(() => RimAIApi.GetCompletionAsync(request, ct));
             return res;
         }
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
+            EnsureConversationId(request, "adhoc:stream");
             // 流式过程中用 try/catch 将异常转换为失败块，避免 UI 中断
             IAsyncEnumerable<Result<UnifiedChatChunk>> stream = null;
             string initError = null;
@@ -103,5 +107,41 @@ namespace RimAI.Core.Modules.LLM
         }
 
         // 缓存键计算逻辑已移除，统一由 Framework 层处理缓存
+
+        private static string ComputeShortHash(string input)
+        {
+            try
+            {
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(input ?? string.Empty);
+                    var hash = sha1.ComputeHash(bytes);
+                    // 取前 10 字节（20个hex字符）作为短哈希，兼顾稳定与长度
+                    var sb = new System.Text.StringBuilder(20);
+                    for (int i = 0; i < Math.Min(hash.Length, 10); i++) sb.Append(hash[i].ToString("x2"));
+                    return sb.ToString();
+                }
+            }
+            catch { return "0000000000"; }
+        }
+
+        private static void EnsureConversationId(UnifiedChatRequest request, string prefix)
+        {
+            if (request == null) return;
+            if (!string.IsNullOrWhiteSpace(request.ConversationId)) return;
+            string basis = string.Empty;
+            try
+            {
+                if (request.Messages != null && request.Messages.Count > 0)
+                {
+                    // 取首条与末条消息内容做为基础，避免过长
+                    var first = request.Messages[0]?.Content ?? string.Empty;
+                    var last = request.Messages[request.Messages.Count - 1]?.Content ?? string.Empty;
+                    basis = first + "\n" + last;
+                }
+            }
+            catch { basis = string.Empty; }
+            request.ConversationId = $"{prefix}:{ComputeShortHash(basis)}";
+        }
     }
 }

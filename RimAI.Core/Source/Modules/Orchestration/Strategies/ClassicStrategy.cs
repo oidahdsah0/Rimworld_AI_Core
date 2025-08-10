@@ -51,6 +51,7 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
         {
             var query = context.Query ?? string.Empty;
             var personaSystemPrompt = context.PersonaSystemPrompt ?? string.Empty;
+            var baseConvId = $"orc:{ComputeShortHash(personaSystemPrompt + "\n" + query)}";
 
             // P10-M4: 统一从 PromptAssemblyService 注入可用素材（策略层一致复用）
             try
@@ -156,6 +157,8 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 Tools  = toolDefs,
                 Messages = initMessages
             };
+            // 策略层未知参与者集合，使用 query+persona 形成稳定 ConversationId
+            initReq.ConversationId = baseConvId;
 
             var decisionRes = await _llm.GetResponseAsync(initReq);
             if (!decisionRes.IsSuccess)
@@ -240,6 +243,7 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 var errMessages = BuildBaseMessages(personaSystemPrompt, query);
                 errMessages.Add(new ChatMessage { Role = "assistant", Content = $"调用工具 {call.Function.Name} 失败: {ex.Message}" });
                 var errReq = new UnifiedChatRequest { Stream = true, Messages = errMessages };
+                errReq.ConversationId = baseConvId;
                 errorStream = _llm.StreamResponseAsync(errReq);
             }
 
@@ -290,6 +294,7 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 Tools = toolDefs,
                 Messages = followMessages
             };
+            followReq.ConversationId = baseConvId;
 
             var finalResponseBuilder = new StringBuilder();
             await foreach (var chunk in _llm.StreamResponseAsync(followReq))
@@ -300,6 +305,22 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
                 }
                 yield return chunk;
             }
+        }
+
+        private static string ComputeShortHash(string input)
+        {
+            try
+            {
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(input ?? string.Empty);
+                    var hash = sha1.ComputeHash(bytes);
+                    var sb = new System.Text.StringBuilder(20);
+                    for (int i = 0; i < Math.Min(hash.Length, 10); i++) sb.Append(hash[i].ToString("x2"));
+                    return sb.ToString();
+                }
+            }
+            catch { return "0000000000"; }
         }
 
         private async Task<(string mode, List<ToolFunction> schemas, string selectedTool, bool fastResponse)> SelectToolsAsync(string query, List<ToolFunction> all)

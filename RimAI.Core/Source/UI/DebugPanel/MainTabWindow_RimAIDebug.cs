@@ -244,6 +244,7 @@ namespace RimAI.Core.UI.DebugPanel
                     Stream = true,
                     Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = "你好，简单介绍下Rimworld这个游戏，一句话，尽量简短。" } }
                 };
+                req.ConversationId = $"debug:stream:{System.Guid.NewGuid().ToString("N").Substring(0,8)}";
                 
                 System.Threading.Tasks.Task.Run(async () => await HandleStreamingOutputAsync("LLM Stream Test", llm.StreamResponseAsync(req)));
             }
@@ -262,6 +263,7 @@ namespace RimAI.Core.UI.DebugPanel
                             Stream = false,
                             Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = "请用 JSON 格式返回一个测试用的电商产品信息，包含产品名称、价格、描述、图片URL。" } }
                         };
+                        jreq.ConversationId = $"debug:json:{System.Guid.NewGuid().ToString("N").Substring(0,8)}";
                         var jres = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(jreq);
                         if (jres.IsSuccess)
                             AppendOutput($"JSON Response: {jres.Value.Message.Content}");
@@ -300,11 +302,13 @@ namespace RimAI.Core.UI.DebugPanel
                     Type = "function",  // 注意！必须指定类型为 function！！！
                     Function = functionObj
                 };
+                var baseConvId = $"debug:tools:{System.Guid.NewGuid().ToString("N").Substring(0,8)}";
                 var req = new UnifiedChatRequest
                 {
                     Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = "请使用 sum_range 工具计算 1 到 100 的和。", ToolCalls = null } },
                     Tools = new System.Collections.Generic.List<ToolDefinition> { toolDef }
                 };
+                req.ConversationId = baseConvId;
                 System.Threading.Tasks.Task.Run(async () =>
                 {
                     try
@@ -342,6 +346,7 @@ namespace RimAI.Core.UI.DebugPanel
                             },
                             Tools = new List<ToolDefinition> { toolDef }
                         };
+                        followReq.ConversationId = baseConvId;
 
                         var chatRes2 = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(followReq);
                         if (chatRes2.IsSuccess)
@@ -406,11 +411,13 @@ namespace RimAI.Core.UI.DebugPanel
                 var requests = new List<UnifiedChatRequest>();
                 foreach (var p in prompts)
                 {
-                    requests.Add(new UnifiedChatRequest
+                    var r = new UnifiedChatRequest
                     {
                         Stream = false,
                         Messages = new List<ChatMessage> { new ChatMessage { Role = "user", Content = p } }
-                    });
+                    };
+                    r.ConversationId = $"debug:batch:{(Widgets.ButtonInvisible(new Rect(0,0,0,0), false) ? "mode:chat:" : "mode:chat:")}{ComputeShortHash(p)}";
+                    requests.Add(r);
                 }
 
                 System.Threading.Tasks.Task.Run(async () =>
@@ -640,6 +647,7 @@ namespace RimAI.Core.UI.DebugPanel
                         var toolDef = new ToolDefinition { Type = "function", Function = functionObj };
 
                         // 3. 首次请求，征求 LLM 决策
+                        var baseConvId = $"debug:fc:{System.Guid.NewGuid().ToString("N").Substring(0,8)}";
                         var initReq = new UnifiedChatRequest
                         {
                             Stream = false,
@@ -649,6 +657,7 @@ namespace RimAI.Core.UI.DebugPanel
                                 new ChatMessage { Role = "user", Content = "请获取殖民地当前概况并用一句中文总结。" }
                             }
                         };
+                        initReq.ConversationId = baseConvId;
 
                         var res1 = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(initReq);
                         if (!res1.IsSuccess)
@@ -679,6 +688,7 @@ namespace RimAI.Core.UI.DebugPanel
                             },
                             Tools = initReq.Tools
                         };
+                        followReq.ConversationId = baseConvId;
 
                         var res2 = await RimAI.Framework.API.RimAIApi.GetCompletionAsync(followReq);
                         if (res2.IsSuccess)
@@ -719,6 +729,22 @@ namespace RimAI.Core.UI.DebugPanel
             Widgets.BeginScrollView(outputRect, ref _outputScroll, viewRect);
             Widgets.Label(viewRect, _outputSb.ToString());
             Widgets.EndScrollView();
+        }
+
+        private static string ComputeShortHash(string input)
+        {
+            try
+            {
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(input ?? string.Empty);
+                    var hash = sha1.ComputeHash(bytes);
+                    var sb = new System.Text.StringBuilder(20);
+                    for (int i = 0; i < System.Math.Min(hash.Length, 10); i++) sb.Append(hash[i].ToString("x2"));
+                    return sb.ToString();
+                }
+            }
+            catch { return "0000000000"; }
         }
     }
 }

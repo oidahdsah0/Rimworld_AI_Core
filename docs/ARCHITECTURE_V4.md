@@ -158,6 +158,7 @@ graph TD
 * **IPersonaService**: 接口将支持完整的 CRUD（创建、读取、更新、删除）操作。其实现将负责管理所有 `Persona` 实例，并与 `IPersistenceService` 对接，以实现数据的存盘与读档。
 * **UI**: 将会有一个独立的管理窗口供玩家进行 Persona 的 CRUD 操作。主聊天界面将动态加载这些人格供玩家选择。
 * `ILLMService.StreamResponseAsync` 支持 `IAsyncEnumerable`；UI 逐块渲染。
+* ⚠️ 使用规范：仅允许在 Chat 窗体与 Debug 窗体中启用“流式”模式；所有服务型/后台型调用（历史总结、事件聚合、Embedding/RAG 构建、索引等）一律使用“非流式”同步返回形式，避免资源占用与 UI 干扰。
 
 ---
 

@@ -62,6 +62,22 @@ namespace RimAI.Core.Modules.Persona
             _assembler = assembler;
         }
 
+        private static string ComputeShortHash(string input)
+        {
+            try
+            {
+                using (var sha1 = System.Security.Cryptography.SHA1.Create())
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(input ?? string.Empty);
+                    var hash = sha1.ComputeHash(bytes);
+                    var sb = new System.Text.StringBuilder(20);
+                    for (int i = 0; i < Math.Min(hash.Length, 10); i++) sb.Append(hash[i].ToString("x2"));
+                    return sb.ToString();
+                }
+            }
+            catch { return "0000000000"; }
+        }
+
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> ChatAsync(IReadOnlyList<string> participantIds, string personaName, string userInput, PersonaChatOptions options = null, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
             options ??= new PersonaChatOptions();
@@ -74,9 +90,16 @@ namespace RimAI.Core.Modules.Persona
             var systemPrompt = await _assembler.BuildSystemPromptAsync(ids, PromptAssemblyMode.Chat, userInput, locale, ct);
 
             var req = new UnifiedChatRequest { Stream = options.Stream, Messages = new List<ChatMessage> { new ChatMessage { Role = "system", Content = systemPrompt }, new ChatMessage { Role = "user", Content = userInput ?? string.Empty } } };
+            // 使用参与者集合形成稳定 convKey，再派生对外 ConversationId
+            try
+            {
+                var convKey = string.Join("|", ids.OrderBy(x => x, StringComparer.Ordinal));
+                req.ConversationId = $"chat:{ComputeShortHash(convKey)}";
+            }
+            catch { /* 保底由 LLMService 补充 */ }
             if (options.Stream)
             {
-                await foreach (var chunk in _llm.StreamResponseAsync(req)) yield return chunk;
+                await foreach (var chunk in _llm.StreamResponseAsync(req, ct)) yield return chunk;
             }
             else
             {
@@ -112,7 +135,7 @@ namespace RimAI.Core.Modules.Persona
                     var pawnId = participantIds.FirstOrDefault(x => x.StartsWith("pawn:"));
                     var binding = string.IsNullOrWhiteSpace(pawnId) ? null : binder?.GetBinding(pawnId);
                     bindingOk = binding != null && !string.IsNullOrWhiteSpace(binding.PersonaName);
-                    if (!bindingOk) bindError = "该 NPC 未绑定人格，请先在人格管理中绑定。";
+                    if (!bindingOk) bindError = "人物未任职，命令无法下达";
                 }
                 catch
                 {
@@ -135,7 +158,7 @@ namespace RimAI.Core.Modules.Persona
 
             // 4) 走编排（五步），此处复用 OrchestrationService 外部接口
             var orchestrator = CoreServices.Locator.Get<RimAI.Core.Contracts.IOrchestrationService>();
-            var stream = orchestrator.ExecuteToolAssistedQueryAsync(userInput, systemPrompt);
+                var stream = orchestrator.ExecuteToolAssistedQueryAsync(userInput, systemPrompt);
             string final = string.Empty;
             await foreach (var chunk in stream)
             {

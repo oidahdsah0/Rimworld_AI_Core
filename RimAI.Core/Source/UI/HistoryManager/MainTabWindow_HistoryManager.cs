@@ -51,6 +51,8 @@ namespace RimAI.Core.UI.HistoryManager
         private const float HeaderLabelWidth = 80f;
         private const float TabHeight = 26f;
         private const float LeftMetaColWidth = 180f; // 时间+说话人列宽
+        // 固定化历史内容行高，避免复杂计算导致的命中区域错位
+        private const float HistoryRowHeight = 100f; // 包含：时间行(22) + 内容区(约60) + 链接区(18)
 
         public MainTabWindow_HistoryManager()
         {
@@ -113,11 +115,11 @@ namespace RimAI.Core.UI.HistoryManager
             }
             y += HeaderRowHeight + RowSpacing;
 
-            // Row 2: 参与者友好名
+            // Row 2: 参与者友好名（隐藏 mode:* 前缀）
             if (!string.IsNullOrWhiteSpace(_convKeyInput))
             {
                 var parts = _convKeyInput.Split('|');
-                var names = parts.Select(p => _pid.GetDisplayName(p)).ToList();
+                var names = parts.Where(p => !p.StartsWith("mode:", StringComparison.Ordinal)).Select(p => _pid.GetDisplayName(p)).ToList();
                 Widgets.Label(new Rect(inRect.x, y, inRect.width, HeaderRowHeight), $"参与者：{string.Join(", ", names)}");
                 y += HeaderRowHeight + RowSpacing;
             }
@@ -251,15 +253,8 @@ namespace RimAI.Core.UI.HistoryManager
                 return;
             }
 
-            // 计算视图高度（粗略估计 + 余量）
-            float estimated = 0f;
-            foreach (var e in entries)
-            {
-                var contentWidth = rect.width - 16f - LeftMetaColWidth - 12f; // 减滚动条+左列+间距
-                var h = Math.Max(22f, Text.CalcHeight(e.Content ?? string.Empty, contentWidth));
-                estimated += h + 18f + RowSpacing + 6f; // 内容 + 链接行 + 间隔
-            }
-            var viewH = Math.Max(rect.height - 8f, estimated + 40f);
+            // 固定化：视图高度 = 行数 * 固定行高 + 余量
+            var viewH = Math.Max(rect.height - 8f, entries.Count * HistoryRowHeight + 16f);
             var viewRect = new Rect(0, 0, rect.width - 16f, viewH);
             Widgets.BeginScrollView(rect, ref _scrollMain, viewRect);
 
@@ -269,18 +264,12 @@ namespace RimAI.Core.UI.HistoryManager
             for (int i = 0; i < entries.Count; i++)
             {
                 var e = entries[i];
-                var rowY = curY;
+                float rowY = curY;
 
-                // 预计算高度
-                float contentWidth = viewRect.width - LeftMetaColWidth - 12f;
-                float contentHeight = Math.Max(22f, Text.CalcHeight(e.Content ?? string.Empty, contentWidth));
-                float opHeight = (_editingIndex == i) ? (24f + 26f + 18f) : 18f; // 编辑框+按钮间隔+按钮
-                float rowHeight = contentHeight + 2f + opHeight + RowSpacing + 4f;
-
-                // 背景交替高亮（先画背景）
+                // 背景交替高亮（固定行高）
                 if (i % 2 == 1)
                 {
-                    var backRect = new Rect(0, rowY, viewRect.width, rowHeight);
+                    var backRect = new Rect(0, rowY, viewRect.width, HistoryRowHeight);
                     Widgets.DrawLightHighlight(backRect);
                 }
 
@@ -288,20 +277,34 @@ namespace RimAI.Core.UI.HistoryManager
                 var leftRect = new Rect(0, rowY, LeftMetaColWidth, 22f);
                 Widgets.Label(leftRect, $"[{e.Timestamp:HH:mm:ss}] {e.SpeakerId}");
 
-                // 右列（多行内容）
-                var contentRect = new Rect(LeftMetaColWidth + 8f, rowY, contentWidth, contentHeight);
-                Widgets.Label(contentRect, e.Content ?? string.Empty);
+                // 固定内容区（占据行内剩余空间，底部预留链接区 18f）
+                float contentWidth = viewRect.width - LeftMetaColWidth - 12f;
+                float linksHeight = 18f;
+                var contentRect = new Rect(LeftMetaColWidth + 8f, rowY, contentWidth, HistoryRowHeight - linksHeight - 6f);
 
-                // 链接/编辑区
-                float linksY = rowY + contentHeight + 2f;
+                if (_editingIndex == i)
+                {
+                    // 编辑状态：在内容区顶部放置输入框，避免高度膨胀
+                    float editH = 24f;
+                    var editRect = new Rect(contentRect.x, contentRect.y, contentWidth, editH);
+                    _editBuffer = Widgets.TextField(editRect, _editBuffer ?? string.Empty);
+                    // 下方显示原内容的预览（裁剪显示）
+                    var previewRect = new Rect(contentRect.x, contentRect.y + editH + 2f, contentWidth, contentRect.height - editH - 2f);
+                    Widgets.Label(previewRect, e.Content ?? string.Empty);
+                }
+                else
+                {
+                    // 正常状态：显示内容（裁剪在固定高度内，自动换行）
+                    Widgets.Label(contentRect, e.Content ?? string.Empty);
+                }
+
+                // 固定链接区在行底部
+                float linksY = rowY + HistoryRowHeight - linksHeight - 2f;
                 float linkX = contentRect.x;
                 if (_editingIndex == i)
                 {
-                    var editRect = new Rect(contentRect.x, linksY, contentWidth, 24f);
-                    _editBuffer = Widgets.TextField(editRect, _editBuffer ?? string.Empty);
-
-                    var saveRect = new Rect(linkX, linksY + 26f, 60f, 18f);
-                    var cancelRect = new Rect(linkX + 60f + LinkSpacing, linksY + 26f, 60f, 18f);
+                    var saveRect = new Rect(linkX, linksY, 60f, linksHeight);
+                    var cancelRect = new Rect(linkX + 60f + LinkSpacing, linksY, 60f, linksHeight);
                     if (LinkButton(saveRect, "保存"))
                     {
                         _ = SaveEditAsync(i, _editBuffer);
@@ -314,9 +317,9 @@ namespace RimAI.Core.UI.HistoryManager
                 }
                 else
                 {
-                    var editRect = new Rect(linkX, linksY, 40f, 18f);
-                    var delRect = new Rect(linkX + 40f + LinkSpacing, linksY, 40f, 18f);
-                    var undoRect = new Rect(linkX + 80f + LinkSpacing * 2, linksY, 60f, 18f);
+                    var editRect = new Rect(linkX, linksY, 40f, linksHeight);
+                    var delRect = new Rect(linkX + 40f + LinkSpacing, linksY, 40f, linksHeight);
+                    var undoRect = new Rect(linkX + 80f + LinkSpacing * 2, linksY, 60f, linksHeight);
                     if (LinkButton(editRect, "修改"))
                     {
                         _editingIndex = i;
@@ -332,7 +335,7 @@ namespace RimAI.Core.UI.HistoryManager
                     }
                 }
 
-                curY = rowY + rowHeight;
+                curY = rowY + HistoryRowHeight;
             }
             Text.WordWrap = oldWrap;
 

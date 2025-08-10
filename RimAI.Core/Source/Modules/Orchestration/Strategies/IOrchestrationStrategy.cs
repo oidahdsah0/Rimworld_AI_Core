@@ -16,6 +16,7 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
         public string Query { get; init; }
         public string PersonaSystemPrompt { get; init; }
         public CancellationToken Cancellation { get; init; }
+        // 未来可考虑把参与者集合传入，用于更稳定的 ConversationId；当前策略层按 query+persona 衍生
     }
 }
 

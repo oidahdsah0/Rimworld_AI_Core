@@ -323,6 +323,30 @@ namespace RimAI.Core.UI.HistoryManager
                 catch { /* ignore */ }
             }
             var recapItems = _recap.GetRecapItems(_selectedConversationId).ToList();
+            // 如果当前选中的会话没有任何前情提要，自动在该 convKey 下寻找最近一个“有前情”的会话并切换
+            if ((recapItems == null || recapItems.Count == 0) && !string.IsNullOrWhiteSpace(_convKeyInput))
+            {
+                try
+                {
+                    if (_convCandidates == null || _convCandidates.Count == 0)
+                    {
+                        var list = _historyWrite.FindByConvKeyAsync(_convKeyInput).GetAwaiter().GetResult();
+                        _convCandidates = list?.ToList() ?? new List<string>();
+                    }
+                    for (int i = _convCandidates.Count - 1; i >= 0; i--)
+                    {
+                        var cid = _convCandidates[i];
+                        var items = _recap.GetRecapItems(cid);
+                        if (items != null && items.Count > 0)
+                        {
+                            _selectedConversationId = cid;
+                            recapItems = items.ToList();
+                            break;
+                        }
+                    }
+                }
+                catch { /* ignore */ }
+            }
             var viewH = Math.Max(rect.height - 8f, recapItems.Count * 48f + 60f);
             var viewRect = new Rect(0, 0, rect.width - 16f, viewH);
             Widgets.BeginScrollView(rect, ref _scrollMain, viewRect);

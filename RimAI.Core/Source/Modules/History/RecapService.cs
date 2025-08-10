@@ -110,6 +110,35 @@ namespace RimAI.Core.Modules.History
                         ct.ThrowIfCancellationRequested();
                         OnEntryRecordedFromConversation(conversationId, e);
                     }
+                    try
+                    {
+                        // 回放结束后，若仍为空则至少生成一条压缩条目
+                        var snapshot = GetRecap(conversationId);
+                        if (snapshot == null || snapshot.Count == 0)
+                        {
+                            var tail = entries.OrderByDescending(x => x.Timestamp).Take(Math.Max(1, cfg.RecapUpdateEveryRounds)).OrderBy(x => x.Timestamp).ToList();
+                            if (tail.Count > 0)
+                            {
+                                var text = Truncate(string.Join("\n", tail.Select(x => x.Content)), Math.Max(200, cfg.RecapMaxChars));
+                                var item = new RecapItem(Guid.NewGuid().ToString("N"), text, DateTime.UtcNow);
+                                var lg = _locks.GetOrAdd(conversationId, _ => new object());
+                                lock (lg)
+                                {
+                                    if (!_recapDict.TryGetValue(conversationId, out var list))
+                                    {
+                                        list = new List<RecapItem>();
+                                        _recapDict[conversationId] = list;
+                                    }
+                                    if (!IsDuplicateTail(list, item.Text))
+                                    {
+                                        list.Add(item);
+                                        EnforceCapacity(list, cfg.RecapDictMaxEntries);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { /* ignore */ }
                 }
                 finally
                 {

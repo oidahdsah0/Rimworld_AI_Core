@@ -37,6 +37,9 @@ namespace RimAI.Core.UI.HistoryManager
         private List<string> _allConvKeys = new();
         private string _selectedConversationId = string.Empty;
         private List<string> _convCandidates = new List<string>();
+        private string _selectedConvKey = string.Empty; // 供下拉选择用
+        private List<string> _menuCandidates = new List<string>(); // 供下拉选择用
+        private string _selectedConversationIdMenu = string.Empty; // 供下拉选择用
         private List<ConversationEntry> _entries = new();
         private int _editingIndex = -1;
         private string _editBuffer = string.Empty;
@@ -102,6 +105,7 @@ namespace RimAI.Core.UI.HistoryManager
             }
             if (Widgets.ButtonText(new Rect(inRect.x + inRect.width - 120f, y, 100f, 24f), "加载"))
             {
+                // 明确按文本框内容加载；内部优先原样键，找不到再规范化
                 _ = LoadByConvKeyAsync(_convKeyInput);
             }
             y += 28f;
@@ -114,6 +118,62 @@ namespace RimAI.Core.UI.HistoryManager
                 Widgets.Label(new Rect(inRect.x, y, inRect.width, 24f), $"参与者：{string.Join(", ", names)}");
                 y += 28f;
             }
+
+            // 行内：下拉选择 convKey + 会话ID + 仅对二者生效的加载按钮
+            // 初始化默认选择
+            if (string.IsNullOrWhiteSpace(_selectedConvKey))
+            {
+                _selectedConvKey = _allConvKeys.FirstOrDefault() ?? _convKeyInput;
+                // 预载该键的候选 cid
+                try { _menuCandidates = GetCandidatesByKeyAsync(_selectedConvKey).GetAwaiter().GetResult() ?? new List<string>(); }
+                catch { _menuCandidates = new List<string>(); }
+                _selectedConversationIdMenu = _menuCandidates.LastOrDefault() ?? string.Empty;
+            }
+
+            float x0 = inRect.x;
+            var keyBtn = new Rect(x0, y, Math.Min(360f, inRect.width * 0.45f), 24f);
+            var cidBtn = new Rect(keyBtn.xMax + 8f, y, Math.Min(360f, inRect.width * 0.35f), 24f);
+            var loadSelBtn = new Rect(cidBtn.xMax + 8f, y, 90f, 24f);
+
+            if (Widgets.ButtonText(keyBtn, string.IsNullOrWhiteSpace(_selectedConvKey) ? "选择会话键" : _selectedConvKey))
+            {
+                var menu = new List<FloatMenuOption>();
+                foreach (var k in _allConvKeys)
+                {
+                    var show = k;
+                    menu.Add(new FloatMenuOption(show, () =>
+                    {
+                        _selectedConvKey = k;
+                        try
+                        {
+                            _menuCandidates = GetCandidatesByKeyAsync(k).GetAwaiter().GetResult() ?? new List<string>();
+                        }
+                        catch { _menuCandidates = new List<string>(); }
+                        _selectedConversationIdMenu = _menuCandidates.LastOrDefault() ?? string.Empty;
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(menu));
+            }
+
+            if (Widgets.ButtonText(cidBtn, string.IsNullOrWhiteSpace(_selectedConversationIdMenu) ? "选择会话ID" : _selectedConversationIdMenu))
+            {
+                var menu2 = new List<FloatMenuOption>();
+                foreach (var cid in _menuCandidates)
+                {
+                    var show = cid;
+                    menu2.Add(new FloatMenuOption(show, () => { _selectedConversationIdMenu = cid; }));
+                }
+                Find.WindowStack.Add(new FloatMenu(menu2));
+            }
+
+            if (Widgets.ButtonText(loadSelBtn, "加载所选"))
+            {
+                if (!string.IsNullOrWhiteSpace(_selectedConvKey))
+                {
+                    _ = LoadByConvKeyAsync(_selectedConvKey, _selectedConversationIdMenu);
+                }
+            }
+            y += 28f;
         }
 
         private void DrawTabs(Rect inRect, ref float y)
@@ -608,9 +668,11 @@ namespace RimAI.Core.UI.HistoryManager
             await Task.CompletedTask;
         }
 
-        private async Task LoadByConvKeyAsync(string convKey)
+        private async Task LoadByConvKeyAsync(string convKey, string preferredConversationId = null)
         {
-            _convKeyInput = CanonicalizeConvKey(convKey ?? string.Empty);
+            var typed = convKey ?? string.Empty;
+            var canon = CanonicalizeConvKey(typed);
+            _convKeyInput = typed; // 保留用户输入原样
             HistoryUIState.CurrentConvKey = _convKeyInput;
             _selectedConversationId = string.Empty;
             _convCandidates.Clear();
@@ -618,11 +680,16 @@ namespace RimAI.Core.UI.HistoryManager
             {
                 var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
                 _convCandidates = list?.ToList() ?? new List<string>();
+                if (_convCandidates.Count == 0 && !string.Equals(canon, _convKeyInput, StringComparison.Ordinal))
+                {
+                    var list2 = await _historyWrite.FindByConvKeyAsync(canon);
+                    _convCandidates = list2?.ToList() ?? new List<string>();
+                }
 
                 // 回退：若按 convKey 未找到，则尝试按参与者列举（兼容 player id 变更或顺序问题）
                 if (_convCandidates.Count == 0)
                 {
-                    var ids = _convKeyInput.Split('|');
+                    var ids = canon.Split('|');
                     var union = new HashSet<string>(StringComparer.Ordinal);
                     foreach (var pid in ids)
                     {
@@ -647,12 +714,44 @@ namespace RimAI.Core.UI.HistoryManager
                 }
                 else
                 {
-                    _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
+                    if (!string.IsNullOrWhiteSpace(preferredConversationId) && _convCandidates.Contains(preferredConversationId))
+                        _selectedConversationId = preferredConversationId;
+                    else
+                        _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
                     HistoryUIState.CurrentConversationId = _selectedConversationId;
                 }
             }
             catch { /* ignore */ }
             await ReloadEntriesAsync();
+        }
+
+        private async Task<List<string>> GetCandidatesByKeyAsync(string convKey)
+        {
+            var typed = convKey ?? string.Empty;
+            var canon = CanonicalizeConvKey(typed);
+            var list = await _historyWrite.FindByConvKeyAsync(typed);
+            var cands = list?.ToList() ?? new List<string>();
+            if (cands.Count == 0 && !string.Equals(typed, canon, StringComparison.Ordinal))
+            {
+                var list2 = await _historyWrite.FindByConvKeyAsync(canon);
+                cands = list2?.ToList() ?? new List<string>();
+            }
+            if (cands.Count == 0)
+            {
+                var ids = canon.Split('|');
+                var union = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var pid in ids)
+                {
+                    if (string.IsNullOrWhiteSpace(pid)) continue;
+                    if (pid.StartsWith("player:", StringComparison.Ordinal))
+                    {
+                        try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) union.Add(c); } catch { }
+                    }
+                    try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) union.Add(c); } catch { }
+                }
+                cands = union.ToList();
+            }
+            return cands;
         }
 
         private async Task ReloadEntriesAsync()

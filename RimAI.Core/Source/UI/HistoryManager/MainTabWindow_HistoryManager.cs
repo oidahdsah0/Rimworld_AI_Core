@@ -106,45 +106,14 @@ namespace RimAI.Core.UI.HistoryManager
             }
             y += 28f;
 
-            // 下拉快速选择现有 convKey
-            string selected = _allConvKeys.FirstOrDefault(k => k == _convKeyInput) ?? (_allConvKeys.Count > 0 ? _allConvKeys[0] : string.Empty);
-            if (!string.IsNullOrEmpty(selected))
-            {
-                if (Widgets.ButtonText(new Rect(inRect.x, y, inRect.width - 300f, 24f), selected))
-                {
-                    var menu = new List<FloatMenuOption>();
-                    foreach (var k in _allConvKeys)
-                    {
-                        var show = k;
-                        menu.Add(new FloatMenuOption(show, () => { _convKeyInput = k; _ = LoadByConvKeyAsync(k); }));
-                    }
-                    Find.WindowStack.Add(new FloatMenu(menu));
-                }
-            }
-
-            // conversationId 选择器（V2）
-            if (_convCandidates != null && _convCandidates.Count > 0)
-            {
-                if (Widgets.ButtonText(new Rect(inRect.x, y + 28f, inRect.width - 300f, 24f), _selectedConversationId ?? string.Empty))
-                {
-                    var menu2 = new List<FloatMenuOption>();
-                    foreach (var cid in _convCandidates)
-                    {
-                        var show = cid;
-                        menu2.Add(new FloatMenuOption(show, () => { _selectedConversationId = cid; _ = ReloadEntriesAsync(); }));
-                    }
-                    Find.WindowStack.Add(new FloatMenu(menu2));
-                }
-                y += 28f;
-            }
-
+            // 参与者友好名提示
             if (!string.IsNullOrWhiteSpace(_convKeyInput))
             {
                 var parts = _convKeyInput.Split('|');
                 var names = parts.Select(p => _pid.GetDisplayName(p)).ToList();
-                Widgets.Label(new Rect(inRect.x, y + 28f, inRect.width, 24f), $"参与者：{string.Join(", ", names)}");
+                Widgets.Label(new Rect(inRect.x, y, inRect.width, 24f), $"参与者：{string.Join(", ", names)}");
+                y += 28f;
             }
-            y += 56f;
         }
 
         private void DrawTabs(Rect inRect, ref float y)

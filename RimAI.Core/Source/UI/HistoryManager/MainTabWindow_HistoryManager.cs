@@ -668,8 +668,19 @@ namespace RimAI.Core.UI.HistoryManager
                     _convCandidates = union.ToList();
                 }
 
-                _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
-                HistoryUIState.CurrentConversationId = _selectedConversationId;
+                if (_convCandidates.Count == 0)
+                {
+                    // 未找到任何会话：清空当前视图并提示
+                    _selectedConversationId = string.Empty;
+                    HistoryUIState.CurrentConversationId = string.Empty;
+                    _entries = new List<ConversationEntry>();
+                    Messages.Message($"未找到该会话的历史记录：{_convKeyInput}", MessageTypeDefOf.RejectInput, false);
+                }
+                else
+                {
+                    _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
+                    HistoryUIState.CurrentConversationId = _selectedConversationId;
+                }
             }
             catch { /* ignore */ }
             await ReloadEntriesAsync();
@@ -724,7 +735,12 @@ namespace RimAI.Core.UI.HistoryManager
             }
             else
             {
+                // 当前无选中会话：清空并提示（仅当 convKey 非空时提示一次）
                 _entries = new List<ConversationEntry>();
+                if (!string.IsNullOrWhiteSpace(_convKeyInput))
+                {
+                    Messages.Message($"未找到该会话的历史记录：{_convKeyInput}", MessageTypeDefOf.RejectInput, false);
+                }
             }
         }
 

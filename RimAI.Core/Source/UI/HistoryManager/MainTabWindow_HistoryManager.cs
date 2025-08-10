@@ -311,6 +311,17 @@ namespace RimAI.Core.UI.HistoryManager
         #region Tab2 前情提要
         private void DrawTabRecap(Rect rect)
         {
+            // 若未选择具体会话，尝试默认选中当前 convKey 下最新的 conversationId
+            if (string.IsNullOrWhiteSpace(_selectedConversationId))
+            {
+                try
+                {
+                    var list = _historyWrite.FindByConvKeyAsync(_convKeyInput).GetAwaiter().GetResult();
+                    _convCandidates = list?.ToList() ?? new List<string>();
+                    _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty;
+                }
+                catch { /* ignore */ }
+            }
             var recapItems = _recap.GetRecapItems(_selectedConversationId).ToList();
             var viewH = Math.Max(rect.height - 8f, recapItems.Count * 48f + 60f);
             var viewRect = new Rect(0, 0, rect.width - 16f, viewH);
@@ -340,7 +351,7 @@ namespace RimAI.Core.UI.HistoryManager
             Widgets.EndScrollView();
 
             // 底部操作
-            var btn = new Rect(rect.x, rect.yMax - 28f, 120f, 24f);
+            var btn = new Rect(rect.x, rect.yMax - 28f, 160f, 24f);
             if (Widgets.ButtonText(btn, "一键重述"))
             {
                 _ = Task.Run(async () =>
@@ -355,6 +366,22 @@ namespace RimAI.Core.UI.HistoryManager
                         Messages.Message("重述失败: " + ex.Message, MessageTypeDefOf.RejectInput, false);
                     }
                 });
+            }
+
+            // 手动刷新按钮：在冷却/退化后，用户可主动刷新一次
+            var btn2 = new Rect(rect.x + 170f, rect.yMax - 28f, 120f, 24f);
+            if (Widgets.ButtonText(btn2, "刷新前情"))
+            {
+                try
+                {
+                    // 触发一次“每十轮”叠加逻辑（不阻塞）
+                    if (!string.IsNullOrWhiteSpace(_selectedConversationId))
+                    {
+                        _recap.OnEveryTenRounds(_selectedConversationId);
+                        Messages.Message("已触发一次前情更新", MessageTypeDefOf.TaskCompletion, false);
+                    }
+                }
+                catch { /* ignore */ }
             }
         }
 
@@ -584,7 +611,7 @@ namespace RimAI.Core.UI.HistoryManager
             {
                 var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
                 _convCandidates = list?.ToList() ?? new List<string>();
-                _selectedConversationId = _convCandidates.FirstOrDefault() ?? string.Empty;
+                _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
             }
             catch { /* ignore */ }
             await ReloadEntriesAsync();
@@ -606,7 +633,7 @@ namespace RimAI.Core.UI.HistoryManager
                 {
                     var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
                     _convCandidates = list?.ToList() ?? new List<string>();
-                    _selectedConversationId = _convCandidates.FirstOrDefault() ?? string.Empty;
+                    _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
                 }
                 catch { /* ignore */ }
             }

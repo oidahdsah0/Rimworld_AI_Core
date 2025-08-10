@@ -369,20 +369,7 @@ namespace RimAI.Core.UI.HistoryManager
             }
 
             // 手动刷新按钮：在冷却/退化后，用户可主动刷新一次
-            var btn2 = new Rect(rect.x + 170f, rect.yMax - 28f, 120f, 24f);
-            if (Widgets.ButtonText(btn2, "刷新前情"))
-            {
-                try
-                {
-                    // 触发一次“每十轮”叠加逻辑（不阻塞）
-                    if (!string.IsNullOrWhiteSpace(_selectedConversationId))
-                    {
-                        _recap.OnEveryTenRounds(_selectedConversationId);
-                        Messages.Message("已触发一次前情更新", MessageTypeDefOf.TaskCompletion, false);
-                    }
-                }
-                catch { /* ignore */ }
-            }
+            // 取消“刷新前情”按钮以避免用户连点造成重复条目；使用自动重述/后台叠加
         }
 
         

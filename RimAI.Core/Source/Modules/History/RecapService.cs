@@ -263,8 +263,11 @@ namespace RimAI.Core.Modules.History
                         list = new List<RecapItem>();
                         _recapDict[conversationId] = list;
                     }
-                    list.Add(item);
-                    EnforceCapacity(list, cfg.RecapDictMaxEntries);
+                    if (!IsDuplicateTail(list, item.Text))
+                    {
+                        list.Add(item);
+                        EnforceCapacity(list, cfg.RecapDictMaxEntries);
+                    }
                 }
                 CoreServices.Logger.Info($"[Recap] +Summary convId={conversationId}, len={text.Length}");
             }
@@ -330,8 +333,11 @@ namespace RimAI.Core.Modules.History
                         list = new List<RecapItem>();
                         _recapDict[conversationId] = list;
                     }
-                    list.Add(item);
-                    EnforceCapacity(list, cfg.RecapDictMaxEntries);
+                    if (!IsDuplicateTail(list, item.Text))
+                    {
+                        list.Add(item);
+                        EnforceCapacity(list, cfg.RecapDictMaxEntries);
+                    }
                 }
                 CoreServices.Logger.Info($"[Recap] +Aggregate convId={conversationId}, len={text.Length}");
             }
@@ -384,6 +390,15 @@ namespace RimAI.Core.Modules.History
             return message.Contains("System is too busy now", StringComparison.OrdinalIgnoreCase)
                 || message.Contains("\"code\": 50508", StringComparison.Ordinal)
                 || message.Contains("50508", StringComparison.Ordinal);
+        }
+
+        private static bool IsDuplicateTail(List<RecapItem> list, string newText)
+        {
+            if (list == null || list.Count == 0) return false;
+            var last = list[list.Count - 1].Text?.Trim();
+            var nxt = (newText ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(nxt)) return true; // 空文本视为无效
+            return string.Equals(last, nxt, StringComparison.Ordinal);
         }
 
         internal readonly struct RecapItem

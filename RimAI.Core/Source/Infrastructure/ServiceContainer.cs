@@ -85,6 +85,16 @@ namespace RimAI.Core.Infrastructure
             Register<RimAI.Core.Modules.Orchestration.IPromptAssemblyService,
                      RimAI.Core.Modules.Orchestration.PromptAssemblyService>();
 
+            // M4: Prompting services
+            Register<RimAI.Core.Modules.Prompting.IPromptTemplateService,
+                     RimAI.Core.Modules.Prompting.PromptTemplateService>();
+            Register<RimAI.Core.Modules.Prompting.IPromptComposer,
+                     RimAI.Core.Modules.Prompting.PromptComposer>();
+
+            // M4: Persona conversation entry
+            Register<RimAI.Core.Modules.Persona.IPersonaConversationService,
+                     RimAI.Core.Modules.Persona.PersonaConversationService>();
+
             // P10-M3: 固定提示词 & 人物传记（内存 MVP）
             Register<RimAI.Core.Modules.Persona.IFixedPromptService,
                      RimAI.Core.Modules.Persona.FixedPromptService>();

@@ -10,6 +10,7 @@ namespace RimAI.Core.Settings
         public OrchestrationConfig Orchestration { get; init; } = new();
         public EmbeddingConfig Embedding { get; init; } = new();
         public HistoryConfig History { get; init; } = new();
+        public PromptConfig Prompt { get; init; } = new();
 
         public static CoreConfig CreateDefault() => new();
     }
@@ -202,5 +203,56 @@ namespace RimAI.Core.Settings
         /// 每月大模型调用预算上限（美元）。本阶段仅作文档展示，不做硬限制。
         /// </summary>
         public double MonthlyBudgetUSD { get; init; } = 5.0;
+    }
+
+    /// <summary>
+    /// 提示词/模板配置（M4）。
+    /// </summary>
+    public sealed class PromptConfig
+    {
+        public string Locale { get; init; } = "zh-Hans";
+        public bool UseGameLanguage { get; init; } = true;
+        public string TemplateChatKey { get; init; } = "chat";
+        public string TemplateCommandKey { get; init; } = "command";
+        public string MasterPath { get; init; } = "Resources/prompts/{locale}.json";
+        public string UserOverridePath { get; init; } = "Config/RimAI/Prompts/{locale}.user.json";
+        public PromptSegmentsConfig Segments { get; init; } = new();
+        public PromptBudgetConfig Budget { get; init; } = new();
+    }
+
+    public sealed class PromptSegmentsConfig
+    {
+        public ChatSegments Chat { get; init; } = new();
+        public CommandSegments Command { get; init; } = new();
+    }
+
+    public sealed class ChatSegments
+    {
+        public bool IncludePersona { get; init; } = true;
+        public bool IncludeFixedPrompts { get; init; } = true;
+        public bool IncludeRecap { get; init; } = true;
+        public bool IncludeRecentHistory { get; init; } = true;
+        public int RecentHistoryMaxEntries { get; init; } = 6;
+    }
+
+    public sealed class CommandSegments
+    {
+        public bool IncludePersona { get; init; } = true;
+        public bool IncludeFixedPrompts { get; init; } = true;
+        public bool IncludeBiography { get; init; } = true;
+        public bool IncludeRecap { get; init; } = true;
+        public bool IncludeRelatedHistory { get; init; } = true;
+        public int RelatedMaxConversations { get; init; } = 3;
+        public int RelatedMaxEntriesPerConversation { get; init; } = 5;
+    }
+
+    public sealed class PromptBudgetConfig
+    {
+        public int Persona { get; init; } = 1200;
+        public int FixedPrompts { get; init; } = 800;
+        public int Biography { get; init; } = 1200;
+        public int Recap { get; init; } = 1200;
+        public int RecentHistory { get; init; } = 800;
+        public int RelatedHistory { get; init; } = 1600;
     }
 }

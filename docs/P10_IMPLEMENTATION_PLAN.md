@@ -30,13 +30,19 @@
 
 ## 2. 数据模型（文本持久化，Embedding 不入档）
 - ConversationEntry：{ SpeakerId, Content, Timestamp }（仅最终输出）
-- Conversation：Entries 列表
+- ConversationRecord：{ ConversationId: guid, ParticipantIds: string[], Entries: ConversationEntry[] }
 - HistoricalContext：按参与者集合（convKey）聚合出的主线/背景
-- RecapDictionary（前情提要字典）：滚动窗口的结构化条目列表（如 { id, text, createdAt }）
-- FixedPrompts：按 ParticipantId 存储的固定提示词文本
-- BiographyDictionary（人物传记字典）：按 PawnId（以及 player 1v1）管理的“段落型、条目化”的字典（如 { id, text, createdAt, source }）。每段内容独立、可编辑，非对话形式；由对话历史与游戏内人物经历提炼生成，用于长期性格/经历的摘要与记述。
+- RecapDictionary（前情提要字典）：滚动窗口的结构化条目列表（如 { id, text, createdAt }），索引键=convKey
+- FixedPrompts：固定提示词文本，索引键=单个 ParticipantId（NPC）
+- BiographyDictionary（人物传记字典）：索引键=PawnId 的“段落型、条目化”字典（如 { id, text, createdAt, source }）
 
 会话键 convKey 规则：对参与者集合排序后以 “|” 连接：convKey = join('|', sort(participantIds))。
+
+2.1 主键与二级索引（会话账本 v2）
+- 主键：ConversationId（GUID） → ConversationRecord
+- 二级索引：
+  - convKey → List<ConversationId>
+  - participantId → List<ConversationId>（“关联记录索引”，供 UI 快速列举参与过的会话）
 
 ## 3. 服务与接口（Core 内部）
 
@@ -46,32 +52,51 @@
 - ForPersona(string name, int rev) → string（persona:<name>#<rev>）
 - GetDisplayName(string id) → string（带最后可见名缓存）
 
-### 3.2 IHistoryService（扩展）
-- RecordEntryAsync(participants: IReadOnlyList<string>, entry: ConversationEntry)
-  - 仅写入最终输出（用户/AI/工具均可作为 SpeakerId）
-- GetHistoryAsync(participants)
-- GetConversationsBySubsetAsync(queryIds: IReadOnlyList<string>)：返回所有满足 queryIds ⊆ conv.Participants 的会话
-- EditEntryAsync(convKey, entryIndex, newContent)
-- ListConversationKeysAsync(filter?, paging?)
-- 事件：OnEntryRecorded(convKey, entry)
+### 3.2 History（会话账本 v2）
+- Conversation 作为独立字典：conversationId → ConversationRecord
+- 提供：
+  - CreateConversation(participants: IReadOnlyList<string>) → conversationId
+  - AppendEntryAsync(conversationId, entry)
+  - GetConversationAsync(conversationId)
+  - FindByConvKey(convKey) → List<conversationId>
+  - ListByParticipant(participantId) → List<conversationId>
+  - EditEntryAsync(conversationId, entryIndex, newContent) / DeleteEntryAsync / RestoreEntryAsync
+  - 兼容入口：GetHistoryAsync(participants)（内部通过 convKey 查询并汇总主线/背景）
+  - 事件：OnEntryRecorded(conversationId, entry)
 
-### 3.3 IRecapService（总结/叠加）
-- OnEntryRecorded(convKey)：内部计数；每 N 轮触发一次 Summarize（非流式 LLM）
-- OnEveryTenRounds(convKey)：把最近 10 轮的段落叠加/压缩→写入 RecapDictionary（长度受限，超出按 FIFO 或 LRU 丢弃）
-- RebuildRecapAsync(convKey)：UI 触发“一键重述”
-实现要点：后台异步执行；预算与超时护栏；失败不阻塞主流程。
+### 3.3 Recap（前情提要，独立服务）
+- 键=convKey（≥2 个参与者）
+- 来源：历史记录（仅最终输出），可叠加/可覆盖，UI 可编辑重排
+- 自动化：保留每 N 轮与“每 10 轮叠加”；可选在“每个象限（Quadrum=15 天）”结束时追加一次全局压缩
+- API：Get/Update/Remove/Reorder/Rebuild（后台执行，受预算/时延护栏）
 
-### 3.4 IPromptAssemblyService（提示词组装）
+### 3.4 Biography（人物传记，独立服务）
+- 键=PawnId（单个小人）
+- 周期：每个象限（Quadrum=15 天）自动总结一次（调度由 Scheduler 驱动）
+- 来源：对话历史摘录、小人行动 Log、幼年/成年性格、Trait 标签（夜猫子/乐天派/沉鱼落雁 等）
+- 产出：段落型字典（非对话）供提示组装，UI 可增删改与重排
+
+### 3.5 FixedPrompts（固定提示词，独立服务）
+- 键=单个 ParticipantId（NPC）
+- 玩家为每个 NPC 设置的“不可遗忘”文本；仅在玩家↔NPC 场景注入
+
+### 3.6 Relations Index（关联记录索引，独立或从 History 暴露）
+- 键=participantId → 值=List<conversationId>
+- 在 History 发生写入时增量维护；供 UI 直接用参与者维度列举会话
+
+### 3.7 IPromptAssemblyService（提示词组装）
 输入：participantIdSet、预算参数、策略配置。
 输出：systemPrompt（或片段列表）。
 组装顺序（建议）：
-1) 固定提示词（每个参与者拼接，去重、裁剪）
-2) 人物传记段落（仅 1v1 player↔pawn 时注入；段落型、非对话形式；按需要采样/裁剪条目）
-3) 前情提要字典（按配置取最近 K 条，总长度受限）
-4) 相关历史最终输出片段（按时间/相关性采样）
-5) 其它上下文（可选：任务状态等）
+1) Persona（若含 persona:<name>#<rev>）
+2) 固定提示词（按 NPC 粒度，参与者拼接，去重/裁剪）
+3) 人物传记段落（仅 1v1 player↔pawn，按需要采样/裁剪）
+4) 前情提要字典（convKey，取最近 K 条，总长度受限）
+5) 近期历史最终输出片段（时间采样）
+6) 其它上下文（可选：任务/世界状态）
+注意：以上拼接仅用于提示注入，不会写回历史账本。
 
-## 4. 配置项（CoreConfig.History 新增）
+## 4. 配置项（CoreConfig.History 新增/调整）
 ```json
 History: {
   SummaryEveryNRounds: 5,          // 每N轮生成一次总结
@@ -80,47 +105,57 @@ History: {
   RecapMaxChars: 1200,             // 单条前情提要最大长度
   HistoryPageSize: 100,            // UI 分页
   MaxPromptChars: 4000,            // 组装提示的总长度预算
+  UndoWindowSeconds: 3,            // 删除撤销窗口（秒）
   Budget: {
     MaxLatencyMs: 5000,
     MonthlyBudgetUSD: 5.0
   }
 }
 ```
-设置面板提供上述可视化控件；保存后热生效。
+设置面板提供上述可视化控件；保存后热生效。人物传记/象限自动总结由内部调度驱动，默认开启。
 
 ## 5. UI 设计：历史管理窗体（5 个 Tab）
 加载键：对话参与者 ID 集合（支持手动录入/选择器）。
 
-- Tab1 历史记录：按 convKey 加载，展示仅“最终输出”；支持逐条编辑/删除，分页与搜索。
+- Tab1 历史记录：按 convKey → 列举会话，再选中具体 conversationId 加载“最终输出”；支持逐条编辑/删除/撤销，分页与搜索。
 - Tab2 前情提要：展示/编辑“每N轮总结 + 每10轮叠加”的字典项；支持重排/删除/一键重述。
-- Tab3 固定提示词：按参与者管理不可遗忘文本；支持新增/编辑/删除；关联 ID 显示名。
-- Tab4 关联对话：展示与当前集合有交集（或包含关系）的其它会话；点击打开新窗体（独立加载）。
-- Tab5 人物传记：仅在 1v1（player:<id> 与 pawn:<id>）时开放；展示/编辑“段落型字典（非对话形式）”，支持新增/编辑/删除与重排。
+- Tab3 固定提示词：按“单个 NPC（ParticipantId）”管理不可遗忘文本；支持新增/编辑/删除；关联 ID 显示名。
+- Tab4 关联对话：基于 Relations Index（participantId → List<conversationId>）展示其参与过的所有会话；点击切换加载。
+- Tab5 人物传记：按 PawnId 展示/编辑“段落型字典（非对话形式）”，支持新增/编辑/删除与重排；仅在 1v1（player↔pawn）时注入编排。
 
 ## 6. 运行流程（最小实现）
-1) 记录：编排完成后产出最终文本 → RecordEntryAsync（仅最终输出）。
-2) 计数与总结：IRecapService 监听 OnEntryRecorded；每 N 轮做一次非流式总结；每 10 轮叠加到字典（长度受限）。
-3) 提示组装：会话开始时，IPromptAssemblyService 收集固定提示词/人物传记段落/前情提要/选取历史片段，裁剪后注入 system 提示（策略侧调用）。
-4) Embedding：仅对上述文本在运行期懒索引，不入档；更换配置或存档后可重建。
+1) 创建会话：CreateConversation(participants) → conversationId
+2) 记录：AppendEntryAsync(conversationId, entry)（仅最终输出）
+3) 计数与总结：IRecapService 监听 OnEntryRecorded(conversationId) → 映射 convKey，按 N 轮/每 10 轮/每象限触发更新
+4) 提示组装：会话开始时，IPromptAssemblyService 收集固定提示词（按 NPC）/人物传记（按 Pawn）/前情提要（按 convKey）/近期历史片段，裁剪后注入 system 提示（策略侧调用）
+5) Embedding：仅对上述文本在运行期懒索引，不入档；更换配置或存档后可重建。
 
 ## 7. 持久化策略
-- 历史、前情提要、固定提示词、人物传记（段落型字典）：全部文本化入档。
-- Embedding/RAG：仅运行期构建与缓存，严禁入档。
-- 玩家 ID（player:<saveInstanceId>）与 agent:<guid> 首次生成并随档持久化。
+- 历史账本：conversationId → ConversationRecord；同时持久化二级索引（convKey → List<conversationId>，participantId → List<conversationId>）
+- 前情提要（convKey）、固定提示词（participantId）、人物传记（pawnId）：全部文本化入档
+- Embedding/RAG：仅运行期构建与缓存，严禁入档
+- 玩家 ID（player:<saveInstanceId>）与 agent:<guid> 首次生成并随档持久化
+
+7.1 迁移策略（向后兼容）
+- 旧版仅有 convKey → Conversation 的存档：加载时为每个 convKey 生成新的 conversationId，重建二级索引；保留 convKey 查询行为不变
 
 ## 8. DI 注册与依赖
 - IParticipantIdService → ParticipantIdService
-- IRecapService → RecapService（内部依赖 ILLMService、IHistoryService、ISchedulerService）
+- History（会话账本 v2）→ HistoryService（内部维护双索引）
+- IRecapService → RecapService（依赖 ILLMService、History、ISchedulerService）
+- IBiographyService → BiographyService
+- IFixedPromptService → FixedPromptService
+- Relations Index → 独立服务或由 History 暴露只读接口
 - IPromptAssemblyService → PromptAssemblyService
-- 现有 HistoryService 扩展：子集检索、编辑 API、倒排索引增强。
 
 ## 9. 验收标准（Gate）
-1) 历史仅含“最终输出”，不含中间过程；UI 可加载/分页/编辑并持久化。
-2) 每 N 轮自动生成总结；每 10 轮叠加至前情提要字典（长度限制生效）。
-3) 开启 1v1 时可查看/编辑人物传记（段落型字典，非对话）；固定提示词可按参与者管理。
-4) 子集检索：任意参与者子集能调取相关历史并用于提示注入。
-5) Embedding 不入档；更换档或配置后可懒重建，不影响加载性能（无明显抖动）。
-6) 提示词组装总长度不超过 MaxPromptChars，并可在日志/Debug 面板预览裁剪信息。
+1) 历史账本以 conversationId 为主键，二级索引可用（convKey/participantId）
+2) UI 可在 convKey 下列举多个会话并加载具体 conversationId；编辑/删除/撤销生效并入档
+3) 前情提要可按 N 轮/每 10 轮/每象限自动更新，UI 可编辑/重排/删除，入档
+4) 固定提示词以单个 NPC（participantId）为键管理；人物传记以 pawnId 为键管理；二者仅在玩家↔NPC 场景注入
+5) 关联记录索引可按 participantId 列举其参与过的会话
+6) Embedding 不入档；更换档或配置后可懒重建，无明显加载抖动
+7) 提示词组装总长度不超过 MaxPromptChars，并可在日志/Debug 面板预览裁剪信息
 
 ## 10. 任务与里程碑
 - M1：接口与骨架 （完成）
@@ -132,9 +167,296 @@ History: {
 - M3：UI 最小实现（5 Tab） （完成）
   - 历史记录/前情提要/固定提示词/关联对话/人物传记（段落型字典） 的只读→可编辑
   - 加载键（ID 集合）选择与回填
-- M4：编排接线与观测
-  - IPromptAssemblyService 注入策略（Classic/EmbeddingFirst）
-  - Debug 面板显示提示组装摘要与裁剪信息
+- M4：改动较大，且十分重要，详见下方详细设计：14. M4 人格服务 + 提示词服务改造（细化）。
+
+- M5：会话账本 v2 与索引重构（新增）
+  - 引入 conversationId 主键；保留 convKey/participantId 二级索引
+  - 历史 API 兼容：支持旧 convKey 路径查询；新增 conversationId 维度的读写与编辑
+  - Relations Index 抽象与 UI 切换；读档迁移器落地
+
+---
+
+## 13. M5 接口草案与迁移细则（细化）
+
+### 13.1 数据模型（新增/调整）
+
+- ConversationEntry（不变）：{ SpeakerId, Content, Timestamp }
+- ConversationRecord（新增，内部）：
+  - ConversationId: string（guid）
+  - ParticipantIds: IReadOnlyList<string>
+  - Entries: IReadOnlyList<ConversationEntry>
+- 二级索引（内部持久化）：
+  - ConvKeyIndex: Dictionary<string convKey, List<string conversationId>>
+  - ParticipantIndex: Dictionary<string participantId, List<string conversationId>>
+
+### 13.2 服务接口（签名草案）
+
+说明：对外 Contracts 仍保持 `IHistoryQueryService.GetHistoryAsync(participantIds)` 兼容；以下为 Core 内部接口/实现扩展。
+
+```csharp
+// History（会话账本 v2，内部写）
+internal interface IHistoryWriteService
+{
+    // v2 新增
+    string CreateConversation(IReadOnlyList<string> participantIds);
+    Task AppendEntryAsync(string conversationId, ConversationEntry entry);
+    Task<ConversationRecord> GetConversationAsync(string conversationId);
+    Task<IReadOnlyList<string>> FindByConvKeyAsync(string convKey);
+    Task<IReadOnlyList<string>> ListByParticipantAsync(string participantId);
+
+    // 现有编辑能力改为按 conversationId
+    Task EditEntryAsync(string conversationId, int entryIndex, string newContent);
+    Task DeleteEntryAsync(string conversationId, int entryIndex);
+    Task RestoreEntryAsync(string conversationId, int entryIndex, ConversationEntry entry);
+
+    // 兼容保留（内部实现通过二级索引映射）
+    Task<HistoricalContext> GetHistoryAsync(IReadOnlyList<string> participantIds);
+
+    // 事件：写入后触发（改为 conversationId）
+    event Action<string /*conversationId*/, ConversationEntry> OnEntryRecorded;
+}
+
+// Recap（键=convKey）
+internal interface IRecapService
+{
+    IReadOnlyList<RecapSnapshotItem> GetRecapItems(string convKey);
+    bool UpdateRecapItem(string convKey, string itemId, string newText);
+    bool RemoveRecapItem(string convKey, string itemId);
+    bool ReorderRecapItem(string convKey, string itemId, int newIndex);
+    Task RebuildRecapAsync(string convKey, CancellationToken ct = default);
+
+    // 快照（持久化）
+    IReadOnlyDictionary<string, IReadOnlyList<RecapSnapshotItem>> ExportSnapshot();
+    void ImportSnapshot(IReadOnlyDictionary<string, IReadOnlyList<RecapSnapshotItem>> snapshot);
+}
+
+// Biography（键=PawnId）
+internal interface IBiographyService
+{
+    IReadOnlyList<BiographyItem> ListByPawn(string pawnId);
+    BiographyItem Add(string pawnId, string text);
+    bool Update(string pawnId, string itemId, string newText);
+    bool Remove(string pawnId, string itemId);
+    bool Reorder(string pawnId, string itemId, int newIndex);
+
+    // 快照（持久化）
+    IReadOnlyDictionary<string /*pawnId*/, IReadOnlyList<BiographyItem>> ExportSnapshot();
+    void ImportSnapshot(IReadOnlyDictionary<string, IReadOnlyList<BiographyItem>> snapshot);
+}
+
+// FixedPrompts（键=ParticipantId）
+internal interface IFixedPromptService
+{
+    string Get(string participantId);
+    void Upsert(string participantId, string text);
+    bool Delete(string participantId);
+    IReadOnlyDictionary<string, string> GetAll();
+
+    // 快照（持久化）
+    IReadOnlyDictionary<string /*participantId*/, string> ExportSnapshot();
+    void ImportSnapshot(IReadOnlyDictionary<string, string> snapshot);
+}
+```
+
+注：现实现已支持 convKey 维度的 FixedPrompts/Biography（M3），M5 将主语切换为单体键（ParticipantId/PawnId），同时保留从旧存档迁移与 UI 兼容。
+
+### 13.3 持久化结构（新增/变更节点）
+
+- ConversationsNode（conversationId → ConversationRecord）
+- ConvKeyIndexNode（convKey → List<conversationId>）
+- ParticipantIndexNode（participantId → List<conversationId>）
+- RecapNode（convKey → List<RecapSnapshotItem>）
+- FixedPromptsNode（participantId → text）
+- BiographiesNode（pawnId → List<BiographyItem>）
+
+### 13.4 迁移策略（向后兼容）
+
+加载旧存档时：
+- 若检测到旧版 PrimaryStore（convKey → Conversation）：
+  1) 为每条旧记录生成 `conversationId = Guid.NewGuid()` 并写入 ConversationsNode
+  2) 构造 convKey 并追加到 ConvKeyIndexNode[convKey]
+  3) 解析参与者集合，为每个 participantId 追加到 ParticipantIndexNode[participantId]
+  4) 删除旧节点或保留一次性回退标记（不再写回）
+- FixedPrompts/Biography 若存在旧的 convKey 维度：
+  - FixedPrompts：将 convKey 中的 NPC id 抽取为 participantId，写入新结构；若多 NPC，逐个拆分
+  - Biography：仅对 1v1 convKey，抽取 pawnId 写入新结构；多参与者跳过或记录迁移日志
+
+### 13.5 调度与自动总结（Quadrum=15天）
+
+- 人物传记：在 `GameComponent.Update`/调度器中检测 Quadrum 变更（或 `DaysPassed % 15 == 0`），为所有 Pawn 触发 `IBiographyService` 的增量总结（受预算与超时护栏）
+- 前情提要：保留每 N 轮/每 10 轮逻辑，新增“每象限末尾”的补偿压缩（可配）
+
+### 13.6 UI 调整（History Manager）
+
+- Tab1：convKey → conversationId 列表选择器；编辑/删除/撤销基于 conversationId
+- Tab3：固定提示词切换为按单个 NPC（participantId）编辑；可显示 convKey 覆盖层（如保留）
+- Tab5：人物传记切换为按 PawnId 编辑；在 1v1 会话下注入到编排
+
+### 13.7 验收与测试
+
+- 旧存档加载后，能看到 conversationId 维度的会话，索引完整；UI 行为不变
+- 新建/编辑/删除记录后，ConvKeyIndex 与 ParticipantIndex 均正确更新
+- 人物传记在象限切换时自动追加段落；前情提要在 N 轮/十轮/象限策略下均可观测
+- 编排注入顺序正确且不污染历史；提示长度裁剪符合上限
+
+---
+
+## 14. M4 人格服务 + 提示词服务改造（细化）
+
+### 14.1 人格服务作为唯一对话入口
+
+- 会话类型：
+  - Chat（闲聊，无 Tool Calls）：轻量提示词 → LLM 网关；默认不写历史（可配置）。
+  - Command（命令，包含 Tool Calls）：完整提示词 → 编排（Orchestration/策略/RAG/工具）→ 仅写“最终输出”到历史；仅允许玩家↔NPC，且该 NPC 已绑定人格。
+
+- 依赖服务（素材来源）：
+  - 历史（最终输出）、前情提要（convKey）、固定提示词（单 NPC）、人物传记（单 Pawn）、关联记录（participantId → conversationId 列表）。
+
+- 现有人格管理 UI/CRUD/绑定保持不变。
+
+### 14.2 提示词服务（分段组装 + 本地化模板）
+
+- 新增 IPromptComposer（供内部使用）：
+  - Begin(templateKey: chat|command, locale)
+  - Add(labelKey, material: string|IEnumerable<string>) // 多次调用按顺序叠加
+  - Build(maxChars, out audit) → string // 输出最终 system 提示，返回审计信息（各段长度、裁剪）
+  - 审计结构 PromptAudit：{ segments: [{ labelKey, addedChars, truncated }], totalChars }
+
+- IPromptAssemblyService 调整为调用 IPromptComposer，向外仍暴露：
+  - BuildSystemPromptAsync(participantIds, mode: Chat|Command, userInput, locale) → string
+  - mode 确定要注入的段落组合；最后一段固定 Add("user_utterance", $"玩家说：{userInput}")
+
+- 模板/本地化（母版 + 覆盖文件）：
+  - 母版（只读，随 Mod 发布）：`Resources/prompts/<locale>.json`
+  - 覆盖（可写，用户自定义）：`Config/RimAI/Prompts/<locale>.user.json`
+  - 加载策略：启动/读档时加载一次；如检测覆盖文件更新（时间戳/哈希）则热重载；用户修改只写覆盖文件，不污染母版。
+  - 模板结构建议：
+    ```json
+    {
+      "version": 1,
+      "locale": "zh-Hans",
+      "templates": {
+        "chat": ["persona", "fixed_prompts", "recap", "recent_history", "user_utterance"],
+        "command": ["persona", "fixed_prompts", "biography", "recap", "related_history", "user_utterance"]
+      },
+      "labels": {
+        "persona": "[人格]",
+        "fixed_prompts": "[固定提示词]",
+        "biography": "[人物传记]",
+        "recap": "[前情提要]",
+        "recent_history": "[近期历史]",
+        "related_history": "[相关历史]",
+        "user_utterance": "玩家说：{text}"
+      }
+    }
+    ```
+
+### 14.3 Chat 与 Command 的素材差异（默认模板）
+
+- Chat（轻）：Persona + FixedPrompts（NPC）+ Recap（近 K 条）+ 近期历史（少量条） + 用户输入
+- Command（重）：Persona + FixedPrompts（NPC）+ Biography（1v1）+ Recap（近 K 条）+ 相关历史（来自 Relations Index，限制条数/总字数）+ 用户输入
+- 历史写入：仅 Command 写入“最终输出”（用户/AI/工具），不写入过程；触发 Recap 计数/叠加。
+
+### 14.4 入口接口草案（不改对外 Contracts）
+
+```csharp
+internal interface IPersonaConversationService
+{
+    // 闲聊（无工具）
+    IAsyncEnumerable<Result<UnifiedChatChunk>> ChatAsync(
+        IReadOnlyList<string> participantIds,
+        string personaName,
+        string userInput,
+        PersonaChatOptions options);
+
+    // 命令（工具/编排）
+    IAsyncEnumerable<Result<UnifiedChatChunk>> CommandAsync(
+        IReadOnlyList<string> participantIds,
+        string personaName,
+        string userInput,
+        PersonaCommandOptions options);
+}
+
+internal sealed class PersonaChatOptions { public string Locale; public bool Stream=true; public bool WriteHistory=false; }
+internal sealed class PersonaCommandOptions { public string Locale; public bool Stream=true; public bool RequireBoundPersona=true; public bool WriteHistory=true; }
+```
+
+### 14.5 约束与校验
+
+- Command：必须为玩家↔NPC 且 NPC 已绑定人格；否则拒绝并提示。
+- Prompt 长度：严格裁剪到 MaxPromptChars；每段材质也有独立预算（见配置）。
+- 事件与审计：PromptAudit 与阶段事件通过 EventBus 广播，Debug 面板可查看。
+
+### 14.6 UI 改动
+
+- 在小人卡或相关菜单增加“历史记录”按钮 → 打开 History Manager（沿用现有 UI）。
+- 人格管理 UI 不变。
+
+### 14.7 Gate（M4）
+
+- Chat/Command 两条入口可用；Command 仅在玩家↔NPC 且绑定人格时放行。
+- Prompt 由模板（本地化 JSON）+ 标签化素材构建；末段固定“玩家说：{输入}”。
+- Debug 面板可查看 Prompt 审计与裁剪信息；切换语言文件生效。
+
+---
+
+## 15. 可配置项清单（玩家可自定义）
+
+注：以下为新增/整合项；旧有设置（工具匹配、阈值、规划器、Embedding 等）维持现有章节。
+
+### 15.1 历史/前情/传记
+- History.SummaryEveryNRounds（int，默认5）
+- History.RecapUpdateEveryRounds（int，默认10）
+- History.RecapDictMaxEntries（int，默认20，1=仅最新，≤0=无限）
+- History.RecapMaxChars（int，默认1200）
+- History.HistoryPageSize（int，默认100）
+- History.MaxPromptChars（int，默认4000）
+- History.UndoWindowSeconds（int，默认3）
+- History.RecapAutoOnQuadrumEnd（bool，默认true）
+- History.BiographyAutoOnQuadrumEnd（bool，默认true）
+- History.BiographyMaxEntries（int，默认50）
+
+### 15.2 提示词/模板
+- Prompt.Locale（string，默认"zh-Hans"）
+- Prompt.TemplateChatKey（string，默认"chat"）
+- Prompt.TemplateCommandKey（string，默认"command"）
+- Prompt.MasterPath（string，默认 Resources/prompts/{locale}.json）
+- Prompt.UserOverridePath（string，默认 Config/RimAI/Prompts/{locale}.user.json）
+- Prompt.Segments.Chat：
+  - IncludePersona（bool，默认true）
+  - IncludeFixedPrompts（bool，默认true）
+  - IncludeRecap（bool，默认true）
+  - IncludeRecentHistory（bool，默认true）
+  - RecentHistoryMaxEntries（int，默认6）
+- Prompt.Segments.Command：
+  - IncludePersona（bool，默认true）
+  - IncludeFixedPrompts（bool，默认true）
+  - IncludeBiography（bool，默认true，仅1v1时生效）
+  - IncludeRecap（bool，默认true）
+  - IncludeRelatedHistory（bool，默认true）
+  - RelatedMaxConversations（int，默认3）
+  - RelatedMaxEntriesPerConversation（int，默认5）
+
+### 15.3 对话入口（人格）
+- Persona.Chat.Enabled（bool，默认true）
+- Persona.Command.Enabled（bool，默认true）
+- Persona.Command.RequireBoundPersona（bool，默认true）
+- Persona.Command.WriteHistory（bool，默认true）
+- Persona.Chat.WriteHistory（bool，默认false）
+- Persona.Streaming.Default（bool，默认true）
+
+### 15.4 预算与护栏
+- History.Budget.MaxLatencyMs（int，默认5000）
+- History.Budget.MonthlyBudgetUSD（double，默认5.0）
+- Prompt.Budget.PerSegmentMaxChars：
+  - Persona（int，默认1200）
+  - FixedPrompts（int，默认800）
+  - Biography（int，默认1200）
+  - Recap（int，默认1200）
+  - RecentHistory（int，默认800）
+  - RelatedHistory（int，默认1600）
+
+（实现建议：新增 PromptConfig；设置面板新增“提示词/模板”分节，支持路径/语言与段落预算；保存后热生效，并合并母版与覆盖文件。）
 
 ## 11. 回滚
 - 关闭历史总结与前情提要（禁用 RecapService），保留“仅记录最终输出”。

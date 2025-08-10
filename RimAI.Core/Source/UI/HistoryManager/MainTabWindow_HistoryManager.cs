@@ -65,6 +65,17 @@ namespace RimAI.Core.UI.HistoryManager
             _ = EnsureDemoAndReloadAsync();
         }
 
+        public MainTabWindow_HistoryManager(string presetConvKey) : this()
+        {
+            if (!string.IsNullOrWhiteSpace(presetConvKey))
+            {
+                _demoPrepared = true; // 禁止自动生成 Demo
+                _convKeyInput = presetConvKey;
+                _ = ReloadKeysAsync();
+                _ = ReloadEntriesAsync();
+            }
+        }
+
         public override Vector2 InitialSize => new Vector2(1000f, 640f);
 
         public override void DoWindowContents(Rect inRect)

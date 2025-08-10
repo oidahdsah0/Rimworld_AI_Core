@@ -508,7 +508,9 @@ namespace RimAI.Core.UI.DebugPanel
             {
                 try
                 {
-                    Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager());
+                    // 若存在 player:__SAVE__|pawn:DEMO 的会话键，优先打开该会话
+                    string preset = "player:__SAVE__|pawn:DEMO";
+                    Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager(preset));
                 }
                 catch (System.Exception ex)
                 {
@@ -547,6 +549,31 @@ namespace RimAI.Core.UI.DebugPanel
                     catch (System.Exception ex)
                     {
                         AppendOutput("Dump Snapshot failed: " + ex.Message);
+                    }
+                });
+            }
+
+            // Prompt Audit Test (M4)
+            if (Button("Prompt Audit Test"))
+            {
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var conv = CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IPersonaConversationService>();
+                        var participants = new System.Collections.Generic.List<string> { "player:__SAVE__", "pawn:DEMO" };
+                        var stream = conv.ChatAsync(participants, "Default", "今天天气怎么样？", new RimAI.Core.Modules.Persona.PersonaChatOptions { Stream = true, WriteHistory = false });
+                        await foreach (var chunk in stream)
+                        {
+                            if (chunk.IsSuccess)
+                                _pendingChunks.Enqueue(chunk.Value?.ContentDelta ?? string.Empty);
+                            else
+                                _pendingChunks.Enqueue("[Error] " + chunk.Error);
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput("Prompt Audit Test failed: " + ex.Message);
                     }
                 });
             }

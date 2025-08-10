@@ -60,6 +60,7 @@ namespace RimAI.Core.UI.Settings
                 new Section_DynamicThresholds(),
                 new Section_Planner(),
                 new Section_ProgressTemplates(),
+                new Section_Prompt(),
                 new Section_History(),
                 new Section_IndexManager()
             };

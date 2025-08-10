@@ -50,6 +50,17 @@ namespace RimAI.Core.Lifecycle
             }
 
             CoreServices.Logger.Info("RimAI v4 Skeleton Loaded");
+
+            // 注册 Harmony Patch（注入历史记录 Gizmo）
+            try
+            {
+                var harmony = new HarmonyLib.Harmony("RimAI.Core");
+                harmony.PatchAll();
+            }
+            catch (System.Exception ex)
+            {
+                CoreServices.Logger.Warn($"[RimAI] Harmony patch failed: {ex.Message}");
+            }
         }
 
         public override void DoSettingsWindowContents(Rect inRect)

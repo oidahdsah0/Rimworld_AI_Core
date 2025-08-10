@@ -34,6 +34,59 @@ namespace RimAI.Core.UI.History
                 }
             };
         }
+
+        public static Command_Action CreateSmalltalkForPawn(Pawn pawn)
+        {
+            return new Command_Action
+            {
+                defaultLabel = "闲聊",
+                defaultDesc = "与该殖民者进行闲聊。",
+                icon = ContentFinder<UnityEngine.Texture2D>.Get("UI/Buttons/OpenChat"),
+                action = () =>
+                {
+                    try
+                    {
+                        var pidSvc = Infrastructure.CoreServices.Locator.Get<Modules.World.IParticipantIdService>();
+                        string pawnId = pidSvc.FromVerseObject(pawn);
+                        string playerId = pidSvc.GetPlayerId();
+                        string convKey = string.Join("|", new[] { pawnId, playerId });
+                        var chat = new RimAI.Core.UI.Chat.MainTabWindow_Chat(convKey, "闲聊");
+                        Find.WindowStack.Add(chat);
+                    }
+                    catch
+                    {
+                        // 失败时也打开一个空窗口（无需崩溃）
+                        Find.WindowStack.Add(new RimAI.Core.UI.Chat.MainTabWindow_Chat(string.Empty, "闲聊"));
+                    }
+                }
+            };
+        }
+
+        public static Command_Action CreateCommandForPawn(Pawn pawn)
+        {
+            return new Command_Action
+            {
+                defaultLabel = "命令",
+                defaultDesc = "与该殖民者进行指令对话。",
+                icon = ContentFinder<UnityEngine.Texture2D>.Get("UI/Buttons/OpenCommand"),
+                action = () =>
+                {
+                    try
+                    {
+                        var pidSvc = Infrastructure.CoreServices.Locator.Get<Modules.World.IParticipantIdService>();
+                        string pawnId = pidSvc.FromVerseObject(pawn);
+                        string playerId = pidSvc.GetPlayerId();
+                        string convKey = string.Join("|", new[] { pawnId, playerId });
+                        var chat = new RimAI.Core.UI.Chat.MainTabWindow_Chat(convKey, "命令");
+                        Find.WindowStack.Add(chat);
+                    }
+                    catch
+                    {
+                        Find.WindowStack.Add(new RimAI.Core.UI.Chat.MainTabWindow_Chat(string.Empty, "命令"));
+                    }
+                }
+            };
+        }
     }
 }
 

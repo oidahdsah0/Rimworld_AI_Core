@@ -11,8 +11,25 @@ namespace RimAI.Core.Settings
         public EmbeddingConfig Embedding { get; init; } = new();
         public HistoryConfig History { get; init; } = new();
         public PromptConfig Prompt { get; init; } = new();
+        public UIConfig UI { get; init; } = new();
 
         public static CoreConfig CreateDefault() => new();
+    }
+
+    /// <summary>
+    /// UI 相关配置。
+    /// </summary>
+    public sealed class UIConfig
+    {
+        /// <summary>
+        /// 玩家在聊天/历史中显示的固定称呼（默认：总督）。
+        /// </summary>
+        public string PlayerAlias { get; init; } = "总督";
+
+        /// <summary>
+        /// 聊天窗口发送快捷键提示文案（可本地化覆盖）。
+        /// </summary>
+        public string SendHotkeyHint { get; init; } = "Windows/Linux: Ctrl+Enter 发送；macOS: Cmd+Enter 发送";
     }
 
     /// <summary>

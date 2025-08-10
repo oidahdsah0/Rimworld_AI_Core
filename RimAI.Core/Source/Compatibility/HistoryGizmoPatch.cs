@@ -19,7 +19,11 @@ namespace RimAI.Core.Compatibility
                 // 仅对殖民地/玩家阵营小人展示
                 if (__instance.Faction == null || !__instance.Faction.IsPlayer) return;
                 var list = new List<Gizmo>(__result ?? System.Array.Empty<Gizmo>());
+                // 历史记录按钮
                 list.Add(RimAI.Core.UI.History.HistoryShortcutGizmo.CreateForPawn(__instance));
+                // 新增：闲聊 & 命令 按钮（打开聊天窗口）
+                list.Add(RimAI.Core.UI.History.HistoryShortcutGizmo.CreateSmalltalkForPawn(__instance));
+                list.Add(RimAI.Core.UI.History.HistoryShortcutGizmo.CreateCommandForPawn(__instance));
                 __result = list;
             }
             catch { /* ignore */ }

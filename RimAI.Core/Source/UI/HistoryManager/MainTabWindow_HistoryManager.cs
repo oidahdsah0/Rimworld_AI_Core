@@ -690,18 +690,22 @@ namespace RimAI.Core.UI.HistoryManager
                 if (_convCandidates.Count == 0)
                 {
                     var ids = canon.Split('|');
-                    var union = new HashSet<string>(StringComparer.Ordinal);
+                    HashSet<string> inter = null;
                     foreach (var pid in ids)
                     {
-                        if (string.IsNullOrWhiteSpace(pid)) continue;
+                        if (string.IsNullOrWhiteSpace(pid)) { inter = null; break; }
+                        var setForPid = new HashSet<string>(StringComparer.Ordinal);
+                        try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) setForPid.Add(c); } catch { }
                         if (pid.StartsWith("player:", StringComparison.Ordinal))
                         {
                             // 兼容旧档：尝试 __SAVE__ 作为备选
-                            try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) union.Add(c); } catch { }
+                            try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) setForPid.Add(c); } catch { }
                         }
-                        try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) union.Add(c); } catch { }
+                        if (inter == null) inter = setForPid;
+                        else inter.IntersectWith(setForPid);
+                        if (inter.Count == 0) break;
                     }
-                    _convCandidates = union.ToList();
+                    _convCandidates = inter?.ToList() ?? new List<string>();
                 }
 
                 if (_convCandidates.Count == 0)
@@ -739,17 +743,21 @@ namespace RimAI.Core.UI.HistoryManager
             if (cands.Count == 0)
             {
                 var ids = canon.Split('|');
-                var union = new HashSet<string>(StringComparer.Ordinal);
+                HashSet<string> inter = null;
                 foreach (var pid in ids)
                 {
-                    if (string.IsNullOrWhiteSpace(pid)) continue;
+                    if (string.IsNullOrWhiteSpace(pid)) { inter = null; break; }
+                    var setForPid = new HashSet<string>(StringComparer.Ordinal);
+                    try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) setForPid.Add(c); } catch { }
                     if (pid.StartsWith("player:", StringComparison.Ordinal))
                     {
-                        try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) union.Add(c); } catch { }
+                        try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) setForPid.Add(c); } catch { }
                     }
-                    try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) union.Add(c); } catch { }
+                    if (inter == null) inter = setForPid;
+                    else inter.IntersectWith(setForPid);
+                    if (inter.Count == 0) break;
                 }
-                cands = union.ToList();
+                cands = inter?.ToList() ?? new List<string>();
             }
             return cands;
         }
@@ -772,19 +780,24 @@ namespace RimAI.Core.UI.HistoryManager
                     _convCandidates = list?.ToList() ?? new List<string>();
                     if (_convCandidates.Count == 0)
                     {
-                        // 同 LoadByConvKey 回退逻辑
-                        var ids = _convKeyInput.Split('|');
-                        var union = new HashSet<string>(StringComparer.Ordinal);
+                        // 同 LoadByConvKey 回退逻辑（交集）
+                        var canon = CanonicalizeConvKey(_convKeyInput);
+                        var ids = canon.Split('|');
+                        HashSet<string> inter = null;
                         foreach (var pid in ids)
                         {
-                            if (string.IsNullOrWhiteSpace(pid)) continue;
+                            if (string.IsNullOrWhiteSpace(pid)) { inter = null; break; }
+                            var setForPid = new HashSet<string>(StringComparer.Ordinal);
+                            try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) setForPid.Add(c); } catch { }
                             if (pid.StartsWith("player:", StringComparison.Ordinal))
                             {
-                                try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) union.Add(c); } catch { }
+                                try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) setForPid.Add(c); } catch { }
                             }
-                            try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) union.Add(c); } catch { }
+                            if (inter == null) inter = setForPid;
+                            else inter.IntersectWith(setForPid);
+                            if (inter.Count == 0) break;
                         }
-                        _convCandidates = union.ToList();
+                        _convCandidates = inter?.ToList() ?? new List<string>();
                     }
                     _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
                     HistoryUIState.CurrentConversationId = _selectedConversationId;

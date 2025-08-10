@@ -14,6 +14,7 @@ namespace RimAI.Core.Modules.World
     internal sealed class ParticipantIdService : IParticipantIdService
     {
         private readonly ConcurrentDictionary<string, string> _displayNameCache = new();
+        private string _playerId; // 持久化的玩家 ID（格式：player:<saveInstanceId>）
 
         public string FromVerseObject(object verseObj)
         {
@@ -56,9 +57,11 @@ namespace RimAI.Core.Modules.World
 
         public string GetPlayerId()
         {
-            // M1：以当前存档 Session 的 GUID 或占位符作为玩家 ID。
-            // 后续可在持久化层保存并复用。
-            return "player:__SAVE__";
+            if (!string.IsNullOrWhiteSpace(_playerId)) return _playerId;
+            // 迟生成：首次访问创建稳定 ID；由持久化层在读档时回填。
+            _playerId = $"player:{Guid.NewGuid():N}";
+            _displayNameCache.TryAdd(_playerId, "玩家");
+            return _playerId;
         }
 
         public string ForPersona(string name, int rev)
@@ -89,6 +92,22 @@ namespace RimAI.Core.Modules.World
                 return tail;
             }
             catch { return id; }
+        }
+
+        public string ExportPlayerId()
+        {
+            return _playerId ?? string.Empty;
+        }
+
+        public void ImportPlayerId(string playerId)
+        {
+            if (string.IsNullOrWhiteSpace(playerId)) return;
+            if (!playerId.StartsWith("player:", StringComparison.Ordinal))
+            {
+                playerId = $"player:{playerId}";
+            }
+            _playerId = playerId;
+            _displayNameCache.TryAdd(_playerId, "玩家");
         }
     }
 }

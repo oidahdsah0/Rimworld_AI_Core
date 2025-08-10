@@ -25,6 +25,16 @@ namespace RimAI.Core.Modules.World
         /// 解析显示名；若无法解析则回退为原始 ID。
         /// </summary>
         string GetDisplayName(string id);
+
+        /// <summary>
+        /// 导出当前玩家 ID 以便持久化（格式：player:&lt;saveInstanceId&gt;）。
+        /// </summary>
+        string ExportPlayerId();
+
+        /// <summary>
+        /// 从持久化层导入玩家 ID；若为空，将在首次访问时延迟生成。
+        /// </summary>
+        void ImportPlayerId(string playerId);
     }
 }
 

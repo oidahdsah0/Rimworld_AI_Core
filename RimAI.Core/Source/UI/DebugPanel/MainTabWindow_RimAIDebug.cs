@@ -439,9 +439,10 @@ namespace RimAI.Core.UI.DebugPanel
                 {
                     try
                     {
-                        var participants = new List<string> { "__PLAYER__", "ColonyGovernor" };
-                        await history.RecordEntryAsync(participants, new ConversationEntry("__PLAYER__", "测试对话：你好，总督！", System.DateTime.UtcNow));
-                        await history.RecordEntryAsync(participants, new ConversationEntry("ColonyGovernor", "你好，指挥官！", System.DateTime.UtcNow));
+                        var participants = new List<string> { "player:__SAVE__", "pawn:ColonyGovernor" };
+                        var convId = history.CreateConversation(participants);
+                        await history.AppendEntryAsync(convId, new ConversationEntry("player:__SAVE__", "测试对话：你好，总督！", System.DateTime.UtcNow));
+                        await history.AppendEntryAsync(convId, new ConversationEntry("pawn:ColonyGovernor", "你好，指挥官！", System.DateTime.UtcNow));
                         AppendOutput("示例对话已写入；请手动存档→主菜单→读档后验证历史是否持久化。");
                     }
                     catch (System.Exception ex)
@@ -461,7 +462,7 @@ namespace RimAI.Core.UI.DebugPanel
                 {
                     try
                     {
-                        var participants = new List<string> { "__PLAYER__", "ColonyGovernor" };
+                        var participants = new List<string> { "player:__SAVE__", "pawn:ColonyGovernor" };
                         var context = await history.GetHistoryAsync(participants);
                         
                         AppendOutput($"=== 历史记录 ===");
@@ -485,7 +486,10 @@ namespace RimAI.Core.UI.DebugPanel
                         {
                             // 读取 Recap 计数调试信息
                             var convKey = string.Join("|", participants.OrderBy(x => x, System.StringComparer.Ordinal));
-                            var n = recap?.GetCounter(convKey) ?? 0;
+                            var historyWrite = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+                            string latestConvId = null;
+                            try { var list = historyWrite.FindByConvKeyAsync(convKey).GetAwaiter().GetResult(); latestConvId = list?.LastOrDefault(); } catch { }
+                            var n = (latestConvId != null) ? (recap?.GetCounter(latestConvId) ?? 0) : 0;
                             AppendOutput($"[调试] Recap 轮次计数（{convKey}）= {n}");
                         }
                         catch { /* ignore */ }
@@ -536,12 +540,22 @@ namespace RimAI.Core.UI.DebugPanel
                         ctxTask.Wait();
 
                         AppendOutput($"[Snapshot] convKey={convKey}");
-                        AppendOutput("- Fixed Prompts:");
-                        foreach (var kv in fixedSvc.GetAll(convKey)) AppendOutput($"  {kv.Key}: {kv.Value}");
+                        AppendOutput("- Fixed Prompts (by pawn):");
+                        foreach (var kv in fixedSvc.GetAllByPawn()) AppendOutput($"  {kv.Key}: {kv.Value}");
+                        var overrideText = fixedSvc.GetConvKeyOverride(convKey);
+                        if (!string.IsNullOrWhiteSpace(overrideText)) AppendOutput($"  [override] {overrideText}");
                         AppendOutput("- Biographies:");
-                        foreach (var it in bioSvc.List(convKey)) AppendOutput($"  [{it.CreatedAt:HH:mm:ss}] {it.Text}");
+                        var pawnId = participants.First(x => x.StartsWith("pawn:"));
+                        foreach (var it in bioSvc.ListByPawn(pawnId)) AppendOutput($"  [{it.CreatedAt:HH:mm:ss}] {it.Text}");
                         AppendOutput("- Recap:");
-                        foreach (var it in recap.GetRecapItems(convKey)) AppendOutput($"  [{it.CreatedAt:HH:mm:ss}] {it.Text}");
+                        // 取最近一个会话（示例路径）：在当前参与者会话列表中选择最新的 conversationId
+                        var historyWrite = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+                        string latestConvId = null;
+                        try { var list = historyWrite.FindByConvKeyAsync(convKey).GetAwaiter().GetResult(); latestConvId = list?.LastOrDefault(); } catch { }
+                        if (!string.IsNullOrWhiteSpace(latestConvId))
+                        {
+                            foreach (var it in recap.GetRecapItems(latestConvId)) AppendOutput($"  [{it.CreatedAt:HH:mm:ss}] {it.Text}");
+                        }
                         AppendOutput("- History (last entries):");
                         foreach (var c in ctxTask.Result.MainHistory)
                             foreach (var e in c.Entries) AppendOutput($"  [{e.Timestamp:HH:mm:ss}] {e.SpeakerId}: {e.Content}");
@@ -574,6 +588,25 @@ namespace RimAI.Core.UI.DebugPanel
                     catch (System.Exception ex)
                     {
                         AppendOutput("Prompt Audit Test failed: " + ex.Message);
+                    }
+                });
+            }
+
+            // Reload Prompt Templates (force re-scan)
+            if (Button("Reload Prompts"))
+            {
+                AppendOutput("Reloading prompt templates...");
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        var tmpl = CoreServices.Locator.Get<RimAI.Core.Modules.Prompting.IPromptTemplateService>();
+                        tmpl?.Get();
+                        AppendOutput("Prompt templates reloaded.");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        AppendOutput("Reload prompts failed: " + ex.Message);
                     }
                 });
             }

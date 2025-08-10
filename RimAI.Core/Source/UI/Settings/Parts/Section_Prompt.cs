@@ -47,6 +47,26 @@ namespace RimAI.Core.UI.Settings.Parts
             user = Widgets.TextField(new Rect(0, list.CurHeight, list.ColumnWidth, 24f), user);
             list.Gap(SettingsUIUtil.UIControlSpacing);
 
+            // Chat Segments toggles
+            var chatSeg = p.Segments?.Chat ?? new ChatSegments();
+            SettingsUIUtil.LabelWithTip(list, "Chat 段落包含：", "控制 Chat 模板各段是否注入");
+            bool chatIncPersona = chatSeg.IncludePersona; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 Persona", ref chatIncPersona); list.Gap(SettingsUIUtil.UIControlSpacing);
+            bool chatIncFP = chatSeg.IncludeFixedPrompts; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 固定提示词", ref chatIncFP); list.Gap(SettingsUIUtil.UIControlSpacing);
+            bool chatIncRecap = chatSeg.IncludeRecap; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 前情提要", ref chatIncRecap); list.Gap(SettingsUIUtil.UIControlSpacing);
+            bool chatIncRecent = chatSeg.IncludeRecentHistory; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 近期历史", ref chatIncRecent); list.Gap(SettingsUIUtil.UIControlSpacing);
+            int chatRecentMax = chatSeg.RecentHistoryMaxEntries; SettingsUIUtil.LabelWithTip(list, $"近期历史 条数: {chatRecentMax}", "Chat 每次注入的近期历史条数"); chatRecentMax = Mathf.Clamp(Mathf.RoundToInt(list.Slider(chatRecentMax, 1, 20)), 1, 20); list.Gap(SettingsUIUtil.UIControlSpacing);
+
+            // Command Segments toggles
+            var cmdSeg = p.Segments?.Command ?? new CommandSegments();
+            SettingsUIUtil.LabelWithTip(list, "Command 段落包含：", "控制 Command 模板各段是否注入");
+            bool cmdIncPersona = cmdSeg.IncludePersona; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 Persona", ref cmdIncPersona); list.Gap(SettingsUIUtil.UIControlSpacing);
+            bool cmdIncFP = cmdSeg.IncludeFixedPrompts; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 固定提示词", ref cmdIncFP); list.Gap(SettingsUIUtil.UIControlSpacing);
+            bool cmdIncBio = cmdSeg.IncludeBiography; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 人物传记（仅1v1）", ref cmdIncBio); list.Gap(SettingsUIUtil.UIControlSpacing);
+            bool cmdIncRecap = cmdSeg.IncludeRecap; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 前情提要", ref cmdIncRecap); list.Gap(SettingsUIUtil.UIControlSpacing);
+            bool cmdIncRelated = cmdSeg.IncludeRelatedHistory; Widgets.CheckboxLabeled(new Rect(0f, list.CurHeight, list.ColumnWidth, 24f), "包含 相关历史", ref cmdIncRelated); list.Gap(SettingsUIUtil.UIControlSpacing);
+            int relMaxConvs = cmdSeg.RelatedMaxConversations; SettingsUIUtil.LabelWithTip(list, $"相关历史 会话数上限: {relMaxConvs}", "相关历史中纳入的会话个数上限"); relMaxConvs = Mathf.Clamp(Mathf.RoundToInt(list.Slider(relMaxConvs, 1, 10)), 1, 10); list.Gap(SettingsUIUtil.UIControlSpacing);
+            int relMaxPerConv = cmdSeg.RelatedMaxEntriesPerConversation; SettingsUIUtil.LabelWithTip(list, $"相关历史 每会话条数: {relMaxPerConv}", "相关历史中每个会话采样的条数"); relMaxPerConv = Mathf.Clamp(Mathf.RoundToInt(list.Slider(relMaxPerConv, 1, 20)), 1, 20); list.Gap(SettingsUIUtil.UIControlSpacing);
+
             // Segment budgets
             var b = p.Budget ?? new PromptBudgetConfig();
             int persona = b.Persona; SettingsUIUtil.LabelWithTip(list, $"Persona 每段上限: {persona}", "字符数上限"); persona = Mathf.Clamp(Mathf.RoundToInt(list.Slider(persona, 200, 4000)), 200, 4000); list.Gap(SettingsUIUtil.UIControlSpacing);
@@ -56,7 +76,9 @@ namespace RimAI.Core.UI.Settings.Parts
             int rh = b.RecentHistory; SettingsUIUtil.LabelWithTip(list, $"近期历史 每段上限: {rh}", "字符数上限"); rh = Mathf.Clamp(Mathf.RoundToInt(list.Slider(rh, 200, 4000)), 200, 4000); list.Gap(SettingsUIUtil.UIControlSpacing);
             int rel = b.RelatedHistory; SettingsUIUtil.LabelWithTip(list, $"相关历史 每段上限: {rel}", "字符数上限"); rel = Mathf.Clamp(Mathf.RoundToInt(list.Slider(rel, 200, 6000)), 200, 6000); list.Gap(SettingsUIUtil.UIControlSpacing);
 
-            bool changed = useGameLang != p.UseGameLanguage || locale != p.Locale || chatKey != p.TemplateChatKey || cmdKey != p.TemplateCommandKey || master != p.MasterPath || user != p.UserOverridePath || persona != b.Persona || fp != b.FixedPrompts || bio != b.Biography || recap != b.Recap || rh != b.RecentHistory || rel != b.RelatedHistory;
+            bool changed = useGameLang != p.UseGameLanguage || locale != p.Locale || chatKey != p.TemplateChatKey || cmdKey != p.TemplateCommandKey || master != p.MasterPath || user != p.UserOverridePath || persona != b.Persona || fp != b.FixedPrompts || bio != b.Biography || recap != b.Recap || rh != b.RecentHistory || rel != b.RelatedHistory
+                || chatIncPersona != chatSeg.IncludePersona || chatIncFP != chatSeg.IncludeFixedPrompts || chatIncRecap != chatSeg.IncludeRecap || chatIncRecent != chatSeg.IncludeRecentHistory || chatRecentMax != chatSeg.RecentHistoryMaxEntries
+                || cmdIncPersona != cmdSeg.IncludePersona || cmdIncFP != cmdSeg.IncludeFixedPrompts || cmdIncBio != cmdSeg.IncludeBiography || cmdIncRecap != cmdSeg.IncludeRecap || cmdIncRelated != cmdSeg.IncludeRelatedHistory || relMaxConvs != cmdSeg.RelatedMaxConversations || relMaxPerConv != cmdSeg.RelatedMaxEntriesPerConversation;
 
             if (changed)
             {
@@ -84,7 +106,27 @@ namespace RimAI.Core.UI.Settings.Parts
                             RecentHistory = rh,
                             RelatedHistory = rel
                         },
-                        Segments = draft.Prompt?.Segments ?? new PromptSegmentsConfig()
+                        Segments = new PromptSegmentsConfig
+                        {
+                            Chat = new ChatSegments
+                            {
+                                IncludePersona = chatIncPersona,
+                                IncludeFixedPrompts = chatIncFP,
+                                IncludeRecap = chatIncRecap,
+                                IncludeRecentHistory = chatIncRecent,
+                                RecentHistoryMaxEntries = chatRecentMax
+                            },
+                            Command = new CommandSegments
+                            {
+                                IncludePersona = cmdIncPersona,
+                                IncludeFixedPrompts = cmdIncFP,
+                                IncludeBiography = cmdIncBio,
+                                IncludeRecap = cmdIncRecap,
+                                IncludeRelatedHistory = cmdIncRelated,
+                                RelatedMaxConversations = relMaxConvs,
+                                RelatedMaxEntriesPerConversation = relMaxPerConv
+                            }
+                        }
                     }
                 };
             }

@@ -36,6 +36,15 @@ namespace RimAI.Core.Infrastructure.Configuration
             OnConfigurationChanged?.Invoke(_current);
 
             TryRebuildToolIndexIfNeeded(oldCfg, snapshot);
+
+            // 触发 Prompt 模板热重载（基于文件时间戳变化）
+            try
+            {
+                var tmpl = RimAI.Core.Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Prompting.IPromptTemplateService>();
+                // 访问 Get() 以触发路径与时间戳缓存更新
+                tmpl?.Get();
+            }
+            catch { /* ignore */ }
         }
 
         // Explicit interface implementation for external read-only contracts

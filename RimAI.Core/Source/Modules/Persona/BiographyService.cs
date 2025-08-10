@@ -12,9 +12,9 @@ namespace RimAI.Core.Modules.Persona
     {
         private readonly ConcurrentDictionary<string, List<BiographyItem>> _store = new();
 
-        public IReadOnlyList<BiographyItem> List(string convKey)
+        public IReadOnlyList<BiographyItem> ListByPawn(string pawnId)
         {
-            var k = (convKey ?? string.Empty).Trim();
+            var k = (pawnId ?? string.Empty).Trim();
             if (_store.TryGetValue(k, out var list))
             {
                 lock (list)
@@ -25,9 +25,9 @@ namespace RimAI.Core.Modules.Persona
             return Array.Empty<BiographyItem>();
         }
 
-        public BiographyItem Add(string convKey, string text)
+        public BiographyItem Add(string pawnId, string text)
         {
-            var k = (convKey ?? string.Empty).Trim();
+            var k = (pawnId ?? string.Empty).Trim();
             var item = new BiographyItem(Guid.NewGuid().ToString("N"), text ?? string.Empty, DateTime.UtcNow);
             var list = _store.GetOrAdd(k, _ => new List<BiographyItem>());
             lock (list)
@@ -37,9 +37,9 @@ namespace RimAI.Core.Modules.Persona
             }
         }
 
-        public bool Update(string convKey, string itemId, string newText)
+        public bool Update(string pawnId, string itemId, string newText)
         {
-            var k = (convKey ?? string.Empty).Trim();
+            var k = (pawnId ?? string.Empty).Trim();
             if (!_store.TryGetValue(k, out var list)) return false;
             lock (list)
             {
@@ -51,9 +51,9 @@ namespace RimAI.Core.Modules.Persona
             }
         }
 
-        public bool Remove(string convKey, string itemId)
+        public bool Remove(string pawnId, string itemId)
         {
-            var k = (convKey ?? string.Empty).Trim();
+            var k = (pawnId ?? string.Empty).Trim();
             if (!_store.TryGetValue(k, out var list)) return false;
             lock (list)
             {
@@ -64,9 +64,9 @@ namespace RimAI.Core.Modules.Persona
             }
         }
 
-        public bool Reorder(string convKey, string itemId, int newIndex)
+        public bool Reorder(string pawnId, string itemId, int newIndex)
         {
-            var k = (convKey ?? string.Empty).Trim();
+            var k = (pawnId ?? string.Empty).Trim();
             if (!_store.TryGetValue(k, out var list)) return false;
             lock (list)
             {

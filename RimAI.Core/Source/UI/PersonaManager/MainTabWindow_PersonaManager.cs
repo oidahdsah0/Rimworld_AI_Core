@@ -113,6 +113,10 @@ namespace RimAI.Core.UI.PersonaManager
                 _selectedIndex = -1;
                 _error = string.Empty;
             }
+            if (Widgets.ButtonText(new Rect(inRect.x + 310f, btnY, 120f, 28f), "绑定 NPC→Persona"))
+            {
+                Find.WindowStack.Add(new MainTabWindow_PersonaBindingPanel());
+            }
         }
 
         private void TrySave()

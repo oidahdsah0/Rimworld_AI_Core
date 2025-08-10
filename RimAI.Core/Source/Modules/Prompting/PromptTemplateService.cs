@@ -15,6 +15,10 @@ namespace RimAI.Core.Modules.Prompting
         private PromptTemplate _cached;
         private string _cachedLocale;
         private DateTime _lastLoadUtc;
+        private string _lastMasterPath;
+        private string _lastUserPath;
+        private DateTime _lastMasterWrite;
+        private DateTime _lastUserWrite;
 
         public PromptTemplateService(IConfigurationService config)
         {
@@ -40,19 +44,37 @@ namespace RimAI.Core.Modules.Prompting
         public PromptTemplate Get(string desiredLocale = null)
         {
             var locale = NormalizeLocale(desiredLocale ?? ResolveLocale());
-            // 简单缓存：60 秒内不重复加载
-            if (_cached != null && string.Equals(_cachedLocale, locale, StringComparison.OrdinalIgnoreCase) && (DateTime.UtcNow - _lastLoadUtc).TotalSeconds < 60)
-                return _cached;
-
             var p = _config?.Current?.Prompt ?? new PromptConfig();
             string masterPath = (p.MasterPath ?? "Resources/prompts/{locale}.json").Replace("{locale}", locale);
             string userPath = (p.UserOverridePath ?? "Config/RimAI/Prompts/{locale}.user.json").Replace("{locale}", locale);
 
+            bool needReload = true;
+            if (_cached != null && string.Equals(_cachedLocale, locale, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var masterWrite = File.Exists(masterPath) ? File.GetLastWriteTimeUtc(masterPath) : DateTime.MinValue;
+                    var userWrite = File.Exists(userPath) ? File.GetLastWriteTimeUtc(userPath) : DateTime.MinValue;
+                    needReload = masterPath != _lastMasterPath || userPath != _lastUserPath || masterWrite != _lastMasterWrite || userWrite != _lastUserWrite;
+                }
+                catch { needReload = true; }
+            }
+            if (!needReload)
+                return _cached;
+
+            p = _config?.Current?.Prompt ?? new PromptConfig();
             var master = LoadJson(masterPath) ?? new PromptTemplate { Locale = locale };
             var user = LoadJson(userPath) ?? new PromptTemplate { Locale = locale };
 
             var merged = Merge(master, user);
             _cached = merged; _cachedLocale = locale; _lastLoadUtc = DateTime.UtcNow;
+            _lastMasterPath = masterPath; _lastUserPath = userPath;
+            try
+            {
+                _lastMasterWrite = File.Exists(masterPath) ? File.GetLastWriteTimeUtc(masterPath) : DateTime.MinValue;
+                _lastUserWrite = File.Exists(userPath) ? File.GetLastWriteTimeUtc(userPath) : DateTime.MinValue;
+            }
+            catch { _lastMasterWrite = DateTime.MinValue; _lastUserWrite = DateTime.MinValue; }
             return merged;
         }
 

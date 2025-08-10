@@ -47,15 +47,8 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
         {
             var query = context.Query ?? string.Empty;
             var persona = context.PersonaSystemPrompt ?? string.Empty;
-            try
-            {
-                var assembled = await _promptAssembler.BuildSystemPromptAsync(System.Array.Empty<string>());
-                if (!string.IsNullOrWhiteSpace(assembled))
-                {
-                    persona = string.IsNullOrWhiteSpace(persona) ? assembled : (assembled + "\n" + persona);
-                }
-            }
-            catch { /* ignore */ }
+            // 策略层与 PersonaConversation 的职责边界：
+            // 此处不组装 Chat/Command 素材，保留 personaSystemPrompt 透传。
 
             // Step 0: RAG 预处理
             float[] qv = null;

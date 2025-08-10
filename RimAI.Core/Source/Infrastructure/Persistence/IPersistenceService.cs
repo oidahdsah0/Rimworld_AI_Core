@@ -31,17 +31,17 @@ namespace RimAI.Core.Infrastructure.Persistence
         void LoadPersonaState(IPersonaService personaService);
 
         /// <summary>
-        /// 按会话键持久化固定提示词（convKey => (participantId => text)）。
+        /// 固定提示词（主存：pawnId -> text；覆盖层如需持久化可加新节点）。
         /// </summary>
         void PersistFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService);
 
         /// <summary>
-        /// 加载固定提示词快照。
+        /// 加载固定提示词主存快照。
         /// </summary>
         void LoadFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService);
 
         /// <summary>
-        /// 按会话键持久化人物传记（仅 1v1）。
+        /// 人物传记（后续切换为 pawnId -> List）。
         /// </summary>
         void PersistBiographies(RimAI.Core.Modules.Persona.IBiographyService biographyService);
 
@@ -59,5 +59,25 @@ namespace RimAI.Core.Infrastructure.Persistence
         /// 加载前情提要快照。
         /// </summary>
         void LoadRecap(RimAI.Core.Modules.History.IRecapService recapService);
+
+        /// <summary>
+        /// 人格绑定（pawnId -> personaName#rev）。
+        /// </summary>
+        void PersistPersonaBindings(RimAI.Core.Modules.Persona.IPersonaBindingService bindingService);
+
+        /// <summary>
+        /// 加载人格绑定。
+        /// </summary>
+        void LoadPersonaBindings(RimAI.Core.Modules.Persona.IPersonaBindingService bindingService);
+
+        /// <summary>
+        /// 玩家稳定 ID（player:&lt;saveInstanceId&gt;）。
+        /// </summary>
+        void PersistPlayerId(RimAI.Core.Modules.World.IParticipantIdService participantIdService);
+
+        /// <summary>
+        /// 读取玩家稳定 ID。
+        /// </summary>
+        void LoadPlayerId(RimAI.Core.Modules.World.IParticipantIdService participantIdService);
     }
 }

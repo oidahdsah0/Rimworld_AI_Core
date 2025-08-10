@@ -35,7 +35,8 @@ namespace RimAI.Core.UI.HistoryManager
         private int _activeTab = 0;
         private string _convKeyInput = string.Empty;
         private List<string> _allConvKeys = new();
-        private Conversation _currentConv; // 主线首个会话
+        private string _selectedConversationId = string.Empty;
+        private List<string> _convCandidates = new List<string>();
         private List<ConversationEntry> _entries = new();
         private int _editingIndex = -1;
         private string _editBuffer = string.Empty;
@@ -118,6 +119,22 @@ namespace RimAI.Core.UI.HistoryManager
                     }
                     Find.WindowStack.Add(new FloatMenu(menu));
                 }
+            }
+
+            // conversationId 选择器（V2）
+            if (_convCandidates != null && _convCandidates.Count > 0)
+            {
+                if (Widgets.ButtonText(new Rect(inRect.x, y + 28f, inRect.width - 300f, 24f), _selectedConversationId ?? string.Empty))
+                {
+                    var menu2 = new List<FloatMenuOption>();
+                    foreach (var cid in _convCandidates)
+                    {
+                        var show = cid;
+                        menu2.Add(new FloatMenuOption(show, () => { _selectedConversationId = cid; _ = ReloadEntriesAsync(); }));
+                    }
+                    Find.WindowStack.Add(new FloatMenu(menu2));
+                }
+                y += 28f;
             }
 
             if (!string.IsNullOrWhiteSpace(_convKeyInput))
@@ -223,10 +240,10 @@ namespace RimAI.Core.UI.HistoryManager
 
         private async Task SaveEditAsync(int index, string newContent)
         {
-            if (string.IsNullOrWhiteSpace(_convKeyInput) || index < 0 || index >= _entries.Count) return;
+            if (string.IsNullOrWhiteSpace(_selectedConversationId) || index < 0 || index >= _entries.Count) return;
             try
             {
-                await _historyWrite.EditEntryAsync(_convKeyInput, index, newContent ?? string.Empty);
+                await _historyWrite.EditEntryAsync(_selectedConversationId, index, newContent ?? string.Empty);
                 _editingIndex = -1;
                 _editBuffer = string.Empty;
                 await ReloadEntriesAsync();
@@ -242,13 +259,13 @@ namespace RimAI.Core.UI.HistoryManager
 
         private async Task DeleteAsync(int index)
         {
-            if (string.IsNullOrWhiteSpace(_convKeyInput) || index < 0 || index >= _entries.Count) return;
+            if (string.IsNullOrWhiteSpace(_selectedConversationId) || index < 0 || index >= _entries.Count) return;
             try
             {
                 // 记录撤销信息
                 _lastDeletedEntry = _entries[index];
                 _lastDeletedIndex = index;
-                await _historyWrite.DeleteEntryAsync(_convKeyInput, index);
+                await _historyWrite.DeleteEntryAsync(_selectedConversationId, index);
                 if (_editingIndex == index) { _editingIndex = -1; _editBuffer = string.Empty; }
                 await ReloadEntriesAsync();
                 // 提供可配置的撤销窗口
@@ -275,9 +292,9 @@ namespace RimAI.Core.UI.HistoryManager
         {
             try
             {
-                if (_lastDeletedEntry != null && _lastDeletedIndex >= 0 && !string.IsNullOrWhiteSpace(_convKeyInput))
+                if (_lastDeletedEntry != null && _lastDeletedIndex >= 0 && !string.IsNullOrWhiteSpace(_selectedConversationId))
                 {
-                    await _historyWrite.RestoreEntryAsync(_convKeyInput, _lastDeletedIndex, _lastDeletedEntry);
+                    await _historyWrite.RestoreEntryAsync(_selectedConversationId, _lastDeletedIndex, _lastDeletedEntry);
                     _lastDeletedEntry = null;
                     _lastDeletedIndex = -1;
                     await ReloadEntriesAsync();
@@ -294,7 +311,7 @@ namespace RimAI.Core.UI.HistoryManager
         #region Tab2 前情提要
         private void DrawTabRecap(Rect rect)
         {
-            var recapItems = _recap.GetRecapItems(_convKeyInput).ToList();
+            var recapItems = _recap.GetRecapItems(_selectedConversationId).ToList();
             var viewH = Math.Max(rect.height - 8f, recapItems.Count * 48f + 60f);
             var viewRect = new Rect(0, 0, rect.width - 16f, viewH);
             Widgets.BeginScrollView(rect, ref _scrollMain, viewRect);
@@ -307,15 +324,15 @@ namespace RimAI.Core.UI.HistoryManager
                 var txt = Widgets.TextArea(new Rect(0, y, viewRect.width - 140f, 46f), item.Text);
                 if (txt != item.Text)
                 {
-                    _recap.UpdateRecapItem(_convKeyInput, item.Id, txt);
+                        _recap.UpdateRecapItem(_selectedConversationId, item.Id, txt);
                 }
                 if (Widgets.ButtonText(new Rect(viewRect.width - 135f, y, 60f, 24f), "上移"))
                 {
-                    _recap.ReorderRecapItem(_convKeyInput, item.Id, Math.Max(0, recapItems.FindIndex(i => i.Id == item.Id) - 1));
+                    _recap.ReorderRecapItem(_selectedConversationId, item.Id, Math.Max(0, recapItems.FindIndex(i => i.Id == item.Id) - 1));
                 }
                 if (Widgets.ButtonText(new Rect(viewRect.width - 70f, y, 60f, 24f), "删除"))
                 {
-                    _recap.RemoveRecapItem(_convKeyInput, item.Id);
+                    _recap.RemoveRecapItem(_selectedConversationId, item.Id);
                 }
                 y += 50f;
             }
@@ -330,7 +347,7 @@ namespace RimAI.Core.UI.HistoryManager
                 {
                     try
                     {
-                        await _recap.RebuildRecapAsync(_convKeyInput);
+                        await _recap.RebuildRecapAsync(_selectedConversationId);
                         Messages.Message("已启动重述", MessageTypeDefOf.TaskCompletion, false);
                     }
                     catch (Exception ex)
@@ -359,15 +376,24 @@ namespace RimAI.Core.UI.HistoryManager
             {
                 Widgets.Label(new Rect(rect.x, y, 300f, 24f), _pid.GetDisplayName(pid));
                 y += 24f;
-                var cur = _fixedPrompts.Get(convKey, pid) ?? string.Empty;
+                // 优先 convKey 覆盖；否则按 pawnId 主存
+                var cur = _fixedPrompts.GetConvKeyOverride(convKey);
+                if (string.IsNullOrWhiteSpace(cur) && pid.StartsWith("pawn:", StringComparison.Ordinal))
+                    cur = _fixedPrompts.GetByPawn(pid) ?? string.Empty;
                 var newText = Widgets.TextArea(new Rect(rect.x, y, rect.width - 160f, 60f), cur);
                 if (newText != cur)
                 {
-                    _fixedPrompts.Upsert(convKey, pid, newText);
+                    if (!string.IsNullOrWhiteSpace(_fixedPrompts.GetConvKeyOverride(convKey)))
+                        _fixedPrompts.UpsertConvKeyOverride(convKey, newText);
+                    else if (pid.StartsWith("pawn:", StringComparison.Ordinal))
+                        _fixedPrompts.UpsertByPawn(pid, newText);
                 }
                 if (Widgets.ButtonText(new Rect(rect.x + rect.width - 150f, y, 60f, 24f), "清空"))
                 {
-                    _fixedPrompts.Delete(convKey, pid);
+                    if (!string.IsNullOrWhiteSpace(_fixedPrompts.GetConvKeyOverride(convKey)))
+                        _fixedPrompts.DeleteConvKeyOverride(convKey);
+                    else if (pid.StartsWith("pawn:", StringComparison.Ordinal))
+                        _fixedPrompts.DeleteByPawn(pid);
                 }
                 y += 70f;
             }
@@ -377,10 +403,41 @@ namespace RimAI.Core.UI.HistoryManager
         #region Tab4 关联对话
         private void DrawTabRelated(Rect rect)
         {
-            var curIds = string.IsNullOrWhiteSpace(_convKeyInput) ? Array.Empty<string>() : _convKeyInput.Split('|');
-            var related = _allConvKeys.Where(k => k != _convKeyInput && Intersects(curIds, k.Split('|'))).ToList();
+            if (string.IsNullOrWhiteSpace(_convKeyInput))
+            {
+                Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f), "请先加载会话键。");
+                return;
+            }
+
+            var ids = _convKeyInput.Split('|');
+            var relSvc = CoreServices.Locator.Get<RimAI.Core.Services.IRelationsIndexService>();
+            var writer = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+
+            var relatedSet = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var pid in ids)
+            {
+                try
+                {
+                    var list = relSvc.ListConversationsByParticipantAsync(pid).GetAwaiter().GetResult();
+                    foreach (var cid in list) relatedSet.Add(cid);
+                }
+                catch { /* ignore */ }
+            }
+
+            var relatedConvKeys = new SortedSet<string>(StringComparer.Ordinal);
+            foreach (var cid in relatedSet)
+            {
+                try
+                {
+                    var rec = writer.GetConversationAsync(cid).GetAwaiter().GetResult();
+                    var key = string.Join("|", (rec.ParticipantIds ?? ids).OrderBy(x => x, StringComparer.Ordinal));
+                    if (!string.Equals(key, _convKeyInput, StringComparison.Ordinal)) relatedConvKeys.Add(key);
+                }
+                catch { /* ignore */ }
+            }
+
             float y = rect.y;
-            foreach (var k in related)
+            foreach (var k in relatedConvKeys)
             {
                 if (Widgets.ButtonText(new Rect(rect.x, y, 400f, 24f), k))
                 {
@@ -389,7 +446,6 @@ namespace RimAI.Core.UI.HistoryManager
                 y += 28f;
             }
         }
-        private static bool Intersects(IEnumerable<string> a, IEnumerable<string> b) => a.Intersect(b).Any();
         #endregion
 
         #region Tab5 人物传记（MVP 文本）
@@ -413,11 +469,12 @@ namespace RimAI.Core.UI.HistoryManager
             float y = rect.y;
             if (Widgets.ButtonText(new Rect(rect.x, y, 100f, 24f), "新增段落"))
             {
-                _bio.Add(convKey, "");
+                _bio.Add(pawnId, "");
             }
             y += 28f;
 
-            var items = _bio.List(convKey);
+            // 仅在 1v1 player↔pawn 场景展示指定 pawn 的传记
+            var items = string.IsNullOrWhiteSpace(pawnId) ? new List<BiographyItem>() : _bio.ListByPawn(pawnId).ToList();
             for (int i = 0; i < items.Count; i++)
             {
                 var it = items[i];
@@ -425,15 +482,15 @@ namespace RimAI.Core.UI.HistoryManager
                 var txt = Widgets.TextArea(new Rect(rect.x + 124f, y, rect.width - 260f, 60f), it.Text);
                 if (txt != it.Text)
                 {
-                    _bio.Update(convKey, it.Id, txt);
+                    _bio.Update(pawnId, it.Id, txt);
                 }
                 if (Widgets.ButtonText(new Rect(rect.x + rect.width - 130f, y, 60f, 24f), "上移") && i > 0)
                 {
-                    _bio.Reorder(convKey, it.Id, i - 1);
+                    _bio.Reorder(pawnId, it.Id, i - 1);
                 }
                 if (Widgets.ButtonText(new Rect(rect.x + rect.width - 65f, y, 60f, 24f), "删除"))
                 {
-                    _bio.Remove(convKey, it.Id);
+                    _bio.Remove(pawnId, it.Id);
                 }
                 y += 70f;
             }
@@ -467,21 +524,24 @@ namespace RimAI.Core.UI.HistoryManager
                     var pawn = "pawn:DEMO";
                     var ids = new List<string> { player, pawn };
                     var now = DateTime.UtcNow;
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(player, "你好，我是玩家。", now.AddSeconds(1)));
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(pawn, "你好，我是殖民地总督助手。", now.AddSeconds(2)));
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(player, "帮我汇总一下殖民地现状。", now.AddSeconds(3)));
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(pawn, "目前有 5 名殖民者，粮食储备 12 天。", now.AddSeconds(4)));
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(player, "好的，安排明日播种。", now.AddSeconds(5)));
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(pawn, "已记录：明日优先播种。", now.AddSeconds(6)));
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(player, "谢谢。", now.AddSeconds(7)));
-                    await _historyWrite.RecordEntryAsync(ids, new ConversationEntry(pawn, "随时效劳。", now.AddSeconds(8)));
+                    var convId = _historyWrite.CreateConversation(ids);
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(player, "你好，我是玩家。", now.AddSeconds(1)));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(pawn, "你好，我是殖民地总督助手。", now.AddSeconds(2)));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(player, "帮我汇总一下殖民地现状。", now.AddSeconds(3)));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(pawn, "目前有 5 名殖民者，粮食储备 12 天。", now.AddSeconds(4)));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(player, "好的，安排明日播种。", now.AddSeconds(5)));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(pawn, "已记录：明日优先播种。", now.AddSeconds(6)));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(player, "谢谢。", now.AddSeconds(7)));
+                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(pawn, "随时效劳。", now.AddSeconds(8)));
                     // 触发 recap 回放
-                    await _recap.RebuildRecapAsync(string.Join("|", ids.OrderBy(x => x, StringComparer.Ordinal)));
+                    // 使用刚创建的第一个会话作为重建目标
+                    await _recap.RebuildRecapAsync(convId);
 
                     // 生成一个交集会话
                     var ids2 = new List<string> { player, "pawn:ALLY" };
-                    await _historyWrite.RecordEntryAsync(ids2, new ConversationEntry(player, "欢迎加入我们。", now.AddSeconds(9)));
-                    await _historyWrite.RecordEntryAsync(ids2, new ConversationEntry("pawn:ALLY", "很高兴来到殖民地。", now.AddSeconds(10)));
+                    var convId2 = _historyWrite.CreateConversation(ids2);
+                    await _historyWrite.AppendEntryAsync(convId2, new ConversationEntry(player, "欢迎加入我们。", now.AddSeconds(9)));
+                    await _historyWrite.AppendEntryAsync(convId2, new ConversationEntry("pawn:ALLY", "很高兴来到殖民地。", now.AddSeconds(10)));
 
                     await ReloadKeysAsync();
                 }
@@ -500,13 +560,33 @@ namespace RimAI.Core.UI.HistoryManager
 
         private async Task ReloadKeysAsync()
         {
-            var keys = await _historyWrite.ListConversationKeysAsync();
-            _allConvKeys = keys.ToList();
+            try
+            {
+                var writer = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+                var state = writer.GetV2StateForPersistence();
+                var keys = state?.ConvKeyIndex?.Keys?.ToList() ?? new List<string>();
+                keys.Sort(StringComparer.Ordinal);
+                _allConvKeys = keys;
+            }
+            catch
+            {
+                _allConvKeys = _allConvKeys ?? new List<string>();
+            }
+            await Task.CompletedTask;
         }
 
         private async Task LoadByConvKeyAsync(string convKey)
         {
             _convKeyInput = convKey ?? string.Empty;
+            _selectedConversationId = string.Empty;
+            _convCandidates.Clear();
+            try
+            {
+                var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
+                _convCandidates = list?.ToList() ?? new List<string>();
+                _selectedConversationId = _convCandidates.FirstOrDefault() ?? string.Empty;
+            }
+            catch { /* ignore */ }
             await ReloadEntriesAsync();
         }
 
@@ -520,10 +600,29 @@ namespace RimAI.Core.UI.HistoryManager
                 _entries = new List<ConversationEntry>();
                 return;
             }
-            var ids = _convKeyInput.Split('|').ToList();
-            var ctx = await _historyQuery.GetHistoryAsync(ids);
-            _currentConv = ctx.MainHistory.FirstOrDefault();
-            _entries = _currentConv?.Entries?.ToList() ?? new List<ConversationEntry>();
+            if (string.IsNullOrWhiteSpace(_selectedConversationId))
+            {
+                try
+                {
+                    var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
+                    _convCandidates = list?.ToList() ?? new List<string>();
+                    _selectedConversationId = _convCandidates.FirstOrDefault() ?? string.Empty;
+                }
+                catch { /* ignore */ }
+            }
+            if (!string.IsNullOrWhiteSpace(_selectedConversationId))
+            {
+                try
+                {
+                    var rec = await _historyWrite.GetConversationAsync(_selectedConversationId);
+                    _entries = rec?.Entries?.ToList() ?? new List<ConversationEntry>();
+                }
+                catch { _entries = new List<ConversationEntry>(); }
+            }
+            else
+            {
+                _entries = new List<ConversationEntry>();
+            }
         }
         #endregion
     }

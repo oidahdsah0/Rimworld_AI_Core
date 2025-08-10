@@ -52,16 +52,15 @@ namespace RimAI.Core.Modules.Orchestration.Strategies
             var query = context.Query ?? string.Empty;
             var personaSystemPrompt = context.PersonaSystemPrompt ?? string.Empty;
 
-            // P10-M1: 预留提示组装调用（当前返回空字符串，不改变行为）
+            // P10-M4: 统一从 PromptAssemblyService 注入可用素材（策略层一致复用）
             try
             {
-                var assembled = await _promptAssembler.BuildSystemPromptAsync(System.Array.Empty<string>());
-                if (!string.IsNullOrWhiteSpace(assembled))
-                {
-                    personaSystemPrompt = string.IsNullOrWhiteSpace(personaSystemPrompt) ? assembled : (assembled + "\n" + personaSystemPrompt);
-                }
+                // ClassicStrategy 不掌握参与者集合，这里保底只注入 personaSystemPrompt；
+                // 其余素材已在 PersonaConversationService 的 Command 流中完成组装并传入。
+                // 若未来策略层接入参与者集合，可调用：
+                // var assembled = await _promptAssembler.BuildSystemPromptAsync(participantIds, PromptAssemblyMode.Command, query, null);
             }
-            catch { /* ignore */ }
+            catch { }
 
             if (string.IsNullOrWhiteSpace(personaSystemPrompt))
             {

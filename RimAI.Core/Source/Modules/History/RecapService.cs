@@ -25,6 +25,7 @@ namespace RimAI.Core.Modules.History
         private readonly IHistoryWriteService _history;
         private readonly IHistoryQueryService _historyQuery;
         private readonly InfraConfigService _config;
+        // 键 = conversationId
         private readonly ConcurrentDictionary<string, int> _roundCounters = new();
         private readonly ConcurrentDictionary<string, List<RecapItem>> _recapDict = new();
         private readonly ConcurrentDictionary<string, object> _locks = new();
@@ -38,75 +39,86 @@ namespace RimAI.Core.Modules.History
             // M1：不订阅事件源，由调用方手动触发 OnEntryRecorded
         }
 
-        public void OnEntryRecorded(string convKey, ConversationEntry entry)
+        public void OnEntryRecorded(string conversationId, ConversationEntry entry)
         {
-            if (string.IsNullOrWhiteSpace(convKey) || entry == null) return;
-            var count = _roundCounters.AddOrUpdate(convKey, 1, (_, n) => n + 1);
+            if (string.IsNullOrWhiteSpace(conversationId) || entry == null) return;
+            var count = _roundCounters.AddOrUpdate(conversationId, 1, (_, n) => n + 1);
 
             var cfg = _config?.Current?.History ?? new HistoryConfig();
 
             // 到达 N 轮阈值，触发一次总结（后台）
             if (cfg.SummaryEveryNRounds > 0 && count % cfg.SummaryEveryNRounds == 0)
             {
-                _ = Task.Run(() => TrySummarizeAsync(convKey, cfg));
+                _ = Task.Run(() => TrySummarizeAsync(conversationId, cfg));
             }
 
             // 到达“每十轮”阈值，触发叠加压缩（后台）
             if (cfg.RecapUpdateEveryRounds > 0 && count % cfg.RecapUpdateEveryRounds == 0)
             {
-                _ = Task.Run(() => TryAggregateEveryTenAsync(convKey, cfg));
+                _ = Task.Run(() => TryAggregateEveryTenAsync(conversationId, cfg));
             }
         }
 
-        public void OnEveryTenRounds(string convKey)
+        public void OnEveryTenRounds(string conversationId)
         {
-            if (string.IsNullOrWhiteSpace(convKey)) return;
+            if (string.IsNullOrWhiteSpace(conversationId)) return;
             var cfg = _config?.Current?.History ?? new HistoryConfig();
-            _ = Task.Run(() => TryAggregateEveryTenAsync(convKey, cfg));
+            _ = Task.Run(() => TryAggregateEveryTenAsync(conversationId, cfg));
         }
 
-        public Task RebuildRecapAsync(string convKey, CancellationToken ct = default)
+        // 每象限（Quadrum=15天）触发一次全局补偿压缩（可配）
+        internal void OnQuadrumEnd()
         {
-            if (string.IsNullOrWhiteSpace(convKey)) return Task.CompletedTask;
+            try
+            {
+                var cfg = _config?.Current?.History ?? new HistoryConfig();
+                foreach (var conversationId in _roundCounters.Keys)
+                {
+                    _ = Task.Run(() => TryAggregateEveryTenAsync(conversationId, cfg));
+                }
+            }
+            catch { /* ignore */ }
+        }
+
+        public Task RebuildRecapAsync(string conversationId, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(conversationId)) return Task.CompletedTask;
 
             return Task.Run(async () =>
             {
                 var cfg = _config?.Current?.History ?? new HistoryConfig();
-                var gate = _locks.GetOrAdd(convKey, _ => new object());
+                var gate = _locks.GetOrAdd(conversationId, _ => new object());
                 lock (gate)
                 {
-                    _recapDict[convKey] = new List<RecapItem>();
-                    _roundCounters[convKey] = 0;
+                    _recapDict[conversationId] = new List<RecapItem>();
+                    _roundCounters[conversationId] = 0;
                 }
 
-                // 读取已有历史并按轮次回放
-                IReadOnlyList<string> ids = convKey.Split('|').ToList();
-                var ctx = await _historyQuery.GetHistoryAsync(ids);
-                var entries = ctx.MainHistory.SelectMany(c => c.Entries)
-                    .OrderBy(e => e.Timestamp)
-                    .ToList();
+                // 读取该会话并按轮次回放
+                var rec = await _history.GetConversationAsync(conversationId);
+                var entries = (rec?.Entries ?? Array.Empty<ConversationEntry>()).OrderBy(e => e.Timestamp).ToList();
 
                 foreach (var e in entries)
                 {
                     ct.ThrowIfCancellationRequested();
-                    OnEntryRecorded(convKey, e);
+                    OnEntryRecordedFromConversation(conversationId, e);
                 }
             }, ct);
         }
 
-        public int GetCounter(string convKey)
+        public int GetCounter(string conversationId)
         {
-            if (string.IsNullOrWhiteSpace(convKey)) return 0;
-            return _roundCounters.TryGetValue(convKey, out var n) ? n : 0;
+            if (string.IsNullOrWhiteSpace(conversationId)) return 0;
+            return _roundCounters.TryGetValue(conversationId, out var n) ? n : 0;
         }
 
         // --- 内部：获取 recap 只读视图（为后续 UI/M4 做准备） ---
-        internal IReadOnlyList<RecapItem> GetRecap(string convKey)
+        internal IReadOnlyList<RecapItem> GetRecap(string conversationId)
         {
-            if (string.IsNullOrWhiteSpace(convKey)) return Array.Empty<RecapItem>();
-            if (_recapDict.TryGetValue(convKey, out var list))
+            if (string.IsNullOrWhiteSpace(conversationId)) return Array.Empty<RecapItem>();
+            if (_recapDict.TryGetValue(conversationId, out var list))
             {
-                lock (_locks.GetOrAdd(convKey, _ => new object()))
+                lock (_locks.GetOrAdd(conversationId, _ => new object()))
                 {
                     return list.ToList();
                 }
@@ -114,22 +126,34 @@ namespace RimAI.Core.Modules.History
             return Array.Empty<RecapItem>();
         }
 
-        public IReadOnlyList<RecapSnapshotItem> GetRecapItems(string convKey)
+        public IReadOnlyList<RecapSnapshotItem> GetRecapItems(string conversationId)
         {
-            var items = GetRecap(convKey);
+            var items = GetRecap(conversationId);
             return items
                 .Select(i => new RecapSnapshotItem(i.Id, i.Text, i.CreatedAt))
                 .OrderByDescending(x => x.CreatedAt)
                 .ToList();
         }
 
-        public bool UpdateRecapItem(string convKey, string itemId, string newText)
+        // 仅用于 Rebuild 回放（避免递归查询 History）
+        private void OnEntryRecordedFromConversation(string conversationId, ConversationEntry entry)
         {
-            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(itemId)) return false;
-            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            if (string.IsNullOrWhiteSpace(conversationId) || entry == null) return;
+            var count = _roundCounters.AddOrUpdate(conversationId, 1, (_, n) => n + 1);
+            var cfg = _config?.Current?.History ?? new HistoryConfig();
+            if (cfg.SummaryEveryNRounds > 0 && count % cfg.SummaryEveryNRounds == 0)
+                _ = Task.Run(() => TrySummarizeAsync(conversationId, cfg));
+            if (cfg.RecapUpdateEveryRounds > 0 && count % cfg.RecapUpdateEveryRounds == 0)
+                _ = Task.Run(() => TryAggregateEveryTenAsync(conversationId, cfg));
+        }
+
+        public bool UpdateRecapItem(string conversationId, string itemId, string newText)
+        {
+            if (string.IsNullOrWhiteSpace(conversationId) || string.IsNullOrWhiteSpace(itemId)) return false;
+            var gate = _locks.GetOrAdd(conversationId, _ => new object());
             lock (gate)
             {
-                if (!_recapDict.TryGetValue(convKey, out var list)) return false;
+                if (!_recapDict.TryGetValue(conversationId, out var list)) return false;
                 var idx = list.FindIndex(x => x.Id == itemId);
                 if (idx < 0) return false;
                 var old = list[idx];
@@ -138,13 +162,13 @@ namespace RimAI.Core.Modules.History
             }
         }
 
-        public bool RemoveRecapItem(string convKey, string itemId)
+        public bool RemoveRecapItem(string conversationId, string itemId)
         {
-            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(itemId)) return false;
-            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            if (string.IsNullOrWhiteSpace(conversationId) || string.IsNullOrWhiteSpace(itemId)) return false;
+            var gate = _locks.GetOrAdd(conversationId, _ => new object());
             lock (gate)
             {
-                if (!_recapDict.TryGetValue(convKey, out var list)) return false;
+                if (!_recapDict.TryGetValue(conversationId, out var list)) return false;
                 var idx = list.FindIndex(x => x.Id == itemId);
                 if (idx < 0) return false;
                 list.RemoveAt(idx);
@@ -152,13 +176,13 @@ namespace RimAI.Core.Modules.History
             }
         }
 
-        public bool ReorderRecapItem(string convKey, string itemId, int newIndex)
+        public bool ReorderRecapItem(string conversationId, string itemId, int newIndex)
         {
-            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(itemId)) return false;
-            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            if (string.IsNullOrWhiteSpace(conversationId) || string.IsNullOrWhiteSpace(itemId)) return false;
+            var gate = _locks.GetOrAdd(conversationId, _ => new object());
             lock (gate)
             {
-                if (!_recapDict.TryGetValue(convKey, out var list)) return false;
+                if (!_recapDict.TryGetValue(conversationId, out var list)) return false;
                 var idx = list.FindIndex(x => x.Id == itemId);
                 if (idx < 0) return false;
                 newIndex = Math.Max(0, Math.Min(newIndex, list.Count - 1));
@@ -170,15 +194,14 @@ namespace RimAI.Core.Modules.History
         }
 
         // --- 核心实现 ---
-        private async Task TrySummarizeAsync(string convKey, HistoryConfig cfg)
+        private async Task TrySummarizeAsync(string conversationId, HistoryConfig cfg)
         {
-            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            var gate = _locks.GetOrAdd(conversationId, _ => new object());
             try
             {
-                // 取最近 N 轮最终输出
-                IReadOnlyList<string> ids = convKey.Split('|').ToList();
-                var ctx = await _historyQuery.GetHistoryAsync(ids);
-                var all = ctx.MainHistory.SelectMany(c => c.Entries)
+                // 取该会话最近 N 轮最终输出
+                var rec = await _history.GetConversationAsync(conversationId);
+                var all = (rec?.Entries ?? Array.Empty<ConversationEntry>())
                     .OrderByDescending(e => e.Timestamp)
                     .Take(cfg.SummaryEveryNRounds)
                     .OrderBy(e => e.Timestamp)
@@ -204,15 +227,15 @@ namespace RimAI.Core.Modules.History
                 var item = new RecapItem(Guid.NewGuid().ToString("N"), text, DateTime.UtcNow);
                 lock (gate)
                 {
-                    if (!_recapDict.TryGetValue(convKey, out var list))
+                    if (!_recapDict.TryGetValue(conversationId, out var list))
                     {
                         list = new List<RecapItem>();
-                        _recapDict[convKey] = list;
+                        _recapDict[conversationId] = list;
                     }
                     list.Add(item);
                     EnforceCapacity(list, cfg.RecapDictMaxEntries);
                 }
-                CoreServices.Logger.Info($"[Recap] +Summary conv={convKey}, len={text.Length}");
+                CoreServices.Logger.Info($"[Recap] +Summary convId={conversationId}, len={text.Length}");
             }
             catch (Exception ex)
             {
@@ -220,15 +243,14 @@ namespace RimAI.Core.Modules.History
             }
         }
 
-        private async Task TryAggregateEveryTenAsync(string convKey, HistoryConfig cfg)
+        private async Task TryAggregateEveryTenAsync(string conversationId, HistoryConfig cfg)
         {
-            var gate = _locks.GetOrAdd(convKey, _ => new object());
+            var gate = _locks.GetOrAdd(conversationId, _ => new object());
             try
             {
-                // 取最近 10 轮（若 SummaryEveryNRounds!=10，仍以配置的阈值为逻辑窗口）
-                IReadOnlyList<string> ids = convKey.Split('|').ToList();
-                var ctx = await _historyQuery.GetHistoryAsync(ids);
-                var all = ctx.MainHistory.SelectMany(c => c.Entries)
+                // 取该会话最近 10 轮（若 SummaryEveryNRounds!=10，仍以配置的阈值为逻辑窗口）
+                var rec = await _history.GetConversationAsync(conversationId);
+                var all = (rec?.Entries ?? Array.Empty<ConversationEntry>())
                     .OrderByDescending(e => e.Timestamp)
                     .Take(cfg.RecapUpdateEveryRounds)
                     .OrderBy(e => e.Timestamp)
@@ -255,15 +277,15 @@ namespace RimAI.Core.Modules.History
                 var item = new RecapItem(Guid.NewGuid().ToString("N"), text, DateTime.UtcNow);
                 lock (gate)
                 {
-                    if (!_recapDict.TryGetValue(convKey, out var list))
+                    if (!_recapDict.TryGetValue(conversationId, out var list))
                     {
                         list = new List<RecapItem>();
-                        _recapDict[convKey] = list;
+                        _recapDict[conversationId] = list;
                     }
                     list.Add(item);
                     EnforceCapacity(list, cfg.RecapDictMaxEntries);
                 }
-                CoreServices.Logger.Info($"[Recap] +Aggregate conv={convKey}, len={text.Length}");
+                CoreServices.Logger.Info($"[Recap] +Aggregate convId={conversationId}, len={text.Length}");
             }
             catch (Exception ex)
             {

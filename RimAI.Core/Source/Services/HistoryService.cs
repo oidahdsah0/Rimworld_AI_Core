@@ -13,47 +13,102 @@ namespace RimAI.Core.Services
     /// 目标：提供 P6 持久化所需的状态导入/导出能力，
     /// 线程安全采用 <see cref="lock"/> 简单保护即可满足当前需求。
     /// </summary>
-    internal sealed class HistoryService : IHistoryService, RimAI.Core.Contracts.Services.IHistoryQueryService, IHistoryWriteService
+internal sealed class HistoryService : IHistoryService, RimAI.Core.Contracts.Services.IHistoryQueryService, IHistoryWriteService
     {
-        private readonly Dictionary<string, Conversation> _primaryStore = new();
-        private readonly Dictionary<string, HashSet<string>> _invertedIndex = new();
+        // V2 主存：conversationId → ConversationRecord
+        private readonly Dictionary<string, ConversationRecord> _conversations = new();
+        // 二级索引：convKey → List<conversationId>
+        private readonly Dictionary<string, List<string>> _convKeyIndex = new();
+        // 二级索引：participantId → List<conversationId>
+        private readonly Dictionary<string, List<string>> _participantIndex = new();
         private readonly object _gate = new();
-        
+
         public event System.Action<string, ConversationEntry>? OnEntryRecorded;
 
-        public Task RecordEntryAsync(IReadOnlyList<string> participantIds, ConversationEntry entry)
+        private static string BuildConvKey(IReadOnlyList<string> participantIds)
+        {
+            var sorted = participantIds.OrderBy(id => id, StringComparer.Ordinal);
+            return string.Join("|", sorted);
+        }
+
+        public string CreateConversation(IReadOnlyList<string> participantIds)
         {
             if (participantIds == null || participantIds.Count == 0)
                 throw new ArgumentException("participantIds cannot be null or empty", nameof(participantIds));
-            if (entry == null)
-                throw new ArgumentNullException(nameof(entry));
-
-            var convId = GetConversationId(participantIds);
+            var convId = Guid.NewGuid().ToString("N");
+            var convKey = BuildConvKey(participantIds);
             lock (_gate)
             {
-                if (!_primaryStore.TryGetValue(convId, out var conv))
+                var record = new ConversationRecord(convId, participantIds.ToList(), new List<ConversationEntry>());
+                _conversations[convId] = record;
+                // 索引：convKey
+                if (!_convKeyIndex.TryGetValue(convKey, out var listByKey))
                 {
-                    conv = new Conversation(new List<ConversationEntry>());
-                    _primaryStore[convId] = conv;
+                    listByKey = new List<string>();
+                    _convKeyIndex[convKey] = listByKey;
                 }
-
-                // 写入条目（由于 Conversation 封装为只读，需重新包装）
-                var updatedEntries = conv.Entries.Concat(new[] { entry }).ToList();
-                _primaryStore[convId] = new Conversation(updatedEntries);
-
-                foreach (var id in participantIds)
+                listByKey.Add(convId);
+                // 索引：participantId
+                foreach (var pid in participantIds)
                 {
-                    if (!_invertedIndex.TryGetValue(id, out var set))
+                    if (!_participantIndex.TryGetValue(pid, out var list))
                     {
-                        set = new HashSet<string>();
-                        _invertedIndex[id] = set;
+                        list = new List<string>();
+                        _participantIndex[pid] = list;
                     }
-                    set.Add(convId);
+                    list.Add(convId);
                 }
             }
-            // 事件回调放在锁外，避免潜在的重入与死锁
-            try { OnEntryRecorded?.Invoke(convId, entry); } catch { /* ignore */ }
+            return convId;
+        }
+
+        public Task AppendEntryAsync(string conversationId, ConversationEntry entry)
+        {
+            if (string.IsNullOrWhiteSpace(conversationId)) throw new ArgumentException(nameof(conversationId));
+            if (entry == null) throw new ArgumentNullException(nameof(entry));
+
+            lock (_gate)
+            {
+                if (!_conversations.TryGetValue(conversationId, out var record))
+                    throw new KeyNotFoundException($"Conversation not found: {conversationId}");
+                var newEntries = record.Entries.Concat(new[] { entry }).ToList();
+                _conversations[conversationId] = new ConversationRecord(record.ConversationId, record.ParticipantIds, newEntries);
+            }
+            try { OnEntryRecorded?.Invoke(conversationId, entry); } catch { /* ignore */ }
             return Task.CompletedTask;
+        }
+
+        public Task<ConversationRecord> GetConversationAsync(string conversationId)
+        {
+            if (string.IsNullOrWhiteSpace(conversationId)) throw new ArgumentException(nameof(conversationId));
+            lock (_gate)
+            {
+                if (!_conversations.TryGetValue(conversationId, out var record))
+                    throw new KeyNotFoundException($"Conversation not found: {conversationId}");
+                return Task.FromResult(record);
+            }
+        }
+
+        public Task<IReadOnlyList<string>> FindByConvKeyAsync(string convKey)
+        {
+            if (string.IsNullOrWhiteSpace(convKey)) throw new ArgumentException(nameof(convKey));
+            lock (_gate)
+            {
+                if (_convKeyIndex.TryGetValue(convKey, out var list))
+                    return Task.FromResult((IReadOnlyList<string>)list.ToList());
+                return Task.FromResult((IReadOnlyList<string>)new List<string>());
+            }
+        }
+
+        public Task<IReadOnlyList<string>> ListByParticipantAsync(string participantId)
+        {
+            if (string.IsNullOrWhiteSpace(participantId)) throw new ArgumentException(nameof(participantId));
+            lock (_gate)
+            {
+                if (_participantIndex.TryGetValue(participantId, out var list))
+                    return Task.FromResult((IReadOnlyList<string>)list.ToList());
+                return Task.FromResult((IReadOnlyList<string>)new List<string>());
+            }
         }
 
         public Task<HistoricalContext> GetHistoryAsync(IReadOnlyList<string> participantIds)
@@ -61,22 +116,26 @@ namespace RimAI.Core.Services
             if (participantIds == null || participantIds.Count == 0)
                 throw new ArgumentException("participantIds cannot be null or empty", nameof(participantIds));
 
-            var convId = GetConversationId(participantIds);
+            var convKey = BuildConvKey(participantIds);
             List<Conversation> main = new();
             List<Conversation> background = new();
 
             lock (_gate)
             {
-                if (_primaryStore.TryGetValue(convId, out var conv))
+                if (_convKeyIndex.TryGetValue(convKey, out var byKey))
                 {
-                    main.Add(conv);
+                    foreach (var cid in byKey)
+                    {
+                        if (_conversations.TryGetValue(cid, out var rec))
+                            main.Add(new Conversation(rec.Entries.ToList()));
+                    }
                 }
 
-                // 背景：包含所有参与者交集的对话
+                // 背景：参与者交集（取交集的 conversationId）
                 HashSet<string>? commonSet = null;
                 foreach (var id in participantIds)
                 {
-                    if (!_invertedIndex.TryGetValue(id, out var set))
+                    if (!_participantIndex.TryGetValue(id, out var set))
                     {
                         commonSet = null;
                         break;
@@ -87,161 +146,136 @@ namespace RimAI.Core.Services
                 {
                     foreach (var cid in commonSet)
                     {
-                        if (cid == convId) continue; // exclude main
-                        if (_primaryStore.TryGetValue(cid, out var c))
-                            background.Add(c);
+                        // 跳过已在 main 中的 conv
+                        if (_conversations.TryGetValue(cid, out var rec))
+                        {
+                            var conv = new Conversation(rec.Entries.ToList());
+                            if (!main.Contains(conv)) background.Add(conv);
+                        }
                     }
                 }
             }
+            return Task.FromResult(new HistoricalContext(main, background));
+        }
 
-            var ctx = new HistoricalContext(main, background);
-            return Task.FromResult(ctx);
+        // --- Obsolete compatibility methods (required by IHistoryService) ---
+        // 保留以满足接口签名，但内部走 V2 逻辑。
+        public Task RecordEntryAsync(IReadOnlyList<string> participantIds, ConversationEntry entry)
+        {
+            if (participantIds == null || participantIds.Count == 0)
+                throw new ArgumentException("participantIds cannot be null or empty", nameof(participantIds));
+            if (entry == null) throw new ArgumentNullException(nameof(entry));
+            string convId;
+            var convKey = BuildConvKey(participantIds);
+            lock (_gate)
+            {
+                if (_convKeyIndex.TryGetValue(convKey, out var list) && list.Count > 0)
+                {
+                    convId = list[list.Count - 1]; // 选择最近的一个会话
+                }
+                else
+                {
+                    convId = CreateConversation(participantIds);
+                }
+            }
+            return AppendEntryAsync(convId, entry);
         }
 
         public HistoryState GetStateForPersistence()
         {
-            lock (_gate)
-            {
-                // 深拷贝以免外部修改
-                var primaryCopy = _primaryStore.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                var indexCopy = _invertedIndex.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value));
-                return new HistoryState(primaryCopy, indexCopy);
-            }
+            // V2 已不再使用 V1 的 HistoryState；此方法仅为满足旧接口存在。
+            throw new NotSupportedException("GetStateForPersistence (V1) is not supported in History V2. Use GetV2StateForPersistence instead.");
         }
 
         public void LoadStateFromPersistence(HistoryState state)
         {
-            if (state == null) throw new ArgumentNullException(nameof(state));
-            lock (_gate)
-            {
-                _primaryStore.Clear();
-                _invertedIndex.Clear();
-
-                foreach (var kvp in state.PrimaryStore)
-                    _primaryStore[kvp.Key] = kvp.Value;
-                foreach (var kvp in state.InvertedIndex)
-                    _invertedIndex[kvp.Key] = new HashSet<string>(kvp.Value);
-            }
+            // V2 已不再使用 V1 的 HistoryState；此方法仅为满足旧接口存在。
+            throw new NotSupportedException("LoadStateFromPersistence (V1) is not supported in History V2. Use LoadV2StateFromPersistence instead.");
         }
 
-        // --- P10-M1: 新增内部能力 ---
-
-        public Task EditEntryAsync(string convKey, int entryIndex, string newContent)
+        public Task EditEntryAsync(string conversationId, int entryIndex, string newContent)
         {
-            if (string.IsNullOrWhiteSpace(convKey)) throw new ArgumentException("convKey cannot be null or empty", nameof(convKey));
+            if (string.IsNullOrWhiteSpace(conversationId)) throw new ArgumentException(nameof(conversationId));
             if (entryIndex < 0) throw new ArgumentOutOfRangeException(nameof(entryIndex));
             if (newContent == null) throw new ArgumentNullException(nameof(newContent));
-
             lock (_gate)
             {
-                if (!_primaryStore.TryGetValue(convKey, out var conv))
-                    throw new KeyNotFoundException($"Conversation not found: {convKey}");
-                if (entryIndex >= conv.Entries.Count)
+                if (!_conversations.TryGetValue(conversationId, out var rec))
+                    throw new KeyNotFoundException($"Conversation not found: {conversationId}");
+                if (entryIndex >= rec.Entries.Count)
                     throw new ArgumentOutOfRangeException(nameof(entryIndex));
-
-                var old = conv.Entries[entryIndex];
+                var old = rec.Entries[entryIndex];
                 var edited = new ConversationEntry(old.SpeakerId, newContent, old.Timestamp);
-                var list = conv.Entries.ToList();
+                var list = rec.Entries.ToList();
                 list[entryIndex] = edited;
-                _primaryStore[convKey] = new Conversation(list);
+                _conversations[conversationId] = new ConversationRecord(rec.ConversationId, rec.ParticipantIds, list);
             }
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyList<string>> ListConversationKeysAsync(string? filter = null, int? skip = null, int? take = null)
+        public Task DeleteEntryAsync(string conversationId, int entryIndex)
         {
-            List<string> keys;
-            lock (_gate)
-            {
-                keys = _primaryStore.Keys.ToList();
-            }
-            if (!string.IsNullOrWhiteSpace(filter))
-            {
-                keys = keys.Where(k => k.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-            }
-            if (skip.HasValue && skip.Value > 0) keys = keys.Skip(skip.Value).ToList();
-            if (take.HasValue && take.Value >= 0) keys = keys.Take(take.Value).ToList();
-            return Task.FromResult((IReadOnlyList<string>)keys);
-        }
-
-        public Task<IReadOnlyList<Conversation>> GetConversationsBySubsetAsync(IReadOnlyList<string> queryIds)
-        {
-            if (queryIds == null || queryIds.Count == 0)
-                throw new ArgumentException("queryIds cannot be null or empty", nameof(queryIds));
-
-            HashSet<string>? resultIds = null;
-            lock (_gate)
-            {
-                foreach (var id in queryIds)
-                {
-                    if (!_invertedIndex.TryGetValue(id, out var set))
-                    {
-                        resultIds = new HashSet<string>();
-                        break;
-                    }
-                    resultIds = resultIds == null ? new HashSet<string>(set) : new HashSet<string>(resultIds.Intersect(set));
-                    if (resultIds.Count == 0) break;
-                }
-
-                var res = new List<Conversation>();
-                if (resultIds != null && resultIds.Count > 0)
-                {
-                    foreach (var cid in resultIds)
-                    {
-                        if (_primaryStore.TryGetValue(cid, out var conv))
-                            res.Add(conv);
-                    }
-                }
-                return Task.FromResult((IReadOnlyList<Conversation>)res);
-            }
-        }
-
-        public Task DeleteEntryAsync(string convKey, int entryIndex)
-        {
-            if (string.IsNullOrWhiteSpace(convKey)) throw new ArgumentException("convKey cannot be null or empty", nameof(convKey));
+            if (string.IsNullOrWhiteSpace(conversationId)) throw new ArgumentException(nameof(conversationId));
             if (entryIndex < 0) throw new ArgumentOutOfRangeException(nameof(entryIndex));
-
             lock (_gate)
             {
-                if (!_primaryStore.TryGetValue(convKey, out var conv))
-                    throw new KeyNotFoundException($"Conversation not found: {convKey}");
-                if (entryIndex >= conv.Entries.Count)
+                if (!_conversations.TryGetValue(conversationId, out var rec))
+                    throw new KeyNotFoundException($"Conversation not found: {conversationId}");
+                if (entryIndex >= rec.Entries.Count)
                     throw new ArgumentOutOfRangeException(nameof(entryIndex));
-
-                var list = conv.Entries.ToList();
+                var list = rec.Entries.ToList();
                 list.RemoveAt(entryIndex);
-                _primaryStore[convKey] = new Conversation(list);
+                _conversations[conversationId] = new ConversationRecord(rec.ConversationId, rec.ParticipantIds, list);
             }
             return Task.CompletedTask;
         }
 
-        public Task RestoreEntryAsync(string convKey, int entryIndex, ConversationEntry entry)
+        public Task RestoreEntryAsync(string conversationId, int entryIndex, ConversationEntry entry)
         {
-            if (string.IsNullOrWhiteSpace(convKey)) throw new ArgumentException("convKey cannot be null or empty", nameof(convKey));
+            if (string.IsNullOrWhiteSpace(conversationId)) throw new ArgumentException(nameof(conversationId));
             if (entryIndex < 0) throw new ArgumentOutOfRangeException(nameof(entryIndex));
             if (entry == null) throw new ArgumentNullException(nameof(entry));
-
             lock (_gate)
             {
-                if (!_primaryStore.TryGetValue(convKey, out var conv))
+                if (!_conversations.TryGetValue(conversationId, out var rec))
                 {
-                    _primaryStore[convKey] = new Conversation(new List<ConversationEntry> { entry });
+                    var list = new List<ConversationEntry> { entry };
+                    _conversations[conversationId] = new ConversationRecord(conversationId, Array.Empty<string>(), list);
                 }
                 else
                 {
-                    var list = conv.Entries.ToList();
+                    var list = rec.Entries.ToList();
                     entryIndex = Math.Min(Math.Max(0, entryIndex), list.Count);
                     list.Insert(entryIndex, entry);
-                    _primaryStore[convKey] = new Conversation(list);
+                    _conversations[conversationId] = new ConversationRecord(rec.ConversationId, rec.ParticipantIds, list);
                 }
             }
             return Task.CompletedTask;
         }
 
-        private static string GetConversationId(IReadOnlyList<string> participantIds)
+        public HistoryV2State GetV2StateForPersistence()
         {
-            var sorted = participantIds.OrderBy(id => id, StringComparer.Ordinal);
-            return string.Join("|", sorted);
+            lock (_gate)
+            {
+                var convCopy = _conversations.ToDictionary(k => k.Key, v => v.Value);
+                var keyIndexCopy = _convKeyIndex.ToDictionary(k => k.Key, v => v.Value.ToList());
+                var partIndexCopy = _participantIndex.ToDictionary(k => k.Key, v => v.Value.ToList());
+                return new HistoryV2State(convCopy, keyIndexCopy, partIndexCopy);
+            }
+        }
+
+        public void LoadV2StateFromPersistence(HistoryV2State state)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            lock (_gate)
+            {
+                _conversations.Clear();
+                _convKeyIndex.Clear();
+                _participantIndex.Clear();
+                foreach (var kvp in state.Conversations) _conversations[kvp.Key] = kvp.Value;
+                foreach (var kvp in state.ConvKeyIndex) _convKeyIndex[kvp.Key] = kvp.Value?.ToList() ?? new List<string>();
+                foreach (var kvp in state.ParticipantIndex) _participantIndex[kvp.Key] = kvp.Value?.ToList() ?? new List<string>();
+            }
         }
     }
 }

@@ -6,80 +6,55 @@ namespace RimAI.Core.Modules.Persona
     /// <summary>
     /// 固定提示词服务的内存实现（线程安全）。
     /// </summary>
-    internal sealed class FixedPromptService : IFixedPromptService
+internal sealed class FixedPromptService : IFixedPromptService
     {
-        // convKey => (participantId => text)
-        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, string>> _byConv = new();
-        private readonly ConcurrentDictionary<string, string> _legacy = new();
+        // 主存：pawnId → text
+        private readonly ConcurrentDictionary<string, string> _byPawn = new();
+        // 覆盖层：convKey → text
+        private readonly ConcurrentDictionary<string, string> _byConvOverride = new();
 
-        public string Get(string convKey, string participantId)
+        // 主存（按 PawnId）
+        public string GetByPawn(string pawnId)
+            => string.IsNullOrWhiteSpace(pawnId) ? string.Empty : (_byPawn.TryGetValue(pawnId, out var t) ? t : string.Empty);
+
+        public void UpsertByPawn(string pawnId, string text)
         {
-            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(participantId)) return string.Empty;
-            if (_byConv.TryGetValue(convKey, out var map) && map.TryGetValue(participantId, out var text)) return text;
-            return string.Empty;
+            if (string.IsNullOrWhiteSpace(pawnId)) return;
+            _byPawn[pawnId] = text ?? string.Empty;
         }
 
-        public void Upsert(string convKey, string participantId, string text)
+        public bool DeleteByPawn(string pawnId)
+            => !string.IsNullOrWhiteSpace(pawnId) && _byPawn.TryRemove(pawnId, out _);
+
+        public IReadOnlyDictionary<string, string> GetAllByPawn()
+            => new Dictionary<string, string>(_byPawn);
+
+        // 覆盖层（按 convKey）
+        public string GetConvKeyOverride(string convKey)
+            => string.IsNullOrWhiteSpace(convKey) ? string.Empty : (_byConvOverride.TryGetValue(convKey, out var t) ? t : string.Empty);
+
+        public void UpsertConvKeyOverride(string convKey, string text)
         {
-            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(participantId)) return;
-            var map = _byConv.GetOrAdd(convKey, _ => new ConcurrentDictionary<string, string>());
-            map[participantId] = text ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(convKey)) return;
+            _byConvOverride[convKey] = text ?? string.Empty;
         }
 
-        public bool Delete(string convKey, string participantId)
-        {
-            if (string.IsNullOrWhiteSpace(convKey) || string.IsNullOrWhiteSpace(participantId)) return false;
-            if (_byConv.TryGetValue(convKey, out var map))
-            {
-                return map.TryRemove(participantId, out _);
-            }
-            return false;
-        }
+        public bool DeleteConvKeyOverride(string convKey)
+            => !string.IsNullOrWhiteSpace(convKey) && _byConvOverride.TryRemove(convKey, out _);
 
-        public IReadOnlyDictionary<string, string> GetAll(string convKey)
-        {
-            if (string.IsNullOrWhiteSpace(convKey)) return new Dictionary<string, string>();
-            if (_byConv.TryGetValue(convKey, out var map)) return new Dictionary<string, string>(map);
-            return new Dictionary<string, string>();
-        }
+        public IReadOnlyDictionary<string, string> GetAllConvKeyOverrides()
+            => new Dictionary<string, string>(_byConvOverride);
 
-        // 兼容旧签名（全局作用域）
-        public string Get(string participantId) => _legacy.TryGetValue(participantId ?? string.Empty, out var text) ? text : string.Empty;
-        public void Upsert(string participantId, string text) { if (!string.IsNullOrWhiteSpace(participantId)) _legacy[participantId] = text ?? string.Empty; }
-        public bool Delete(string participantId) => !string.IsNullOrWhiteSpace(participantId) && _legacy.TryRemove(participantId, out _);
-        public IReadOnlyDictionary<string, string> GetAll() => new Dictionary<string, string>(_legacy);
+        // 快照（仅主存）
+        public IReadOnlyDictionary<string, string> ExportSnapshot()
+            => new Dictionary<string, string>(_byPawn);
 
-        public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ExportSnapshot()
+        public void ImportSnapshot(IReadOnlyDictionary<string, string> snapshot)
         {
-            var dict = new Dictionary<string, IReadOnlyDictionary<string, string>>();
-            foreach (var kvp in _byConv)
-            {
-                var inner = new Dictionary<string, string>();
-                foreach (var p in kvp.Value)
-                {
-                    inner[p.Key] = p.Value;
-                }
-                dict[kvp.Key] = inner;
-            }
-            return dict;
-        }
-
-        public void ImportSnapshot(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> snapshot)
-        {
-            _byConv.Clear();
+            _byPawn.Clear();
             if (snapshot == null) return;
-            foreach (var kvp in snapshot)
-            {
-                var inner = new ConcurrentDictionary<string, string>();
-                if (kvp.Value != null)
-                {
-                    foreach (var p in kvp.Value)
-                    {
-                        inner[p.Key] = p.Value;
-                    }
-                }
-                _byConv[kvp.Key] = inner;
-            }
+            foreach (var kv in snapshot)
+                _byPawn[kv.Key] = kv.Value ?? string.Empty;
         }
     }
 }

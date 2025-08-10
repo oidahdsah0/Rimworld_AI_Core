@@ -4,16 +4,16 @@ using System.Collections.Generic;
 namespace RimAI.Core.Modules.Persona
 {
     /// <summary>
-    /// 人物传记（段落型字典）服务（M3 内存 MVP）。仅在 1v1 player↔pawn 场景使用。
+    /// 人物传记（段落型字典）服务（V2）。仅在 1v1 player↔pawn 场景使用。
     /// </summary>
     internal interface IBiographyService
     {
-        // 按 convKey（1v1）存取，确保以 ID 集合作为键
-        IReadOnlyList<BiographyItem> List(string convKey);
-        BiographyItem Add(string convKey, string text);
-        bool Update(string convKey, string itemId, string newText);
-        bool Remove(string convKey, string itemId);
-        bool Reorder(string convKey, string itemId, int newIndex);
+        // 按 pawnId（单体）存取
+        IReadOnlyList<BiographyItem> ListByPawn(string pawnId);
+        BiographyItem Add(string pawnId, string text);
+        bool Update(string pawnId, string itemId, string newText);
+        bool Remove(string pawnId, string itemId);
+        bool Reorder(string pawnId, string itemId, int newIndex);
 
         // 快照（持久化）
         IReadOnlyDictionary<string, IReadOnlyList<BiographyItem>> ExportSnapshot();

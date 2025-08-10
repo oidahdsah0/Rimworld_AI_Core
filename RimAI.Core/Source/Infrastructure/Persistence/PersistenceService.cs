@@ -1,6 +1,7 @@
 #nullable disable warnings
 using RimAI.Core.Contracts.Models;
 using RimAI.Core.Contracts.Services;
+using RimAI.Core.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,11 +15,14 @@ namespace RimAI.Core.Infrastructure.Persistence
     internal sealed class PersistenceService : IPersistenceService
     {
         private const string PersonasNode = "RimAI_Personas";
-        private const string ConversationsNode = "RimAI_HistoryConversations";
-        private const string InvertedIndexNode = "RimAI_HistoryInvertedIndex";
-        private const string FixedPromptsNode = "RimAI_FixedPrompts"; // convKey => (pid => text)
-        private const string BiographiesNode = "RimAI_Biographies";   // convKey => List<BiographyItem>
-        private const string RecapNode = "RimAI_Recap";               // convKey => List<RecapItem>
+        private const string ConversationsNode = "RimAI_HistoryV2_Conversations"; // conversationId -> record
+        private const string ConvKeyIndexNode  = "RimAI_HistoryV2_ConvKeyIndex";  // convKey -> List<conversationId>
+        private const string ParticipantIndexNode = "RimAI_HistoryV2_PartIndex"; // participantId -> List<conversationId>
+        private const string FixedPromptsNode = "RimAI_FixedPromptsV2"; // pawnId -> text
+        private const string BiographiesNode = "RimAI_BiographiesV2";   // pawnId => List<BiographyItem>
+        private const string RecapNode = "RimAI_Recap";               // conversationId => List<RecapItem>
+        private const string PersonaBindingsNode = "RimAI_PersonaBindingsV1"; // pawnId -> personaName#rev
+        private const string PlayerIdNode = "RimAI_PlayerIdV1"; // player:<saveInstanceId>
 
         #region Serializable helpers
         private class SerConversationEntry : IExposable
@@ -43,25 +47,27 @@ namespace RimAI.Core.Infrastructure.Persistence
             }
         }
 
-        private class SerConversationRecord : IExposable
+        private class SerConversationRecordV2 : IExposable
         {
-            public string ConvId = string.Empty;
+            public string ConvId = string.Empty; // conversationId (GUID)
+            public List<string> ParticipantIds = new();
             public List<SerConversationEntry> Entries = new();
 
-            public SerConversationRecord() { }
-            public SerConversationRecord(string id, Conversation conv)
+            public SerConversationRecordV2() { }
+            public SerConversationRecordV2(ConversationRecord rec)
             {
-                ConvId  = id;
-                Entries = conv.Entries.Select(e => new SerConversationEntry(e)).ToList();
+                ConvId  = rec.ConversationId;
+                ParticipantIds = rec.ParticipantIds?.ToList() ?? new List<string>();
+                Entries = rec.Entries.Select(e => new SerConversationEntry(e)).ToList();
             }
-            public KeyValuePair<string, Conversation> ToModel()
+            public ConversationRecord ToModel()
             {
-                var conv = new Conversation(Entries.Select(e => e.ToModel()).ToList());
-                return new KeyValuePair<string, Conversation>(ConvId, conv);
+                return new ConversationRecord(ConvId, ParticipantIds, Entries.Select(e => e.ToModel()).ToList());
             }
             public void ExposeData()
             {
                 Scribe_Values.Look(ref ConvId, nameof(ConvId));
+                Scribe_Collections.Look(ref ParticipantIds, nameof(ParticipantIds), LookMode.Value);
                 Scribe_Collections.Look(ref Entries, nameof(Entries), LookMode.Deep);
             }
         }
@@ -98,38 +104,45 @@ namespace RimAI.Core.Infrastructure.Persistence
         {
             if (historyService == null) return;
 
-            var state = historyService.GetStateForPersistence();
+            var state = historyService.GetV2StateForPersistence();
 
-            // --- Conversations ---
-            var serRecords = state.PrimaryStore.Select(kvp => new SerConversationRecord(kvp.Key, kvp.Value)).ToList();
+            // --- Conversations (V2) ---
+            var serRecords = state.Conversations.Values.Select(rec => new SerConversationRecordV2(rec)).ToList();
             Scribe_Collections.Look(ref serRecords, ConversationsNode, LookMode.Deep);
 
-            // --- Inverted Index --- (convert HashSet -> List for serialization)
-            var invIndex = state.InvertedIndex.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToList());
-            Scribe_Collections.Look(ref invIndex, InvertedIndexNode, LookMode.Value, LookMode.Value);
+            // --- ConvKeyIndex ---
+            var convKeyIndex = state.ConvKeyIndex.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.ToList() ?? new List<string>());
+            Scribe_Collections.Look(ref convKeyIndex, ConvKeyIndexNode, LookMode.Value, LookMode.Value);
+
+            // --- ParticipantIndex ---
+            var partIndex = state.ParticipantIndex.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.ToList() ?? new List<string>());
+            Scribe_Collections.Look(ref partIndex, ParticipantIndexNode, LookMode.Value, LookMode.Value);
         }
 
         public void LoadHistoryState(RimAI.Core.Services.IHistoryWriteService historyService)
         {
             if (historyService == null) return;
 
-            var serRecords = new List<SerConversationRecord>();
-            var invIndex  = new Dictionary<string, List<string>>();
+            var serRecords = new List<SerConversationRecordV2>();
+            var convKeyIndex = new Dictionary<string, List<string>>();
+            var partIndex = new Dictionary<string, List<string>>();
 
             Scribe_Collections.Look(ref serRecords, ConversationsNode, LookMode.Deep);
-            Scribe_Collections.Look(ref invIndex, InvertedIndexNode, LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref convKeyIndex, ConvKeyIndexNode, LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref partIndex, ParticipantIndexNode, LookMode.Value, LookMode.Value);
 
-            // 处理加载时的空值情况
-            if (serRecords == null) serRecords = new List<SerConversationRecord>();
-            if (invIndex == null) invIndex = new Dictionary<string, List<string>>();
+            serRecords ??= new List<SerConversationRecordV2>();
+            convKeyIndex ??= new Dictionary<string, List<string>>();
+            partIndex ??= new Dictionary<string, List<string>>();
 
-            // Rebuild primary store
-            var primary = serRecords.Select(r => r.ToModel()).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            // Rebuild inverted index
-            var inverted = invIndex.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value));
-
-            var newState = new HistoryState(primary, inverted);
-            historyService.LoadStateFromPersistence(newState);
+            var conversations = new Dictionary<string, ConversationRecord>();
+            foreach (var r in serRecords)
+            {
+                var rec = r.ToModel();
+                conversations[rec.ConversationId] = rec;
+            }
+            var stateV2 = new HistoryV2State(conversations, convKeyIndex, partIndex);
+            historyService.LoadV2StateFromPersistence(stateV2);
         }
 
         public void PersistPersonaState(IPersonaService personaService)
@@ -154,15 +167,15 @@ namespace RimAI.Core.Infrastructure.Persistence
             personaService.LoadStateFromPersistence(newState);
         }
 
-        #region Fixed Prompts & Biographies
-        private class SerFixedPromptEntry : IExposable
+        #region Fixed Prompts & Biographies (现结构：convKey；后续将切换至 pawnId)
+        private class SerFixedPromptV2 : IExposable
         {
-            public string ConvKey = string.Empty;
-            public Dictionary<string, string> Map = new();
+            public string PawnId = string.Empty;
+            public string Text = string.Empty;
             public void ExposeData()
             {
-                Scribe_Values.Look(ref ConvKey, nameof(ConvKey));
-                Scribe_Collections.Look(ref Map, nameof(Map), LookMode.Value, LookMode.Value);
+                Scribe_Values.Look(ref PawnId, nameof(PawnId));
+                Scribe_Values.Look(ref Text, nameof(Text));
             }
         }
 
@@ -190,20 +203,20 @@ namespace RimAI.Core.Infrastructure.Persistence
 
         private class SerBiographyRecord : IExposable
         {
-            public string ConvKey = string.Empty;
+            public string PawnId = string.Empty;
             public List<SerBiographyItem> Items = new();
             public SerBiographyRecord() { }
-            public SerBiographyRecord(string key, IReadOnlyList<RimAI.Core.Modules.Persona.BiographyItem> items)
+            public SerBiographyRecord(string pawnId, IReadOnlyList<RimAI.Core.Modules.Persona.BiographyItem> items)
             {
-                ConvKey = key; Items = items.Select(i => new SerBiographyItem(i)).ToList();
+                PawnId = pawnId; Items = items.Select(i => new SerBiographyItem(i)).ToList();
             }
             public KeyValuePair<string, List<RimAI.Core.Modules.Persona.BiographyItem>> ToModel()
             {
-                return new KeyValuePair<string, List<RimAI.Core.Modules.Persona.BiographyItem>>(ConvKey, Items.Select(i => i.ToModel()).ToList());
+                return new KeyValuePair<string, List<RimAI.Core.Modules.Persona.BiographyItem>>(PawnId, Items.Select(i => i.ToModel()).ToList());
             }
             public void ExposeData()
             {
-                Scribe_Values.Look(ref ConvKey, nameof(ConvKey));
+                Scribe_Values.Look(ref PawnId, nameof(PawnId));
                 Scribe_Collections.Look(ref Items, nameof(Items), LookMode.Deep);
             }
         }
@@ -229,20 +242,20 @@ namespace RimAI.Core.Infrastructure.Persistence
 
         private class SerRecapRecord : IExposable
         {
-            public string ConvKey = string.Empty;
+            public string ConversationId = string.Empty;
             public List<SerRecapItem> Items = new();
             public SerRecapRecord() { }
             public SerRecapRecord(string key, IReadOnlyList<RimAI.Core.Modules.History.RecapSnapshotItem> items)
             {
-                ConvKey = key; Items = items.Select(i => new SerRecapItem(i)).ToList();
+                ConversationId = key; Items = items.Select(i => new SerRecapItem(i)).ToList();
             }
             public KeyValuePair<string, List<RimAI.Core.Modules.History.RecapSnapshotItem>> ToModel()
             {
-                return new KeyValuePair<string, List<RimAI.Core.Modules.History.RecapSnapshotItem>>(ConvKey, Items.Select(i => i.ToModel()).ToList());
+                return new KeyValuePair<string, List<RimAI.Core.Modules.History.RecapSnapshotItem>>(ConversationId, Items.Select(i => i.ToModel()).ToList());
             }
             public void ExposeData()
             {
-                Scribe_Values.Look(ref ConvKey, nameof(ConvKey));
+                Scribe_Values.Look(ref ConversationId, nameof(ConversationId));
                 Scribe_Collections.Look(ref Items, nameof(Items), LookMode.Deep);
             }
         }
@@ -250,25 +263,25 @@ namespace RimAI.Core.Infrastructure.Persistence
         public void PersistFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService)
         {
             if (fixedPromptService == null) return;
-            var snap = fixedPromptService.ExportSnapshot();
-            var list = snap.Select(kvp => new SerFixedPromptEntry { ConvKey = kvp.Key, Map = kvp.Value.ToDictionary(x => x.Key, x => x.Value) }).ToList();
+            var map = fixedPromptService.ExportSnapshot(); // pawnId -> text
+            var list = map.Select(kvp => new SerFixedPromptV2 { PawnId = kvp.Key, Text = kvp.Value ?? string.Empty }).ToList();
             Scribe_Collections.Look(ref list, FixedPromptsNode, LookMode.Deep);
         }
 
         public void LoadFixedPrompts(RimAI.Core.Modules.Persona.IFixedPromptService fixedPromptService)
         {
             if (fixedPromptService == null) return;
-            var list = new List<SerFixedPromptEntry>();
+            var list = new List<SerFixedPromptV2>();
             Scribe_Collections.Look(ref list, FixedPromptsNode, LookMode.Deep);
-            list ??= new List<SerFixedPromptEntry>();
-            var snap = list.ToDictionary(e => e.ConvKey, e => (IReadOnlyDictionary<string, string>) (e.Map ?? new Dictionary<string, string>()));
-            fixedPromptService.ImportSnapshot(snap);
+            list ??= new List<SerFixedPromptV2>();
+            var map = list.ToDictionary(e => e.PawnId ?? string.Empty, e => e.Text ?? string.Empty);
+            fixedPromptService.ImportSnapshot(map);
         }
 
         public void PersistBiographies(RimAI.Core.Modules.Persona.IBiographyService biographyService)
         {
             if (biographyService == null) return;
-            var snap = biographyService.ExportSnapshot();
+            var snap = biographyService.ExportSnapshot(); // pawnId -> list
             var list = snap.Select(kvp => new SerBiographyRecord(kvp.Key, kvp.Value)).ToList();
             Scribe_Collections.Look(ref list, BiographiesNode, LookMode.Deep);
         }
@@ -299,6 +312,62 @@ namespace RimAI.Core.Infrastructure.Persistence
             list ??= new List<SerRecapRecord>();
             var snap = list.Select(r => r.ToModel()).ToDictionary(k => k.Key, v => (IReadOnlyList<RimAI.Core.Modules.History.RecapSnapshotItem>)v.Value);
             recapService.ImportSnapshot(snap);
+        }
+
+        // --- Persona Bindings ---
+        private class SerPersonaBinding : IExposable
+        {
+            public string PawnId = string.Empty;
+            public string PersonaName = string.Empty;
+            public int Revision = 0;
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref PawnId, nameof(PawnId));
+                Scribe_Values.Look(ref PersonaName, nameof(PersonaName));
+                Scribe_Values.Look(ref Revision, nameof(Revision));
+            }
+        }
+
+        public void PersistPersonaBindings(RimAI.Core.Modules.Persona.IPersonaBindingService bindingService)
+        {
+            if (bindingService == null) return;
+            var list = bindingService.GetAllBindings()
+                .Select(b => new SerPersonaBinding { PawnId = b.PawnId, PersonaName = b.PersonaName, Revision = b.Revision })
+                .ToList();
+            Scribe_Collections.Look(ref list, PersonaBindingsNode, LookMode.Deep);
+        }
+
+        public void LoadPersonaBindings(RimAI.Core.Modules.Persona.IPersonaBindingService bindingService)
+        {
+            if (bindingService == null) return;
+            var list = new List<SerPersonaBinding>();
+            Scribe_Collections.Look(ref list, PersonaBindingsNode, LookMode.Deep);
+            list ??= new List<SerPersonaBinding>();
+            foreach (var b in list)
+            {
+                if (!string.IsNullOrWhiteSpace(b?.PawnId) && !string.IsNullOrWhiteSpace(b?.PersonaName))
+                {
+                    bindingService.Bind(b.PawnId, b.PersonaName, b.Revision);
+                }
+            }
+        }
+
+        public void PersistPlayerId(RimAI.Core.Modules.World.IParticipantIdService participantIdService)
+        {
+            if (participantIdService == null) return;
+            var pid = participantIdService.ExportPlayerId();
+            Scribe_Values.Look(ref pid, PlayerIdNode);
+        }
+
+        public void LoadPlayerId(RimAI.Core.Modules.World.IParticipantIdService participantIdService)
+        {
+            if (participantIdService == null) return;
+            string pid = null;
+            Scribe_Values.Look(ref pid, PlayerIdNode);
+            if (!string.IsNullOrWhiteSpace(pid))
+            {
+                participantIdService.ImportPlayerId(pid);
+            }
         }
         #endregion
     }

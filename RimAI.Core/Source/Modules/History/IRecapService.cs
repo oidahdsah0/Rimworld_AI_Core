@@ -12,44 +12,44 @@ namespace RimAI.Core.Modules.History
     internal interface IRecapService
     {
         /// <summary>
-        /// 历史条目新增时的回调。
+        /// 历史条目新增时的回调（V2）。
         /// </summary>
-        void OnEntryRecorded(string convKey, ConversationEntry entry);
+        void OnEntryRecorded(string conversationId, ConversationEntry entry);
 
         /// <summary>
         /// 主动触发“每十轮”的叠加（用于测试或补偿）。
         /// </summary>
-        void OnEveryTenRounds(string convKey);
+        void OnEveryTenRounds(string conversationId);
 
         /// <summary>
         /// UI 触发的一键重述；后台执行，不阻塞主流程。
         /// </summary>
-        Task RebuildRecapAsync(string convKey, CancellationToken ct = default);
+        Task RebuildRecapAsync(string conversationId, CancellationToken ct = default);
 
         /// <summary>
-        /// （调试用）获取指定会话键的累计轮次计数。
+        /// （调试用）获取指定会话（conversationId）的累计轮次计数。
         /// </summary>
-        int GetCounter(string convKey);
+        int GetCounter(string conversationId);
 
         /// <summary>
-        /// 读取指定会话键的前情提要字典（倒序）。
+        /// 读取指定会话（conversationId）的前情提要字典（倒序）。
         /// </summary>
-        IReadOnlyList<RecapSnapshotItem> GetRecapItems(string convKey);
+        IReadOnlyList<RecapSnapshotItem> GetRecapItems(string conversationId);
 
         /// <summary>
         /// 更新字典项文本。
         /// </summary>
-        bool UpdateRecapItem(string convKey, string itemId, string newText);
+        bool UpdateRecapItem(string conversationId, string itemId, string newText);
 
         /// <summary>
         /// 删除字典项。
         /// </summary>
-        bool RemoveRecapItem(string convKey, string itemId);
+        bool RemoveRecapItem(string conversationId, string itemId);
 
         /// <summary>
         /// 重排字典项到指定索引。
         /// </summary>
-        bool ReorderRecapItem(string convKey, string itemId, int newIndex);
+        bool ReorderRecapItem(string conversationId, string itemId, int newIndex);
 
         // 快照（持久化）
         IReadOnlyDictionary<string, IReadOnlyList<RecapSnapshotItem>> ExportSnapshot();

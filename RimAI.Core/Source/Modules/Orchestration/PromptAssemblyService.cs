@@ -11,12 +11,13 @@ using RimAI.Core.Contracts.Services;
 using RimAI.Core.Settings;
 using InfraConfig = RimAI.Core.Infrastructure.Configuration.IConfigurationService;
 using CoreSvc = RimAI.Core.Infrastructure.CoreServices;
+using RimAI.Core.Contracts.Eventing;
+using Newtonsoft.Json;
 
 namespace RimAI.Core.Modules.Orchestration
 {
     /// <summary>
-    /// 提示词组装服务的最小占位实现（M1）。
-    /// 暂时返回空字符串；后续阶段将注入固定提示/人物传记段落/前情提要/历史片段。
+    /// 提示词组装服务（M4）。统一基于模板与 Composer 组装 Chat/Command 的 system 提示。
     /// </summary>
     internal sealed class PromptAssemblyService : IPromptAssemblyService
     {
@@ -26,13 +27,17 @@ namespace RimAI.Core.Modules.Orchestration
         private readonly IRecapService _recap;
         private readonly IHistoryQueryService _historyQuery;
         private readonly InfraConfig _config;
+        private readonly RimAI.Core.Modules.Prompting.IPromptComposer _composer;
+        private readonly RimAI.Core.Modules.Prompting.IPromptTemplateService _templates;
 
         public PromptAssemblyService(IParticipantIdService pid,
                                      IFixedPromptService fixedPrompts,
                                      IBiographyService bio,
                                      IRecapService recap,
                                      IHistoryQueryService historyQuery,
-                                     InfraConfig config)
+                                     InfraConfig config,
+                                     RimAI.Core.Modules.Prompting.IPromptComposer composer,
+                                     RimAI.Core.Modules.Prompting.IPromptTemplateService templates)
         {
             _pid = pid;
             _fixedPrompts = fixedPrompts;
@@ -40,19 +45,22 @@ namespace RimAI.Core.Modules.Orchestration
             _recap = recap;
             _historyQuery = historyQuery;
             _config = config;
+            _composer = composer;
+            _templates = templates;
         }
 
-        public Task<string> BuildSystemPromptAsync(IReadOnlyCollection<string> participantIds, CancellationToken ct = default)
+        public async Task<string> BuildSystemPromptAsync(IReadOnlyCollection<string> participantIds, PromptAssemblyMode mode, string userInput, string locale = null, CancellationToken ct = default)
         {
             if (participantIds == null || participantIds.Count == 0)
-                return Task.FromResult(string.Empty);
+                return string.Empty;
 
             var convKey = string.Join("|", participantIds.OrderBy(x => x, StringComparer.Ordinal));
-            var cfg = _config?.Current?.History ?? new HistoryConfig();
+            var cfg = _config?.Current;
+            var histCfg = cfg?.History ?? new HistoryConfig();
+            var localeToUse = locale ?? _templates.ResolveLocale();
 
-            var sb = new StringBuilder(1024);
-
-            // 1) 可选：人格（若参与者中包含 persona:<name>#<rev>）
+            // Persona（若参与者包含 persona:）
+            string personaPrompt = string.Empty;
             var personaId = participantIds.FirstOrDefault(x => x.StartsWith("persona:", StringComparison.Ordinal));
             if (!string.IsNullOrEmpty(personaId))
             {
@@ -61,100 +69,130 @@ namespace RimAI.Core.Modules.Orchestration
                     var tail = personaId.Substring("persona:".Length);
                     var name = tail.Contains('#') ? tail.Split('#')[0] : tail;
                     var ps = CoreSvc.Locator.Get<IPersonaService>();
-                    var p = ps?.Get(name);
-                    if (p != null && !string.IsNullOrWhiteSpace(p.SystemPrompt))
-                    {
-                        sb.AppendLine("[Persona]");
-                        sb.AppendLine(p.SystemPrompt.Trim());
-                        sb.AppendLine();
-                    }
+                    personaPrompt = ps?.Get(name)?.SystemPrompt ?? string.Empty;
                 }
-                catch { /* ignore persona errors */ }
+                catch { }
             }
 
-            bool isPlayerNpc = participantIds.Any(x => x.StartsWith("player:", StringComparison.Ordinal)) &&
-                               participantIds.Any(x => x.StartsWith("pawn:", StringComparison.Ordinal));
-
-            // 2) 固定提示词（仅在玩家 v NPC 场景注入）
-            if (isPlayerNpc)
+            bool isPlayerNpc = participantIds.Any(x => x.StartsWith("player:", StringComparison.Ordinal)) && participantIds.Any(x => x.StartsWith("pawn:", StringComparison.Ordinal));
+            if (mode == PromptAssemblyMode.Chat)
             {
-                var map = _fixedPrompts.GetAll(convKey);
-                if (map != null && map.Count > 0)
+                var chatSeg = cfg?.Prompt?.Segments?.Chat;
+                _composer.Begin(cfg?.Prompt?.TemplateChatKey ?? "chat", localeToUse);
+                if ((chatSeg?.IncludePersona ?? true) && !string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
+
+                var overrideText = _fixedPrompts.GetConvKeyOverride(convKey);
+                if ((chatSeg?.IncludeFixedPrompts ?? true) && !string.IsNullOrWhiteSpace(overrideText)) _composer.Add("fixed_prompts", overrideText);
+                else if (chatSeg?.IncludeFixedPrompts ?? true)
                 {
-                    sb.AppendLine("[FixedPrompts]");
                     foreach (var pid in participantIds)
                     {
-                        if (map.TryGetValue(pid, out var text) && !string.IsNullOrWhiteSpace(text))
-                        {
-                            var name = _pid.GetDisplayName(pid);
-                            sb.Append("- ").Append(name).Append(": ").AppendLine(text.Trim());
-                        }
+                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
+                        var text = _fixedPrompts.GetByPawn(pid);
+                        if (!string.IsNullOrWhiteSpace(text)) _composer.Add("fixed_prompts", $"- {_pid.GetDisplayName(pid)}: {text}");
                     }
-                    sb.AppendLine();
                 }
-            }
-
-            // 3) 人物传记（仅 1v1 player↔pawn）
-            if (participantIds.Count == 2 && isPlayerNpc)
-            {
-                var bios = _bio.List(convKey);
-                if (bios != null && bios.Count > 0)
+                if (chatSeg?.IncludeRecap ?? true)
                 {
-                    sb.AppendLine("[Biography]");
-                    foreach (var it in bios.OrderBy(b => b.CreatedAt))
+                    IReadOnlyList<RecapSnapshotItem> recaps = Array.Empty<RecapSnapshotItem>();
+                    try
                     {
-                        sb.Append("- ").AppendLine(it.Text?.Trim() ?? string.Empty);
+                        var writer = CoreSvc.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+                        var list = await writer.FindByConvKeyAsync(convKey);
+                        var cid = list?.LastOrDefault();
+                        if (!string.IsNullOrWhiteSpace(cid)) recaps = _recap.GetRecapItems(cid);
                     }
-                    sb.AppendLine();
-                }
-            }
-
-            // 4) 前情提要字典（按时间倒序，取最近 K 条）
-            var recaps = _recap.GetRecapItems(convKey);
-            if (recaps != null && recaps.Count > 0)
-            {
-                int k = Math.Max(1, cfg.RecapDictMaxEntries);
-                var take = recaps.OrderByDescending(r => r.CreatedAt).Take(k).Reverse();
-                sb.AppendLine("[Recap]");
-                foreach (var r in take)
-                {
-                    sb.Append("- ").AppendLine(r.Text?.Trim() ?? string.Empty);
-                }
-                sb.AppendLine();
-            }
-
-            // 5) 相关历史最终输出片段（主线最近 N 条）
-            try
-            {
-                var ctxTask = _historyQuery.GetHistoryAsync(participantIds.ToList());
-                ctxTask.Wait(ct);
-                var ctx = ctxTask.Result;
-                var lastEntries = ctx.MainHistory
-                    .SelectMany(c => c.Entries)
-                    .OrderByDescending(e => e.Timestamp)
-                    .Take(10)
-                    .OrderBy(e => e.Timestamp)
-                    .ToList();
-                if (lastEntries.Count > 0)
-                {
-                    sb.AppendLine("[RecentHistory]");
-                    foreach (var e in lastEntries)
+                    catch { }
+                    if (recaps != null && recaps.Count > 0)
                     {
-                        sb.Append("- ").Append(e.SpeakerId).Append(": ").AppendLine(e.Content);
+                        int k = Math.Max(1, histCfg.RecapDictMaxEntries);
+                        var lines = recaps.OrderByDescending(r => r.CreatedAt).Take(k).Reverse().Select(r => r.Text);
+                        _composer.AddRange("recap", lines);
                     }
-                    sb.AppendLine();
                 }
+                if (chatSeg?.IncludeRecentHistory ?? true)
+                {
+                    var ctx = await _historyQuery.GetHistoryAsync(participantIds.ToList());
+                    var lines = ctx.MainHistory.SelectMany(c => c.Entries).OrderByDescending(e => e.Timestamp).Take(Math.Max(1, chatSeg?.RecentHistoryMaxEntries ?? 6)).OrderBy(e => e.Timestamp).Select(e => $"- {e.SpeakerId}: {e.Content}");
+                    _composer.AddRange("recent_history", lines);
+                }
+                _composer.Add("user_utterance", userInput ?? string.Empty);
+                var output = _composer.Build(Math.Max(1000, histCfg.MaxPromptChars), out var audit);
+                try
+                {
+                    CoreSvc.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                    {
+                        Source = nameof(PromptAssemblyService),
+                        Stage = "PromptAudit",
+                        Message = "Chat",
+                        PayloadJson = JsonConvert.SerializeObject(audit)
+                    });
+                }
+                catch { }
+                return output;
             }
-            catch { /* ignore history errors */ }
-
-            // 裁剪到预算
-            var textOut = sb.ToString();
-            int budget = Math.Max(1000, cfg.MaxPromptChars);
-            if (textOut.Length > budget)
+            else
             {
-                textOut = textOut.Substring(0, budget);
+                var cmdSeg = cfg?.Prompt?.Segments?.Command;
+                _composer.Begin(cfg?.Prompt?.TemplateCommandKey ?? "command", localeToUse);
+                if ((cmdSeg?.IncludePersona ?? true) && !string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
+                var overrideText = _fixedPrompts.GetConvKeyOverride(convKey);
+                if ((cmdSeg?.IncludeFixedPrompts ?? true) && !string.IsNullOrWhiteSpace(overrideText)) _composer.Add("fixed_prompts", overrideText);
+                else if (cmdSeg?.IncludeFixedPrompts ?? true)
+                {
+                    foreach (var pid in participantIds)
+                    {
+                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
+                        var text = _fixedPrompts.GetByPawn(pid);
+                        if (!string.IsNullOrWhiteSpace(text)) _composer.Add("fixed_prompts", $"- {_pid.GetDisplayName(pid)}: {text}");
+                    }
+                }
+                if ((cmdSeg?.IncludeBiography ?? true) && participantIds.Count == 2 && isPlayerNpc)
+                {
+                    var pawnId = participantIds.First(x => x.StartsWith("pawn:", StringComparison.Ordinal));
+                    var bio = _bio.ListByPawn(pawnId).OrderBy(b => b.CreatedAt).Select(b => "- " + b.Text);
+                    _composer.AddRange("biography", bio);
+                }
+                if (cmdSeg?.IncludeRecap ?? true)
+                {
+                    IReadOnlyList<RecapSnapshotItem> recaps = Array.Empty<RecapSnapshotItem>();
+                    try
+                    {
+                        var writer = CoreSvc.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+                        var list = await writer.FindByConvKeyAsync(convKey);
+                        var cid = list?.LastOrDefault();
+                        if (!string.IsNullOrWhiteSpace(cid)) recaps = _recap.GetRecapItems(cid);
+                    }
+                    catch { }
+                    if (recaps != null && recaps.Count > 0)
+                    {
+                        int k = Math.Max(1, histCfg.RecapDictMaxEntries);
+                        var lines = recaps.OrderByDescending(r => r.CreatedAt).Take(k).Reverse().Select(r => r.Text);
+                        _composer.AddRange("recap", lines);
+                    }
+                }
+                if (cmdSeg?.IncludeRelatedHistory ?? true)
+                {
+                    var ctx = await _historyQuery.GetHistoryAsync(participantIds.ToList());
+                    int perConv = Math.Max(1, cmdSeg?.RelatedMaxEntriesPerConversation ?? 5);
+                    var relatedLines = ctx.BackgroundHistory.SelectMany(c => c.Entries.OrderByDescending(e => e.Timestamp).Take(perConv).OrderBy(e => e.Timestamp)).Select(e => $"- {e.SpeakerId}: {e.Content}");
+                    _composer.AddRange("related_history", relatedLines);
+                }
+                _composer.Add("user_utterance", userInput ?? string.Empty);
+                var output = _composer.Build(Math.Max(1000, histCfg.MaxPromptChars), out var audit);
+                try
+                {
+                    CoreSvc.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                    {
+                        Source = nameof(PromptAssemblyService),
+                        Stage = "PromptAudit",
+                        Message = "Command",
+                        PayloadJson = JsonConvert.SerializeObject(audit)
+                    });
+                }
+                catch { }
+                return output;
             }
-            return Task.FromResult(textOut);
         }
     }
 }

@@ -17,6 +17,8 @@ namespace RimAI.Core.Lifecycle
         private readonly RimAI.Core.Modules.Persona.IFixedPromptService _fixedPromptService;
         private readonly RimAI.Core.Modules.Persona.IBiographyService _biographyService;
         private readonly RimAI.Core.Modules.History.IRecapService _recapService;
+        private readonly RimAI.Core.Modules.Persona.IPersonaBindingService _bindingService;
+        private readonly RimAI.Core.Modules.World.IParticipantIdService _participantIdService;
 
         public PersistenceManager(Game game) : base()
         {
@@ -27,6 +29,8 @@ namespace RimAI.Core.Lifecycle
             _fixedPromptService  = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IFixedPromptService>();
             _biographyService    = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IBiographyService>();
             _recapService        = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.History.IRecapService>();
+            _bindingService      = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IPersonaBindingService>();
+            _participantIdService= Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.World.IParticipantIdService>();
         }
 
         public override void ExposeData()
@@ -39,6 +43,8 @@ namespace RimAI.Core.Lifecycle
                     _persistenceService.PersistFixedPrompts(_fixedPromptService);
                     _persistenceService.PersistBiographies(_biographyService);
                     _persistenceService.PersistRecap(_recapService);
+                    _persistenceService.PersistPersonaBindings(_bindingService);
+                    _persistenceService.PersistPlayerId(_participantIdService);
                     break;
                 case LoadSaveMode.LoadingVars:
                     _persistenceService.LoadHistoryState(_historyService);
@@ -46,6 +52,8 @@ namespace RimAI.Core.Lifecycle
                     _persistenceService.LoadFixedPrompts(_fixedPromptService);
                     _persistenceService.LoadBiographies(_biographyService);
                     _persistenceService.LoadRecap(_recapService);
+                    _persistenceService.LoadPersonaBindings(_bindingService);
+                    _persistenceService.LoadPlayerId(_participantIdService);
                     break;
             }
         }

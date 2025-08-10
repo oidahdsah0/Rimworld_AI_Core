@@ -3,25 +3,26 @@ using System.Collections.Generic;
 namespace RimAI.Core.Modules.Persona
 {
     /// <summary>
-    /// 固定提示词服务（M3 内存 MVP）。按参与者 ID 存储/读取固定提示词文本。
+    /// 固定提示词服务（V2）。
+    /// 主存以 pawnId → text 存储，支持 convKey 覆盖层（特定会话上下文）。
     /// </summary>
     internal interface IFixedPromptService
     {
-        // 基于 convKey 的访问（推荐）
-        string Get(string convKey, string participantId);
-        void Upsert(string convKey, string participantId, string text);
-        bool Delete(string convKey, string participantId);
-        IReadOnlyDictionary<string, string> GetAll(string convKey);
+        // 主存（按 PawnId）
+        string GetByPawn(string pawnId);
+        void UpsertByPawn(string pawnId, string text);
+        bool DeleteByPawn(string pawnId);
+        IReadOnlyDictionary<string, string> GetAllByPawn();
 
-        // 兼容旧签名（全局作用域，不建议使用）
-        string Get(string participantId);
-        void Upsert(string participantId, string text);
-        bool Delete(string participantId);
-        IReadOnlyDictionary<string, string> GetAll();
+        // 覆盖层（按 convKey；覆盖优先）
+        string GetConvKeyOverride(string convKey);
+        void UpsertConvKeyOverride(string convKey, string text);
+        bool DeleteConvKeyOverride(string convKey);
+        IReadOnlyDictionary<string, string> GetAllConvKeyOverrides();
 
-        // 快照（持久化）
-        IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ExportSnapshot();
-        void ImportSnapshot(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> snapshot);
+        // 快照（持久化，仅主存）
+        IReadOnlyDictionary<string, string> ExportSnapshot();
+        void ImportSnapshot(IReadOnlyDictionary<string, string> snapshot);
     }
 }
 

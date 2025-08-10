@@ -59,6 +59,17 @@ namespace RimAI.Core.Lifecycle
                     catch { /* ignore */ }
                     finally { _toolIndexTickCheckTriggered = true; }
                 }
+
+                // P10-M5: 每象限结束时触发一次前情提要全局压缩（可配）
+                if (Find.TickManager.TicksGame % (60000 * 15) == 0 && Current.Game != null && Current.Game.InitData == null)
+                {
+                    try
+                    {
+                        var recap = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.History.IRecapService>() as RimAI.Core.Modules.History.RecapService;
+                        recap?.OnQuadrumEnd();
+                    }
+                    catch { /* ignore */ }
+                }
             }
             catch (System.Exception ex)
             {

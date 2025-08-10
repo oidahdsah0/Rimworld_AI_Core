@@ -54,6 +54,9 @@ namespace RimAI.Core.Infrastructure
             // P8: PersonaService 注册（策略构造需要）
             Register<RimAI.Core.Contracts.Services.IPersonaService,
                      RimAI.Core.Modules.Persona.PersonaService>();
+            // P10-M4: Persona Binding Service 注册
+            Register<RimAI.Core.Modules.Persona.IPersonaBindingService,
+                     RimAI.Core.Modules.Persona.PersonaBindingService>();
             // P8: Event Bus / Aggregator 注册（非构造期依赖，但提前注册更安全）
             Register<RimAI.Core.Contracts.Eventing.IEventBus,
                      RimAI.Core.Modules.Eventing.EventBus>();
@@ -100,6 +103,10 @@ namespace RimAI.Core.Infrastructure
                      RimAI.Core.Modules.Persona.FixedPromptService>();
             Register<RimAI.Core.Modules.Persona.IBiographyService,
                      RimAI.Core.Modules.Persona.BiographyService>();
+
+            // P10-M5: Relations Index（只读）
+            Register<RimAI.Core.Services.IRelationsIndexService,
+                     RimAI.Core.Services.RelationsIndexService>();
 
             // 预先构造配置服务实例，便于后续使用。
             var cfgImpl = Resolve(typeof(RimAI.Core.Infrastructure.Configuration.IConfigurationService));

@@ -615,13 +615,32 @@ namespace RimAI.Core.UI.HistoryManager
 
         private async Task LoadByConvKeyAsync(string convKey)
         {
-            _convKeyInput = convKey ?? string.Empty;
+            _convKeyInput = CanonicalizeConvKey(convKey ?? string.Empty);
             _selectedConversationId = string.Empty;
             _convCandidates.Clear();
             try
             {
                 var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
                 _convCandidates = list?.ToList() ?? new List<string>();
+
+                // 回退：若按 convKey 未找到，则尝试按参与者列举（兼容 player id 变更或顺序问题）
+                if (_convCandidates.Count == 0)
+                {
+                    var ids = _convKeyInput.Split('|');
+                    var union = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (var pid in ids)
+                    {
+                        if (string.IsNullOrWhiteSpace(pid)) continue;
+                        if (pid.StartsWith("player:", StringComparison.Ordinal))
+                        {
+                            // 兼容旧档：尝试 __SAVE__ 作为备选
+                            try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) union.Add(c); } catch { }
+                        }
+                        try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) union.Add(c); } catch { }
+                    }
+                    _convCandidates = union.ToList();
+                }
+
                 _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
             }
             catch { /* ignore */ }
@@ -644,6 +663,22 @@ namespace RimAI.Core.UI.HistoryManager
                 {
                     var list = await _historyWrite.FindByConvKeyAsync(_convKeyInput);
                     _convCandidates = list?.ToList() ?? new List<string>();
+                    if (_convCandidates.Count == 0)
+                    {
+                        // 同 LoadByConvKey 回退逻辑
+                        var ids = _convKeyInput.Split('|');
+                        var union = new HashSet<string>(StringComparer.Ordinal);
+                        foreach (var pid in ids)
+                        {
+                            if (string.IsNullOrWhiteSpace(pid)) continue;
+                            if (pid.StartsWith("player:", StringComparison.Ordinal))
+                            {
+                                try { foreach (var c in await _historyWrite.ListByParticipantAsync("player:__SAVE__")) union.Add(c); } catch { }
+                            }
+                            try { foreach (var c in await _historyWrite.ListByParticipantAsync(pid)) union.Add(c); } catch { }
+                        }
+                        _convCandidates = union.ToList();
+                    }
                     _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
                 }
                 catch { /* ignore */ }
@@ -661,6 +696,13 @@ namespace RimAI.Core.UI.HistoryManager
             {
                 _entries = new List<ConversationEntry>();
             }
+        }
+
+        private static string CanonicalizeConvKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return string.Empty;
+            var ids = key.Split('|').Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim());
+            return string.Join("|", ids.OrderBy(x => x, StringComparer.Ordinal));
         }
         #endregion
     }

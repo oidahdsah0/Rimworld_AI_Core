@@ -23,6 +23,8 @@ namespace RimAI.Core.UI.History
                         string pawnId = Infrastructure.CoreServices.Locator.Get<Modules.World.IParticipantIdService>().FromVerseObject(pawn);
                         string playerId = Infrastructure.CoreServices.Locator.Get<Modules.World.IParticipantIdService>().GetPlayerId();
                         string convKey = string.Join("|", new[] { pawnId, playerId });
+                        // 将当前键写入全局 UI 状态，供窗口与后续切换使用
+                        RimAI.Core.UI.HistoryManager.HistoryUIState.CurrentConvKey = convKey;
                         Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager(convKey));
                     }
                     catch

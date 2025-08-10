@@ -71,7 +71,8 @@ namespace RimAI.Core.UI.HistoryManager
             if (!string.IsNullOrWhiteSpace(presetConvKey))
             {
                 _demoPrepared = true; // 禁止自动生成 Demo
-                _convKeyInput = presetConvKey;
+                _convKeyInput = CanonicalizeConvKey(presetConvKey);
+                HistoryUIState.CurrentConvKey = _convKeyInput;
                 _ = ReloadKeysAsync();
                 _ = ReloadEntriesAsync();
             }
@@ -156,7 +157,32 @@ namespace RimAI.Core.UI.HistoryManager
                 var size = Text.CalcSize(label);
                 var r = new Rect(curX, y, size.x + 20f, 24f);
                 bool on = _activeTab == i;
-                if (Widgets.ButtonText(r, label, drawBackground: on)) _activeTab = i;
+                if (Widgets.ButtonText(r, label, drawBackground: on))
+                {
+                    // 切换 Tab 时，确保 convKey 与 cid 与全局状态一致
+                    var canon = CanonicalizeConvKey(_convKeyInput);
+                    if (!string.Equals(canon, _convKeyInput, System.StringComparison.Ordinal))
+                    {
+                        _ = LoadByConvKeyAsync(canon);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(HistoryUIState.CurrentConvKey) && !string.Equals(HistoryUIState.CurrentConvKey, _convKeyInput, System.StringComparison.Ordinal))
+                    {
+                        _ = LoadByConvKeyAsync(HistoryUIState.CurrentConvKey);
+                    }
+                    else
+                    {
+                        // 同步当前选择的 cid（若不同步则尝试根据convKey刷新）
+                        if (!string.IsNullOrWhiteSpace(HistoryUIState.CurrentConversationId) && HistoryUIState.CurrentConvKey == _convKeyInput)
+                        {
+                            _selectedConversationId = HistoryUIState.CurrentConversationId;
+                        }
+                        else
+                        {
+                            _ = ReloadEntriesAsync();
+                        }
+                    }
+                    _activeTab = i;
+                }
                 curX += r.width + 8f;
             }
         }
@@ -616,6 +642,7 @@ namespace RimAI.Core.UI.HistoryManager
         private async Task LoadByConvKeyAsync(string convKey)
         {
             _convKeyInput = CanonicalizeConvKey(convKey ?? string.Empty);
+            HistoryUIState.CurrentConvKey = _convKeyInput;
             _selectedConversationId = string.Empty;
             _convCandidates.Clear();
             try
@@ -642,6 +669,7 @@ namespace RimAI.Core.UI.HistoryManager
                 }
 
                 _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
+                HistoryUIState.CurrentConversationId = _selectedConversationId;
             }
             catch { /* ignore */ }
             await ReloadEntriesAsync();
@@ -680,6 +708,7 @@ namespace RimAI.Core.UI.HistoryManager
                         _convCandidates = union.ToList();
                     }
                     _selectedConversationId = _convCandidates.LastOrDefault() ?? string.Empty; // 默认选择最新会话
+                    HistoryUIState.CurrentConversationId = _selectedConversationId;
                 }
                 catch { /* ignore */ }
             }
@@ -689,6 +718,7 @@ namespace RimAI.Core.UI.HistoryManager
                 {
                     var rec = await _historyWrite.GetConversationAsync(_selectedConversationId);
                     _entries = rec?.Entries?.ToList() ?? new List<ConversationEntry>();
+                    HistoryUIState.CurrentConversationId = _selectedConversationId;
                 }
                 catch { _entries = new List<ConversationEntry>(); }
             }

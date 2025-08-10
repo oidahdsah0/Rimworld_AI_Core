@@ -29,6 +29,8 @@ namespace RimAI.Core.Modules.History
         private readonly ConcurrentDictionary<string, int> _roundCounters = new();
         private readonly ConcurrentDictionary<string, List<RecapItem>> _recapDict = new();
         private readonly ConcurrentDictionary<string, object> _locks = new();
+        // 标记：当前是否处于“一键重述”回放阶段（用于放宽超时与限流）
+        private readonly ConcurrentDictionary<string, byte> _rebuildFlags = new();
 
         public RecapService(ILLMService llm, IHistoryWriteService history, IHistoryQueryService historyQuery, InfraConfigService config)
         {
@@ -93,15 +95,23 @@ namespace RimAI.Core.Modules.History
                     _recapDict[conversationId] = new List<RecapItem>();
                     _roundCounters[conversationId] = 0;
                 }
+                _rebuildFlags[conversationId] = 1;
 
                 // 读取该会话并按轮次回放
                 var rec = await _history.GetConversationAsync(conversationId);
                 var entries = (rec?.Entries ?? Array.Empty<ConversationEntry>()).OrderBy(e => e.Timestamp).ToList();
 
-                foreach (var e in entries)
+                try
                 {
-                    ct.ThrowIfCancellationRequested();
-                    OnEntryRecordedFromConversation(conversationId, e);
+                    foreach (var e in entries)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        OnEntryRecordedFromConversation(conversationId, e);
+                    }
+                }
+                finally
+                {
+                    _rebuildFlags.TryRemove(conversationId, out _);
                 }
             }, ct);
         }
@@ -209,7 +219,9 @@ namespace RimAI.Core.Modules.History
                 if (all.Count == 0) return;
 
                 string prompt = BuildSummaryPrompt(all);
-                var cts = new CancellationTokenSource(Math.Max(1000, cfg.Budget?.MaxLatencyMs ?? 5000));
+                var timeoutMs = Math.Max(1000, cfg.Budget?.MaxLatencyMs ?? 5000);
+                if (_rebuildFlags.ContainsKey(conversationId)) timeoutMs = Math.Max(timeoutMs, 20000);
+                var cts = new CancellationTokenSource(timeoutMs);
                 string text = null;
                 try
                 {
@@ -217,8 +229,9 @@ namespace RimAI.Core.Modules.History
                 }
                 catch (Exception ex)
                 {
-                    CoreServices.Logger.Warn($"[Recap] Summarize failed: {ex.Message}");
-                    return;
+                    CoreServices.Logger.Warn($"[Recap] Summarize failed: {ex.Message} (fallback)");
+                    // 退化为拼接 + 裁剪
+                    text = string.Join("\n", all.Select(e => e.Content));
                 }
 
                 if (string.IsNullOrWhiteSpace(text)) return;
@@ -258,7 +271,9 @@ namespace RimAI.Core.Modules.History
                 if (all.Count == 0) return;
 
                 string prompt = BuildAggregatePrompt(all);
-                var cts = new CancellationTokenSource(Math.Max(1000, cfg.Budget?.MaxLatencyMs ?? 5000));
+                var timeoutMs = Math.Max(1000, cfg.Budget?.MaxLatencyMs ?? 5000);
+                if (_rebuildFlags.ContainsKey(conversationId)) timeoutMs = Math.Max(timeoutMs, 20000);
+                var cts = new CancellationTokenSource(timeoutMs);
                 string text = null;
                 try
                 {
@@ -266,7 +281,7 @@ namespace RimAI.Core.Modules.History
                 }
                 catch (Exception ex)
                 {
-                    CoreServices.Logger.Warn($"[Recap] Aggregate failed: {ex.Message}");
+                    CoreServices.Logger.Warn($"[Recap] Aggregate failed: {ex.Message} (fallback)");
                     // 退化为拼接 + 裁剪
                     text = string.Join("\n", all.Select(e => e.Content));
                 }

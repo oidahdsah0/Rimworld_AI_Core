@@ -94,7 +94,7 @@ namespace RimAI.Core.Modules.Persona
             var locale = options.Locale ?? _templates.ResolveLocale();
             var cfg = _config.Current;
 
-            // 1) 校验玩家↔NPC + 人格绑定
+            // 1) 校验玩家↔NPC + 人格绑定（避免在 try/catch 内 yield）
             bool hasPlayer = participantIds.Any(x => x.StartsWith("player:"));
             bool hasPawn = participantIds.Any(x => x.StartsWith("pawn:"));
             if (options.RequireBoundPersona && (!hasPlayer || !hasPawn))
@@ -104,19 +104,23 @@ namespace RimAI.Core.Modules.Persona
             }
             if (options.RequireBoundPersona)
             {
+                string bindError = null;
+                bool bindingOk = false;
                 try
                 {
                     var binder = CoreServices.Locator.Get<IPersonaBindingService>();
                     var pawnId = participantIds.FirstOrDefault(x => x.StartsWith("pawn:"));
                     var binding = string.IsNullOrWhiteSpace(pawnId) ? null : binder?.GetBinding(pawnId);
-                    if (binding == null || string.IsNullOrWhiteSpace(binding.PersonaName))
-                    {
-                        yield return Result<UnifiedChatChunk>.Failure("该 NPC 未绑定人格，请先在人格管理中绑定。");
-                        yield break;
-                    }
+                    bindingOk = binding != null && !string.IsNullOrWhiteSpace(binding.PersonaName);
+                    if (!bindingOk) bindError = "该 NPC 未绑定人格，请先在人格管理中绑定。";
                 }
-                catch { /* 若绑定服务异常，保守拒绝 */
-                    yield return Result<UnifiedChatChunk>.Failure("人格绑定校验失败，请稍后重试或先完成绑定。");
+                catch
+                {
+                    bindError = "人格绑定校验失败，请稍后重试或先完成绑定。";
+                }
+                if (!bindingOk)
+                {
+                    yield return Result<UnifiedChatChunk>.Failure(bindError ?? "人格绑定校验失败。");
                     yield break;
                 }
             }

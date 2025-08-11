@@ -170,3 +170,9 @@ V4 的实现被分解为 8 个阶段。您可以在 [V4 实施计划](docs/v4/IM
 - **问题反馈**: [GitHub Issues](https://github.com/oidahdsah0/Rimworld_AI_Core/issues)
 - **参与讨论**: [GitHub Discussions](https://github.com/oidahdsah0/Rimworld_AI_Core/discussions)
 - **创意工坊**: [Workshop Page](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD)
+
+---
+
+> "This structure is not sound... It will be made so, by my skill."
+>
+> — Techpriest Enginseer, *Warhammer 40,000: Dawn of War*

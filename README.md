@@ -169,3 +169,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: [GitHub Issues](https://github.com/oidahdsah0/Rimworld_AI_Core/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/oidahdsah0/Rimworld_AI_Core/discussions)
 - **Steam Workshop**: [Workshop Page](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD)
+
+---
+
+> "This structure is not sound... It will be made so, by my skill."
+>
+> — Techpriest Enginseer, *Warhammer 40,000: Dawn of War*

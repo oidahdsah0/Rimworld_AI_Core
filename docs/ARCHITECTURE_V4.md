@@ -50,6 +50,7 @@
 | **P8 – Persona & Stream UI** | • Assistant 对话流式返回 ☐  • Persona.SystemPrompt 生效 ☐ |
 | **P9 – 策略层 + Embedding/RAG** | • 可切换 Classic/EmbeddingFirst 策略 ☐  • 工具向量库与匹配模式（LightningFast/FastTop1/NarrowTopK）与降级链 ☐  • RAG 命中与自动回退 Classic 有明确日志 ☐  • 轻量串联递归（≤3 步）生成 `final_prompt` 并注入 ☐ |
 | **P10 – 历史/前情提要/提示组装** | • 历史仅记录“最终输出”且可分页/编辑 ☐  • 每 N 轮总结、每 10 轮叠加“前情提要” ☐  • `IPromptAssemblyService` 将固定提示/人物传记/前情提要/历史片段组装注入 ☐ |
+| **P10.5 – 个性化模块（Personalization）** | • 新增 `IPersonalBeliefsAndIdeologyService` 与持久化 ☐ • 新“个性窗体”可编辑 固定提示词/人物传记/观点与意识形态 ☐ • 历史窗体移除个性编辑入口 ☐ • 组装服务从新个性化模块拉取素材 ☐ |
 
 每阶段的代码合并需附带录屏证明 Gate 全绿，以及更新本章节的 ✅ 标记。
 
@@ -66,6 +67,7 @@ graph TD
     Orchestration --> Emb["Embedding/RAG"]
     Orchestration --> PromptAsm["PromptAssembly"]
     PromptAsm --> History["History/Recap"]
+    PromptAsm --> Perso["Personalization\n(FixedPrompts/Biography/Beliefs)"]
     Tooling --> WorldData
     Tooling --> Command
     WorldData --> Scheduler
@@ -81,7 +83,8 @@ graph TD
 
 > **变化亮点**：  
 > • EventAggregator 延后到 P7，早期直接经由 Tooling 调 LLM。  
-> • Persona 位于 UI → Orchestration 的调用参数中，而非独立层，降低早期耦合。
+> • Persona 位于 UI → Orchestration 的调用参数中，而非独立层，降低早期耦合。  
+> • 自 P10.5 起引入“个性化模块（Personalization）”：将“固定提示词/人物传记/观点与意识形态”从历史系统剥离为高内聚模块，`IPromptAssemblyService` 直接依赖之。
 
 ---
 
@@ -193,6 +196,10 @@ graph TD
 - 进度可观测：阶段进度通过 `OrchestrationProgressEvent` 广播，Debug 面板可实时打印阶段信息与可选 Payload。
 - 配置：新增 `CoreConfig.Orchestration`（Strategy/Clarification/Planning/Progress/Safety）与 `CoreConfig.Embedding`（TopK/MaxContextChars/Tools.Mode/阈值/IndexPath/动态阈值等）；保存热生效并可触发索引重建。
 
+> 现状（已对齐实现）：
+> - DI 已注册 `IEmbeddingService`、`IRagIndexService`、`IToolVectorIndexService` 与两类策略；`OrchestrationService` 以 `IEnumerable<IOrchestrationStrategy>` 注入并选择策略。
+> - Debug 面板订阅 `OrchestrationProgressEvent`，展示阶段日志与可选 Payload 预览。
+
 ---
 
 ### 5.10 历史记录 / 前情提要 / 提示组装（P10）
@@ -202,7 +209,27 @@ graph TD
 - 历史服务扩展：`IHistoryService` 支持仅最终输出的写入、子集检索、编辑与分页；事件 `OnEntryRecorded` 供 `IRecapService` 监听。
 - 总结与前情提要：`IRecapService` 后台异步按轮次生成总结与叠加；提供 `RebuildRecapAsync`。
 - 提示组装：`IPromptAssemblyService` 统一拼装 system 提示：固定提示词 → 人物传记段落（1v1 时）→ 前情提要 K 条 → 相关历史片段 → 其它上下文；受 `CoreConfig.History.MaxPromptChars` 控制并记录裁剪信息。
-- UI：提供历史管理窗体（5 个 Tab：历史/前情提要/固定提示词/关联对话/人物传记），以及 Debug 面板对提示组装摘要与裁剪的预览。
+- UI：提供历史管理窗体（P10.5 前为 5 个 Tab，P10.5 起精简为 3 个 Tab：历史/前情提要/关联对话），以及 Debug 面板对提示组装摘要与裁剪的预览。
+### 5.11 个性化模块 / 个性窗体（P10.5）
+
+- 动机：将“我是谁（静态个性）”从“我经历了什么（动态历史）”中解耦，提升内聚与清晰度，为 P11 舞台/戏剧化交互打基础。
+- 服务与依赖：
+  - 新增 `IPersonalBeliefsAndIdeologyService`（键=PawnId，线程安全内存实现，支持导入/导出快照）。
+  - `IPromptAssemblyService` 依赖扩展：`IFixedPromptService`、`IBiographyService`、`IPersonalBeliefsAndIdeologyService`、`IRecapService`、`IHistoryQueryService`。
+  - 组装顺序建议：Beliefs（观点/意识形态，最稳定）→ Biography（1v1）→ FixedPrompts（场景口癖/规则，按 Pawn）→ Recap/History（动态上下文）。
+  - 兼容性：若模板未新增“beliefs”专用标签，Beliefs 合并注入到 `persona` 段，确保无模板变更也能生效。
+- UI：
+  - 新增主标签页窗口 `MainTabWindow_Personality`（左：可搜索小人列表；右：三个 Tab）。
+    - Tab1 固定提示词：按 PawnId 编辑，不再提供 convKey 级覆盖入口。
+    - Tab2 人物传记：段落型字典的增删改/排序，仅在 1v1（player↔pawn）时由组装服务注入。
+    - Tab3 观点与意识形态：四段文本（世界观/价值观/行为准则/人格特质），内置若干“预设模板”。
+  - 历史管理窗体（History Manager）自 P10.5 起移除“固定提示词/人物传记”两个 Tab，仅保留“历史记录/前情提要/关联对话”。
+- 持久化：
+  - 新增存档节点 `RimAI_PersonalBeliefsV1`（pawnId → PersonalBeliefs）。
+  - `PersistenceManager` 在 Saving/Loading 调用 `PersistPersonalBeliefs`/`LoadPersonalBeliefs`。
+- DI：在 `ServiceContainer.Init` 注册 `IPersonalBeliefsAndIdeologyService -> PersonalBeliefsAndIdeologyService`；`PromptAssemblyService` 构造注入已对齐。
+- Gate（验收）：
+  - 个性窗体可编辑并保存三类数据；读档后保持不变；Debug 面板 Prompt 审计可见个性文本；历史窗体不再含个性编辑。
 
 ---
 
@@ -224,6 +251,7 @@ graph TD
 | ChatGPT API 费用激增 | P2+ | 由 Framework 缓存与合流统一控制；Debug 面板显示月度 Token 使用量（待 Framework 暴露指标）。 |
 | 线程安全死锁 | P3+ | Scheduler 内部使用 `ConcurrentQueue` + 主线程泵出，无锁等待。 |
 | 存档兼容性破坏 | P6+ | IPersistenceService 在字段增删时保持 `Scribe_Deep` 列表顺序；旧字段标记 `[Obsolete("v3-remain")]`。 |
+| 模板耦合风险 | P10.5 | Beliefs 缺省合并注入到 `persona` 段，避免模板缺失造成“无输出”；后续可逐步引入专用标签。 |
 
 ---
 

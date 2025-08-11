@@ -23,6 +23,7 @@ namespace RimAI.Core.Infrastructure.Persistence
         private const string RecapNode = "RimAI_Recap";               // conversationId => List<RecapItem>
         private const string PersonaBindingsNode = "RimAI_PersonaBindingsV1"; // pawnId -> personaName#rev
         private const string PlayerIdNode = "RimAI_PlayerIdV1"; // player:<saveInstanceId>
+        private const string PersonalBeliefsNode = "RimAI_PersonalBeliefsV1"; // pawnId -> PersonalBeliefs
 
         #region Serializable helpers
         private class SerConversationEntry : IExposable
@@ -370,5 +371,65 @@ namespace RimAI.Core.Infrastructure.Persistence
             }
         }
         #endregion
+
+        // --- Personal Beliefs ---
+        private class SerPersonalBeliefs : IExposable
+        {
+            public string PawnId = string.Empty;
+            public string Worldview = string.Empty;
+            public string Values = string.Empty;
+            public string CodeOfConduct = string.Empty;
+            public string TraitsText = string.Empty;
+            public SerPersonalBeliefs() { }
+            public SerPersonalBeliefs(string pawnId, RimAI.Core.Modules.Persona.PersonalBeliefs src)
+            {
+                PawnId = pawnId ?? string.Empty;
+                Worldview = src?.Worldview ?? string.Empty;
+                Values = src?.Values ?? string.Empty;
+                CodeOfConduct = src?.CodeOfConduct ?? string.Empty;
+                TraitsText = src?.TraitsText ?? string.Empty;
+            }
+            public KeyValuePair<string, RimAI.Core.Modules.Persona.PersonalBeliefs> ToModel()
+            {
+                return new KeyValuePair<string, RimAI.Core.Modules.Persona.PersonalBeliefs>(
+                    PawnId,
+                    new RimAI.Core.Modules.Persona.PersonalBeliefs(Worldview, Values, CodeOfConduct, TraitsText));
+            }
+            public void ExposeData()
+            {
+                Scribe_Values.Look(ref PawnId, nameof(PawnId));
+                Scribe_Values.Look(ref Worldview, nameof(Worldview));
+                Scribe_Values.Look(ref Values, nameof(Values));
+                Scribe_Values.Look(ref CodeOfConduct, nameof(CodeOfConduct));
+                Scribe_Values.Look(ref TraitsText, nameof(TraitsText));
+            }
+        }
+
+        public void PersistPersonalBeliefs(RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService beliefsService)
+        {
+            if (beliefsService == null) return;
+            var map = beliefsService.ExportSnapshot();
+            var list = new List<SerPersonalBeliefs>();
+            foreach (var kv in map)
+            {
+                list.Add(new SerPersonalBeliefs(kv.Key, kv.Value));
+            }
+            Scribe_Collections.Look(ref list, PersonalBeliefsNode, LookMode.Deep);
+        }
+
+        public void LoadPersonalBeliefs(RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService beliefsService)
+        {
+            if (beliefsService == null) return;
+            var list = new List<SerPersonalBeliefs>();
+            Scribe_Collections.Look(ref list, PersonalBeliefsNode, LookMode.Deep);
+            list ??= new List<SerPersonalBeliefs>();
+            var map = new Dictionary<string, RimAI.Core.Modules.Persona.PersonalBeliefs>(System.StringComparer.Ordinal);
+            foreach (var r in list)
+            {
+                var kv = r.ToModel();
+                map[kv.Key] = kv.Value;
+            }
+            beliefsService.ImportSnapshot(map);
+        }
     }
 }

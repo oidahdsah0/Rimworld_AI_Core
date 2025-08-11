@@ -184,7 +184,7 @@ namespace RimAI.Core.UI.HistoryManager
 
         private void DrawTabs(Rect inRect, ref float y)
         {
-            var tabs = new[] { "历史记录", "前情提要", "固定提示词", "关联对话", "人物传记" };
+            var tabs = new[] { "历史记录", "前情提要", "关联对话" };
             float startY = y;
             float curX = inRect.x;
             for (int i = 0; i < tabs.Length; i++)
@@ -232,9 +232,7 @@ namespace RimAI.Core.UI.HistoryManager
             {
                 case 0: DrawTabHistory(body); break;
                 case 1: DrawTabRecap(body); break;
-                case 2: DrawTabFixedPrompts(body); break;
-                case 3: DrawTabRelated(body); break;
-                case 4: DrawTabBiography(body); break;
+                case 2: DrawTabRelated(body); break;
             }
         }
 
@@ -503,46 +501,7 @@ namespace RimAI.Core.UI.HistoryManager
         
         #endregion
 
-        #region Tab3 固定提示词（MVP: 内存演示）
-        private void DrawTabFixedPrompts(Rect rect)
-        {
-            if (string.IsNullOrWhiteSpace(_convKeyInput))
-            {
-                Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f), "请先加载会话键。");
-                return;
-            }
-            var ids = _convKeyInput.Split('|');
-            float y = rect.y;
-            var convKey = _convKeyInput;
-            foreach (var pid in ids)
-            {
-                Widgets.Label(new Rect(rect.x, y, 300f, 24f), _pid.GetDisplayName(pid));
-                y += 24f;
-                // 优先 convKey 覆盖；否则按 pawnId 主存
-                var cur = _fixedPrompts.GetConvKeyOverride(convKey);
-                if (string.IsNullOrWhiteSpace(cur) && pid.StartsWith("pawn:", StringComparison.Ordinal))
-                    cur = _fixedPrompts.GetByPawn(pid) ?? string.Empty;
-                var newText = Widgets.TextArea(new Rect(rect.x, y, rect.width - 160f, 60f), cur);
-                if (newText != cur)
-                {
-                    if (!string.IsNullOrWhiteSpace(_fixedPrompts.GetConvKeyOverride(convKey)))
-                        _fixedPrompts.UpsertConvKeyOverride(convKey, newText);
-                    else if (pid.StartsWith("pawn:", StringComparison.Ordinal))
-                        _fixedPrompts.UpsertByPawn(pid, newText);
-                }
-                if (Widgets.ButtonText(new Rect(rect.x + rect.width - 150f, y, 60f, 24f), "清空"))
-                {
-                    if (!string.IsNullOrWhiteSpace(_fixedPrompts.GetConvKeyOverride(convKey)))
-                        _fixedPrompts.DeleteConvKeyOverride(convKey);
-                    else if (pid.StartsWith("pawn:", StringComparison.Ordinal))
-                        _fixedPrompts.DeleteByPawn(pid);
-                }
-                y += 70f;
-            }
-        }
-        #endregion
-
-        #region Tab4 关联对话
+        #region Tab3 关联对话
         private void DrawTabRelated(Rect rect)
         {
             if (string.IsNullOrWhiteSpace(_convKeyInput))
@@ -586,55 +545,6 @@ namespace RimAI.Core.UI.HistoryManager
                     _ = LoadByConvKeyAsync(k);
                 }
                 y += 28f;
-            }
-        }
-        #endregion
-
-        #region Tab5 人物传记（MVP 文本）
-        private void DrawTabBiography(Rect rect)
-        {
-            if (string.IsNullOrWhiteSpace(_convKeyInput))
-            {
-                Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f), "请先加载会话键。");
-                return;
-            }
-            var ids = _convKeyInput.Split('|');
-            if (ids.Length != 2 || !(ids[0].StartsWith("player:") || ids[1].StartsWith("player:")) || !(ids[0].StartsWith("pawn:") || ids[1].StartsWith("pawn:")))
-            {
-                Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f), "仅在 1v1（player↔pawn）场景可用。");
-                return;
-            }
-            string playerId = ids.First(x => x.StartsWith("player:"));
-            string pawnId = ids.First(x => x.StartsWith("pawn:"));
-            string convKey = _convKeyInput;
-
-            float y = rect.y;
-            if (Widgets.ButtonText(new Rect(rect.x, y, 100f, 24f), "新增段落"))
-            {
-                _bio.Add(pawnId, "");
-            }
-            y += 28f;
-
-            // 仅在 1v1 player↔pawn 场景展示指定 pawn 的传记
-            var items = string.IsNullOrWhiteSpace(pawnId) ? new List<BiographyItem>() : _bio.ListByPawn(pawnId).ToList();
-            for (int i = 0; i < items.Count; i++)
-            {
-                var it = items[i];
-                Widgets.Label(new Rect(rect.x, y, 120f, 24f), it.CreatedAt.ToString("HH:mm:ss"));
-                var txt = Widgets.TextArea(new Rect(rect.x + 124f, y, rect.width - 260f, 60f), it.Text);
-                if (txt != it.Text)
-                {
-                    _bio.Update(pawnId, it.Id, txt);
-                }
-                if (Widgets.ButtonText(new Rect(rect.x + rect.width - 130f, y, 60f, 24f), "上移") && i > 0)
-                {
-                    _bio.Reorder(pawnId, it.Id, i - 1);
-                }
-                if (Widgets.ButtonText(new Rect(rect.x + rect.width - 65f, y, 60f, 24f), "删除"))
-                {
-                    _bio.Remove(pawnId, it.Id);
-                }
-                y += 70f;
             }
         }
         #endregion

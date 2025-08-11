@@ -79,5 +79,15 @@ namespace RimAI.Core.Infrastructure.Persistence
         /// 读取玩家稳定 ID。
         /// </summary>
         void LoadPlayerId(RimAI.Core.Modules.World.IParticipantIdService participantIdService);
+
+        /// <summary>
+        /// 个人观点与意识形态（pawnId -> PersonalBeliefs）。
+        /// </summary>
+        void PersistPersonalBeliefs(RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService beliefsService);
+
+        /// <summary>
+        /// 加载个人观点与意识形态。
+        /// </summary>
+        void LoadPersonalBeliefs(RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService beliefsService);
     }
 }

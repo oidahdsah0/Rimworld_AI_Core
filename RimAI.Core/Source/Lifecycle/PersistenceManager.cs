@@ -19,6 +19,7 @@ namespace RimAI.Core.Lifecycle
         private readonly RimAI.Core.Modules.History.IRecapService _recapService;
         private readonly RimAI.Core.Modules.Persona.IPersonaBindingService _bindingService;
         private readonly RimAI.Core.Modules.World.IParticipantIdService _participantIdService;
+        private readonly RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService _beliefsService;
 
         public PersistenceManager(Game game) : base()
         {
@@ -31,6 +32,7 @@ namespace RimAI.Core.Lifecycle
             _recapService        = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.History.IRecapService>();
             _bindingService      = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IPersonaBindingService>();
             _participantIdService= Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.World.IParticipantIdService>();
+            _beliefsService      = Infrastructure.CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService>();
         }
 
         public override void ExposeData()
@@ -45,6 +47,7 @@ namespace RimAI.Core.Lifecycle
                     _persistenceService.PersistRecap(_recapService);
                     _persistenceService.PersistPersonaBindings(_bindingService);
                     _persistenceService.PersistPlayerId(_participantIdService);
+                    _persistenceService.PersistPersonalBeliefs(_beliefsService);
                     break;
                 case LoadSaveMode.LoadingVars:
                     _persistenceService.LoadHistoryState(_historyService);
@@ -54,6 +57,7 @@ namespace RimAI.Core.Lifecycle
                     _persistenceService.LoadRecap(_recapService);
                     _persistenceService.LoadPersonaBindings(_bindingService);
                     _persistenceService.LoadPlayerId(_participantIdService);
+                    _persistenceService.LoadPersonalBeliefs(_beliefsService);
                     break;
             }
         }

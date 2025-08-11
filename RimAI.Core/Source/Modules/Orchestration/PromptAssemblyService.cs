@@ -24,6 +24,7 @@ namespace RimAI.Core.Modules.Orchestration
         private readonly IParticipantIdService _pid;
         private readonly IFixedPromptService _fixedPrompts;
         private readonly IBiographyService _bio;
+        private readonly RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService _beliefs;
         private readonly IRecapService _recap;
         private readonly IHistoryQueryService _historyQuery;
         private readonly InfraConfig _config;
@@ -32,7 +33,8 @@ namespace RimAI.Core.Modules.Orchestration
 
         public PromptAssemblyService(IParticipantIdService pid,
                                      IFixedPromptService fixedPrompts,
-                                     IBiographyService bio,
+                                      IBiographyService bio,
+                                      RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService beliefs,
                                      IRecapService recap,
                                      IHistoryQueryService historyQuery,
                                      InfraConfig config,
@@ -42,6 +44,7 @@ namespace RimAI.Core.Modules.Orchestration
             _pid = pid;
             _fixedPrompts = fixedPrompts;
             _bio = bio;
+            _beliefs = beliefs;
             _recap = recap;
             _historyQuery = historyQuery;
             _config = config;
@@ -79,11 +82,27 @@ namespace RimAI.Core.Modules.Orchestration
             {
                 var chatSeg = cfg?.Prompt?.Segments?.Chat;
                 _composer.Begin(cfg?.Prompt?.TemplateChatKey ?? "chat", localeToUse);
-                if ((chatSeg?.IncludePersona ?? true) && !string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
+                // 注入个性化观点（合并到 persona 段，避免模板缺失）
+                if (chatSeg?.IncludePersona ?? true)
+                {
+                    foreach (var pid in participantIds)
+                    {
+                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
+                        try
+                        {
+                            var b = _beliefs?.GetByPawn(pid);
+                            if (b != null)
+                            {
+                                var beliefText = BuildBeliefsBlock(_pid.GetDisplayName(pid), b);
+                                if (!string.IsNullOrWhiteSpace(beliefText)) _composer.Add("persona", beliefText);
+                            }
+                        }
+                        catch { }
+                    }
+                    if (!string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
+                }
 
-                var overrideText = _fixedPrompts.GetConvKeyOverride(convKey);
-                if ((chatSeg?.IncludeFixedPrompts ?? true) && !string.IsNullOrWhiteSpace(overrideText)) _composer.Add("fixed_prompts", overrideText);
-                else if (chatSeg?.IncludeFixedPrompts ?? true)
+                if (chatSeg?.IncludeFixedPrompts ?? true)
                 {
                     foreach (var pid in participantIds)
                     {
@@ -135,10 +154,25 @@ namespace RimAI.Core.Modules.Orchestration
             {
                 var cmdSeg = cfg?.Prompt?.Segments?.Command;
                 _composer.Begin(cfg?.Prompt?.TemplateCommandKey ?? "command", localeToUse);
-                if ((cmdSeg?.IncludePersona ?? true) && !string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
-                var overrideText = _fixedPrompts.GetConvKeyOverride(convKey);
-                if ((cmdSeg?.IncludeFixedPrompts ?? true) && !string.IsNullOrWhiteSpace(overrideText)) _composer.Add("fixed_prompts", overrideText);
-                else if (cmdSeg?.IncludeFixedPrompts ?? true)
+                if (cmdSeg?.IncludePersona ?? true)
+                {
+                    foreach (var pid in participantIds)
+                    {
+                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
+                        try
+                        {
+                            var b = _beliefs?.GetByPawn(pid);
+                            if (b != null)
+                            {
+                                var beliefText = BuildBeliefsBlock(_pid.GetDisplayName(pid), b);
+                                if (!string.IsNullOrWhiteSpace(beliefText)) _composer.Add("persona", beliefText);
+                            }
+                        }
+                        catch { }
+                    }
+                    if (!string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
+                }
+                if (cmdSeg?.IncludeFixedPrompts ?? true)
                 {
                     foreach (var pid in participantIds)
                     {
@@ -193,6 +227,21 @@ namespace RimAI.Core.Modules.Orchestration
                 catch { }
                 return output;
             }
+        }
+
+        private static string BuildBeliefsBlock(string displayName, RimAI.Core.Modules.Persona.PersonalBeliefs b)
+        {
+            try
+            {
+                var name = string.IsNullOrWhiteSpace(displayName) ? "该角色" : displayName;
+                var lines = new List<string>(8);
+                if (!string.IsNullOrWhiteSpace(b.Worldview)) lines.Add($"- {name}的世界观: {b.Worldview}");
+                if (!string.IsNullOrWhiteSpace(b.Values)) lines.Add($"- {name}的价值观: {b.Values}");
+                if (!string.IsNullOrWhiteSpace(b.CodeOfConduct)) lines.Add($"- {name}的行为准则: {b.CodeOfConduct}");
+                if (!string.IsNullOrWhiteSpace(b.TraitsText)) lines.Add($"- {name}的人格特质: {b.TraitsText}");
+                return string.Join("\n", lines);
+            }
+            catch { return string.Empty; }
         }
     }
 }

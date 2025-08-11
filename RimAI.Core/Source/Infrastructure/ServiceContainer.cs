@@ -104,6 +104,10 @@ namespace RimAI.Core.Infrastructure
             Register<RimAI.Core.Modules.Persona.IBiographyService,
                      RimAI.Core.Modules.Persona.BiographyService>();
 
+            // P10.5-M1: 个人观点与意识形态服务
+            Register<RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService,
+                     RimAI.Core.Modules.Persona.PersonalBeliefsAndIdeologyService>();
+
             // P10-M5: Relations Index（只读）
             Register<RimAI.Core.Services.IRelationsIndexService,
                      RimAI.Core.Services.RelationsIndexService>();

@@ -8,19 +8,22 @@ classDef external fill:#fff0e6,stroke:#ff6600,stroke-width:1px;
 subgraph "UI Layer"
     DebugPanel["Debug Panel"]
     GameWindows["Assistant / Dialog Windows"]
+    PersonalityWindow["Personality Window\\n(个性窗体)"]
 end
-class DebugPanel,GameWindows layer
+class DebugPanel,GameWindows,PersonalityWindow layer
 
 subgraph "Modules Layer"
     LLM["Module: LLM"]
     WorldAccess["Module: WorldAccess"]
     Tooling["Module: Tooling"]
-    Orchestration["Module: Orchestration"]
+    Orchestration["Module: Orchestration\\n(Strategies: Classic / EmbeddingFirst)"]
     Persistence["Module: Persistence"]
     Eventing["Module: Eventing"]
-    Persona["Module: Persona"]
+    Persona["Module: Persona\\n(Persona CRUD / Binding)"]
+    PromptAsm["Module: PromptAssembly\\n(Composer + Templates)"]
+    Personalization["Module: Personalization\\n(FixedPrompts / Biography / Beliefs)"]
 end
-class LLM,WorldAccess,Tooling,Orchestration,Persistence,Eventing,Persona module
+class LLM,WorldAccess,Tooling,Orchestration,Persistence,Eventing,Persona,PromptAsm,Personalization module
 
 subgraph "Infrastructure Layer"
     ServiceContainer["DI Container"]
@@ -42,10 +45,14 @@ class RimWorld,Framework external
 
 %% Relations
 GameWindows --> Orchestration
+PersonalityWindow --> Personalization
 DebugPanel --> LLM
 DebugPanel --> Tooling
 Orchestration --> LLM
 Orchestration --> Tooling
+Orchestration --> PromptAsm
+PromptAsm --> Personalization
+PromptAsm --> Persistence
 LLM --> Framework
 WorldAccess --> RimWorld
 Tooling --> WorldAccess

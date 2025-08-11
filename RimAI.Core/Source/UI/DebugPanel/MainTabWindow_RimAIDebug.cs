@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using RimAI.Core.UI.DebugPanel.Parts;
+using System.Linq;
 
 namespace RimAI.Core.UI.DebugPanel
 {

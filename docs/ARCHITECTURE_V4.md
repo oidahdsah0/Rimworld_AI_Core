@@ -160,6 +160,25 @@ graph TD
 * `ILLMService.StreamResponseAsync` 支持 `IAsyncEnumerable`；UI 逐块渲染。
 * ⚠️ 使用规范：仅允许在 Chat 窗体与 Debug 窗体中启用“流式”模式；所有服务型/后台型调用（历史总结、事件聚合、Embedding/RAG 构建、索引等）一律使用“非流式”同步返回形式，避免资源占用与 UI 干扰。
 
+#### 5.8.1 Persona 服务与“对话组织者”的职责划分
+
+- Persona 会话服务（`IPersonaConversationService`）
+  - **职责**：
+    - 仅负责基于 `IPromptAssemblyService` 组装 system 提示；
+    - 按调用方指定的模式（流式/非流式）调用 `ILLMService` 并返回结果；
+    - 不负责历史落盘，不内置会话状态管理。
+  - **模式**：
+    - Chat 支持流式与非流式；
+    - Command 支持流式与非流式（非流式聚合所有分片后一次性返回）。
+
+- 对话组织者（Conversation Orchestrator）
+  - **定义**：上游业务方，负责决定调用模式、生命周期与历史写入。`Chat UI` 即为一种对话组织者；其他后台/服务也属于对话组织者。
+  - **职责**：
+    - 统一负责历史写入（仅记录“最终输出”）。
+    - Chat UI 固定使用流式，并在流结束后一次性写入历史；
+    - 其他后台/服务固定使用非流式，在拿到完整文本后一次性写入历史。
+  - **好处**：职责单一、历史一致（最终输出）、避免分片写入抖动，方便统一审计与重试。
+
 ---
 
 ### 5.9 Orchestration 策略层 + Embedding/RAG（P9）

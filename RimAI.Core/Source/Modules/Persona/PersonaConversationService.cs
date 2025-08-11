@@ -105,9 +105,14 @@ namespace RimAI.Core.Modules.Persona
             {
                 var res = await _llm.GetResponseAsync(req);
                 if (res.IsSuccess)
-                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = res.Value?.Message?.Content });
+                {
+                    var final = res.Value?.Message?.Content ?? string.Empty;
+                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = final });
+                }
                 else
+                {
                     yield return Result<UnifiedChatChunk>.Failure(res.Error);
+                }
             }
         }
 
@@ -158,27 +163,44 @@ namespace RimAI.Core.Modules.Persona
 
             // 4) 走编排（五步），此处复用 OrchestrationService 外部接口
             var orchestrator = CoreServices.Locator.Get<RimAI.Core.Contracts.IOrchestrationService>();
-                var stream = orchestrator.ExecuteToolAssistedQueryAsync(userInput, systemPrompt);
+            var stream = orchestrator.ExecuteToolAssistedQueryAsync(userInput, systemPrompt);
             string final = string.Empty;
-            await foreach (var chunk in stream)
+
+            if (options.Stream)
             {
-                if (chunk.IsSuccess)
+                await foreach (var chunk in stream)
                 {
-                    final += chunk.Value?.ContentDelta ?? string.Empty;
-                }
-                yield return chunk;
-            }
-            try
-            {
-                if (options.WriteHistory)
-                {
-                    var now = DateTime.UtcNow;
-                    var convId = _historyWrite.CreateConversation(participantIds);
-                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry(participantIds.FirstOrDefault(id => id.StartsWith("player:")) ?? _pid.GetPlayerId(), userInput ?? string.Empty, now));
-                    await _historyWrite.AppendEntryAsync(convId, new ConversationEntry("assistant", final ?? string.Empty, now.AddMilliseconds(1)));
+                    if (chunk.IsSuccess)
+                    {
+                        final += chunk.Value?.ContentDelta ?? string.Empty;
+                    }
+                    yield return chunk;
+                    if (ct.IsCancellationRequested) yield break;
                 }
             }
-            catch { /* 历史写入失败不影响对话返回 */ }
+            else
+            {
+                string error = null;
+                await foreach (var chunk in stream)
+                {
+                    if (ct.IsCancellationRequested) yield break;
+                    if (chunk.IsSuccess)
+                    {
+                        final += chunk.Value?.ContentDelta ?? string.Empty;
+                    }
+                    else if (string.IsNullOrWhiteSpace(error))
+                    {
+                        error = chunk.Error;
+                    }
+                }
+                if (!string.IsNullOrWhiteSpace(error) && string.IsNullOrWhiteSpace(final))
+                {
+                    yield return Result<UnifiedChatChunk>.Failure(error);
+                    yield break;
+                }
+                yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = final });
+            }
+            // 历史写入职责上移：调用方（UI/服务）负责落盘。此处仅返回结果。
         }
     }
 }

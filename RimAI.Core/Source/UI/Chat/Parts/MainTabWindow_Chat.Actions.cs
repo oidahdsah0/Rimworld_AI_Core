@@ -128,7 +128,8 @@ namespace RimAI.Core.UI.Chat
                     {
                         if (mode == SendMode.Command)
                         {
-                            var opts = new PersonaCommandOptions { Stream = true, WriteHistory = true };
+                            // 历史写入职责上移：Command 仍采用流式；历史在完成后由 UI 自行写入
+                            var opts = new PersonaCommandOptions { Stream = true, WriteHistory = false };
                             try { _progressSb.Clear(); } catch { }
                             _streamAssistantBuffer = string.Empty;
                             SubscribeProgressOnce();
@@ -162,8 +163,18 @@ namespace RimAI.Core.UI.Chat
                             {
                                 try
                                 {
+                                    // 优先复用已有会话，否则创建新会话
                                     var list = await _history.FindByConvKeyAsync(_convKeyInput);
                                     _selectedConversationId = list?.LastOrDefault() ?? _selectedConversationId;
+                                    if (string.IsNullOrWhiteSpace(_selectedConversationId))
+                                    {
+                                        _selectedConversationId = _history.CreateConversation(parts);
+                                    }
+                                    // 统一在 UI 层落盘，仅记录最终输出
+                                    var now = DateTime.UtcNow;
+                                    var playerId = parts.FirstOrDefault(id => id.StartsWith("player:")) ?? _pidService.GetPlayerId();
+                                    await _history.AppendEntryAsync(_selectedConversationId, new ConversationEntry(playerId, _pendingPlayerMessage ?? string.Empty, now));
+                                    await _history.AppendEntryAsync(_selectedConversationId, new ConversationEntry("assistant", final ?? string.Empty, now.AddMilliseconds(1)));
                                 }
                                 catch { }
                             }
@@ -171,6 +182,7 @@ namespace RimAI.Core.UI.Chat
                         }
                         else
                         {
+                            // Chat 仅在 UI 中使用流式；历史由 UI 收尾一次性写入
                             var opts = new PersonaChatOptions { Stream = true, WriteHistory = false };
                             await foreach (var chunk in svc.ChatAsync(parts, null, _pendingPlayerMessage, opts, ct))
                             {

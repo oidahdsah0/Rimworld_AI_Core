@@ -12,10 +12,6 @@ namespace RimAI.Core.Modules.Stage.Acts
         public int Seed { get; set; }
         public string Locale { get; set; }
         public RimAI.Core.Settings.StageConfig Options { get; set; }
-        public RimAI.Core.Modules.Persona.IPersonaConversationService Persona { get; set; }
-        public RimAI.Core.Services.IHistoryWriteService History { get; set; }
-        public RimAI.Core.Modules.World.IParticipantIdService ParticipantId { get; set; }
-        public RimAI.Core.Contracts.Eventing.IEventBus Events { get; set; }
     }
 
     internal sealed class ActResult
@@ -23,6 +19,7 @@ namespace RimAI.Core.Modules.Stage.Acts
         public bool Completed { get; set; }
         public string Reason { get; set; }
         public int Rounds { get; set; }
+        public string FinalText { get; set; }
     }
 
     internal interface IStageAct

@@ -117,7 +117,9 @@ namespace RimAI.Core.Infrastructure
             // 将同一实现同时注册为对外只读接口实例，避免双实例不一致
             RegisterInstance(typeof(RimAI.Core.Contracts.Services.IConfigurationService), cfgImpl);
 
-            // P11-M1: Stage/Organizer 服务
+            // P11.5: Stage/Organizer 服务 + Kernel
+            Register<RimAI.Core.Modules.Stage.Kernel.IStageKernel,
+                     RimAI.Core.Modules.Stage.Kernel.StageKernel>();
             Register<RimAI.Core.Modules.Stage.IStageService,
                      RimAI.Core.Modules.Stage.StageService>();
 
@@ -130,6 +132,17 @@ namespace RimAI.Core.Infrastructure
                      RimAI.Core.Modules.Stage.Topic.RandomPoolProvider>();
             Register<RimAI.Core.Modules.Stage.Acts.IStageAct,
                      RimAI.Core.Modules.Stage.Acts.GroupChatAct>();
+            // 触发器注册
+            Register<RimAI.Core.Modules.Stage.Triggers.IStageTrigger,
+                     RimAI.Core.Modules.Stage.Triggers.GroupChatTrigger>();
+            try
+            {
+                var proxTrig = (RimAI.Core.Modules.Stage.Triggers.GroupChatTrigger)
+                    Resolve(typeof(RimAI.Core.Modules.Stage.Triggers.GroupChatTrigger));
+                var trigList = new System.Collections.Generic.List<RimAI.Core.Modules.Stage.Triggers.IStageTrigger> { proxTrig };
+                RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Stage.Triggers.IStageTrigger>), trigList);
+            }
+            catch { }
 
             // 组装 Topic Providers 列表供 ITopicService 注入（IEnumerable<ITopicProvider>）
             try
@@ -168,17 +181,7 @@ namespace RimAI.Core.Infrastructure
             }
             catch { /* ignore */ }
 
-            // P11-M4: Scan pipeline 注册
-            Register<RimAI.Core.Modules.Stage.Scan.IStageScan,
-                     RimAI.Core.Modules.Stage.Scan.ProximityScan>();
-            try
-            {
-                var prox = (RimAI.Core.Modules.Stage.Scan.ProximityScan)
-                    Resolve(typeof(RimAI.Core.Modules.Stage.Scan.ProximityScan));
-                var scansList = new System.Collections.Generic.List<RimAI.Core.Modules.Stage.Scan.IStageScan> { prox };
-                RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Stage.Scan.IStageScan>), scansList);
-            }
-            catch { }
+            // P11.5: 扫描迁移至 Triggers（兼容扫描注册已移除）
 
             _initialized = true;
         }

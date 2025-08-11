@@ -14,8 +14,8 @@ using RimAI.Core.Modules.World;
 using RimAI.Core.Settings;
 using RimAI.Framework.Contracts;
 using RimAI.Core.Contracts.Models;
-using RimAI.Core.Modules.Stage.Topic;
 using RimAI.Core.Modules.Stage.Acts;
+using RimAI.Core.Modules.Stage.Kernel;
 
 namespace RimAI.Core.Modules.Stage
 {
@@ -29,19 +29,20 @@ namespace RimAI.Core.Modules.Stage
     /// - 幂等键短期复用
     /// 返回占位结果，M2 接入 Persona 与历史。
     /// </summary>
-    internal sealed class StageService : IStageService
+internal sealed partial class StageService : IStageService
     {
         private readonly IConfigurationService _config;
         private readonly IEventBus _events;
         private readonly IParticipantIdService _pid;
         private readonly IPersonaConversationService _persona;
         private readonly RimAI.Core.Services.IHistoryWriteService _history;
+        private readonly IStageKernel _kernel;
 
         private sealed class CoalesceBucket
         {
             public string ConvKey;
             public DateTime FirstSeenUtc;
-            public List<StageRequest> Requests = new();
+            public List<StageExecutionRequest> Requests = new();
             public TaskCompletionSource<bool> Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
@@ -55,21 +56,21 @@ namespace RimAI.Core.Modules.Stage
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(); // convKey -> lock
         private readonly ConcurrentDictionary<string, CoalesceBucket> _coalesce = new(); // convKey -> bucket
         private readonly ConcurrentDictionary<string, DateTime> _cooldown = new(); // convKey -> last finished time
-        private readonly ConcurrentDictionary<string, RecentResult> _idempotent = new(); // idempotencyKey -> result
         private readonly ConcurrentDictionary<string, RecentResult> _recentByConvKey = new(); // convKey -> last result
 
-        public StageService(IConfigurationService config, IEventBus events, IParticipantIdService pid, IPersonaConversationService persona, RimAI.Core.Services.IHistoryWriteService history)
+        public StageService(IConfigurationService config, IEventBus events, IParticipantIdService pid, IPersonaConversationService persona, RimAI.Core.Services.IHistoryWriteService history, IStageKernel kernel)
         {
             _config = config;
             _events = events;
             _pid = pid;
             _persona = persona;
             _history = history;
+            _kernel = kernel;
         }
 
-        public async IAsyncEnumerable<Result<UnifiedChatChunk>> StartAsync(StageRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+        public async IAsyncEnumerable<Result<UnifiedChatChunk>> StartAsync(StageExecutionRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
-            request = request ?? new StageRequest { Participants = Array.Empty<string>() };
+            request = request ?? new StageExecutionRequest { Participants = Array.Empty<string>() };
             var cfg = _config.Current?.Stage ?? new StageConfig();
 
             // 1) Eligibility
@@ -79,11 +80,7 @@ namespace RimAI.Core.Modules.Stage
                 yield return Result<UnifiedChatChunk>.Failure("TooFewParticipants");
                 yield break;
             }
-            if (!IsOriginPermitted(request.Origin, cfg))
-            {
-                yield return Result<UnifiedChatChunk>.Failure("OriginNotPermitted");
-                yield break;
-            }
+            // 薄层 Debug 路由不校验 Origin
 
             // 2) convKey & seed
             var convKey = string.Join("|", normalized.OrderBy(x => x, StringComparer.Ordinal));
@@ -96,16 +93,7 @@ namespace RimAI.Core.Modules.Stage
                 yield break;
             }
 
-            // 4) 幂等
-            var idem = request.IdempotencyKey;
-            if (!string.IsNullOrWhiteSpace(idem) && _idempotent.TryGetValue(idem, out var recent))
-            {
-                if ((DateTime.UtcNow - recent.CompletedUtc).TotalSeconds <= Math.Max(1, cfg.CooldownSeconds))
-                {
-                    yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = recent.Text ?? string.Empty });
-                    yield break;
-                }
-            }
+            // 4) 幂等（P11.5 内核承担，薄层暂略）
 
             // 5) 合流：进入 bucket
             var bucket = _coalesce.GetOrAdd(convKey, key => new CoalesceBucket { ConvKey = key, FirstSeenUtc = DateTime.UtcNow });
@@ -135,50 +123,28 @@ namespace RimAI.Core.Modules.Stage
                     yield break;
                 }
 
-                // 选主触发（priority/sourceId）
-                StageRequest leader = null;
+                // 选主触发（精简：取第一个）
+                StageExecutionRequest leader = null;
                 lock (bucket)
                 {
-                    leader = bucket.Requests
-                        .OrderByDescending(r => r?.Priority ?? 0)
-                        .ThenBy(r => r?.SourceId ?? string.Empty, StringComparer.Ordinal)
-                        .FirstOrDefault() ?? request;
+                    leader = bucket.Requests.FirstOrDefault() ?? request;
                 }
 
-                PublishStageEvent("StageStarted", convKey, new { participants = normalized, origin = request.Origin, seed, requestCount = bucket.Requests.Count });
+            PublishStageEvent("StageStarted", convKey, new { participants = normalized, seed, requestCount = bucket.Requests.Count });
 
-                // M3：选题与会话级场景提示（可选）
-                var locale = request.Locale ?? _config.Current?.Stage?.LocaleOverride;
-                bool scenarioInjected = false;
-                if (_config.Current?.Stage?.Topic?.Enabled ?? true)
+                // 仲裁内核：资源预定（convKey/participants 互斥）。失败则拒绝
+                Kernel.StageTicket ticket = null;
+                var claim = new Kernel.ActResourceClaim { ConvKeys = new[] { convKey }, ParticipantIds = normalized };
+                if (!_kernel.TryReserve(claim, out ticket, TimeSpan.FromSeconds(Math.Max(5, cfg.CooldownSeconds))))
                 {
-                    try
-                    {
-                        var topicSvc = CoreServices.Locator.Get<ITopicService>();
-                        var topicCtx = new TopicContext { ConvKey = convKey, Participants = normalized, Seed = seed, Locale = locale };
-                        var weights = _config.Current?.Stage?.Topic?.Sources;
-                        var selected = await topicSvc.SelectAsync(topicCtx, weights, ct);
-                        if (!string.IsNullOrWhiteSpace(selected?.ScenarioText))
-                        {
-                            var fixedSvc = CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IFixedPromptService>();
-                            fixedSvc?.UpsertConvKeyOverride(convKey, selected.ScenarioText);
-                            scenarioInjected = true;
-                            _events?.Publish(new OrchestrationProgressEvent
-                            {
-                                Source = nameof(StageService),
-                                Stage = "TopicSelected",
-                                Message = selected.Topic ?? string.Empty,
-                                PayloadJson = JsonConvert.SerializeObject(new {
-                                    convKey,
-                                    seed,
-                                    scenarioChars = selected.ScenarioText?.Length ?? 0,
-                                    weights
-                                })
-                            });
-                        }
-                    }
-                    catch { /* ignore topic errors */ }
+                    yield return Result<UnifiedChatChunk>.Failure("RejectedByArbitration");
+                    yield break;
                 }
+                _tickets[convKey] = ticket;
+                _running[ticket.Id] = new RunningActInfo { ActName = request.ActName ?? "GroupChat", ConvKey = convKey, Participants = normalized, SinceUtc = DateTime.UtcNow, LeaseExpiresUtc = ticket.ExpiresAtUtc };
+
+                // 选题与会话级场景提示：P11.5 下沉至具体 Act 内部
+                var locale = request.Locale ?? _config.Current?.Stage?.LocaleOverride;
 
                 // M2/M3：调用 Persona 或执行群聊 Act（非流式）
                 string final = string.Empty;
@@ -190,8 +156,12 @@ namespace RimAI.Core.Modules.Stage
                     try
                     {
                         var acts = CoreServices.Locator.Get<IEnumerable<IStageAct>>();
-                        var groupAct = acts?.FirstOrDefault(a => string.Equals(a.Name, "GroupChat", StringComparison.OrdinalIgnoreCase));
-                        if (groupAct != null && (normalized?.Count ?? 0) >= Math.Max(2, _config.Current?.Stage?.MinParticipants ?? 2))
+                        var act = acts?.FirstOrDefault(a => string.Equals(a.Name, request.ActName, StringComparison.OrdinalIgnoreCase));
+                        if (act == null)
+                        {
+                            error = "ActNotFound";
+                        }
+                        else
                         {
                             var actCtx = new Acts.ActContext
                             {
@@ -199,31 +169,16 @@ namespace RimAI.Core.Modules.Stage
                                 Participants = normalized,
                                 Seed = seed,
                                 Locale = locale,
-                                Options = _config.Current?.Stage,
-                                Persona = _persona,
-                                History = _history,
-                                ParticipantId = _pid,
-                                Events = _events
+                                Options = _config.Current?.Stage
                             };
-                            var res = await groupAct.RunAsync(actCtx, cts.Token);
-                            final = string.Empty; // 群聊逐轮写入历史
-                        }
-                        else if (string.Equals(request.Mode, "Command", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var opts = new PersonaCommandOptions { Stream = false, Locale = locale, RequireBoundPersona = true, WriteHistory = false };
-                            await foreach (var chunk in _persona.CommandAsync(normalized, personaName: null, userInput: request.UserInputOrScenario ?? string.Empty, options: opts, ct: cts.Token))
+                            if (!act.IsEligible(actCtx))
                             {
-                                if (cts.IsCancellationRequested) break;
-                                if (chunk.IsSuccess) final += chunk.Value?.ContentDelta ?? string.Empty; else error = chunk.Error;
+                                error = "ActNotEligible";
                             }
-                        }
-                        else
-                        {
-                            var opts = new PersonaChatOptions { Stream = false, Locale = locale, WriteHistory = false };
-                            await foreach (var chunk in _persona.ChatAsync(normalized, personaName: null, userInput: request.UserInputOrScenario ?? string.Empty, options: opts, ct: cts.Token))
+                            else
                             {
-                                if (cts.IsCancellationRequested) break;
-                                if (chunk.IsSuccess) final += chunk.Value?.ContentDelta ?? string.Empty; else error = chunk.Error;
+                                var res = await act.RunAsync(actCtx, cts.Token);
+                                final = res?.FinalText ?? string.Empty;
                             }
                         }
                     }
@@ -244,7 +199,7 @@ namespace RimAI.Core.Modules.Stage
                     yield break;
                 }
 
-                // 历史写入（仅最终输出）
+                // 最终输出写入
                 var text = final ?? string.Empty;
                 try
                 {
@@ -258,27 +213,25 @@ namespace RimAI.Core.Modules.Stage
                     var entry = new ConversationEntry(speakerId, text, DateTime.UtcNow);
                     await _history.AppendEntryAsync(convId, entry);
                 }
-                catch { /* 历史失败不阻断主流程 */ }
+                catch { }
 
-                // 记录幂等
-                if (!string.IsNullOrWhiteSpace(idem))
-                {
-                    _idempotent[idem] = new RecentResult { ConvKey = convKey, CompletedUtc = DateTime.UtcNow, Text = text };
-                }
                 // 设置冷却
                 _cooldown[convKey] = DateTime.UtcNow;
                 _recentByConvKey[convKey] = new RecentResult { ConvKey = convKey, CompletedUtc = DateTime.UtcNow, Text = text };
 
-                PublishStageEvent("Coalesced", convKey, new { leader = leader?.SourceId, coalesced = true, count = bucket.Requests.Count });
+                PublishStageEvent("Coalesced", convKey, new { coalesced = true, count = bucket.Requests.Count });
                 PublishStageEvent("Finished", convKey, new { ok = true, textLen = text.Length });
 
                 // 清理合流桶
                 _coalesce.TryRemove(convKey, out _);
-                // 清理会话级场景提示覆盖
+                // 场景提示覆盖清理在具体 Act 内完成
+
+                // 释放仲裁票据
                 try
                 {
-                    if (scenarioInjected)
-                        CoreServices.Locator.Get<RimAI.Core.Modules.Persona.IFixedPromptService>()?.DeleteConvKeyOverride(convKey);
+                    if (ticket != null) _kernel.Release(ticket);
+                    _tickets.Remove(convKey);
+                    if (ticket != null) _running.Remove(ticket.Id);
                 }
                 catch { }
 
@@ -290,51 +243,7 @@ namespace RimAI.Core.Modules.Stage
             }
         }
 
-        public async Task RunScanOnceAsync(CancellationToken ct = default)
-        {
-            var stageCfg = _config.Current?.Stage ?? new StageConfig();
-            var maxNew = Math.Max(0, stageCfg?.Scan?.MaxNewConversationsPerScan ?? 2);
-            var pid = _pid;
-            var scans = CoreServices.Locator.Get<IEnumerable<RimAI.Core.Modules.Stage.Scan.IStageScan>>();
-            var ctx = new RimAI.Core.Modules.Stage.Scan.ScanContext { Config = stageCfg, ParticipantId = pid };
-            var suggestions = new List<RimAI.Core.Modules.Stage.Scan.ConversationSuggestion>();
-            foreach (var scan in scans ?? Array.Empty<RimAI.Core.Modules.Stage.Scan.IStageScan>())
-            {
-                try
-                {
-                    var list = await scan.RunAsync(ctx, ct) ?? Array.Empty<RimAI.Core.Modules.Stage.Scan.ConversationSuggestion>();
-                    suggestions.AddRange(list);
-                }
-                catch { }
-            }
-            // 去重（按 convKey）与限流
-            var uniq = new List<RimAI.Core.Modules.Stage.Scan.ConversationSuggestion>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var s in suggestions)
-            {
-                var convKey = string.Join("|", (s.Participants ?? Array.Empty<string>()).OrderBy(x => x, StringComparer.Ordinal));
-                if (string.IsNullOrWhiteSpace(convKey) || seen.Contains(convKey)) continue;
-                seen.Add(convKey);
-                uniq.Add(s);
-                if (uniq.Count >= maxNew) break;
-            }
-            // 触发会话
-            foreach (var s in uniq)
-            {
-                var req = new StageRequest
-                {
-                    Participants = s.Participants,
-                    Origin = s.Origin,
-                    InitiatorId = s.InitiatorId,
-                    UserInputOrScenario = s.Scenario,
-                    Priority = s.Priority,
-                    Seed = s.Seed,
-                    Stream = false,
-                    Mode = "Chat"
-                };
-                await foreach (var _ in StartAsync(req, ct)) { /* 触发即可，结果忽略 */ }
-            }
-        }
+        
 
         private static int ComputeSeed(string convKey)
         {
@@ -386,6 +295,93 @@ namespace RimAI.Core.Modules.Stage
             }
             catch { /* ignore */ }
         }
+
+        // ---- P11.5: Act 注册/启停/仲裁/查询 ----
+        private readonly Dictionary<string, Acts.IStageAct> _acts = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _disabledActs = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Triggers.IStageTrigger> _triggers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _disabledTriggers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, RunningActInfo> _running = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Kernel.StageTicket> _tickets = new(StringComparer.Ordinal);
+
+        public void RegisterAct(Acts.IStageAct act)
+        {
+            if (act == null) return;
+            _acts[act.Name] = act;
+        }
+
+        public void UnregisterAct(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            _acts.Remove(name);
+            _disabledActs.Remove(name);
+        }
+
+        public void EnableAct(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            _disabledActs.Remove(name);
+        }
+
+        public void DisableAct(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            _disabledActs.Add(name);
+        }
+
+        public IReadOnlyList<string> ListActs() => _acts.Keys.ToList();
+
+        public IReadOnlyList<RunningActInfo> QueryRunning() => _running.Values.ToList();
+
+        public StageDecision SubmitIntent(StageIntent intent)
+        {
+            if (intent == null) return new StageDecision { Outcome = "Reject", Reason = "InvalidIntent" };
+            if (string.IsNullOrWhiteSpace(intent.ActName) || !_acts.ContainsKey(intent.ActName))
+                return new StageDecision { Outcome = "Reject", Reason = "ActNotFound" };
+            if (_disabledActs.Contains(intent.ActName))
+                return new StageDecision { Outcome = "Reject", Reason = "ActDisabled" };
+
+            var cfg = _config.Current?.Stage ?? new StageConfig();
+            var participants = NormalizeParticipants(intent.Participants, cfg);
+            if (participants.Count < Math.Max(2, cfg.MinParticipants))
+                return new StageDecision { Outcome = "Reject", Reason = "TooFewParticipants" };
+            var convKey = intent.ConvKey ?? string.Join("|", participants.OrderBy(x => x, StringComparer.Ordinal));
+            if (IsInCooldown(convKey, cfg))
+                return new StageDecision { Outcome = "Defer", Reason = "InCooldown" };
+
+            // MVP：直接批准（后续接入 Kernel.TryReserve 并填充 ticket）
+            return new StageDecision { Outcome = "Approve" };
+        }
+
+        // 触发器注册/启停/枚举
+        public void RegisterTrigger(Triggers.IStageTrigger trigger)
+        {
+            if (trigger == null) return;
+            _triggers[trigger.Name] = trigger;
+        }
+
+        public void UnregisterTrigger(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            _triggers.Remove(name);
+            _disabledTriggers.Remove(name);
+        }
+
+        public void EnableTrigger(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            _disabledTriggers.Remove(name);
+        }
+
+        public void DisableTrigger(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            _disabledTriggers.Add(name);
+        }
+
+        public IReadOnlyList<string> ListTriggers() => _triggers.Keys.ToList();
+
+        
     }
 }
 

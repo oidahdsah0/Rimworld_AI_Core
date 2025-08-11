@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using RimAI.Core.Modules.Stage;
 using RimAI.Core.Modules.World;
@@ -13,23 +14,21 @@ namespace RimAI.Core.UI.DebugPanel.Parts
         public void Execute(DebugPanelContext ctx)
         {
             var stage = ctx.Get<IStageService>();
-            var pid = ctx.Get<IParticipantIdService>();
-            var p1 = pid.GetPlayerId();
-            var p2 = pid.FromVerseObject(new object());
-            var participants = new List<string> { p1, p2 };
-            string convKey = string.Join("|", participants);
-            string idem = ctx.ComputeShortHash("concurrency:" + convKey);
-
-            var r1 = new StageRequest { Participants = participants, Origin = "AIServer", InitiatorId = "server:A", SourceId = "A", IdempotencyKey = idem, Mode = "Chat", Stream = false, Priority = 1 };
-            var r2 = new StageRequest { Participants = participants, Origin = "AIServer", InitiatorId = "server:B", SourceId = "B", IdempotencyKey = idem, Mode = "Chat", Stream = false, Priority = 2 };
-
-            ctx.AppendOutput("[P11] 双源并发触发中…");
+            var kernel = ctx.Get<RimAI.Core.Modules.Stage.Kernel.IStageKernel>();
+            var trigger = RimAI.Core.Infrastructure.ServiceContainer.Get<IEnumerable<RimAI.Core.Modules.Stage.Triggers.IStageTrigger>>()
+                .FirstOrDefault(t => string.Equals(t.TargetActName, "GroupChat", StringComparison.OrdinalIgnoreCase));
+            if (trigger == null)
+            {
+                ctx.AppendOutput("[P11.5] 未找到 GroupChatTrigger");
+                return;
+            }
+            ctx.AppendOutput("[P11.5] 并发触发 GroupChatTrigger 两次…");
             _ = Task.Run(async () =>
             {
-                var t1 = Task.Run(async () => { await foreach (var _ in stage.StartAsync(r1)) { } });
-                var t2 = Task.Run(async () => { await foreach (var _ in stage.StartAsync(r2)) { } });
+                var t1 = Task.Run(async () => { await trigger.RunOnceAsync(stage, kernel, default); });
+                var t2 = Task.Run(async () => { await trigger.RunOnceAsync(stage, kernel, default); });
                 await Task.WhenAll(t1, t2);
-                ctx.AppendOutput("[P11] 双源并发触发完成");
+                ctx.AppendOutput("[P11.5] 双源并发触发完成");
             });
         }
     }

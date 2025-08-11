@@ -298,6 +298,10 @@ namespace RimAI.Core.Settings
         public StageScanConfig Scan { get; init; } = new();
         public StageProximityScanConfig ProximityScan { get; init; } = new();
         public StageTopicConfig Topic { get; init; } = new();
+
+        // 触发器与 Act 开关（统一）
+        public System.Collections.Generic.HashSet<string> DisabledActs { get; init; } = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        public System.Collections.Generic.HashSet<string> DisabledTriggers { get; init; } = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
     }
 
     public sealed class StageRetryPolicy

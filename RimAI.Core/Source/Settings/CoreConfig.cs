@@ -12,6 +12,7 @@ namespace RimAI.Core.Settings
         public HistoryConfig History { get; init; } = new();
         public PromptConfig Prompt { get; init; } = new();
         public UIConfig UI { get; init; } = new();
+        public StageConfig Stage { get; init; } = new();
 
         public static CoreConfig CreateDefault() => new();
     }
@@ -271,5 +272,89 @@ namespace RimAI.Core.Settings
         public int Recap { get; init; } = 1200;
         public int RecentHistory { get; init; } = 800;
         public int RelatedHistory { get; init; } = 1600;
+    }
+
+    /// <summary>
+    /// 舞台/组织者配置（P11）。
+    /// </summary>
+    public sealed class StageConfig
+    {
+        public int CoalesceWindowMs { get; init; } = 300;
+        public double CooldownSeconds { get; init; } = 30;
+        public int MinParticipants { get; init; } = 2;
+        public int MaxParticipants { get; init; } = 5; // 最大 10（限制在 UI 层控制）
+        public int MaxLatencyMsPerTurn { get; init; } = 5000;
+        public string LocaleOverride { get; init; } = null;
+        public StageRetryPolicy RetryPolicy { get; init; } = new();
+        public System.Collections.Generic.HashSet<string> PermittedOrigins { get; init; }
+            = new System.Collections.Generic.HashSet<string>(new[] { "PlayerUI", "PawnBehavior", "AIServer", "EventAggregator", "Other" }, System.StringComparer.OrdinalIgnoreCase);
+        public StageEligibilityRules EligibilityRules { get; init; } = new();
+
+        // 群聊相关常用参数
+        public double GroupChatProbabilityP { get; init; } = 0.2;
+        public int GroupChatMaxRounds { get; init; } = 2;
+
+        // 子配置
+        public StageScanConfig Scan { get; init; } = new();
+        public StageProximityScanConfig ProximityScan { get; init; } = new();
+        public StageTopicConfig Topic { get; init; } = new();
+    }
+
+    public sealed class StageRetryPolicy
+    {
+        public int MaxAttempts { get; init; } = 1;
+        public int BackoffMs { get; init; } = 800;
+    }
+
+    public sealed class StageEligibilityRules
+    {
+        public bool OnlyNonHostile { get; init; } = true;
+        public bool ExcludeSleeping { get; init; } = true;
+        public bool ExcludeInCombat { get; init; } = true;
+        public bool ExcludeDowned { get; init; } = true;
+    }
+
+    public sealed class StageScanConfig
+    {
+        public bool Enabled { get; init; } = true;
+        public int IntervalSeconds { get; init; } = 300;
+        public int MaxNewConversationsPerScan { get; init; } = 2;
+    }
+
+    public enum StageProximityTriggerMode
+    {
+        Threshold = 0,
+        Probability = 1
+    }
+
+    public sealed class StageProximityScanConfig
+    {
+        public bool Enabled { get; init; } = true;
+        public float RangeK { get; init; } = 12f;
+        public StageProximityTriggerMode TriggerMode { get; init; } = StageProximityTriggerMode.Threshold;
+        public double TriggerThreshold { get; init; } = 0.5; // 阈值模式：r>阈值触发；设为 1 表示关闭
+        public double ProbabilityP { get; init; } = 0.0;     // 概率模式：r<P 触发
+        public string FactionFilter { get; init; } = "NonHostile"; // 预留：后续扩展为 Flags
+        public bool OnlyNonHostile { get; init; } = true;
+        public bool ExcludeBusy { get; init; } = true;
+    }
+
+    public enum StageTopicSeedPolicy
+    {
+        ConvKeyOnly = 0,
+        ConvKeyWithTick = 1
+    }
+
+    public sealed class StageTopicConfig
+    {
+        public bool Enabled { get; init; } = true;
+        public System.Collections.Generic.Dictionary<string, double> Sources { get; init; } = new System.Collections.Generic.Dictionary<string, double>
+        {
+            { "HistoryRecap", 0.4 }, { "WorldContext", 0.3 }, { "Relations", 0.2 }, { "RandomPool", 0.1 }
+        };
+        public int MaxChars { get; init; } = 600;
+        public int DedupWindow { get; init; } = 5;
+        public StageTopicSeedPolicy SeedPolicy { get; init; } = StageTopicSeedPolicy.ConvKeyWithTick;
+        public string Locale { get; init; } = null;
     }
 }

@@ -117,6 +117,36 @@ namespace RimAI.Core.Infrastructure
             // 将同一实现同时注册为对外只读接口实例，避免双实例不一致
             RegisterInstance(typeof(RimAI.Core.Contracts.Services.IConfigurationService), cfgImpl);
 
+            // P11-M1: Stage/Organizer 服务
+            Register<RimAI.Core.Modules.Stage.IStageService,
+                     RimAI.Core.Modules.Stage.StageService>();
+
+            // P11-M3: Topic & Act 注册（最小）
+            Register<RimAI.Core.Modules.Stage.Topic.ITopicService,
+                     RimAI.Core.Modules.Stage.Topic.TopicService>();
+            Register<RimAI.Core.Modules.Stage.Topic.ITopicProvider,
+                     RimAI.Core.Modules.Stage.Topic.HistoryRecapProvider>();
+            Register<RimAI.Core.Modules.Stage.Topic.ITopicProvider,
+                     RimAI.Core.Modules.Stage.Topic.RandomPoolProvider>();
+            Register<RimAI.Core.Modules.Stage.Acts.IStageAct,
+                     RimAI.Core.Modules.Stage.Acts.GroupChatAct>();
+
+            // 组装 Topic Providers 列表供 ITopicService 注入（IEnumerable<ITopicProvider>）
+            try
+            {
+                var histProv = (RimAI.Core.Modules.Stage.Topic.HistoryRecapProvider)
+                    Resolve(typeof(RimAI.Core.Modules.Stage.Topic.HistoryRecapProvider));
+                var randomProv = (RimAI.Core.Modules.Stage.Topic.RandomPoolProvider)
+                    Resolve(typeof(RimAI.Core.Modules.Stage.Topic.RandomPoolProvider));
+                var topicProviders = new System.Collections.Generic.List<RimAI.Core.Modules.Stage.Topic.ITopicProvider>
+                {
+                    histProv,
+                    randomProv
+                };
+                RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Stage.Topic.ITopicProvider>), topicProviders);
+            }
+            catch { /* ignore */ }
+
             // P9-S1: 组装策略集合供 OrchestrationService 注入（IEnumerable<IOrchestrationStrategy>）
             var classic = (RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy)
                 Resolve(typeof(RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy));
@@ -137,6 +167,18 @@ namespace RimAI.Core.Infrastructure
                 historyWrite.OnEntryRecorded += recap.OnEntryRecorded;
             }
             catch { /* ignore */ }
+
+            // P11-M4: Scan pipeline 注册
+            Register<RimAI.Core.Modules.Stage.Scan.IStageScan,
+                     RimAI.Core.Modules.Stage.Scan.ProximityScan>();
+            try
+            {
+                var prox = (RimAI.Core.Modules.Stage.Scan.ProximityScan)
+                    Resolve(typeof(RimAI.Core.Modules.Stage.Scan.ProximityScan));
+                var scansList = new System.Collections.Generic.List<RimAI.Core.Modules.Stage.Scan.IStageScan> { prox };
+                RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Stage.Scan.IStageScan>), scansList);
+            }
+            catch { }
 
             _initialized = true;
         }

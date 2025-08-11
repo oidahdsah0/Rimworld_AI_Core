@@ -109,5 +109,43 @@ namespace RimAI.Core.Contracts.Eventing
 
         public string Describe() => $"[{Source}] {ExceptionType}: {Message}";
     }
+
+    /// <summary>
+    /// 舞台服务 - 选题完成事件（P11）。
+    /// </summary>
+    public sealed class TopicSelectedEvent : IEvent
+    {
+        public string Id { get; } = System.Guid.NewGuid().ToString();
+        public System.DateTime Timestamp { get; } = System.DateTime.UtcNow;
+        public EventPriority Priority { get; } = EventPriority.Low;
+
+        public string ConvKey { get; set; } = string.Empty;
+        public string Topic { get; set; } = string.Empty;
+        public int Seed { get; set; } = 0;
+        public System.Collections.Generic.Dictionary<string, double> SourceWeights { get; set; } = new System.Collections.Generic.Dictionary<string, double>();
+        public int ScenarioChars { get; set; } = 0;
+
+        public string Describe() => $"[Stage] TopicSelected: {Topic} (seed={Seed})";
+    }
+
+    /// <summary>
+    /// 舞台服务 - 进度事件（P11）。
+    /// </summary>
+    public sealed class StageProgressEvent : IEvent
+    {
+        public string Id { get; } = System.Guid.NewGuid().ToString();
+        public System.DateTime Timestamp { get; } = System.DateTime.UtcNow;
+        public EventPriority Priority { get; } = EventPriority.Low;
+
+        /// <summary>
+        /// 阶段：StageStarted/Coalesced/TurnCompleted/Finished/OrganizerScanStarted/ConversationSuggested/ConversationTriggered/ScanCompleted
+        /// </summary>
+        public string Stage { get; set; } = string.Empty;
+        public string ConvKey { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string PayloadJson { get; set; } = string.Empty;
+
+        public string Describe() => $"[Stage] {Stage}: {Message}";
+    }
 }
 

@@ -110,6 +110,16 @@ namespace RimAI.Core.Modules.Orchestration
                         var text = _fixedPrompts.GetByPawn(pid);
                         if (!string.IsNullOrWhiteSpace(text)) _composer.Add("fixed_prompts", $"- {_pid.GetDisplayName(pid)}: {text}");
                     }
+                    // 会话级场景提示（convKey 覆盖）
+                    try
+                    {
+                        var scenarioOverride = _fixedPrompts.GetConvKeyOverride(convKey);
+                        if (!string.IsNullOrWhiteSpace(scenarioOverride))
+                        {
+                            _composer.Add("fixed_prompts", scenarioOverride);
+                        }
+                    }
+                    catch { }
                 }
                 if (chatSeg?.IncludeRecap ?? true)
                 {
@@ -180,6 +190,16 @@ namespace RimAI.Core.Modules.Orchestration
                         var text = _fixedPrompts.GetByPawn(pid);
                         if (!string.IsNullOrWhiteSpace(text)) _composer.Add("fixed_prompts", $"- {_pid.GetDisplayName(pid)}: {text}");
                     }
+                    // 会话级场景提示（convKey 覆盖）
+                    try
+                    {
+                        var scenarioOverride = _fixedPrompts.GetConvKeyOverride(convKey);
+                        if (!string.IsNullOrWhiteSpace(scenarioOverride))
+                        {
+                            _composer.Add("fixed_prompts", scenarioOverride);
+                        }
+                    }
+                    catch { }
                 }
                 if ((cmdSeg?.IncludeBiography ?? true) && participantIds.Count == 2 && isPlayerNpc)
                 {

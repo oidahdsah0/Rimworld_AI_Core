@@ -16,6 +16,11 @@
   - 两台 AI 服务器同时触发同一会话（同一参与者集合） → 舞台服务调度轮次，逐个调用人格非流式，写入历史。
   - 多个小人（≥3）发起群聊 → 舞台服务调度轮次，逐个调用人格非流式，写入历史。
 
+> 采纳的设计补充（落地约束）：
+> - 舞台服务仅负责上游组织（会话键/并发/合流/冷却/轮次/历史），Persona 仍不写历史。
+> - 非玩家发起一律经舞台服务走非流式；玩家 Chat UI 为舞台服务的一种实现，可流式。
+> - 会话仅记录“最终输出”。
+
 ---
 
 ## 2. 概念与职责
@@ -35,6 +40,10 @@
   - 基于 `IPromptAssemblyService` 组装提示；
   - 按模式请求 `ILLMService`（后台固定非流式），返回文本；
   - 不处理历史，不管理状态。
+
+> 采纳的设计补充（事件与可观测）：
+> - 广播阶段事件：`StageStarted`/`Coalesced`/`TurnCompleted`/`Finished`，以及 `TopicSelected`（在开启 Topic 管线时）。
+> - 事件载荷包括合流/冷却/触发来源/seed/场景提示长度等摘要，便于 Debug 面板显示与回放。
 
 ### 2.1 参与者与触发来源校验（Eligibility）
 
@@ -150,6 +159,10 @@
 
 > UI：设置页增加“对话组织者”分节，允许玩家调整轮次、概率 P、冷却与合流窗口。
 
+> 采纳的设计补充（配置落地）：
+> - 在 `CoreConfig` 新增 `Stage` 配置根；包含 `Stage`/`Stage.Scan`/`Stage.ProximityScan`/`Stage.Topic` 四组。
+> - M1 要求“读取生效即可”，UI 分节可在 M3/M4 补齐；配置仍支持热应用。
+
 ---
 
 ## 6. 接口草案（不落代码，仅约定）
@@ -221,6 +234,13 @@
     - 非玩家发起请求仅能通过组织者入口；
     - 参与者<2 时拒绝；
     - 同 convKey 并发触发只执行一次；合流窗口内触发被合并；冷却生效。
+
+  实施细化（落地清单）：
+  - 配置：在 `CoreConfig` 增加 `StageConfig`（含 `CoalesceWindowMs/CooldownSeconds/MinParticipants/MaxParticipants/PermittedOrigins/EligibilityRules/MaxLatencyMsPerTurn/RetryPolicy/LocaleOverride`），以及 `Stage.Scan/Stage.ProximityScan/Stage.Topic` 子配置；M1 不暴露到对外快照。
+  - 事件：在 `Contracts/Eventing` 增加 `StageStarted/Coalesced/TurnCompleted/Finished` 与 `TopicSelectedEvent`（M3 使用）；M1 广播前两者。
+  - 服务：在 `Modules/Stage/` 新建 `IStageService` 与 `StageService`（实现 convKey 锁/合流/幂等/冷却/Eligibility 验证，M1 返回占位结果，不调用 Persona）。
+  - DI：`ServiceContainer.Init()` 注册 `IStageService -> StageService`。
+  - 提示：`PromptAssemblyService` 支持从 `IFixedPromptService.GetConvKeyOverride(convKey)` 注入“场景提示”（兼容模板，注入到 `fixed_prompts` 段）。
 
 - M2：Persona 集成 + 历史写入
   - 后台非流式调用 Persona，完整文本返回；
@@ -311,5 +331,11 @@
 - Chat UI 继续独立流式路径，不受影响；后台统一经组织者走非流式路径。
 
 > 合并要求：提交 PR 前需附录屏，验证 M1–M3 Gate；文档同步更新本文件完成度标记。
+
+---
+
+附录：新增与扩展的事件模型（契约声明）
+- StageStarted/Coalesced/TurnCompleted/Finished（载荷包含 convKey/participants/seed/coalesced/latency 等摘要）
+- TopicSelectedEvent（convKey/topic/seed/sourceWeights/scenarioChars）
 
 

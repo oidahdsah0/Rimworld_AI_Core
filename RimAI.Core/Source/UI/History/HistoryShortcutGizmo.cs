@@ -12,6 +12,35 @@ namespace RimAI.Core.UI.History
     /// </summary>
     public static class HistoryShortcutGizmo
     {
+        /// <summary>
+        /// 统一入口：信息传输（打开 Chat UI）。
+        /// </summary>
+        public static Command_Action CreateInfoTransferForPawn(Pawn pawn)
+        {
+            return new Command_Action
+            {
+                defaultLabel = "信息传输",
+                defaultDesc = "打开聊天界面以与该殖民者进行信息传输（含任命/历史）",
+                icon = ContentFinder<UnityEngine.Texture2D>.Get("UI/Buttons/OpenChat"),
+                action = () =>
+                {
+                    try
+                    {
+                        var pidSvc = Infrastructure.CoreServices.Locator.Get<Modules.World.IParticipantIdService>();
+                        string pawnId = pidSvc.FromVerseObject(pawn);
+                        string playerId = pidSvc.GetPlayerId();
+                        string convKey = string.Join("|", new[] { pawnId, playerId });
+                        var chat = new RimAI.Core.UI.Chat.MainTabWindow_Chat(convKey, "信息传输");
+                        Find.WindowStack.Add(chat);
+                    }
+                    catch
+                    {
+                        Find.WindowStack.Add(new RimAI.Core.UI.Chat.MainTabWindow_Chat(string.Empty, "信息传输"));
+                    }
+                }
+            };
+        }
+
         public static Command_Action CreateForPawn(Pawn pawn)
         {
             return new Command_Action

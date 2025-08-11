@@ -9,6 +9,7 @@ using RimAI.Core.Modules.World;
 using RimAI.Core.Modules.Persona;
 using RimAI.Core.Infrastructure.Configuration;
 using RimAI.Core.Contracts.Eventing;
+using RimAI.Core.Contracts.Services;
 using UnityEngine;
 using Verse;
 using RimWorld;
@@ -44,19 +45,26 @@ namespace RimAI.Core.UI.Chat
         private System.Action<IEvent> _progressHandler = null;
 
         private readonly string _modeTitle; // "闲聊" / "命令" 等
-        private readonly IConfigurationService _config;
+        private readonly RimAI.Core.Infrastructure.Configuration.IConfigurationService _config;
         private System.Threading.CancellationTokenSource _cts;
 
         private const float HeaderRowHeight = 56f; // 放大标题与头像区域
         private const float RowSpacing = 6f;
         private const float LeftMetaColWidth = 160f;
+        private const float SubHeaderRowHeight = 32f; // 标题下操作行：左人格状态，右按钮
+
+        private enum SendMode
+        {
+            Chat,
+            Command
+        }
 
         public MainTabWindow_Chat(string convKey, string modeTitle)
         {
             _history = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
             _pidService = CoreServices.Locator.Get<IParticipantIdService>();
             _modeTitle = string.IsNullOrWhiteSpace(modeTitle) ? "聊天" : modeTitle.Trim();
-            _config = CoreServices.Locator.Get<IConfigurationService>();
+            _config = CoreServices.Locator.Get<RimAI.Core.Infrastructure.Configuration.IConfigurationService>();
 
             forcePause = false;
             draggable = true;
@@ -116,14 +124,20 @@ namespace RimAI.Core.UI.Chat
         public override void DoWindowContents(Rect inRect)
         {
             float y = inRect.y;
-            // 标题行：左侧头像 + 右侧加大字体标题
+            // 标题行：左侧头像 + 标题
             DrawHeader(inRect, ref y);
             y += RowSpacing;
 
-            // 历史列表 + 输入栏
+            // 子标题行：左人格状态 + 右按钮组（任命/历史）
+            DrawSubHeader(inRect, ref y);
+            y += RowSpacing;
+
+            // 历史列表 + 输入栏（历史区域增加圆角边框）
             float inputHeight = 60f; // 略微降低输入区与按钮高度
-            var historyRect = new Rect(inRect.x, y, inRect.width, inRect.height - (y - inRect.y) - (inputHeight + RowSpacing));
-            var inputRect = new Rect(inRect.x, historyRect.yMax + RowSpacing, inRect.width, inputHeight);
+            var historyOuterRect = new Rect(inRect.x, y, inRect.width, inRect.height - (y - inRect.y) - (inputHeight + RowSpacing));
+            Widgets.DrawMenuSection(historyOuterRect);
+            var historyRect = new Rect(historyOuterRect.x + 6f, historyOuterRect.y + 6f, historyOuterRect.width - 12f, historyOuterRect.height - 12f);
+            var inputRect = new Rect(inRect.x, historyOuterRect.yMax + RowSpacing, inRect.width, inputHeight);
             FlushProgressLines();
             FlushStreamDeltas();
             DrawHistory(historyRect);
@@ -164,7 +178,7 @@ namespace RimAI.Core.UI.Chat
             float avatarSize = 48f;
             var headerRect = new Rect(inRect.x, y, inRect.width, HeaderRowHeight);
             var avatarRect = new Rect(headerRect.x, headerRect.y + (HeaderRowHeight - avatarSize) / 2f, avatarSize, avatarSize);
-            var titleRect = new Rect(avatarRect.xMax + 8f, headerRect.y, headerRect.width - avatarRect.width - 8f, headerRect.height);
+            var titleRect = new Rect(avatarRect.xMax + 8f, headerRect.y, Mathf.Max(0f, headerRect.width - avatarRect.width - 8f), headerRect.height);
 
             // 尝试解析会话中的 pawn 以显示头像
             var pawn = TryResolvePawnFromConvKey();
@@ -179,36 +193,143 @@ namespace RimAI.Core.UI.Chat
 
             var oldFont = Text.Font; var oldAnchor = Text.Anchor;
             Text.Font = GameFont.Medium;
-
-            // 左侧：标题（模式 + 参与者显示名）
-            var leftRect = titleRect;
-            Rect rightRect = default;
-            string personaLabel = null;
-            if (string.Equals(_modeTitle, "命令", StringComparison.Ordinal))
-            {
-                // 预留右侧区域显示人格
-                float rightW = 240f;
-                leftRect = new Rect(titleRect.x, titleRect.y, Mathf.Max(0f, titleRect.width - rightW), titleRect.height);
-                rightRect = new Rect(leftRect.xMax, titleRect.y, rightW, titleRect.height);
-                var personaName = GetBoundPersonaName();
-                personaLabel = string.IsNullOrWhiteSpace(personaName) ? "未任命" : $"人格：{personaName}";
-            }
-
+            // 左侧：标题（信息传输/模式 + 参与者显示名）
             Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(leftRect, GetHeaderText());
+            Widgets.Label(titleRect, GetHeaderText());
+            Text.Font = oldFont; Text.Anchor = oldAnchor;
 
-            // 右侧：人格名（命令模式）
-            if (personaLabel != null)
+            y += HeaderRowHeight;
+        }
+
+        private void DrawSubHeader(Rect inRect, ref float y)
+        {
+            var subRect = new Rect(inRect.x, y, inRect.width, SubHeaderRowHeight);
+            // 左侧：任命内容（人格状态）
+            string personaName = GetBoundPersonaName();
+            string personaLabel = string.IsNullOrWhiteSpace(personaName) ? "未任命" : $"人格：{personaName}";
+            var leftRect = new Rect(subRect.x, subRect.y, Mathf.Max(0f, subRect.width - 216f), subRect.height);
+            var rightRect = new Rect(leftRect.xMax, subRect.y, 216f, subRect.height); // 右侧放两个按钮
+
+            var oldFont = Text.Font; var oldAnchor = Text.Anchor; var oldColor = GUI.color;
+            Text.Font = GameFont.Small; Text.Anchor = TextAnchor.MiddleLeft;
+            if (string.Equals(personaLabel, "未任命", StringComparison.Ordinal))
             {
-                var colorOld = GUI.color;
-                GUI.color = string.Equals(personaLabel, "未任命", StringComparison.Ordinal) ? new Color(0.9f, 0.3f, 0.3f, 1f) : Color.white;
-                Text.Anchor = TextAnchor.MiddleRight;
-                Widgets.Label(rightRect, personaLabel);
-                GUI.color = colorOld;
+                GUI.color = new Color(0.9f, 0.3f, 0.3f, 1f);
+            }
+            Widgets.Label(leftRect, personaLabel);
+            GUI.color = oldColor; Text.Font = oldFont; Text.Anchor = oldAnchor;
+
+            // 右侧：按钮组（任命 / 历史记录）
+            DrawHeaderControls(rightRect);
+            y += SubHeaderRowHeight;
+        }
+
+        private void DrawHeaderControls(Rect controlsRect)
+        {
+            float buttonHeight = 28f;
+            float buttonWidth = 96f;
+            float vCenterY = controlsRect.y + (controlsRect.height - buttonHeight) / 2f;
+            var appointBtnRect = new Rect(controlsRect.x, vCenterY, buttonWidth, buttonHeight);
+            var historyBtnRect = new Rect(appointBtnRect.xMax + 8f, vCenterY, buttonWidth, buttonHeight);
+
+            // 任命（下拉菜单）
+            if (Widgets.ButtonText(appointBtnRect, "任命"))
+            {
+                try
+                {
+                    ShowAppointMenu();
+                }
+                catch (Exception ex)
+                {
+                    Messages.Message("打开任命菜单失败: " + ex.Message, MessageTypeDefOf.RejectInput, false);
+                }
             }
 
-            Text.Font = oldFont; Text.Anchor = oldAnchor;
-            y += HeaderRowHeight;
+            // 历史记录（在 Chat 顶部）
+            if (Widgets.ButtonText(historyBtnRect, "历史记录"))
+            {
+                try
+                {
+                    OpenHistoryManager();
+                }
+                catch (Exception ex)
+                {
+                    Messages.Message("打开历史记录失败: " + ex.Message, MessageTypeDefOf.RejectInput, false);
+                }
+            }
+        }
+
+        private void ShowAppointMenu()
+        {
+            var pawn = TryResolvePawnFromConvKey();
+            if (pawn == null)
+            {
+                var opts = new List<FloatMenuOption> { new FloatMenuOption("不可用：未解析到 NPC", null) };
+                Find.WindowStack.Add(new FloatMenu(opts));
+                return;
+            }
+
+            try
+            {
+                var pidSvc = CoreServices.Locator.Get<IParticipantIdService>();
+                var personaSvc = CoreServices.Locator.Get<IPersonaService>();
+                var bindingSvc = CoreServices.Locator.Get<IPersonaBindingService>();
+
+                string pawnId = pidSvc.FromVerseObject(pawn);
+                var names = (personaSvc.GetAll() ?? Array.Empty<RimAI.Core.Contracts.Models.Persona>())
+                    .Select(p => p.Name)
+                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var options = new List<FloatMenuOption>();
+                if (names.Count == 0)
+                {
+                    options.Add(new FloatMenuOption("无可用人格", null));
+                }
+                else
+                {
+                    foreach (var name in names)
+                    {
+                        options.Add(new FloatMenuOption(name, () =>
+                        {
+                            try
+                            {
+                                bindingSvc.Bind(pawnId, name, 0);
+                                Messages.Message($"已为 {pawn?.LabelShort ?? pawnId} 任命人格：{name}", MessageTypeDefOf.TaskCompletion, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                Messages.Message("任命失败: " + ex.Message, MessageTypeDefOf.RejectInput, false);
+                            }
+                        }));
+                    }
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+            catch (Exception ex)
+            {
+                Messages.Message("打开任命菜单失败: " + ex.Message, MessageTypeDefOf.RejectInput, false);
+            }
+        }
+
+        private void OpenHistoryManager()
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(_convKeyInput))
+                {
+                    RimAI.Core.UI.HistoryManager.HistoryUIState.CurrentConvKey = _convKeyInput;
+                    Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager(_convKeyInput));
+                }
+                else
+                {
+                    Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager());
+                }
+            }
+            catch
+            {
+                Find.WindowStack.Add(new RimAI.Core.UI.HistoryManager.MainTabWindow_HistoryManager());
+            }
         }
 
         private string GetHeaderText()
@@ -344,21 +465,22 @@ namespace RimAI.Core.UI.Chat
 
         private void DrawInputBar(Rect rect)
         {
-            // 左侧输入框，右侧发送/取消按钮（不显示任何快捷键信息）
+            // 左侧输入框，右侧“闲聊 / 命令 / 取消”按钮
             float btnW = 120f;
             float inputH = rect.height;
-            var inputRect = new Rect(rect.x, rect.y, rect.width - btnW - 8f - btnW - 6f, inputH);
-            var sendBtnRect = new Rect(inputRect.xMax + 6f, rect.y, btnW, inputH);
-            var cancelBtnRect = new Rect(sendBtnRect.xMax + 6f, rect.y, btnW, inputH);
+            var inputRect = new Rect(rect.x, rect.y, rect.width - (btnW * 3 + 6f * 3), inputH);
+            var chatBtnRect = new Rect(inputRect.xMax + 6f, rect.y, btnW, inputH);
+            var cmdBtnRect = new Rect(chatBtnRect.xMax + 6f, rect.y, btnW, inputH);
+            var cancelBtnRect = new Rect(cmdBtnRect.xMax + 6f, rect.y, btnW, inputH);
 
             // 富文本框 + Enter发送（不阻止换行）
             GUI.SetNextControlName("RimAI.ChatInput");
-            HandleEnterSend_DoNotSuppress();
+            HandleHotkeysForSend();
             _inputText = Widgets.TextArea(inputRect, _inputText ?? string.Empty);
             // 占位提示（空且未输入时显示灰色文案）
             if (string.IsNullOrEmpty(_inputText))
             {
-                string placeholder = "Enter发送；Shift+Enter换行";
+                string placeholder = "Enter换行；Shift+Enter闲聊；Ctrl+Enter命令";
                 var oldCol = GUI.color; var oldFont = Text.Font; var oldAnchor = Text.Anchor;
                 GUI.color = new Color(1f, 1f, 1f, 0.35f);
                 Text.Font = GameFont.Tiny; Text.Anchor = TextAnchor.UpperLeft;
@@ -367,14 +489,22 @@ namespace RimAI.Core.UI.Chat
                 GUI.color = oldCol; Text.Font = oldFont; Text.Anchor = oldAnchor;
             }
 
-            // 发送按钮（同输入框等高），不可用时显示“等待中”
+            // 闲聊按钮
             bool canSend = !_isSending && !string.IsNullOrWhiteSpace(_convKeyInput) && !string.IsNullOrWhiteSpace(_inputText);
-            string sendLabel = _isSending ? "等待中" : "发送\nEnter发送";
             bool oldEnabled = GUI.enabled;
             GUI.enabled = canSend;
-            if (Widgets.ButtonText(sendBtnRect, sendLabel))
+            if (Widgets.ButtonText(chatBtnRect, "闲聊"))
             {
-                _ = SendAsync();
+                _ = SendAsync(SendMode.Chat);
+            }
+            GUI.enabled = oldEnabled;
+
+            // 命令按钮
+            oldEnabled = GUI.enabled;
+            GUI.enabled = canSend;
+            if (Widgets.ButtonText(cmdBtnRect, "命令"))
+            {
+                _ = SendAsync(SendMode.Command);
             }
             GUI.enabled = oldEnabled;
 
@@ -397,7 +527,7 @@ namespace RimAI.Core.UI.Chat
             GUI.enabled = oldEnabled;
         }
 
-        private void HandleEnterSend_DoNotSuppress()
+        private void HandleHotkeysForSend()
         {
             var e = Event.current;
             if (e == null || e.type != EventType.KeyDown) return;
@@ -405,16 +535,23 @@ namespace RimAI.Core.UI.Chat
             string focused = GUI.GetNameOfFocusedControl();
             bool focusOnInput = string.Equals(focused, "RimAI.ChatInput", StringComparison.Ordinal);
             if (!focusOnInput) return;
-            // 允许 Shift+Enter 自然换行，这里不拦截
-            if (e.shift) return;
-            // 其他修饰键也放行（例如 Ctrl/Cmd），避免误伤
-            if (e.alt || e.control || e.command) return;
 
             bool canSend = !_isSending && !string.IsNullOrWhiteSpace(_convKeyInput) && !string.IsNullOrWhiteSpace(_inputText);
             if (!canSend) return;
 
-            _ = SendAsync();
-            // 不调用 e.Use()，让 TextArea 自行决定是否插入换行（用户希望“算是小BUG，不管了”）
+            if (e.shift)
+            {
+                _ = SendAsync(SendMode.Chat);
+                e.Use();
+                return;
+            }
+            if (e.control || e.command)
+            {
+                _ = SendAsync(SendMode.Command);
+                e.Use();
+                return;
+            }
+            // 单独 Enter → 换行，不拦截
         }
 
         // 已按用户要求取消对回车的拦截逻辑
@@ -494,6 +631,13 @@ namespace RimAI.Core.UI.Chat
 
         private async Task SendAsync()
         {
+            // 兼容旧入口：依据 _modeTitle 选择默认模式
+            var mode = string.Equals(_modeTitle, "命令", StringComparison.Ordinal) ? SendMode.Command : SendMode.Chat;
+            await SendAsync(mode);
+        }
+
+        private async Task SendAsync(SendMode mode)
+        {
             if (_isSending) return;
             _isSending = true;
             _status = "处理中…";
@@ -524,7 +668,7 @@ namespace RimAI.Core.UI.Chat
                     string final = string.Empty;
                     try
                     {
-                        if (string.Equals(_modeTitle, "命令", StringComparison.Ordinal))
+                        if (mode == SendMode.Command)
                         {
                             var opts = new PersonaCommandOptions { Stream = true, WriteHistory = true };
                             // 新一轮命令前清空进度与流式缓冲

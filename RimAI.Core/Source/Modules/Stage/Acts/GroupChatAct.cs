@@ -64,8 +64,8 @@ namespace RimAI.Core.Modules.Stage.Acts
                         {
                             try { CoreServices.Logger.Info($"[Stage/GroupChat] TurnStart convKey={ctx.ConvKey} round={i + 1} speaker={speakerId}"); } catch { }
                             var persona = CoreServices.Locator.Get<IPersonaConversationService>();
-                            var opts = new PersonaChatOptions { Stream = false, Locale = locale, WriteHistory = false };
-                            await foreach (var chunk in persona.ChatAsync(ctx.Participants, personaName: null, userInput: turnInstruction, options: opts, ct: cts.Token))
+                            var overrides = new PersonaConversationService.StageChatOverrides { MaxOutputTokens = 100 };
+                            await foreach (var chunk in ((PersonaConversationService)persona).ChatForStageAsync(ctx.Participants, personaName: null, userInput: turnInstruction, locale: locale, overrides: overrides, ct: cts.Token))
                             {
                                 if (cts.IsCancellationRequested) break;
                                 if (chunk.IsSuccess) final += chunk.Value?.ContentDelta ?? string.Empty; else error = chunk.Error;
@@ -100,7 +100,7 @@ namespace RimAI.Core.Modules.Stage.Acts
                     catch { }
 
                     try { CoreServices.Logger.Info($"[Stage/GroupChat] TurnCompleted convKey={ctx.ConvKey} round={i + 1} speaker={speakerId} len={final.Length}"); } catch { }
-                    Publish(ctx, "TurnCompleted", ctx.ConvKey, new { ok = true, speakerId, len = final.Length, round = i + 1 });
+                    Publish(ctx, "TurnCompleted", ctx.ConvKey, new { ok = true, speakerId, len = final.Length, round = i + 1, text = final });
                 }
             }
 

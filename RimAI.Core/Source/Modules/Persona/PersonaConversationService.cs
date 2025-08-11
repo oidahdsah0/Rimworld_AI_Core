@@ -33,9 +33,7 @@ namespace RimAI.Core.Modules.Persona
         private readonly IPromptTemplateService _templates;
         private readonly IPromptComposer _composer;
         private readonly IPromptAssemblyService _assembler;
-        private readonly IHistoryWriteService _historyWrite;
-        private readonly IHistoryQueryService _historyQuery;
-        private readonly IRecapService _recap;
+        
         private readonly IParticipantIdService _pid;
         private readonly Infrastructure.Configuration.IConfigurationService _config;
 
@@ -43,9 +41,6 @@ namespace RimAI.Core.Modules.Persona
             Modules.LLM.ILLMService llm,
             IPromptTemplateService templates,
             IPromptComposer composer,
-            IHistoryWriteService historyWrite,
-            IHistoryQueryService historyQuery,
-            IRecapService recap,
             IParticipantIdService pid,
             Infrastructure.Configuration.IConfigurationService config,
             IPromptAssemblyService assembler)
@@ -54,9 +49,6 @@ namespace RimAI.Core.Modules.Persona
             _llm = llm;
             _templates = templates;
             _composer = composer;
-            _historyWrite = historyWrite;
-            _historyQuery = historyQuery;
-            _recap = recap;
             _pid = pid;
             _config = config;
             _assembler = assembler;
@@ -114,6 +106,76 @@ namespace RimAI.Core.Modules.Persona
                     yield return Result<UnifiedChatChunk>.Failure(res.Error);
                 }
             }
+        }
+
+        internal sealed class StageChatOverrides
+        {
+            public int? MaxOutputTokens = null; // 近似截断
+            public int? MaxOutputChars = null;  // 硬字符上限（优先生效）
+            public string Model = null;         // 预留：后续可穿透到 Provider
+            public double? Temperature = null;  // 预留
+            public System.Collections.Generic.Dictionary<string, object> ProviderParameters = null; // 预留
+        }
+
+        public async IAsyncEnumerable<Result<UnifiedChatChunk>> ChatForStageAsync(
+            IReadOnlyList<string> participantIds,
+            string personaName,
+            string userInput,
+            string locale,
+            StageChatOverrides overrides = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+        {
+            overrides ??= new StageChatOverrides();
+            // 统一走非流式，便于在服务端收敛并截断
+            string final = string.Empty;
+            string error = null;
+            await foreach (var chunk in ChatAsync(participantIds, personaName, userInput, new PersonaChatOptions { Stream = false, WriteHistory = false, Locale = locale }, ct))
+            {
+                if (ct.IsCancellationRequested) yield break;
+                if (chunk.IsSuccess)
+                {
+                    final += chunk.Value?.ContentDelta ?? string.Empty;
+                }
+                else
+                {
+                    error = chunk.Error;
+                }
+            }
+            if (!string.IsNullOrWhiteSpace(error) && string.IsNullOrWhiteSpace(final))
+            {
+                yield return Result<UnifiedChatChunk>.Failure(error);
+                yield break;
+            }
+            // 应用覆盖（不影响常规 ChatAsync 调用）
+            if (overrides?.MaxOutputChars is int maxChars && maxChars > 0)
+            {
+                final = TruncateByChars(final, maxChars);
+            }
+            else if (overrides?.MaxOutputTokens is int maxTok && maxTok > 0)
+            {
+                final = TruncateByApproxTokens(final, maxTok, locale);
+            }
+            yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = final });
+        }
+
+        private static string TruncateByApproxTokens(string text, int maxTokens, string locale)
+        {
+            text = text ?? string.Empty;
+            if (maxTokens <= 0) return text;
+            // 近似策略：
+            // - 中文（zh）按字符≈token，硬截断至 maxTokens 字符
+            // - 其他语言按 ~4 字符/词估算，硬截断至 maxTokens*4 字符
+            var isZh = (locale ?? string.Empty).StartsWith("zh", StringComparison.OrdinalIgnoreCase);
+            var maxChars = isZh ? maxTokens : Math.Max(1, maxTokens * 4);
+            if (text.Length <= maxChars) return text;
+            return text.Substring(0, Math.Max(0, maxChars)).TrimEnd() + "…";
+        }
+
+        private static string TruncateByChars(string text, int maxChars)
+        {
+            text = text ?? string.Empty;
+            if (maxChars <= 0 || text.Length <= maxChars) return text;
+            return text.Substring(0, Math.Max(0, maxChars)).TrimEnd() + "…";
         }
 
         public async IAsyncEnumerable<Result<UnifiedChatChunk>> CommandAsync(IReadOnlyList<string> participantIds, string personaName, string userInput, PersonaCommandOptions options = null, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)

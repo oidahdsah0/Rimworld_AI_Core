@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 using RimAI.Core.Contracts.Eventing;
 using RimAI.Core.Infrastructure;
 using RimAI.Core.Infrastructure.Configuration;
-using RimAI.Core.Modules.Persona;
+ 
 using RimAI.Core.Modules.World;
 using RimAI.Core.Settings;
 using RimAI.Framework.Contracts;
@@ -34,8 +34,7 @@ internal sealed partial class StageService : IStageService
         private readonly IConfigurationService _config;
         private readonly IEventBus _events;
         private readonly IParticipantIdService _pid;
-        private readonly IPersonaConversationService _persona;
-        private readonly RimAI.Core.Services.IHistoryWriteService _history;
+        private readonly RimAI.Core.Modules.Stage.History.IStageHistoryService _stageHistory;
         private readonly IStageKernel _kernel;
 
         private sealed class CoalesceBucket
@@ -58,13 +57,12 @@ internal sealed partial class StageService : IStageService
         private readonly ConcurrentDictionary<string, DateTime> _cooldown = new(); // convKey -> last finished time
         private readonly ConcurrentDictionary<string, RecentResult> _recentByConvKey = new(); // convKey -> last result
 
-        public StageService(IConfigurationService config, IEventBus events, IParticipantIdService pid, IPersonaConversationService persona, RimAI.Core.Services.IHistoryWriteService history, IStageKernel kernel)
+        public StageService(IConfigurationService config, IEventBus events, IParticipantIdService pid, RimAI.Core.Modules.Stage.History.IStageHistoryService stageHistory, IStageKernel kernel)
         {
             _config = config;
             _events = events;
             _pid = pid;
-            _persona = persona;
-            _history = history;
+            _stageHistory = stageHistory;
             _kernel = kernel;
         }
 
@@ -169,7 +167,8 @@ internal sealed partial class StageService : IStageService
                                 Participants = normalized,
                                 Seed = seed,
                                 Locale = locale,
-                                Options = _config.Current?.Stage
+                                Options = _config.Current?.Stage,
+                                Events = _events
                             };
                             if (!act.IsEligible(actCtx))
                             {
@@ -199,19 +198,12 @@ internal sealed partial class StageService : IStageService
                     yield break;
                 }
 
-                // 最终输出写入
+                // 最终输出写入（通过 StageHistoryService）
                 var text = final ?? string.Empty;
                 try
                 {
-                    var idsByKey = await _history.FindByConvKeyAsync(convKey);
-                    var convId = idsByKey?.LastOrDefault();
-                    if (string.IsNullOrWhiteSpace(convId))
-                    {
-                        convId = _history.CreateConversation(normalized);
-                    }
                     var speakerId = !string.IsNullOrWhiteSpace(request.TargetParticipantId) ? request.TargetParticipantId : (normalized.Count > 0 ? normalized[0] : _pid.GetPlayerId());
-                    var entry = new ConversationEntry(speakerId, text, DateTime.UtcNow);
-                    await _history.AppendEntryAsync(convId, entry);
+                    await _stageHistory.AppendFinalAsync(convKey, normalized, speakerId, text, DateTime.UtcNow);
                 }
                 catch { }
 

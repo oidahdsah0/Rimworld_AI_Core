@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Framework.Contracts;
+using RimAI.Core.Contracts.Eventing;
 
 namespace RimAI.Core.Modules.Stage.Acts
 {
@@ -12,6 +13,7 @@ namespace RimAI.Core.Modules.Stage.Acts
         public int Seed { get; set; }
         public string Locale { get; set; }
         public RimAI.Core.Settings.StageConfig Options { get; set; }
+        public IEventBus Events { get; set; }
     }
 
     internal sealed class ActResult

@@ -120,8 +120,13 @@ namespace RimAI.Core.Infrastructure
             // P11.5: Stage/Organizer 服务 + Kernel
             Register<RimAI.Core.Modules.Stage.Kernel.IStageKernel,
                      RimAI.Core.Modules.Stage.Kernel.StageKernel>();
+            Register<RimAI.Core.Modules.Stage.History.IStageHistoryService,
+                     RimAI.Core.Modules.Stage.History.StageHistoryService>();
             Register<RimAI.Core.Modules.Stage.IStageService,
                      RimAI.Core.Modules.Stage.StageService>();
+            // 气泡显示订阅器（轻量构造，订阅事件总线）
+            Register<RimAI.Core.Modules.Stage.Bubbles.StageBubbleSink,
+                     RimAI.Core.Modules.Stage.Bubbles.StageBubbleSink>();
 
             // P11-M3: Topic & Act 注册（最小）
             Register<RimAI.Core.Modules.Stage.Topic.ITopicService,

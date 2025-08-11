@@ -33,7 +33,8 @@ namespace RimAI.Core.Modules.Stage.Triggers
 
         public async Task RunOnceAsync(IStageService stage, IStageKernel kernel, CancellationToken ct)
         {
-            var cfg = _config.Current?.Stage?.ProximityScan ?? new StageProximityScanConfig();
+            var stageCfg = _config.Current?.Stage ?? new StageConfig();
+            var cfg = stageCfg?.ProximityScan ?? new StageProximityScanConfig();
             if (!(_config.Current?.Stage?.Scan?.Enabled ?? true)) return;
             if (!(cfg?.Enabled ?? true)) return;
 
@@ -43,11 +44,46 @@ namespace RimAI.Core.Modules.Stage.Triggers
             if (pawns.Count == 0) return;
 
             var rnd = new Random(Environment.TickCount);
-            var a = pawns[rnd.Next(pawns.Count)];
-            var neighbors = pawns.Where(p => p != a && DistanceApprox(a, p) <= Math.Max(1f, cfg.RangeK)).ToList();
-            if (neighbors.Count == 0) return;
-            var b = neighbors[rnd.Next(neighbors.Count)];
+            var maxParticipants = Math.Max(2, Math.Min(10, stageCfg?.MaxParticipants ?? 5));
+            var minParticipants = Math.Max(2, stageCfg?.MinParticipants ?? 2);
 
+            // 选择锚点
+            var anchor = pawns[rnd.Next(pawns.Count)];
+
+            // 计算邻居（同地图，距离阈值内）
+            var neighbors = pawns
+                .Where(p => p != anchor && DistanceApprox(anchor, p) <= Math.Max(1f, cfg.RangeK))
+                .ToList();
+            if (neighbors.Count == 0) return;
+
+            // 映射为参与者 ID，并过滤掉正被 Kernel 占用的参与者
+            var pid = CoreServices.Locator.Get<IParticipantIdService>();
+            var idAnchor = pid.FromVerseObject(anchor);
+            if (string.IsNullOrWhiteSpace(idAnchor) || kernel.IsBusyByParticipant(idAnchor)) return;
+
+            var neighborInfos = neighbors
+                .Select(n => new { Pawn = n, Id = pid.FromVerseObject(n), Dist = DistanceApprox(anchor, n) })
+                .Where(x => !string.IsNullOrWhiteSpace(x.Id) && !kernel.IsBusyByParticipant(x.Id))
+                .OrderBy(x => x.Dist)
+                .ToList();
+
+            // 选取最近的若干人，凑到上限为止
+            var selectedIds = neighborInfos
+                .Take(Math.Max(0, maxParticipants - 1))
+                .Select(x => x.Id)
+                .ToList();
+
+            var participants = new List<string> { idAnchor };
+            participants.AddRange(selectedIds);
+
+            if (participants.Count < minParticipants) return;
+
+            // 按 convKey 早退检查：忙碌或冷却中直接退出
+            var convKey = string.Join("|", participants.OrderBy(x => x, StringComparer.Ordinal));
+            if (kernel.IsBusyByConvKey(convKey)) return;
+            if (kernel.IsInCooldown(convKey)) return;
+
+            // 触发判定
             bool trigger;
             if (cfg.TriggerMode == StageProximityTriggerMode.Threshold)
             {
@@ -61,17 +97,12 @@ namespace RimAI.Core.Modules.Stage.Triggers
             }
             if (!trigger) return;
 
-            var pid = CoreServices.Locator.Get<IParticipantIdService>();
-            var idA = pid.FromVerseObject(a);
-            var idB = pid.FromVerseObject(b);
-            var participants = new List<string> { idA, idB };
-
             var intent = new StageIntent
             {
                 ActName = TargetActName,
                 Participants = participants,
-                ConvKey = string.Join("|", participants.OrderBy(x => x, StringComparer.Ordinal)),
-                Seed = unchecked(idA.GetHashCode() ^ (idB?.GetHashCode() ?? 0))
+                ConvKey = convKey,
+                Seed = null // 交由 Stage 侧统一计算（convKey → seed）
             };
             var decision = stage.SubmitIntent(intent);
             if (!string.Equals(decision?.Outcome, "Approve", StringComparison.OrdinalIgnoreCase)) return;
@@ -80,7 +111,7 @@ namespace RimAI.Core.Modules.Stage.Triggers
             {
                 ActName = TargetActName,
                 Participants = participants,
-                Seed = intent.Seed,
+                Seed = null,
                 UserInputOrScenario = string.Empty
             };
             await foreach (var _ in stage.StartAsync(req, ct)) { }

@@ -52,6 +52,7 @@ namespace RimAI.Core.UI.Chat
         // 缓冲上限（仅限 UI 预览，不影响写入历史的完整文本）
         private const int MaxProgressChars = 8000;        // 进度预览最大字符数
         private const int MaxStreamPreviewChars = 12000;   // 流式预览最大字符数
+        private const int MaxStreamFlushPerFrame = 2000;   // 每帧最多刷入的流式增量数
 
         // Pawn 解析缓存，避免每帧扫描
         private Pawn _cachedPawn;

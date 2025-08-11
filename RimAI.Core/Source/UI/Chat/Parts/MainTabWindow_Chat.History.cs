@@ -16,7 +16,8 @@ namespace RimAI.Core.UI.Chat
         {
             if (_streamQueue == null) return;
             bool any = false;
-            while (_streamQueue.TryDequeue(out var delta))
+            int flushed = 0;
+            while (flushed < MaxStreamFlushPerFrame && _streamQueue.TryDequeue(out var delta))
             {
                 if (!string.IsNullOrEmpty(delta))
                 {
@@ -24,6 +25,7 @@ namespace RimAI.Core.UI.Chat
                     _streamLastDeltaAtUtc = DateTime.UtcNow;
                     any = true;
                 }
+                flushed++;
             }
             if (any)
             {

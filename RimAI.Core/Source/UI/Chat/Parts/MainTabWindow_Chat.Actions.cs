@@ -79,7 +79,7 @@ namespace RimAI.Core.UI.Chat
                 var bus = CoreServices.Locator.Get<IEventBus>();
                 if (_progressHandler != null)
                 {
-                    bus?.Unsubscribe(_progressHandler);
+                    bus?.Unsubscribe<IEvent>(_progressHandler);
                 }
             }
             catch { }

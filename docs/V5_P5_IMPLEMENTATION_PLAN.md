@@ -2,6 +2,8 @@
 
 > 目标：编排层仅负责“工具链”的暴露、决策与执行，不做任何向量检索与最终汇总；模式仅有 `Classic` 与 `NarrowTopK`，由上游显式选择，**无自动切换/无自动降级**。编排层统一向 Tool Service 请求 Framework Tool Calls 所需的 Tool JSON（Classic=全集；NarrowTopK=TopK+分数表），再通过 LLM 决策一次 Tool Calls 并交由注册表执行。为未来“工具链（多次调用）/并发只读调用”预留数据结构与参数（本阶段不实现）。本文档为唯一入口，无需旧文。
 
+> 全局对齐：本阶段遵循《V5 — 全局纪律与统一规范》（见 `docs/V5_GLOBAL_CONVENTIONS.md`）。若本文与全局规范冲突，以全局规范为准。
+
 ---
 
 ## 0. 范围与非目标
@@ -241,3 +243,14 @@ RimAI.Core/
 ---
 
 本文件为 V5 P5 唯一权威实施说明。实现与验收以本文为准。
+
+---
+
+## 9. CI / Grep Gate（必须通过）
+
+- 编排层不做向量与降级：
+  - grep=0：`\bGetEmbeddingsAsync\b|\bIPromptService\b|\bPrompt\b|StreamResponseAsync\(`
+- 仅消费 Tool Service：
+  - `Modules/Orchestration/**` 中不得 `using\s+RimAI\.Framework`；只允许经 `IToolRegistryService` 取得 Tool JSON。
+- 非流式纪律：后台路径 grep=0：`StreamResponseAsync\(`。
+- 注入纪律：仅构造函数注入；禁止属性注入。

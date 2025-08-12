@@ -2,6 +2,8 @@
 
 > 目标：一次性交付“稳定、可观测、可恢复”的持久化子系统，采用“发令员-总工程师-专家”职责分离模型，实现 Core 长期状态的安全落盘与读档恢复。本文档为唯一入口，无需查阅旧文即可完成落地与验收。
 
+> 全局对齐：本阶段遵循《V5 — 全局纪律与统一规范》（见 `docs/V5_GLOBAL_CONVENTIONS.md`）。若本文与全局规范冲突，以全局规范为准。
+
 ---
 
 ## 0. 范围与非目标
@@ -13,7 +15,7 @@
   - 纪律与 CI：Scribe/Verse 使用面最小化（仅限 Persistence 模块文件），节点级容错与版本化、读取缺失节点默认空状态。
 
 - 非目标（后续阶段处理）
-  - 不引入新历史查询/策略/RAG；Embedding/向量索引/缓存/合流一律不入档（可重建）。
+  - 不引入新历史查询/策略/RAG；Embedding/向量索引/缓存/合流一律不入档（可重建）。工具索引仅以设置文件 JSON 持久化。
   - 不做旧档 v1 的迁移读取；本阶段以 v2 新档为准（与 V4/P10 约束一致）。
 
 ---
@@ -55,7 +57,7 @@
   - `RimAI_StageRecapV1`：`List<ActRecapEntry { title, triggerAtUtc, actName, convKey, participants[], summaryText, metadataJson?, tags[], createdAtUtc }]`
 
 - 严格不入档
-  - Embedding/RAG 向量（除 P4 工具向量索引的“可选入档”外）、任何 provider/model 缓存或合流产物、临时队列或运行时状态。
+  - Embedding/RAG 向量、任何 provider/model 缓存或合流产物、临时队列或运行时状态、工具向量索引（仅设置文件 JSON）。
 
 ---
 
@@ -126,7 +128,7 @@ RimAI.Core/
           PersonaBindingsSnapshot.cs
           PersonalBeliefsState.cs
           StageRecapState.cs
-      ToolingIndexState.cs              // 新增：与 P4 对齐的“工具索引入档”节点（可选）
+      // ToolingIndexState.cs            // 已移除：工具索引不入档，只做设置文件 JSON
         ScribeAdapters/
           Scribe_Dict.cs                 // 字典/列表/POCO 读写辅助
           Scribe_Poco.cs
@@ -145,15 +147,11 @@ RimAI.Core/
 ```json
 {
   "Persistence": {
-    "MaxTextLength": 4000,               // 单段文本上限（传记/Recap 等）
-    "EnableDebugExport": true,            // Debug 面板导出/导入开关
-    "NodeTimeoutMs": 200,                 // 单节点读写预算（统计用途）
-    "OnLoadRebuildIndexes": true,         // 读档后自动重建历史双索引
-    "ToolingIndex": {
-      "NodeName": "RimAI_ToolingIndexV1",  // 与 P4 配置 Embedding.PersistInSave.NodeName 一致
-      "Enabled": true,                      // 允许持久化工具向量索引
-      "AcceptModes": ["MetaOnly", "FullVectors"] // 接受的入档模式范围
-    }
+    "MaxTextLength": 4000,
+    "EnableDebugExport": true,
+    "NodeTimeoutMs": 200,
+    "OnLoadRebuildIndexes": true,
+    "Files": { "BasePath": "Config/RimAI", "IndicesPath": "Config/RimAI/Indices" }
   }
 }
 ```
@@ -205,19 +203,9 @@ public static class Scribe_Dict
 - 按节点分别写入；对文本字段应用长度上限（来自配置）。
 - 读档：不存在节点即返回空；单条过长文本裁剪并在日志中标注 `truncated=true`。
 
-### S8：工具向量索引（P4 Embedding）持久化整合（可选）
-- 新增 `ToolingIndexState` DTO：承载 `ToolIndexFingerprint/Weights/RecordCount/BuiltAtUtc/DurationMs` 以及可选 `Records`（向量，受上限）。
-- `SaveAll()`：
-  - 读取 P4 配置 `Embedding.PersistInSave.Mode`：
-    - `None`：跳过该节点。
-    - `MetaOnly`：仅写入指纹/权重/记录数/构建时间。
-    - `FullVectors`：写入裁剪后的 `Records` 与上述元信息。
-  - 节点名使用 `CoreConfig.Persistence.ToolingIndex.NodeName`（默认 `RimAI_ToolingIndexV1`）。
-- `LoadAll()`：
-  - 若节点存在且与当前配置指纹一致：
-    - `MetaOnly`：恢复索引“就绪/部分就绪”状态并尝试加载外部 JSON；缺失则后台重建。
-    - `FullVectors`：直接装载入档向量恢复 Ready；若被裁剪则后台补齐或合并 JSON。
-  - 指纹不一致：标记 Stale 并触发后台重建。
+### S8：统一文件 IO（新增职责）
+- Persistence 作为全局唯一持久化 IO 入口，提供文件读写 API：`ReadJsonAsync<T>(path)` / `WriteJsonAsync(path, obj)`；统一路径管理（基础路径/索引路径等来自 `CoreConfig.Persistence.Files`）。
+- 工具向量索引（P4）仅以设置文件 JSON 形式持久化：Tooling 通过 `IPersistenceService` 的文件 API 读写 `tools_index_{provider}_{model}.json`；不提供任何索引入档/读档接口。
 
 ### S9：节点级容错与统计
 - 每节点 try/catch：记录 `node`, `ok`, `entries`, `bytesApprox`, `elapsedMs`, `error?`。
@@ -227,7 +215,7 @@ public static class Scribe_Dict
 - 展示 `GetLastStats()` 概览与节点表格。
 - 按钮：`Export JSON`（保存到 `Config/RimAI/Snapshots/{saveName}.json`）、`Import JSON`、`Rebuild History Indexes`（运行索引重建并打印差异）。
 - 读档后自动在首次打开面板时提示：各节点条目数与耗时。
- - 工具索引页签：显示 `PersistInSave.Mode/MaxVectors`、节点是否存在、记录数、指纹；按钮支持“一键写入/清除节点”、“从节点恢复/与外部 JSON 合并”。
+  - 工具索引页签：显示索引文件路径、存在性、记录数、指纹；按钮支持“重建索引/打开目录”。
 
 ### S11：CI/Grep Gate 与纪律
 - 全仓 grep（必须为 0，除 `Modules/Persistence` 下）：`\bScribe\.` 与 `using\s+Verse`。
@@ -249,7 +237,7 @@ public static class Scribe_Dict
   2) 历史索引（ConvKey/Participant）（缺失可重建）
   3) 前情提要（依赖 conversationId）
   4) 固定提示/传记/人格绑定/个人观点
-  5) 工具向量索引（可选，若启用入档）
+  5) 工具向量索引（不入档，跳过）
   6) 舞台素材（可选）
 
 - ID 与数据校验
@@ -292,7 +280,7 @@ private void ReadConvKeyIndexNode(ref Dictionary<string, List<string>> index)
 - 保存/读取汇总：`op=save|load, nodes=7, elapsed=123ms`。
 - 节点级：`node=RimAI_ConversationsV2, ok=true, entries=24, bytes≈18.2KB, elapsed=31ms`。
 - 索引重建：`rebuild=HistoryIndexes, convKeyFixed=3, participantFixed=5, elapsed=9ms`。
- - 工具索引：`toolIndex=node=RimAI_ToolingIndexV1, mode=MetaOnly, fingerprint=..., entries=102, elapsed=22ms`；`toolIndex=restore mode=FullVectors, vectors=1800, mergedFromJson=true`。
+  - 工具索引：`toolIndex=file=tools_index_{provider}_{model}.json, fingerprint=..., entries=102, elapsed=22ms`。
 
 ---
 
@@ -325,7 +313,7 @@ private void ReadConvKeyIndexNode(ref Dictionary<string, List<string>> index)
 
 - 性能
   - 中等规模存档保存 ≤ 150ms；读档 ≤ 200ms；超标打印 Warn。
-  - 开启 `FullVectors` 时，节点写入/读取耗时随向量条目数线性增长；在 Debug 面板记录向量条目与体积估算；`MaxVectors` 默认应控制在 1–2k 以内。
+  - 工具索引不入档；文件读写由 Persistence 统一，记录写入/读取耗时与体积估算。
 
 ---
 
@@ -335,8 +323,8 @@ private void ReadConvKeyIndexNode(ref Dictionary<string, List<string>> index)
 2) 点击 `Export JSON` → 清空历史服务内存 → `Import JSON` → 验证 UI 与功能恢复。
 3) 手动删改 `ConvKeyIndex` 节点 → 读档 → 验证自动重建索引与差异日志。
 4) 构造超长传记条目 → 保存 → 读档 → 验证裁剪与 `truncated=true` 标记日志。
-5) 开启 P4 `PersistInSave.Mode=MetaOnly` → 读档后 TopK 首次查询应“无需重建/直接就绪”或“部分就绪并尝试加载外部 JSON”。
-6) 切换为 `FullVectors` 并设置 `MaxVectors=1000` → 读档后立即 Ready；外部 JSON 删除后仍可完成 TopK（可能分数轻微差异）。
+ 5) 工具索引：删除索引文件 → 进入地图触发重建；修改 provider/model → 标记过期并后台重建；面板显示新指纹。
+6) （移除）FullVectors 入档相关回归；改为检查索引文件重建路径与指纹更新。
 
 ---
 

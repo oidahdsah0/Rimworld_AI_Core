@@ -2,13 +2,15 @@
 
 > 目标：交付“稳定、可扩展、可观测”的工具系统，并内置“工具向量索引（Embedding）”。Tool Service 成为 Framework Tool Calls 所需 Tool JSON 的**唯一产出方**；Classic 直接产出“全集 Tool JSON”，NarrowTopK 产出“TopK Tool JSON + 置信度分数表”。索引构建与检索完全由 Tool Service 负责，上游（编排层）仅消费该服务，不再自行拼装或做向量检索。本文档为唯一入口，无需翻阅旧文即可落地与验收。
 
+> 全局对齐：本阶段遵循《V5 — 全局纪律与统一规范》（见 `docs/V5_GLOBAL_CONVENTIONS.md`）。若本文与全局规范冲突，以全局规范为准。
+
 ---
 
 ## 0. 范围与非目标
 
 - 范围（本阶段交付）
   - 工具契约/注册/参数校验/执行沙箱（并发/主线程/副作用/超时/速率）
-  - 工具向量索引（Embedding Index）：构建/持久化/检索/健康状态与自动重建
+  - 工具向量索引（Embedding Index）：构建/检索/健康状态与自动重建；索引仅以设置文件（JSON）持久化
   - Tool JSON 产出：
     - Classic：返回可直接发送给 Framework Tool Calls 的完整 Tool JSON 列表
     - NarrowTopK：将提示转 Embedding，与工具库比对返回 TopK Tool JSON + 置信度分数表
@@ -145,11 +147,11 @@ RimAI.Core/
         ToolSandbox.cs                 // 并发/主线程/互斥/速率/超时
         ToolBinding.cs                 // 参数校验
         ToolLogging.cs
-        Indexing/                      // 新增：工具向量索引
+         Indexing/                      // 新增：工具向量索引
           ToolIndexModels.cs          // 记录/指纹/快照/分数
           ToolIndexManager.cs         // 构建/加载/保存/检索
           ToolIndexBuilder.cs         // 调用 ILLMService.GetEmbeddingsAsync 批量向量化
-          ToolIndexStorage.cs         // JSON 文件存取：tools_index_{provider}_{model}.json
+           ToolIndexStorage.cs         // JSON 文件存取（通过 Persistence 文件 IO）：tools_index_{provider}_{model}.json
         DemoTools/
           GetColonyStatusTool.cs
     UI/DebugPanel/Parts/
@@ -183,28 +185,21 @@ RimAI.Core/
       "AutoBuildOnStart": true,
       "BlockDuringBuild": true,
       "MaxParallel": 4,
-      "MaxPerMinute": 120,
-      "PersistInSave": {
-        "Mode": "MetaOnly",               // None | MetaOnly | FullVectors
-        "MaxVectors": 2000,                 // FullVectors 时上限（避免存档过大）
-        "NodeName": "RimAI_ToolingIndexV1" // Scribe 节点名（与 P6 对齐）
-      }
+      "MaxPerMinute": 120
     },
-    "NarrowTopK": {
-      "TopK": 5,
-      "MinScoreThreshold": 0.0
+    "NarrowTopK": { "TopK": 5, "MinScoreThreshold": 0.0 },
+    "IndexFiles": {
+      "BasePath": "Config/RimAI/Indices",
+      "FileNameFormat": "tools_index_{provider}_{model}.json"
     }
   }
 }
 ```
 
 说明：
-- `Provider/Model/Dimension/Instruction` 变化会触发 `MarkIndexStale()` 并 `RebuildIndexAsync()`
-- `BlockDuringBuild=true` 时，索引构建期间 NarrowTopK 相关调用被拒绝并给出明确错误
-- `PersistInSave.Mode` 控制“索引入档”策略：
-  - `None`：不入档（仅写外部 JSON `tools_index_{provider}_{model}.json`）。
-  - `MetaOnly`（默认）：入档指纹/权重/记录数/构建时间等元信息；向量仍写入外部 JSON。
-  - `FullVectors`：可选，将向量与记录一并入档（受 `MaxVectors` 限制），以实现“开档即用”但可能增大存档体积。
+- `Provider/Model/Dimension/Instruction` 变化会触发 `MarkIndexStale()` 并 `RebuildIndexAsync()`。
+- `BlockDuringBuild=true` 时，索引构建期间 NarrowTopK 相关调用被拒绝并给出明确错误。
+- 索引仅以设置文件（JSON）持久化到 `IndexFiles.BasePath` 下；不入游戏存档。
 
 ---
 
@@ -216,11 +211,10 @@ RimAI.Core/
 2) 文本规范化：小写化、裁剪控制字符、合并空白、长度上限（避免过长 Schema）
 3) 批量嵌入：使用 `ILLMService.GetEmbeddingsAsync`（P2）进行批量；控制并发与速率
 4) 生成记录：`ToolEmbeddingRecord`（variant 指示 source）；写入 `ToolIndexSnapshot`
-5) 写盘：`tools_index_{provider}_{model}.json`（含 Fingerprint/Weights/BuiltAt/Records）
+5) 写盘：通过 `IPersistenceService` 文件 IO 写入 `tools_index_{provider}_{model}.json`（含 Fingerprint/Weights/BuiltAt/Records）
 
 与持久化（P6）协作：
-- Tooling 仅写外部 JSON `tools_index_{provider}_{model}.json`；
-- 是否“随档入库”由 P6 在存档阶段根据 `Embedding.PersistInSave` 配置执行（节点名同配置 `NodeName`，默认 `RimAI_ToolingIndexV1`）。
+- 工具索引文件的路径管理与文件读写统一委托给 `IPersistenceService` 提供的文件 IO API；Tooling 不直接使用 System.IO，也不触达 Scribe。
 
 ### 5.2 检索（Query）
 
@@ -237,10 +231,8 @@ RimAI.Core/
 - 工具变化：新增/删除/Schema 变更 → `MarkIndexStale()`（可选择立即重建或合并至下次自动点）
 - 调用保障：当未就绪/过期且 `BlockDuringBuild=true` 时，NarrowTopK 调用直接拒绝（带原因）；Classic 不受影响
 
-装载（由 P6 驱动注入）：
-- 若 P6 注入 `ToolingIndexState`（MetaOnly/FullVectors）：
-  - MetaOnly：恢复状态与指纹，随后尝试从外部 JSON 加载；缺失则后台重建。
-  - FullVectors：直接恢复 Ready；若被裁剪则后台补齐/合并 JSON。
+装载：
+- 启动或进入地图时，Tooling 通过 `IPersistenceService` 文件 IO 尝试加载 `tools_index_{provider}_{model}.json`；缺失则后台重建。
 - 指纹不匹配 → 标记 Stale 并重建。
 
 ---
@@ -259,20 +251,14 @@ RimAI.Core/
 - 新增 `ToolIndexModels.cs`/`ToolIndexStorage.cs`，实现 JSON 持久化与文件命名 `tools_index_{provider}_{model}.json`
 - 指纹计算：`Provider|Model|Dimension|Instruction` SHA256 → 写入文件
 
-（新增）快照接口：
-- 在 `ToolIndexManager` 中提供：
-  - `ExportSnapshot(includeVectors, maxVectors)` → `ToolingIndexState`
-  - `ImportSnapshot(ToolingIndexState state)` 恢复内存结构/状态
-P6 负责调用上述接口完成入档/读档；Tooling 不直接触达 `Scribe`。
+（删除）索引入档接口：移除 `ToolingIndexState` 相关入档/读档描述；工具索引不入游戏存档。
 
 ### S3：索引管理器（ToolIndexManager）
 
 - 负责装载/保存、状态（Ready/Stale/Building/Error）、并发控制与事件
 - 提供 `IsReady/MarkStale/EnsureBuiltAsync/RebuildIndexAsync/GetFingerprint`
 
-（新增）集成持久化：
-- 在 `EnsureBuiltAsync` 前，若 P6 已注入快照则优先 `ImportSnapshot`；
-- 在构建完成后，通过 `ExportSnapshot` 回传给 P6 以决定是否入档。
+（调整）与持久化集成：统一经 `IPersistenceService` 的文件 IO API 读写索引文件；不做存档级注入/导出。
 
 ### S4：索引构建器（ToolIndexBuilder）
 
@@ -317,7 +303,7 @@ P6 负责调用上述接口完成入档/读档；Tooling 不直接触达 `Scribe
   - 状态卡：Ready/Stale/Building/Error、Fingerprint、记录数、维度、构建耗时
   - 动作：重建索引/标记过期/打开目录
   - TopK 试算：输入文本 → 展示 TopK 工具 + 分数表 + Tool JSON 预览
-  - 存档策略：显示 `PersistInSave.Mode/MaxVectors` 与“来自 P6 的快照状态”（是否注入、记录数、指纹是否匹配）；Scribe 写入操作统一在 P6 面板执行。
+  - 索引文件策略：显示 `IndexFiles.BasePath`、文件存在性/记录数/指纹；提供“重建索引/打开目录”。
 
 ### S13：DI 注册
 
@@ -360,8 +346,7 @@ P6 负责调用上述接口完成入档/读档；Tooling 不直接触达 `Scribe
 - Verse 访问最小面：`Modules/Tooling/**` 与 `DemoTools/**` 不得 `using Verse`
 - Framework 访问最小面：Tooling 中不得 `using RimAI.Framework.*`；统一经 `ILLMService` 获取 Embeddings
 - 自动降级禁用：全仓 grep 确认 `\bAuto\b|degrad|fallback` 不出现在 Tooling 索引/TopK 路径
-- 索引文件命名：构建后应存在 `tools_index_{provider}_{model}.json`
- - 持久化纪律：Tooling 不得直接触达 `Scribe`；入档/读档由 P6 统一完成。
+- 索引文件命名：构建后应存在 `tools_index_{provider}_{model}.json`；文件 IO 必须经 `IPersistenceService`。
 ---
 
 ## 10. 风险与缓解
@@ -370,7 +355,7 @@ P6 负责调用上述接口完成入档/读档；Tooling 不直接触达 `Scribe
 - 分数不稳定：采用权重与文本规范化；必要时加入分数平滑或最小阈值
 - 工具频繁变化：标记过期但可延迟到下次稳定窗口构建；提供手动重建
 - Embedding 费用：依赖 P2 的缓存与速率限制；对文本做去重与摘要裁剪
-- 存档膨胀：默认 `MetaOnly`，仅在明确需要“开档即用”时启用 `FullVectors`，并受 `MaxVectors` 与向量压缩策略控制。
+- 存档膨胀：工具索引不入档；始终以外部 JSON 文件保存，避免膨胀。
 
 ---
 
@@ -383,18 +368,18 @@ P6 负责调用上述接口完成入档/读档；Tooling 不直接触达 `Scribe
 - Q：权重如何设置？
   - A：默认 Name:0.6, Desc:0.4, Params:0.0；可在配置中调整并热生效（重建后生效）。
 
-- Q：为什么提供“索引入档”能力？
-  - A：在部分环境中希望“开档即用”（例如离线/慢盘/受限环境），允许将元信息或向量裁剪后随档保存，减少每次读档的冷启动时间。
+- Q：是否支持将索引随档保存？
+  - A：不支持。V5 强约束：工具索引仅以设置文件 JSON 持久化，不入游戏存档。请通过 `P4_ToolIndexPanel` 或配置触发后台重建。
 
-- Q：入档与外部 JSON 如何协同？
-  - A：优先使用入档内容恢复状态；若为 `MetaOnly` 或 `FullVectors` 被裁剪的情况，再尝试加载外部 JSON；两者指纹不一致则标记 Stale 并重建。
+- Q：索引文件如何读写？
+  - A：所有文件 IO 统一通过 `IPersistenceService` 的文件 IO API 完成；Tooling 不直接使用 System.IO。
 
 ---
 
 ## 12. 变更记录
 
 - v5-P4（重制）：将“工具向量索引 + Tool JSON 产出”完全下沉到 Tool Service；上游仅消费 Classic/NarrowTopK 所需产出物；移除任何“自动降级/切换”表述。
-- v5-P4（增量）：新增“索引入档”能力（`Embedding.PersistInSave`），配合 P6 的 Scribe 节点 `RimAI_ToolingIndexV1`，支持 MetaOnly/FullVectors 两种策略。
+- v5-P4（调整）：删除“索引入档”能力；明确“仅设置文件 JSON 持久化，不入存档；文件 IO 经 Persistence 统一”。
 
 ---
 

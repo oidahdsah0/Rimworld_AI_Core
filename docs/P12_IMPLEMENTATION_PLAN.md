@@ -4,6 +4,107 @@
 
 ---
 
+## 13. 进度更新（持续刷新）
+
+### D0（输入驱动组装与 Organizer 骨架）— 已完成
+- 实施内容（代码已合入）：
+  - 新增 `PromptAssemblyModels`：`PromptMode`、`BeliefsModel`、`PromptAssemblyInput`（输入驱动 DTO）。
+  - 新增 Organizer 骨架目录 `Source/Modules/Orchestration/PromptOrganizers/`：`IPromptOrganizer`、`PromptContext`（含 `PromptIncludeFlags`）、`PromptOrganizerConfig`。
+  - 接口收敛：`IPromptAssemblyService` 删除 `BuildSystemPromptAsync(...)` 与 `PromptAssemblyMode`，新增唯一入口 `ComposeSystemPromptAsync(PromptAssemblyInput, ct)`。
+  - 实现改造：`PromptAssemblyService` 改为“输入驱动 Compose”，仅依赖 `IConfigurationService/PromptComposer/PromptTemplateService`，并按“Beliefs → Biography → Persona → FixedPromptOverride → Recap/History → World/Stage → ToolResults → Extras”装配，输出审计事件。
+  - 过渡接线：`PersonaConversationService` 内两处组装改为“构造 `PromptAssemblyInput` → `ComposeSystemPromptAsync`”；为保证编译与行为稳定，暂在该服务内拉取所需素材（Recap/History/Beliefs/FixedPrompt/传记等）。
+  - Debug：`PromptAuditTestButton` 改为直调 `ComposeSystemPromptAsync` 进行审计预览。
+  - 注释清理：`ClassicStrategy` 中对旧接口的说明已更正为 Compose 版本。
+- Gate 校验（D0）：
+  - 源码（不含 docs）grep 0：`BuildSystemPromptAsync(`、`PromptAssemblyMode`。
+  - 新增/改动文件无 linter 报错；现有 UI/Stage 路径保持可运行（通过 `PersonaConversationService` 过渡调用新入口）。
+
+### D1（工具仅编排）— 已完成（代码层）
+- 已完成：
+  - 新增 `RimAI.Core.Contracts/Orchestration/IToolOrchestrationService.cs`（命名空间统一为 `RimAI.Core.Contracts`），定义 `IToolOrchestrationService`、`ToolOrchestrationOptions`、`ToolCallRecord`、`ToolCallsResult`。
+  - 新增实现 `RimAI.Core/Source/Modules/Orchestration/ToolOrchestrationService.cs`：复用匹配/阈值/降级，支持 `LightningFast`，返回结构化结果并发布进度事件（ToolMatch/Execution）。
+  - 改造 `OrchestrationService` 为 Tool-only 薄包装：调用 Tool-only 并将结果按增量文本返回（优先直出工具字符串结果，否则输出结果 JSON 摘要）。
+  - 策略层彻底删除：`Strategies/ClassicStrategy.cs`、`Strategies/EmbeddingFirstStrategy.cs`、`Strategies/IOrchestrationStrategy.cs` 已移除，保持“首版即干净”。
+  - Gate（阶段性）：Orchestration 目录内 grep 0：`ILLMService|GetResponseAsync\(|StreamResponseAsync\(`。
+- 待完成：
+  - Debug 面板：暂未切换入口（D5 一并替换为 Tool-only 按钮并展示 `ToolCallsResult`）。
+  - 构建验证：跑一轮完整构建并补 linter/依赖（目前改动文件 lints=0，需集成级构建验证）。
+
+### 下一步里程碑（不在本次 D0 提交内）
+- D1：引入 `IToolOrchestrationService`（工具仅编排）与 DI 注册；精简编排层，移除最终 LLM 汇总。
+- D2：Chat-闲聊接入 “Organizer → Compose → ILLMService（流式）”，终端负责一次性写“最终输出”。
+- D3：Chat-命令接入 “Tool-only → Organizer（含 ToolResults）→ Compose → ILLMService（非流式汇总）→ 历史”。
+- D4：Stage 群聊（每轮）接入 Organizer/Compose；实现“失败/超时：无重试、`...` 气泡、无历史写入、Warn 日志”。
+- D5：Debug 面板更新（Prompt 审计显示段级统计；工具测试改调 Tool-only）。
+- D6：全链路脚本、录屏、CI grep Gate 与黄金样例更新。
+
+---
+
+## 附录 A：D0 实施清单（文件级）
+- 新增：
+  - `RimAI.Core/Source/Modules/Orchestration/PromptAssemblyModels.cs`
+  - `RimAI.Core/Source/Modules/Orchestration/PromptOrganizers/IPromptOrganizer.cs`
+  - `RimAI.Core/Source/Modules/Orchestration/PromptOrganizers/PromptContext.cs`
+  - `RimAI.Core/Source/Modules/Orchestration/PromptOrganizers/PromptOrganizerConfig.cs`
+- 修改：
+  - `RimAI.Core/Source/Modules/Orchestration/IPromptAssemblyService.cs`（唯一入口 `ComposeSystemPromptAsync`）
+  - `RimAI.Core/Source/Modules/Orchestration/PromptAssemblyService.cs`（输入驱动装配 + 审计）
+  - `RimAI.Core/Source/Modules/Persona/PersonaConversationService.cs`（构造 `PromptAssemblyInput` 后 Compose）
+  - `RimAI.Core/Source/Modules/Orchestration/Strategies/ClassicStrategy.cs`（注释切换到 Compose 示例）
+  - `RimAI.Core/Source/UI/DebugPanel/Parts/PromptAuditTestButton.cs`（直调 Compose）
+- Gate：
+  - 代码内 grep（排除 docs）：`BuildSystemPromptAsync(`、`PromptAssemblyMode` → 0
+  - 维持现有 UI/Stage 可运行，便于后续无缝迁移到 Organizer
+
+---
+
+## 附录 B：待办（按阶段）
+- D1（工具仅编排）
+  - 新增 `RimAI.Core.Contracts/Orchestration/IToolOrchestrationService.cs`（已完成）。
+  - 新增实现 `RimAI.Core/Source/Modules/Orchestration/ToolOrchestrationService.cs`（已完成）。
+  - 改造 `OrchestrationService` 为 Tool-only 包装（已完成）。
+  - 策略层去 LLM：`Classic/EmbeddingFirst`（已完成）。
+  - `ServiceContainer` 注册 `IToolOrchestrationService -> ToolOrchestrationService`（待完成）。
+  - 清理编排层内对 `ILLMService` 的直接调用路径（已完成，grep=0）。
+- D2（Chat-闲聊改造）— 已启动（代码层）
+  - `MainTabWindow_Chat.Actions.cs` 闲聊分支已接入 `PromptContext(Mode=Chat)` → `IPromptOrganizer.BuildAsync` → `IPromptAssemblyService.ComposeSystemPromptAsync` → `ILLMService.StreamResponseAsync` → 终端一次性写“最终输出”。
+  - 新增 Organizer：`ChatIdlePromptOrganizer` 已实现并注册为默认 `IPromptOrganizer`，采集 Persona/Beliefs/FixedPrompts/Recap/MainHistory/WorldFacts。
+- D3（Chat-命令改造）
+  - `MainTabWindow_Chat.Actions.cs`：先 `IToolOrchestrationService.ExecuteAsync` → 注入 `ToolResults` → Organizer/Compose → `ILLMService` 非流式汇总 → 写最终输出。
+  - `ServiceContainer` 注册 `ChatCommandPromptOrganizer`。
+- D4（Stage 群聊改造）
+  - `GroupChatAct.cs`：每轮 `PromptContext(Mode=Stage, CurrentSpeakerId, ScenarioText=Topic, 子集历史)` → Organizer/Compose → `ILLMService`。
+  - 实施“失败/超时：无重试、`bubbleText=\"...\"`、无历史写入、Warn 日志”；`MaxLatencyMsPerTurn` 生效。
+  - `ServiceContainer` 注册 `StageGroupChatPromptOrganizer`。
+- D5（Debug/CI/样例）
+  - Prompt 审计显示段顺序/字数/裁剪比/总长与预算对比；工具测试改调 `IToolOrchestrationService`。
+  - 新增 CI grep Gate 与黄金样例快照测试。
+- D6（收尾）
+  - 全链路脚本回归、录屏与文档同步更新。
+
+---
+
+## 附录 C：待清理冗余（按 P12 宗旨“首版即干净”）
+- Persona 会话路径（在 D3/D4 完成后删除）：
+  - 删除 `RimAI.Core/Source/Modules/Persona/PersonaConversationService.cs` 与 `IPersonaConversationService`，并移除 `ServiceContainer` 注册。
+  - 清理所有引用：
+    - `RimAI.Core/Source/UI/Chat/Parts/MainTabWindow_Chat.Actions.cs`（命令分支仍临时引用，会在 D3 删除）
+    - `RimAI.Core/Source/Modules/Stage/Acts/GroupChatAct.cs`
+    - `RimAI.Core/Source/UI/DebugPanel/Parts/*`（如仍有残留）
+  - Gate：源码 grep 0：`IPersonaConversationService|PersonaConversationService`。
+- 编排层最终 LLM 汇总路径：
+  - 已删除 `Strategies/*` 全部文件，`Orchestration` 目录不再含 LLM 调用。
+  - `OrchestrationService` 已改为 Tool-only 薄包装。
+  - Debug 面板工具相关按钮（如 `AskColonyStatusButton`）待切到 Tool-only 服务（D5）。
+- Organizer 接入后的冗余：
+  - `PromptAssemblyService` 不再从服务侧主动拉取素材；素材来源统一由 Organizer 提供（当前 D0 已完成）。
+  - 固定提示词临时注入 `Extras` 段的过渡处理，在 Organizer 上线后按配置化段位（fixed_prompts）回归。
+- 文档同步清理：
+  - `ARCHITECTURE_V4.md` 第 5.8/5.9/5.10/5.11 的措辞同步到“终端 → Organizer → Compose → LLM/历史”，并新增 `Stage.MaxLatencyMsPerTurn`。
+  - 移除面向旧接口的描述与示例。
+  - D1 文档补充：本文件“进度更新”已登记 D1 进行中，明确已完/待完项；待 D1 结束时将追加录屏与 Gate 勾选。
+
+
 ## 0. 背景与原则
 - 人格域（Persona）仅做数据：
   - 人格 CRUD、读取、状态导入/导出；

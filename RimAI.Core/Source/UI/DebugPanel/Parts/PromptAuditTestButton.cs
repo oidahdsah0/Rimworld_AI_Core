@@ -12,16 +12,19 @@ namespace RimAI.Core.UI.DebugPanel.Parts
             {
                 try
                 {
-                    var conv = ctx.Get<RimAI.Core.Modules.Persona.IPersonaConversationService>();
-                    var participants = new System.Collections.Generic.List<string> { ctx.Get<RimAI.Core.Modules.World.IParticipantIdService>().GetPlayerId(), "pawn:DEMO" };
-                    var stream = conv.ChatAsync(participants, "Default", "今天天气怎么样？", new RimAI.Core.Modules.Persona.PersonaChatOptions { Stream = true, WriteHistory = false });
-                    await foreach (var chunk in stream)
+                    // 改为调用统一提示词服务做审计预览
+                    var prompt = ctx.Get<RimAI.Core.Modules.Prompt.IPromptService>();
+                    var input = new RimAI.Core.Modules.Orchestration.PromptAssemblyInput
                     {
-                        if (chunk.IsSuccess)
-                            ctx.EnqueueRaw(chunk.Value?.ContentDelta ?? string.Empty);
-                        else
-                            ctx.EnqueueRaw("[Error] " + chunk.Error);
-                    }
+                        Mode = RimAI.Core.Modules.Orchestration.PromptMode.Chat,
+                        Locale = prompt.ResolveLocale(),
+                        PersonaSystemPrompt = ctx.Get<RimAI.Core.Contracts.Services.IPersonaService>().Get("Default")?.SystemPrompt,
+                        RecapSegments = new System.Collections.Generic.List<string> { "- 前情提要样例1", "- 前情提要样例2" },
+                        HistorySnippets = new System.Collections.Generic.List<string> { "- player: 问候", "- pawn: 回答" },
+                        MaxPromptChars = 2000
+                    };
+                    var sys = await prompt.ComposeSystemPromptAsync(input);
+                    ctx.EnqueueRaw(sys);
                 }
                 catch (System.OperationCanceledException) { }
                 catch (System.Exception ex)

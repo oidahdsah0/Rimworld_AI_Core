@@ -79,7 +79,9 @@ namespace RimAI.Core.Modules.Persona
             // 组装（使用统一 PromptAssemblyService）。若提供 personaName，则临时注入 persona:ID 以参与组装
             var ids = (participantIds ?? Array.Empty<string>()).ToList();
             if (!string.IsNullOrWhiteSpace(personaName)) ids.Add($"persona:{personaName}#0");
-            var systemPrompt = await _assembler.BuildSystemPromptAsync(ids, PromptAssemblyMode.Chat, userInput, locale, ct);
+            // 过渡实现：仍在会话服务内拉取素材并构造输入（D2/D3 将迁至 Organizer）
+            var input = await BuildPromptInputForChatAsync(ids, userInput, locale, ct);
+            var systemPrompt = await _assembler.ComposeSystemPromptAsync(input, ct);
 
             var req = new UnifiedChatRequest { Stream = options.Stream, Messages = new List<ChatMessage> { new ChatMessage { Role = "system", Content = systemPrompt }, new ChatMessage { Role = "user", Content = userInput ?? string.Empty } } };
             // 使用参与者集合形成稳定 convKey，再派生对外 ConversationId
@@ -221,48 +223,154 @@ namespace RimAI.Core.Modules.Persona
             // 组装（使用统一 PromptAssemblyService）。若提供 personaName，则临时注入 persona:ID 以参与组装
             var ids = (participantIds ?? Array.Empty<string>()).ToList();
             if (!string.IsNullOrWhiteSpace(personaName)) ids.Add($"persona:{personaName}#0");
-            var systemPrompt = await _assembler.BuildSystemPromptAsync(ids, PromptAssemblyMode.Command, userInput, locale, ct);
+            var input = await BuildPromptInputForCommandAsync(ids, userInput, locale, ct);
+            var systemPrompt = await _assembler.ComposeSystemPromptAsync(input, ct);
 
             // 4) 走编排（五步），此处复用 OrchestrationService 外部接口
             var orchestrator = CoreServices.Locator.Get<RimAI.Core.Contracts.IOrchestrationService>();
-            var stream = orchestrator.ExecuteToolAssistedQueryAsync(userInput, systemPrompt);
             string final = string.Empty;
 
-            if (options.Stream)
+            try
             {
-                await foreach (var chunk in stream)
-                {
-                    if (chunk.IsSuccess)
-                    {
-                        final += chunk.Value?.ContentDelta ?? string.Empty;
-                    }
-                    yield return chunk;
-                    if (ct.IsCancellationRequested) yield break;
-                }
-            }
-            else
-            {
-                string error = null;
-                await foreach (var chunk in stream)
-                {
-                    if (ct.IsCancellationRequested) yield break;
-                    if (chunk.IsSuccess)
-                    {
-                        final += chunk.Value?.ContentDelta ?? string.Empty;
-                    }
-                    else if (string.IsNullOrWhiteSpace(error))
-                    {
-                        error = chunk.Error;
-                    }
-                }
-                if (!string.IsNullOrWhiteSpace(error) && string.IsNullOrWhiteSpace(final))
-                {
-                    yield return Result<UnifiedChatChunk>.Failure(error);
-                    yield break;
-                }
+                // 执行工具仅编排（显式模式 Classic），以便保持最小可运行
+                var toolRes = await orchestrator.ExecuteAsync(userInput, participantIds, mode: "Classic", ct: ct);
+                final = Newtonsoft.Json.JsonConvert.SerializeObject(toolRes);
                 yield return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = final });
             }
+            catch (System.Exception ex)
+            {
+                yield return Result<UnifiedChatChunk>.Failure(ex.Message);
+            }
             // 历史写入职责上移：调用方（UI/服务）负责落盘。此处仅返回结果。
+        }
+
+        private async Task<RimAI.Core.Modules.Orchestration.PromptAssemblyInput> BuildPromptInputForChatAsync(
+            List<string> participantIds,
+            string userInput,
+            string locale,
+            CancellationToken ct)
+        {
+            // 复用旧逻辑在此处拉取素材，D2/D3 将迁至 Organizer
+            var cfg = _config?.Current;
+            var histCfg = cfg?.History ?? new RimAI.Core.Settings.HistoryConfig();
+            var localeToUse = locale ?? _templates.ResolveLocale();
+
+            string convKey = string.Join("|", participantIds.OrderBy(x => x, StringComparer.Ordinal));
+
+            string personaPrompt = string.Empty;
+            try
+            {
+                var pid = participantIds.FirstOrDefault(x => x.StartsWith("persona:", StringComparison.Ordinal));
+                if (!string.IsNullOrEmpty(pid))
+                {
+                    var tail = pid.Substring("persona:".Length);
+                    var name = tail.Contains('#') ? tail.Split('#')[0] : tail;
+                    personaPrompt = _persona?.Get(name)?.SystemPrompt ?? string.Empty;
+                }
+            }
+            catch { }
+
+            var input = new RimAI.Core.Modules.Orchestration.PromptAssemblyInput
+            {
+                Mode = RimAI.Core.Modules.Orchestration.PromptMode.Chat,
+                Locale = localeToUse,
+                PersonaSystemPrompt = personaPrompt,
+            };
+
+            // Beliefs 合并到 persona 段
+            try
+            {
+                foreach (var id in participantIds)
+                {
+                    if (!id.StartsWith("pawn:")) continue;
+                    var b = CoreServices.Locator.Get<IPersonalBeliefsAndIdeologyService>()?.GetByPawn(id);
+                    if (b != null)
+                    {
+                        input.Beliefs ??= new RimAI.Core.Modules.Orchestration.BeliefsModel();
+                        input.Beliefs.Worldview ??= b.Worldview;
+                        input.Beliefs.Values ??= b.Values;
+                        input.Beliefs.CodeOfConduct ??= b.CodeOfConduct;
+                        input.Beliefs.TraitsText ??= b.TraitsText;
+                    }
+                }
+            }
+            catch { }
+
+            // Fixed prompts + 会话级覆盖
+            try
+            {
+                var fixedSvc = CoreServices.Locator.Get<IFixedPromptService>();
+                foreach (var id in participantIds)
+                {
+                    if (!id.StartsWith("pawn:")) continue;
+                    var text = fixedSvc?.GetByPawn(id);
+                    if (!string.IsNullOrWhiteSpace(text)) input.Extras.Add($"- {CoreServices.Locator.Get<IParticipantIdService>()?.GetDisplayName(id)}: {text}");
+                }
+                var scenarioOverride = fixedSvc?.GetConvKeyOverride(convKey);
+                if (!string.IsNullOrWhiteSpace(scenarioOverride)) input.FixedPromptOverride = scenarioOverride;
+            }
+            catch { }
+
+            // Recap & recent history
+            try
+            {
+                var writer = CoreServices.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
+                var list = await writer.FindByConvKeyAsync(convKey);
+                var cid = list?.LastOrDefault();
+                if (!string.IsNullOrWhiteSpace(cid))
+                {
+                    var recaps = CoreServices.Locator.Get<RimAI.Core.Modules.History.IRecapService>()?.GetRecapItems(cid);
+                    if (recaps != null)
+                    {
+                        int k = Math.Max(1, histCfg.RecapDictMaxEntries);
+                        foreach (var r in recaps.OrderByDescending(r => r.CreatedAt).Take(k).Reverse())
+                            input.RecapSegments.Add(r.Text);
+                    }
+                }
+            }
+            catch { }
+            try
+            {
+                var ctx = await CoreServices.Locator.Get<RimAI.Core.Contracts.Services.IHistoryQueryService>()
+                    .GetHistoryAsync(participantIds);
+                foreach (var e in ctx.MainHistory.SelectMany(c => c.Entries).OrderByDescending(e => e.Timestamp).Take(6).OrderBy(e => e.Timestamp))
+                    input.HistorySnippets.Add($"- {e.SpeakerId}: {e.Content}");
+            }
+            catch { }
+
+            // userInput 不加入 system，由模板方负责在最终消息中注入 user role
+            return input;
+        }
+
+        private async Task<RimAI.Core.Modules.Orchestration.PromptAssemblyInput> BuildPromptInputForCommandAsync(
+            List<string> participantIds,
+            string userInput,
+            string locale,
+            CancellationToken ct)
+        {
+            var input = await BuildPromptInputForChatAsync(participantIds, userInput, locale, ct);
+            input.Mode = RimAI.Core.Modules.Orchestration.PromptMode.Command;
+            // Command 增补：相关历史（背景）与传记（仅 1v1 player↔pawn）
+            try
+            {
+                var cfg = _config?.Current;
+                var cmdSeg = cfg?.Prompt?.Segments?.Command;
+                bool isPlayerNpc = participantIds.Any(x => x.StartsWith("player:")) && participantIds.Any(x => x.StartsWith("pawn:"));
+                if (isPlayerNpc)
+                {
+                    var pawnId = participantIds.First(x => x.StartsWith("pawn:"));
+                    var bioSvc = CoreServices.Locator.Get<IBiographyService>();
+                    foreach (var b in bioSvc?.ListByPawn(pawnId) ?? new List<BiographyItem>())
+                        input.BiographyParagraphs.Add("- " + b.Text);
+                }
+                var ctxHist = await CoreServices.Locator.Get<RimAI.Core.Contracts.Services.IHistoryQueryService>()
+                    .GetHistoryAsync(participantIds);
+                int perConv = Math.Max(1, cmdSeg?.RelatedMaxEntriesPerConversation ?? 5);
+                foreach (var e in ctxHist.BackgroundHistory.SelectMany(c => c.Entries.OrderByDescending(e => e.Timestamp).Take(perConv).OrderBy(e => e.Timestamp)))
+                    input.HistorySnippets.Add($"- {e.SpeakerId}: {e.Content}");
+            }
+            catch { }
+            return input;
         }
     }
 }

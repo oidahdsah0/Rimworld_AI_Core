@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using RimAI.Framework.Contracts;
+using Newtonsoft.Json;
 
 namespace RimAI.Core.UI.DebugPanel.Parts
 {
@@ -22,8 +22,9 @@ namespace RimAI.Core.UI.DebugPanel.Parts
             {
                 var orchestrator = ctx.Get<RimAI.Core.Contracts.IOrchestrationService>();
                 var query = "殖民地概况？";
-                var stream = orchestrator.ExecuteToolAssistedQueryAsync(query);
-                Task.Run(async () => await ctx.HandleStreamingOutputAsync("Ask Colony Status", stream));
+                var participants = new List<string>();
+                var result = orchestrator.ExecuteAsync(query, participants, mode: "Classic").GetAwaiter().GetResult();
+                ctx.AppendOutput($"[ToolOnly] {JsonConvert.SerializeObject(result)}");
             }
             catch (System.Exception ex)
             {

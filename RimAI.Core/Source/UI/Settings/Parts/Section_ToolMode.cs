@@ -16,8 +16,8 @@ namespace RimAI.Core.UI.Settings.Parts
             SettingsUIUtil.SectionTitle(list, $"{sectionIndex++}. 工具匹配 - 模式");
             SettingsUIUtil.LabelWithTip(list,
                 "工具调用模式（唯一选择）:",
-                "- LightningFast: 仅当Top1高置信且工具支持快速文本直出，跳过二次LLM总结\n- FastTop1: Top1≥阈值则仅暴露该工具\n- NarrowTopK: 收缩TopK后由LLM自行选择\n- Classic: 暴露全部工具\n- Auto: 优先FastTop1，不足则NarrowTopK，再降级Classic");
-            var modes = new[] { "LightningFast", "FastTop1", "NarrowTopK", "Classic", "Auto" };
+                "- LightningFast: Top1≥更高阈值，工具支持快速直出，将传入 __fastResponse=true\n- FastTop1: Top1≥阈值则仅执行该工具\n- NarrowTopK: 收缩 TopK 后确定性选择第一个\n- Classic: 暴露全部工具（不使用索引）");
+            var modes = new[] { "LightningFast", "FastTop1", "NarrowTopK", "Classic" };
             for (int i = 0; i < modes.Length; i++)
             {
                 var mode = modes[i];

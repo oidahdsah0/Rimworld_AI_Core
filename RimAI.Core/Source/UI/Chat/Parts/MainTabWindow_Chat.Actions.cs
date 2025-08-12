@@ -117,7 +117,8 @@ namespace RimAI.Core.UI.Chat
                     _convKeyInput = CanonicalizeConvKey(string.Join("|", parts));
                 }
 
-                var svc = CoreServices.Locator.Get<IPersonaConversationService>();
+                // 闲聊走 Organizer→Compose→LLM；命令暂沿用既有路径（D3 再切）
+                var svc = CoreServices.Locator.TryGetExisting<IPersonaConversationService>(out var personaSvc) ? personaSvc : null;
                 _streamAssistantBuffer = string.Empty;
                 _streamStartedAtUtc = DateTime.UtcNow;
                 _streamLastDeltaAtUtc = _streamStartedAtUtc;
@@ -180,11 +181,37 @@ namespace RimAI.Core.UI.Chat
                             }
                             TriggerIndicatorOnCompleted();
                         }
-                        else
+                        else // Chat（闲聊）
                         {
-                            // Chat 仅在 UI 中使用流式；历史由 UI 收尾一次性写入
-                            var opts = new PersonaChatOptions { Stream = true, WriteHistory = false };
-                            await foreach (var chunk in svc.ChatAsync(parts, null, _pendingPlayerMessage, opts, ct))
+                            // Organizer → Compose → ILLM 流式
+                            var organizer = CoreServices.Locator.Get<RimAI.Core.Modules.Orchestration.PromptOrganizers.IPromptOrganizer>();
+                            var ctxOrg = new RimAI.Core.Modules.Orchestration.PromptOrganizers.PromptContext
+                            {
+                                Mode = RimAI.Core.Modules.Orchestration.PromptMode.Chat,
+                                ParticipantIds = parts,
+                                ConvKey = _convKeyInput,
+                                Locale = _templateService.ResolveLocale(),
+                                IncludeFlags = RimAI.Core.Modules.Orchestration.PromptOrganizers.PromptIncludeFlags.Persona
+                                              | RimAI.Core.Modules.Orchestration.PromptOrganizers.PromptIncludeFlags.Beliefs
+                                              | RimAI.Core.Modules.Orchestration.PromptOrganizers.PromptIncludeFlags.Recap
+                                              | RimAI.Core.Modules.Orchestration.PromptOrganizers.PromptIncludeFlags.History
+                                              | RimAI.Core.Modules.Orchestration.PromptOrganizers.PromptIncludeFlags.World
+                                              | RimAI.Core.Modules.Orchestration.PromptOrganizers.PromptIncludeFlags.Extras,
+                            };
+                            var input = await organizer.BuildAsync(ctxOrg, ct);
+                            var systemPrompt = await CoreServices.Locator.Get<RimAI.Core.Modules.Orchestration.IPromptAssemblyService>()
+                                .ComposeSystemPromptAsync(input, ct);
+                            var llm = CoreServices.Locator.Get<RimAI.Core.Modules.LLM.ILLMService>();
+                            var req = new UnifiedChatRequest
+                            {
+                                Stream = true,
+                                Messages = new List<ChatMessage>
+                                {
+                                    new ChatMessage{ Role = "system", Content = systemPrompt },
+                                    new ChatMessage{ Role = "user", Content = _pendingPlayerMessage ?? string.Empty }
+                                }
+                            };
+                            await foreach (var chunk in llm.StreamResponseAsync(req, ct))
                             {
                                 if (ct.IsCancellationRequested) break;
                                 if (chunk.IsSuccess)

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using RimAI.Core.Contracts;
+using ContractsOrc = RimAI.Core.Contracts;
 
 namespace RimAI.Core.Infrastructure
 {
@@ -45,9 +47,20 @@ namespace RimAI.Core.Infrastructure
             // P4: ToolRegistryService 注册
             Register<RimAI.Core.Contracts.Tooling.IToolRegistryService,
                      RimAI.Core.Modules.Tooling.ToolRegistryService>();
-            // P5: OrchestrationService 注册
+            // P12-D1: 工具仅编排统一入口（不触达 LLM、不做自动判断）。
             Register<RimAI.Core.Contracts.IOrchestrationService,
                      RimAI.Core.Modules.Orchestration.OrchestrationService>();
+            // 注册四种工具匹配模式与解析器
+            Register<RimAI.Core.Modules.Orchestration.Modes.ClassicMode,
+                     RimAI.Core.Modules.Orchestration.Modes.ClassicMode>();
+            Register<RimAI.Core.Modules.Orchestration.Modes.FastTop1Mode,
+                     RimAI.Core.Modules.Orchestration.Modes.FastTop1Mode>();
+            Register<RimAI.Core.Modules.Orchestration.Modes.NarrowTopKMode,
+                     RimAI.Core.Modules.Orchestration.Modes.NarrowTopKMode>();
+            Register<RimAI.Core.Modules.Orchestration.Modes.LightningFastMode,
+                     RimAI.Core.Modules.Orchestration.Modes.LightningFastMode>();
+            Register<RimAI.Core.Modules.Orchestration.Modes.ToolMatchModeResolver,
+                     RimAI.Core.Modules.Orchestration.Modes.ToolMatchModeResolver>();
             // S2.5: 注册工具向量索引服务（需在策略解析前就绪）
             Register<RimAI.Core.Modules.Embedding.IToolVectorIndexService,
                      RimAI.Core.Modules.Embedding.ToolVectorIndexService>();
@@ -73,28 +86,28 @@ namespace RimAI.Core.Infrastructure
             // P6: PersistenceService 注册
             Register<RimAI.Core.Infrastructure.Persistence.IPersistenceService,
                      RimAI.Core.Infrastructure.Persistence.PersistenceService>();
-            // P9-S1: 策略注册（Classic + EmbeddingFirst stub）
-            Register<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy,
-                     RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy>();
-            // EmbeddingFirst 先注册，后续可在配置切换
-            Register<RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy,
-                     RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy>();
+            // P12-D1: 清理策略注册（去除直接触达 LLM 的编排策略）。
+            // 若后续保留策略架构，请在 D2/D3 以 Tool-only 为核心重塑。
 
             // P10-M1: 新增内部服务注册
             Register<RimAI.Core.Modules.World.IParticipantIdService,
                      RimAI.Core.Modules.World.ParticipantIdService>();
             Register<RimAI.Core.Modules.History.IRecapService,
                      RimAI.Core.Modules.History.RecapService>();
-            Register<RimAI.Core.Modules.Orchestration.IPromptAssemblyService,
-                     RimAI.Core.Modules.Orchestration.PromptAssemblyService>();
-
-            // M4: Prompting services
+            // 提示词服务合并（P11.6）：统一入口 IPromptService
+            Register<RimAI.Core.Modules.Prompt.IPromptService,
+                     RimAI.Core.Modules.Prompt.PromptService>();
+            // 内部仍需模板与 Composer 实现
             Register<RimAI.Core.Modules.Prompting.IPromptTemplateService,
                      RimAI.Core.Modules.Prompting.PromptTemplateService>();
             Register<RimAI.Core.Modules.Prompting.IPromptComposer,
                      RimAI.Core.Modules.Prompting.PromptComposer>();
 
-            // M4: Persona conversation entry
+            // D2+: Organizer（Chat-闲聊默认组织者）
+            Register<RimAI.Core.Modules.Orchestration.PromptOrganizers.IPromptOrganizer,
+                     RimAI.Core.Modules.Orchestration.PromptOrganizers.ChatIdlePromptOrganizer>();
+
+            // 暂时保留 Persona 会话服务（D3/D4 后删除）。
             Register<RimAI.Core.Modules.Persona.IPersonaConversationService,
                      RimAI.Core.Modules.Persona.PersonaConversationService>();
 
@@ -165,17 +178,7 @@ namespace RimAI.Core.Infrastructure
             }
             catch { /* ignore */ }
 
-            // P9-S1: 组装策略集合供 OrchestrationService 注入（IEnumerable<IOrchestrationStrategy>）
-            var classic = (RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy)
-                Resolve(typeof(RimAI.Core.Modules.Orchestration.Strategies.ClassicStrategy));
-            var embeddingFirst = (RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy)
-                Resolve(typeof(RimAI.Core.Modules.Orchestration.Strategies.EmbeddingFirstStrategy));
-            var stratList = new System.Collections.Generic.List<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy>
-            {
-                classic,
-                embeddingFirst
-            };
-            RegisterInstance(typeof(System.Collections.Generic.IEnumerable<RimAI.Core.Modules.Orchestration.Strategies.IOrchestrationStrategy>), stratList);
+            // P12-D1: 移除策略集合注入，避免触发不必要的构造。
 
             // P10-M1: 订阅历史新增事件 → RecapService（一次性订阅）
             try

@@ -17,251 +17,90 @@ using Newtonsoft.Json;
 namespace RimAI.Core.Modules.Orchestration
 {
     /// <summary>
-    /// 提示词组装服务（M4）。统一基于模板与 Composer 组装 Chat/Command 的 system 提示。
+    /// 提示词组装服务（输入驱动）。统一基于模板与 Composer 组装 system 提示。
     /// </summary>
     internal sealed class PromptAssemblyService : IPromptAssemblyService
     {
-        private readonly IParticipantIdService _pid;
-        private readonly IFixedPromptService _fixedPrompts;
-        private readonly IBiographyService _bio;
-        private readonly RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService _beliefs;
-        private readonly IRecapService _recap;
-        private readonly IHistoryQueryService _historyQuery;
         private readonly InfraConfig _config;
         private readonly RimAI.Core.Modules.Prompting.IPromptComposer _composer;
         private readonly RimAI.Core.Modules.Prompting.IPromptTemplateService _templates;
 
-        public PromptAssemblyService(IParticipantIdService pid,
-                                     IFixedPromptService fixedPrompts,
-                                      IBiographyService bio,
-                                      RimAI.Core.Modules.Persona.IPersonalBeliefsAndIdeologyService beliefs,
-                                     IRecapService recap,
-                                     IHistoryQueryService historyQuery,
-                                     InfraConfig config,
-                                     RimAI.Core.Modules.Prompting.IPromptComposer composer,
-                                     RimAI.Core.Modules.Prompting.IPromptTemplateService templates)
+        public PromptAssemblyService(
+            InfraConfig config,
+            RimAI.Core.Modules.Prompting.IPromptComposer composer,
+            RimAI.Core.Modules.Prompting.IPromptTemplateService templates)
         {
-            _pid = pid;
-            _fixedPrompts = fixedPrompts;
-            _bio = bio;
-            _beliefs = beliefs;
-            _recap = recap;
-            _historyQuery = historyQuery;
             _config = config;
             _composer = composer;
             _templates = templates;
         }
-
-        public async Task<string> BuildSystemPromptAsync(IReadOnlyCollection<string> participantIds, PromptAssemblyMode mode, string userInput, string locale = null, CancellationToken ct = default)
+        public Task<string> ComposeSystemPromptAsync(PromptAssemblyInput input, CancellationToken ct = default)
         {
-            if (participantIds == null || participantIds.Count == 0)
-                return string.Empty;
-
-            var convKey = string.Join("|", participantIds.OrderBy(x => x, StringComparer.Ordinal));
+            // 守卫
+            input ??= new PromptAssemblyInput();
             var cfg = _config?.Current;
             var histCfg = cfg?.History ?? new HistoryConfig();
-            var localeToUse = locale ?? _templates.ResolveLocale();
+            var localeToUse = input.Locale ?? _templates.ResolveLocale();
 
-            // Persona（若参与者包含 persona:）
-            string personaPrompt = string.Empty;
-            var personaId = participantIds.FirstOrDefault(x => x.StartsWith("persona:", StringComparison.Ordinal));
-            if (!string.IsNullOrEmpty(personaId))
+            // 选择模板
+            var templateKey = input.Mode == PromptMode.Command
+                ? (cfg?.Prompt?.TemplateCommandKey ?? "command")
+                : (input.Mode == PromptMode.Stage ? (cfg?.Prompt?.TemplateChatKey ?? "chat") : (cfg?.Prompt?.TemplateChatKey ?? "chat"));
+
+            _composer.Begin(templateKey, localeToUse);
+
+            // 依序注入段
+            if (input.Beliefs != null)
             {
-                try
-                {
-                    var tail = personaId.Substring("persona:".Length);
-                    var name = tail.Contains('#') ? tail.Split('#')[0] : tail;
-                    var ps = CoreSvc.Locator.Get<IPersonaService>();
-                    personaPrompt = ps?.Get(name)?.SystemPrompt ?? string.Empty;
-                }
-                catch { }
+                var b = input.Beliefs;
+                var parts = new List<string>(4);
+                if (!string.IsNullOrWhiteSpace(b.Worldview)) parts.Add("- 世界观: " + b.Worldview);
+                if (!string.IsNullOrWhiteSpace(b.Values)) parts.Add("- 价值观: " + b.Values);
+                if (!string.IsNullOrWhiteSpace(b.CodeOfConduct)) parts.Add("- 行为准则: " + b.CodeOfConduct);
+                if (!string.IsNullOrWhiteSpace(b.TraitsText)) parts.Add("- 人格特质: " + b.TraitsText);
+                if (parts.Count > 0) _composer.Add("persona", string.Join("\n", parts));
             }
+            if (!string.IsNullOrWhiteSpace(input.PersonaSystemPrompt))
+                _composer.Add("persona", input.PersonaSystemPrompt);
 
-            bool isPlayerNpc = participantIds.Any(x => x.StartsWith("player:", StringComparison.Ordinal)) && participantIds.Any(x => x.StartsWith("pawn:", StringComparison.Ordinal));
-            if (mode == PromptAssemblyMode.Chat)
-            {
-                var chatSeg = cfg?.Prompt?.Segments?.Chat;
-                _composer.Begin(cfg?.Prompt?.TemplateChatKey ?? "chat", localeToUse);
-                // 注入个性化观点（合并到 persona 段，避免模板缺失）
-                if (chatSeg?.IncludePersona ?? true)
-                {
-                    foreach (var pid in participantIds)
-                    {
-                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
-                        try
-                        {
-                            var b = _beliefs?.GetByPawn(pid);
-                            if (b != null)
-                            {
-                                var beliefText = BuildBeliefsBlock(_pid.GetDisplayName(pid), b);
-                                if (!string.IsNullOrWhiteSpace(beliefText)) _composer.Add("persona", beliefText);
-                            }
-                        }
-                        catch { }
-                    }
-                    if (!string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
-                }
+            if (input.BiographyParagraphs != null && input.BiographyParagraphs.Count > 0)
+                _composer.AddRange("biography", input.BiographyParagraphs);
 
-                if (chatSeg?.IncludeFixedPrompts ?? true)
-                {
-                    foreach (var pid in participantIds)
-                    {
-                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
-                        var text = _fixedPrompts.GetByPawn(pid);
-                        if (!string.IsNullOrWhiteSpace(text)) _composer.Add("fixed_prompts", $"- {_pid.GetDisplayName(pid)}: {text}");
-                    }
-                    // 会话级场景提示（convKey 覆盖）
-                    try
-                    {
-                        var scenarioOverride = _fixedPrompts.GetConvKeyOverride(convKey);
-                        if (!string.IsNullOrWhiteSpace(scenarioOverride))
-                        {
-                            _composer.Add("fixed_prompts", scenarioOverride);
-                        }
-                    }
-                    catch { }
-                }
-                if (chatSeg?.IncludeRecap ?? true)
-                {
-                    IReadOnlyList<RecapSnapshotItem> recaps = Array.Empty<RecapSnapshotItem>();
-                    try
-                    {
-                        var writer = CoreSvc.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
-                        var list = await writer.FindByConvKeyAsync(convKey);
-                        var cid = list?.LastOrDefault();
-                        if (!string.IsNullOrWhiteSpace(cid)) recaps = _recap.GetRecapItems(cid);
-                    }
-                    catch { }
-                    if (recaps != null && recaps.Count > 0)
-                    {
-                        int k = Math.Max(1, histCfg.RecapDictMaxEntries);
-                        var lines = recaps.OrderByDescending(r => r.CreatedAt).Take(k).Reverse().Select(r => r.Text);
-                        _composer.AddRange("recap", lines);
-                    }
-                }
-                if (chatSeg?.IncludeRecentHistory ?? true)
-                {
-                    var ctx = await _historyQuery.GetHistoryAsync(participantIds.ToList());
-                    var lines = ctx.MainHistory.SelectMany(c => c.Entries).OrderByDescending(e => e.Timestamp).Take(Math.Max(1, chatSeg?.RecentHistoryMaxEntries ?? 6)).OrderBy(e => e.Timestamp).Select(e => $"- {e.SpeakerId}: {e.Content}");
-                    _composer.AddRange("recent_history", lines);
-                }
-                _composer.Add("user_utterance", userInput ?? string.Empty);
-                var output = _composer.Build(Math.Max(1000, histCfg.MaxPromptChars), out var audit);
-                try
-                {
-                    CoreSvc.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
-                    {
-                        Source = nameof(PromptAssemblyService),
-                        Stage = "PromptAudit",
-                        Message = "Chat",
-                        PayloadJson = JsonConvert.SerializeObject(audit)
-                    });
-                }
-                catch { }
-                return output;
-            }
-            else
-            {
-                var cmdSeg = cfg?.Prompt?.Segments?.Command;
-                _composer.Begin(cfg?.Prompt?.TemplateCommandKey ?? "command", localeToUse);
-                if (cmdSeg?.IncludePersona ?? true)
-                {
-                    foreach (var pid in participantIds)
-                    {
-                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
-                        try
-                        {
-                            var b = _beliefs?.GetByPawn(pid);
-                            if (b != null)
-                            {
-                                var beliefText = BuildBeliefsBlock(_pid.GetDisplayName(pid), b);
-                                if (!string.IsNullOrWhiteSpace(beliefText)) _composer.Add("persona", beliefText);
-                            }
-                        }
-                        catch { }
-                    }
-                    if (!string.IsNullOrWhiteSpace(personaPrompt)) _composer.Add("persona", personaPrompt);
-                }
-                if (cmdSeg?.IncludeFixedPrompts ?? true)
-                {
-                    foreach (var pid in participantIds)
-                    {
-                        if (!pid.StartsWith("pawn:", StringComparison.Ordinal)) continue;
-                        var text = _fixedPrompts.GetByPawn(pid);
-                        if (!string.IsNullOrWhiteSpace(text)) _composer.Add("fixed_prompts", $"- {_pid.GetDisplayName(pid)}: {text}");
-                    }
-                    // 会话级场景提示（convKey 覆盖）
-                    try
-                    {
-                        var scenarioOverride = _fixedPrompts.GetConvKeyOverride(convKey);
-                        if (!string.IsNullOrWhiteSpace(scenarioOverride))
-                        {
-                            _composer.Add("fixed_prompts", scenarioOverride);
-                        }
-                    }
-                    catch { }
-                }
-                if ((cmdSeg?.IncludeBiography ?? true) && participantIds.Count == 2 && isPlayerNpc)
-                {
-                    var pawnId = participantIds.First(x => x.StartsWith("pawn:", StringComparison.Ordinal));
-                    var bio = _bio.ListByPawn(pawnId).OrderBy(b => b.CreatedAt).Select(b => "- " + b.Text);
-                    _composer.AddRange("biography", bio);
-                }
-                if (cmdSeg?.IncludeRecap ?? true)
-                {
-                    IReadOnlyList<RecapSnapshotItem> recaps = Array.Empty<RecapSnapshotItem>();
-                    try
-                    {
-                        var writer = CoreSvc.Locator.Get<RimAI.Core.Services.IHistoryWriteService>();
-                        var list = await writer.FindByConvKeyAsync(convKey);
-                        var cid = list?.LastOrDefault();
-                        if (!string.IsNullOrWhiteSpace(cid)) recaps = _recap.GetRecapItems(cid);
-                    }
-                    catch { }
-                    if (recaps != null && recaps.Count > 0)
-                    {
-                        int k = Math.Max(1, histCfg.RecapDictMaxEntries);
-                        var lines = recaps.OrderByDescending(r => r.CreatedAt).Take(k).Reverse().Select(r => r.Text);
-                        _composer.AddRange("recap", lines);
-                    }
-                }
-                if (cmdSeg?.IncludeRelatedHistory ?? true)
-                {
-                    var ctx = await _historyQuery.GetHistoryAsync(participantIds.ToList());
-                    int perConv = Math.Max(1, cmdSeg?.RelatedMaxEntriesPerConversation ?? 5);
-                    var relatedLines = ctx.BackgroundHistory.SelectMany(c => c.Entries.OrderByDescending(e => e.Timestamp).Take(perConv).OrderBy(e => e.Timestamp)).Select(e => $"- {e.SpeakerId}: {e.Content}");
-                    _composer.AddRange("related_history", relatedLines);
-                }
-                _composer.Add("user_utterance", userInput ?? string.Empty);
-                var output = _composer.Build(Math.Max(1000, histCfg.MaxPromptChars), out var audit);
-                try
-                {
-                    CoreSvc.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
-                    {
-                        Source = nameof(PromptAssemblyService),
-                        Stage = "PromptAudit",
-                        Message = "Command",
-                        PayloadJson = JsonConvert.SerializeObject(audit)
-                    });
-                }
-                catch { }
-                return output;
-            }
-        }
+            if (!string.IsNullOrWhiteSpace(input.FixedPromptOverride))
+                _composer.Add("fixed_prompts", input.FixedPromptOverride);
 
-        private static string BuildBeliefsBlock(string displayName, RimAI.Core.Modules.Persona.PersonalBeliefs b)
-        {
+            if (input.RecapSegments != null && input.RecapSegments.Count > 0)
+                _composer.AddRange("recap", input.RecapSegments);
+
+            if (input.HistorySnippets != null && input.HistorySnippets.Count > 0)
+                _composer.AddRange("recent_history", input.HistorySnippets);
+
+            if (input.WorldFacts != null && input.WorldFacts.Count > 0)
+                _composer.AddRange("world", input.WorldFacts);
+
+            if (input.StageHistory != null && input.StageHistory.Count > 0)
+                _composer.AddRange("stage_history", input.StageHistory);
+
+            if (input.ToolResults != null && input.ToolResults.Count > 0)
+                _composer.AddRange("tool_results", input.ToolResults);
+
+            if (input.Extras != null && input.Extras.Count > 0)
+                _composer.AddRange("extras", input.Extras);
+
+            var maxChars = Math.Max(1000, input.MaxPromptChars ?? histCfg.MaxPromptChars);
+            var output = _composer.Build(maxChars, out var audit);
             try
             {
-                var name = string.IsNullOrWhiteSpace(displayName) ? "该角色" : displayName;
-                var lines = new List<string>(8);
-                if (!string.IsNullOrWhiteSpace(b.Worldview)) lines.Add($"- {name}的世界观: {b.Worldview}");
-                if (!string.IsNullOrWhiteSpace(b.Values)) lines.Add($"- {name}的价值观: {b.Values}");
-                if (!string.IsNullOrWhiteSpace(b.CodeOfConduct)) lines.Add($"- {name}的行为准则: {b.CodeOfConduct}");
-                if (!string.IsNullOrWhiteSpace(b.TraitsText)) lines.Add($"- {name}的人格特质: {b.TraitsText}");
-                return string.Join("\n", lines);
+                CoreSvc.Locator.Get<IEventBus>()?.Publish(new OrchestrationProgressEvent
+                {
+                    Source = nameof(PromptAssemblyService),
+                    Stage = "PromptAudit",
+                    Message = templateKey,
+                    PayloadJson = JsonConvert.SerializeObject(audit)
+                });
             }
-            catch { return string.Empty; }
+            catch { }
+            return Task.FromResult(output ?? string.Empty);
         }
     }
 }

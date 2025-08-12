@@ -51,6 +51,8 @@
 | **P9 – 策略层 + Embedding/RAG** | • 可切换 Classic/EmbeddingFirst 策略 ☐  • 工具向量库与匹配模式（LightningFast/FastTop1/NarrowTopK）与降级链 ☐  • RAG 命中与自动回退 Classic 有明确日志 ☐  • 轻量串联递归（≤3 步）生成 `final_prompt` 并注入 ☐ |
 | **P10 – 历史/前情提要/提示组装** | • 历史仅记录“最终输出”且可分页/编辑 ☐  • 每 N 轮总结、每 10 轮叠加“前情提要” ☐  • `IPromptAssemblyService` 将固定提示/人物传记/前情提要/历史片段组装注入 ☐ |
 | **P10.5 – 个性化模块（Personalization）** | • 新增 `IPersonalBeliefsAndIdeologyService` 与持久化 ☐ • 新“个性窗体”可编辑 固定提示词/人物传记/观点与意识形态 ☐ • 历史窗体移除个性编辑入口 ☐ • 组装服务从新个性化模块拉取素材 ☐ |
+| **P11 – 舞台服务（Stage）** | • 会话串行化（convKey 锁）+ 合流窗口 + 冷却/幂等 ☐  • 非玩家路径统一非流式且仅写“最终输出” ☐  • 群聊轮次与选题/开场白（convKey override 注入）跑通 ☐ |
+| **P11.5 – 薄舞台 + 仲裁内核** | • 引入 `IStageKernel`（资源互斥/lease/合流/冷却/幂等） ☐  • `GroupChatAct` 内化 Trigger/Topic/Persona，事件输出；`StageHistorySink` 仅落“最终输出” ☐  • Debug 面板可管理 Acts/Triggers/票据 ☐ |
 
 每阶段的代码合并需附带录屏证明 Gate 全绿，以及更新本章节的 ✅ 标记。
 
@@ -61,6 +63,7 @@
 ```mermaid
 graph TD
     UI["UI 层\n窗口/面板"] --> Orchestration
+    UI --> Stage["Stage Service (P11+)"]
     Orchestration --> Tooling
     Orchestration --> LLM["ILLMService"]
     Orchestration --> EventAgg
@@ -68,6 +71,10 @@ graph TD
     Orchestration --> PromptAsm["PromptAssembly"]
     PromptAsm --> History["History/Recap"]
     PromptAsm --> Perso["Personalization\n(FixedPrompts/Biography/Beliefs)"]
+    Stage --> PromptAsm
+    Stage --> History
+    Stage --> EventAgg
+    Stage --> Topic["Topic/Triggers"]
     Tooling --> WorldData
     Tooling --> Command
     WorldData --> Scheduler
@@ -108,7 +115,10 @@ graph TD
 |     | Persona | SystemPrompt / Traits 等只读字段 |
 |     | ToolFunction / ToolCall | 直接 re-export Framework.Contracts 定义 |
 | 事件 | OrchestrationProgressEvent | 进度回调（阶段 + Payload） |
-|      | AIExceptionEvent | 封装异常与调用上下文
+|      | AIExceptionEvent | 封装异常与调用上下文 |
+|      | StageStarted / Coalesced / TurnCompleted / Finished | 舞台服务阶段事件（P11） |
+|      | TopicSelectedEvent | 选题与场景文本生成事件（P11） |
+|      | ActStarted / ActTurnCompleted / ActFinished / ActRejected / ActPreempted | 薄舞台事件模型（P11.5，沿用进度事件承载） |
 
 > 外部开发者只需引用 `Framework.Contracts` + `Core.Contracts`，即可复用 AI 编排、扩展工具并监听事件。
 
@@ -230,6 +240,53 @@ graph TD
 - DI：在 `ServiceContainer.Init` 注册 `IPersonalBeliefsAndIdeologyService -> PersonalBeliefsAndIdeologyService`；`PromptAssemblyService` 构造注入已对齐。
 - Gate（验收）：
   - 个性窗体可编辑并保存三类数据；读档后保持不变；Debug 面板 Prompt 审计可见个性文本；历史窗体不再含个性编辑。
+
+---
+
+### 5.12 舞台服务（P11）
+
+- 定位：位于 UI/后台业务 与 Persona 会话服务之间，统一处理会话键、合流/幂等/冷却、轮次调度与历史写入；确保仅记录“最终输出”。Chat UI 为舞台的一种实现（仅在 UI 内部流式），其余后台路径固定非流式。
+- 核心概念：
+  - convKey = `join('|', sort(participantIds))`（顺序无关，唯一标识会话）；会话锁串行化同一 convKey。
+  - 合流窗口（默认 300ms）合并同 convKey 的多源触发；幂等键（`hash(sourceId+convKey+scenario+seed)`）短期复用；冷却时间避免骚扰触发。
+  - Eligibility：`MinParticipants=2`，`MaxParticipants`（默认 5，最大 10）；参与者适配性过滤（非敌对、非战斗/睡眠、在线等）；`Origin` 必须为允许集合。
+- 舞台表演项（Stage Acts）：可插拔剧目（如 `GroupChat/Interrogation/Trial/...`），可声明参与者角色与终止条件；默认 Act 为群聊，支持稳定随机顺序与轮次推进。
+- 选题与开场白：通过 `IFixedPromptService.UpsertConvKeyOverride(convKey, scenarioText)` 注入“场景提示”（会话级，整场复用）；结束后清理覆盖。
+- 事件与可观测：广播 `StageStarted/Coalesced/TurnCompleted/Finished` 与 `TopicSelectedEvent`；透传 Prompt 组装审计摘要。
+- 历史策略：仅写“最终输出”（用户/AI/工具）；群聊可在元数据中记录 `audience`、`coalesced`、`seed` 等。
+- 配置（新增 `CoreConfig.Stage` 根）：
+  - 核心：`CoalesceWindowMs/CooldownSeconds/MinParticipants/MaxParticipants/PermittedOrigins/EligibilityRules/MaxLatencyMsPerTurn/RetryPolicy/LocaleOverride`。
+  - 扫描：`Stage.Scan` 与 `Stage.ProximityScan`（邻近度扫描、概率/阈值触发、每轮上限）。
+  - 选题：`Stage.Topic.Enabled/Sources(weights)/MaxChars/DedupWindow/SeedPolicy/Locale`。
+- 接口概要（内部约定）：`IStageService.StartAsync(StageRequest)`（后台固定 `stream=false`）；`IStageAct` 执行剧目；`ITopicProvider/ITopicService` 选题与开场白生成；不向 Core.Contracts 暴露写入接口，仅事件向外可见。
+- Gate：
+  - 非玩家发起仅能通过舞台入口；参与者 < 2 拒绝；同 convKey 并发只执行一次；合流/冷却生效。
+  - Persona 非流式接入并写入“最终输出”；双源并发场景录屏验证单次输出与历史一致。
+  - 群聊 N 轮跑通；选题与开场白注入；结束清理覆盖。
+
+---
+
+### 5.13 薄舞台 + 仲裁内核（P11.5）
+
+- 目标：压薄舞台，仅保留注册/启停/仲裁/Debug 路由/运行中查询；业务（扫描/选题/逐轮流程/逐轮历史）下沉至 `Act` 与其配套 `Trigger`。
+- 仲裁内核（`IStageKernel`）：
+  - 资源声明与预定：`ActResourceClaim{convKeys[], participantIds[], mapId?, exclusive}`；同一 convKey 强互斥；参与者集合相交互斥；可选地图级互斥。
+  - 能力：`TryReserve/ExtendLease/Release`（lease TTL 防泄漏）、`CoalesceWithin`、`Cooldown`、幂等缓存。
+- 数据与事件模型：
+  - 模型：`StageIntent/StageDecision/StageTicket/StageExecutionRequest/RunningActInfo`。
+  - 事件：`ActStarted/ActTurnCompleted/ActFinished/ActRejected/ActPreempted`（可沿用 `OrchestrationProgressEvent` 承载，Source=Act/Kernel，PayloadJson 结构化）。
+- 历史与素材：
+  - `StageHistorySink` 订阅 Act 事件，仅写“最终输出”。
+  - `IStageRecapService`（内部）保存 Act 总结素材（`ActRecapEntry`），提供查询/导入导出；`IStageService` 可对外提供只读查询入口（后续版本）。
+- 配置与 UI：
+  - `CoreConfig.Stage` 新增 `DisabledActs/DisabledTriggers`；保留 `ProximityScan/Topic` 供 `GroupChatAct/Trigger` 使用；新增 Act 专属配置（如 `GroupChatConfig`）。
+  - 设置页新增 “Stage/Acts” 分节：列出已注册 Acts/Triggers 并支持启停，进入各 Act 配置页。
+- 实施要点：
+  - 新增 `Modules/Stage/Kernel/StageKernel.cs`；精简 `StageService`；改造 `GroupChatAct` 内化 Trigger/Topic/Persona 并产出事件；可选接线 `StageHistorySink`。
+- Gate：
+  - Kernel：同一 convKey/参与者相交互斥；lease 超时自动回收；幂等缓存可用。
+  - Act：群聊 N 轮跑通，仅事件输出；StageHistorySink 仅“最终输出”落盘且回放一致。
+  - 仲裁：同一 convKey 的两个 Act 请求只执行一个；禁用/启用 Act/Trigger 生效；Debug 面板可列出票据并强制释放。
 
 ---
 

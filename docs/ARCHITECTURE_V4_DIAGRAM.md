@@ -17,13 +17,14 @@ subgraph "Modules Layer"
     WorldAccess["Module: WorldAccess"]
     Tooling["Module: Tooling"]
     Orchestration["Module: Orchestration\\n(Strategies: Classic / EmbeddingFirst)"]
+    Stage["Module: Stage\\n(Stage Service + Acts/Triggers + Kernel)"]
     Persistence["Module: Persistence"]
     Eventing["Module: Eventing"]
     Persona["Module: Persona\\n(Persona CRUD / Binding)"]
     PromptAsm["Module: PromptAssembly\\n(Composer + Templates)"]
     Personalization["Module: Personalization\\n(FixedPrompts / Biography / Beliefs)"]
 end
-class LLM,WorldAccess,Tooling,Orchestration,Persistence,Eventing,Persona,PromptAsm,Personalization module
+class LLM,WorldAccess,Tooling,Orchestration,Stage,Persistence,Eventing,Persona,PromptAsm,Personalization module
 
 subgraph "Infrastructure Layer"
     ServiceContainer["DI Container"]
@@ -45,12 +46,18 @@ class RimWorld,Framework external
 
 %% Relations
 GameWindows --> Orchestration
+GameWindows --> Stage
 PersonalityWindow --> Personalization
 DebugPanel --> LLM
 DebugPanel --> Tooling
+DebugPanel --> Stage
 Orchestration --> LLM
 Orchestration --> Tooling
 Orchestration --> PromptAsm
+Stage --> PromptAsm
+Stage --> Persona
+Stage --> Persistence
+Stage --> Eventing
 PromptAsm --> Personalization
 PromptAsm --> Persistence
 LLM --> Framework

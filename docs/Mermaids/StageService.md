@@ -1,66 +1,69 @@
 ```mermaid
 flowchart TD
-  subgraph "Stage Service (API)"
-    A1["IStageService.StartAsync(req: StageExecutionRequest, ct) : IAsyncEnumerable<Result<UnifiedChatChunk>>"]
-    %% Scan 兼容入口已移除，统一由 Triggers 驱动
-    A3["StageExecutionRequest{<br/>actName: string<br/>participants: string[]<br/>convKey?: string<br/>userInputOrScenario?: string<br/>seed?: int<br/>locale?: string<br/>targetParticipantId?: string<br/>}"]
+
+  %% =====================
+  %% Stage (Thin, P11.5)
+  %% =====================
+  subgraph "Stage Service (Thin, P11.5)"
+    ST_API["IStageService\n- Register/Unregister/Enable/Disable Acts & Triggers\n- SubmitIntent(intent)\n- StartAsync(req) (Debug/Script)\n- QueryRunning()"]
+    ST_REQ["StageExecutionRequest{<br/>actName, participants[], convKey?, userInputOrScenario?, seed?, locale?, targetParticipantId?<br/>}"]
+    ST_INTENT["StageIntent{ actName, participants[], convKey, origin, scenario?, priority?, seed?, locale? }"]
+    ST_DECISION["StageDecision{ Approve|Reject|Defer, reason?, ticket? }"]
   end
 
-  subgraph "Execution Flow (StartAsync)"
-    F1["Eligibility 校验<br/>MinParticipants, MaxParticipants 裁剪"]
-    F2["convKey = sort(participants).join('|')<br/>seed = hash(convKey) 或 request.seed"]
-    F3["Cooldown 检查 (convKey) → InCooldown 拒绝"]
-    F4["合流窗口 (CoalesceWindowMs) 收集同 convKey 触发"]
-    F5["会话锁 (SemaphoreSlim per convKey) 串行执行"]
-    F7["选题: ITopicService.SelectAsync(ctx, weights)<br/>如有 ScenarioText → IFixedPromptService.UpsertConvKeyOverride(convKey, text)<br/>事件: OrchestrationProgressEvent(TopicSelected)"]
-    D1{"使用 GroupChatAct 且人数 ≥ 2?"}
-    F8["GroupChatAct.RunAsync(ctx)<br/>for round in N: Persona.ChatAsync 非流式 → History.AppendEntryAsync<br/>事件: TurnCompleted"]
-    F9["Persona.ChatAsync 或 CommandAsync 非流式 → 聚合 final 文本"]
-    F10["历史写入: IHistoryWriteService.AppendEntryAsync(final 输出)<br/>仅记录最终输出"]
-    F11["事件: StageStarted / Coalesced / TurnCompleted / Finished<br/>(OrchestrationProgressEvent)"]
-    F12["清理: 合流桶 + 删除 convKey 场景覆盖（GroupChatAct 内处理）"]
+  subgraph "Stage Kernel (Arbitration)"
+    KERN["IStageKernel\n- TryReserve/ExtendLease/Release\n- CoalesceWithin(convKey, windowMs)\n- Cooldown(IsIn/Set)\n- Idempotency(Get/Set)"]
   end
 
-  subgraph "Topic Pipeline"
-    T1["ITopicService.SelectAsync(ctx: TopicContext, weights) : TopicResult"]
-    T2["TopicContext{ convKey, participants, seed, locale }"]
-    T3["TopicResult{ Topic, ScenarioText, Source, Score? }"]
-    TP1["HistoryRecapProvider: 最近历史作为引子"]
-    TP2["RandomPoolProvider: 预设话题池"]
+  subgraph "Eligibility & Keys"
+    ELIG["Eligibility 校验\nMinParticipants/MaxParticipants/PermittedOrigins/Rules"]
+    KEYGEN["convKey = sort(participants).join('|')\nseed = hash(convKey) or request.seed"]
+  end
+
+  subgraph "Triggers"
+    TR_IF["IStageTrigger\n- Subscribe/OnEnable/OnDisable\n- RunOnceAsync() (主动扫描)"]
+    TR_GC["GroupChatTrigger\nProximityScan: RangeK + Probability|Threshold"]
   end
 
   subgraph "Acts"
-    AC1["IStageAct.RunAsync(ctx: ActContext) : Task<ActResult>"]
-    AC2["ActContext{ convKey, participants, seed, locale,<br/>options: StageConfig, persona, history, participantId, events }"]
-    AC3["ActResult{ Completed: bool, Reason: string, Rounds: int }"]
-    GA["GroupChatAct: 稳定随机发言顺序(seed), 多轮推进, 每轮调用 Persona 非流式并写入历史"]
+    ACT_IF["IStageAct\nIsEligible(ctx) / RunAsync(ctx) → ActResult{ FinalText, Rounds, Reason }"]
+    ACT_GC["GroupChatAct\n- 选题与开场白(Topic)\n- 稳定随机顺序(seed)\n- 多轮 Persona 非流式"]
+    TOPIC["TopicSelector (权重/去重/裁剪)\n→ TopicSelected 事件\n→ IFixedPromptService.UpsertConvKeyOverride"]
   end
 
-  subgraph "Triggers (P11.5)"
-    TR1["IStageTrigger: Name/TargetActName/Subscribe/OnEnable/OnDisable/RunOnceAsync"]
-    TR2["GroupChatTrigger: 近邻扫描 + 概率触发 → SubmitIntent → StartAsync(GroupChat)"]
+  subgraph "Persona Pipeline"
+    PER_CONV["IPersonaConversationService"]
+    PROMPT["IPromptAssemblyService"]
+    PERSO["Personalization\n(FixedPrompts/Biography/Beliefs)"]
   end
 
-  subgraph "Config (CoreConfig.Stage)"
-    C1["StageConfig{<br/>CoalesceWindowMs, CooldownSeconds, MinParticipants, MaxParticipants,<br/>MaxLatencyMsPerTurn, LocaleOverride,<br/>RetryPolicy{ MaxAttempts, BackoffMs },<br/>PermittedOrigins, EligibilityRules{ OnlyNonHostile, ExcludeSleeping, ExcludeInCombat, ExcludeDowned },<br/>GroupChatMaxRounds,<br/>Scan{ Enabled, IntervalSeconds, MaxNewConversationsPerScan },<br/>ProximityScan{ Enabled, RangeK, TriggerMode, TriggerThreshold, ProbabilityP, OnlyNonHostile, ExcludeBusy },<br/>Topic{ Enabled, Sources(weights), MaxChars, DedupWindow, SeedPolicy, Locale }<br/>}"]
+  subgraph "Sinks & Events"
+    EVTS["ActStarted / ActTurnCompleted / ActFinished / ActRejected / ActPreempted\nTopicSelected"]
+    SINK["StageHistorySink\n仅写‘最终输出’"]
   end
 
-  %% Edges
-  A1 --> F1 --> F2 --> F3 --> F4 --> F5 --> F6 --> F7 --> D1
-  D1 -- "是" --> F8 --> F11 --> F12
-  D1 -- "否" --> F9 --> F10 --> F11 --> F12
+  subgraph "Config"
+    CFG_STAGE["CoreConfig.Stage{\nCoalesceWindowMs, CooldownSeconds, Min/MaxParticipants,\nDisabledActs, DisabledTriggers, MaxLatencyMsPerTurn, LocaleOverride,\nRetryPolicy, PermittedOrigins, EligibilityRules,\nScan{Enabled, IntervalSeconds, MaxNewConversationsPerScan},\nProximityScan{Enabled, RangeK, TriggerMode, TriggerThreshold, ProbabilityP, OnlyNonHostile, ExcludeBusy},\nTopic{Enabled, Sources(weights), MaxChars, DedupWindow, SeedPolicy, Locale}\n}"]
+    CFG_GC["GroupChatConfig{\nRounds, ProximityScan(...), Topic{Sources, MaxChars, DedupWindow, SeedPolicy}\n}"]
+  end
 
-  A2 --> TR1
+  %% ===== Flows =====
+  %% Triggered path
+  TR_IF -->|StageIntent| ST_API
+  TR_GC --> TR_IF
+  ST_API --> ELIG --> KEYGEN --> KERN
+  KERN -->|StageDecision| ST_DECISION
+  ST_DECISION -- "Approve(ticket)" --> ACT_IF
+  ACT_IF -->|Execute(GroupChat)| ACT_GC
+  ACT_GC --> TOPIC --> EVTS
+  ACT_GC --> PER_CONV --> PROMPT --> PERSO
+  ACT_GC -->|Emit| EVTS --> SINK
+  ST_API -->|StartAsync(req) (Debug)| ST_REQ --> ACT_IF
 
-  T1 --> T3
-  T2 --> T1
-  TP1 --> T1
-  TP2 --> T1
-
-  C1 --> F1
-  C1 --> F5
-  C1 --> F7
-  C1 --> F8
-  C1 --> S1
-  C1 --> S5
+  %% Config wiring
+  CFG_STAGE --> KERN
+  CFG_STAGE --> ELIG
+  CFG_STAGE --> TR_IF
+  CFG_GC --> TR_GC
+  CFG_GC --> ACT_GC
 ```

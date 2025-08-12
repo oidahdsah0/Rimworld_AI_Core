@@ -185,7 +185,7 @@ RimAI.Core/
 
 ### S9：日志与事件
 
-1) 日志统一前缀：`[RimAI.P2.LLM]`
+1) 日志统一前缀：`[RimAI.Core][P2.LLM]`
 2) 记录字段：provider/model（由 Framework 提供或“current”）、convId 哈希、请求/首包/结束耗时、分片数、错误码
 3) 可选事件：`LlmRequestStarted/ChunkReceived/LlmRequestFinished/LlmRequestFailed`（供 Debug 订阅）
 
@@ -240,12 +240,12 @@ RimAI.Core/
 
 ---
 
-## 9. CI/Grep Gate（必须通过）
+## 9. CI/Gate（使用 Cursor 内置工具，必须通过）
 
 - 唯一 Framework 入口：`RimAI.Core/Source/Modules/LLM/LLMService.cs`
-  - grep=0（全仓）：`using\s+RimAI\.Framework(?!.*Modules/LLM/LLMService\.cs)`（或等效脚本）
+  - 全仓检查：`using\s+RimAI\.Framework(?!.*Modules/LLM/LLMService\.cs)` → 0
 - 禁止业务层直触流式/非流式：业务层仅引用 `ILLMService`（可抽样静态分析）
-- 构造函数注入：grep 检查属性注入/ServiceLocator 滥用
+- 构造函数注入：检查属性注入/ServiceLocator 滥用 → 0
 
 ---
 

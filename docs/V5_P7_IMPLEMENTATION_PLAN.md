@@ -40,7 +40,7 @@
 
 ## 2. 核心原则与纪律
 
-1) 键唯一：索引键严格为 `EntityId := "pawn:<loadId>" | "thing:<loadId>"`；grep Gate 确保 Persona 代码中 `convKey`/其它键为 0。
+1) 键唯一：索引键严格为 `EntityId := "pawn:<loadId>" | "thing:<loadId>"`；使用 Cursor 内置工具的 Gate 检查，确保 Persona 代码中 `convKey`/其它键出现次数为 0。
 2) 非流式：所有生成类调用一律使用 `ILLMService.GetResponseAsync`；后台代码禁止 `StreamResponseAsync`。
 3) 世界访问最小面：仅 `IWorldDataService` 访问 Verse；Persona 模块内部不得 `using Verse`/`Scribe`。
 4) 配置快照：通过 `IConfigurationService.Current` 获取不可变快照，支持热重载事件订阅。
@@ -258,7 +258,7 @@ RimAI.Core/
   - 传记：列表增删改/排序；“生成草案（3–5条）”；逐条采纳并保存
   - 固定提示词：整段编辑；“从现有文本萃取草案”
   - Persona Block：预览组合文本与审计（段长度/截断/总长）
-- 观测：打印 `[RimAI.P7.Persona]` 日志（开始/结束/耗时/截断比/失败码），不输出敏感正文。
+- 观测：打印 `[RimAI.Core][P7.Persona]` 日志（开始/结束/耗时/截断比/失败码），不输出敏感正文。
 
 ---
 
@@ -305,10 +305,10 @@ RimAI.Core/
 - S10：DI 注册与启动检查
   - 在 `ServiceContainer.Init()` 注册门面与四服务；启动日志打印“P7 Persona ready”。
 
-- S11：CI/Grep Gate
+- S11：CI/Gate（使用 Cursor 内置工具）
   - 全仓（排除 `Modules/Persistence/**` 与 `Modules/World/**`）：
-    - grep=0：`\bStreamResponseAsync\(`、`\bconvKey\b`、`\bScribe\.|using\s+Verse`。
-  - Persona 目录内 grep=0：`\bEventAggregator\b`。
+    - 检查=0：`\bStreamResponseAsync\(`、`\bconvKey\b`、`\bScribe\.|using\s+Verse`。
+  - Persona 目录内 检查=0：`\bEventAggregator\b`。
 
 - S12：人工回归脚本（录屏）
   - 选择 Pawn/Thing → 新建 Persona → 设置职务名 → 生成描述 → 编辑保存。
@@ -337,11 +337,11 @@ RimAI.Core/
 
 ---
 
-## 12. CI/Grep Gate（必须通过）
+## 12. CI/Gate（使用 Cursor 内置工具，必须通过）
 
-- Persona 目录（`Source/Modules/Persona/**`）grep=0：
+- Persona 目录（`Source/Modules/Persona/**`）检查=0：
   - `\bStreamResponseAsync\(`、`\bEventAggregator\b`、`\bconvKey\b`、`\bScribe\.|using\s+Verse`。
-- 全仓（排除 `Modules/Persistence/**` 与 `Modules/World/**`）grep=0：`\bScribe\.|using\s+Verse`。
+- 全仓（排除 `Modules/Persistence/**` 与 `Modules/World/**`）检查=0：`\bScribe\.|using\s+Verse`。
 - 可选：模板热重载日志包含“persona templates reloaded”。
 
 ---

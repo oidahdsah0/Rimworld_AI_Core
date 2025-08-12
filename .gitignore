@@ -334,3 +334,6 @@ MigrationBackup/
 !**/Textures/**/*
 !**/Sounds/**/*
 !**/loadFolders.xml
+
+# Local staging output (safe deployment target during local builds)
+_staging/

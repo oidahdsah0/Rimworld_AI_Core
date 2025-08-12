@@ -342,12 +342,12 @@ RimAI.Core/
 
 ---
 
-## 8. CI / Grep Gate（必须通过）
+## 8. CI / Gate（使用 Cursor 内置工具，必须通过）
 
 - 唯一触达面：
-  - 全仓（排除 `Modules/LLM/**`）：`grep=0`: `using\s+RimAI\.Framework`；
-  - Stage/Kernel/Service/Triggers：`grep=0`: `ILLMService`；
-  - 除 `WorldDataService` 与 `Persistence/**` 外：`grep=0`: `\bScribe\.|using\s+Verse`。
+  - 全仓（排除 `Modules/LLM/**`）：检查=0: `using\s+RimAI\.Framework`；
+  - Stage/Kernel/Service/Triggers：检查=0: `ILLMService`；
+  - 除 `WorldDataService` 与 `Persistence/**` 外：检查=0: `\bScribe\.|using\s+Verse`。
 
 - 纪律：
   - 禁止属性注入；构造函数注入；
@@ -384,7 +384,7 @@ RimAI.Core/
 
 ## 11. 变更记录（提交要求）
 
-- 初版（v5-P9）：交付薄 Stage（仲裁/路由/日志）、内置 GroupChat/AlphaFiber 两个 Act 与对应 Trigger、Debug 面板、CI/Grep Gate 与回归脚本。
+- 初版（v5-P9）：交付薄 Stage（仲裁/路由/日志）、内置 GroupChat/AlphaFiber 两个 Act 与对应 Trigger、Debug 面板、CI/Gate（Cursor 内置工具）与回归脚本。
 
 ---
 

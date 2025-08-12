@@ -36,7 +36,8 @@
   - 外部仅可见 `CoreConfigSnapshot`（不可变）；内部使用 `CoreConfig`；通过 `IConfigurationService.OnConfigurationChanged` 广播快照替换事件。
 
 - 日志与可观测：
-  - 日志统一前缀：`[RimAI.P{n}.*]`；避免输出敏感正文；Debug 面板提供最小自检按钮与指标。
+  - 【V5 强制】所有日志必须以 `[RimAI.Core]` 为前缀（置于最开头），推荐追加阶段标记形成层级前缀，例如：`[RimAI.Core][P1] ...`、`[RimAI.Core][P4] ...`。
+  - 避免输出敏感正文；Debug 面板提供最小自检按钮与指标。
 
 ---
 
@@ -57,17 +58,18 @@ RimAI.Core.Contracts/
 ## 3. Debug 面板约定
 
 - 仅在 `UI.DebugPanelEnabled=true` 时显示；各阶段按钮/页签以 `Px_*` 命名。
-- 按钮/日志前缀形如 `[RimAI.P{n}]`，便于 grep 与回归。
+- 按钮/日志前缀形如 `[RimAI.Core][P{n}]`，便于搜索与回归。
 
 ---
 
-## 4. CI/Grep 基线（仓级纪律）
+## 4. CI/Gate 基线（Cursor 内置工具）
 
-- Verse/Scribe 面最小化：除 `Modules/World/**` 与 `Modules/Persistence/**` 外，grep=0：`\bScribe\.|using\s+Verse`。
-- Framework 面最小化：除 `Modules/LLM/**` 外，grep=0：`using\s+RimAI\.Framework`。
-- 非流式纪律：后台模块 grep=0：`StreamResponseAsync\(`。
-- 注入纪律：grep=0：属性注入与 Service Locator 关键字（项目内约定的模式）。
-- 文件 IO 集中：除 `Modules/Persistence/**` 外，grep=0：`using\s+System\.IO|\bFile\.|\bDirectory\.|\bFileStream\b|\bStreamReader\b|\bStreamWriter\b`（模块不得直接文件 IO）。
+- Verse/Scribe 面最小化：除 `Modules/World/**` 与 `Modules/Persistence/**` 外，检查：`\bScribe\.|using\s+Verse` → 0 次匹配。
+- Framework 面最小化：除 `Modules/LLM/**` 外，检查：`using\s+RimAI\.Framework` → 0 次匹配。
+- 非流式纪律：后台模块检查：`StreamResponseAsync\(` → 0 次匹配。
+- 注入纪律：检查属性注入与 Service Locator 关键字（项目内约定模式）→ 0 次匹配。
+- 文件 IO 集中：除 `Modules/Persistence/**` 外，检查：`using\s+System\.IO|\bFile\.|\bDirectory\.|\bFileStream\b|\bStreamReader\b|\bStreamWriter\b` → 0 次匹配（模块不得直接文件 IO）。
+- 日志前缀（建议性 Gate）：通过 Cursor 内置工具对 `Log\.(Message|Warning|Error)\(` 的调用进行抽样/审计，确保文本以 `[RimAI.Core]` 开头；必要时引入包装器统一打印。
 
 ---
 

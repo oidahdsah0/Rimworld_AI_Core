@@ -217,8 +217,8 @@ public static class Scribe_Dict
 - 读档后自动在首次打开面板时提示：各节点条目数与耗时。
   - 工具索引页签：显示索引文件路径、存在性、记录数、指纹；按钮支持“重建索引/打开目录”。
 
-### S11：CI/Grep Gate 与纪律
-- 全仓 grep（必须为 0，除 `Modules/Persistence` 下）：`\bScribe\.` 与 `using\s+Verse`。
+### S11：CI/Gate 与纪律（使用 Cursor 内置工具）
+- 全仓检查（必须为 0，除 `Modules/Persistence` 下）：`\bScribe\.` 与 `using\s+Verse`。
 - `Modules/Persistence` 内仅允许在 `PersistenceService.cs`、`PersistenceManager.cs`、`ScribeAdapters/*` 出现上述引用。
 
 ### S12：性能与预算自检
@@ -284,10 +284,10 @@ private void ReadConvKeyIndexNode(ref Dictionary<string, List<string>> index)
 
 ---
 
-## 10. CI/Grep Gate（必须通过）
+## 10. CI/Gate（使用 Cursor 内置工具，必须通过）
 
 - Scribe/Verse 面最小化
-  - 全仓 grep=0（排除 `Modules/Persistence/**`）：`\bScribe\.|using\s+Verse`。
+- 全仓 检查=0（排除 `Modules/Persistence/**`）：`\bScribe\.|using\s+Verse`。
   - 仅 `PersistenceService.cs`、`PersistenceManager.cs`、`ScribeAdapters/*` 允许出现上述引用。
 
 - 注入纪律
@@ -309,7 +309,7 @@ private void ReadConvKeyIndexNode(ref Dictionary<string, List<string>> index)
   - 日志含保存/读取总耗时与节点级统计。
 
 - 纪律
-  - CI/Grep Gate 通过（Scribe/Verse 面最小化；Snapshots 纯净）。
+- CI/Gate（Cursor 内置工具）通过（Scribe/Verse 面最小化；Snapshots 纯净）。
 
 - 性能
   - 中等规模存档保存 ≤ 150ms；读档 ≤ 200ms；超标打印 Warn。

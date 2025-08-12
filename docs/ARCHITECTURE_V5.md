@@ -14,9 +14,9 @@
 
 | 目标 | 说明 | 衡量指标 |
 |------|------|----------|
-| 访问面最小 | Verse/Framework 入口极度收敛，降低耦合与副作用 | grep Gate 0 误报（见 §13） |
+| 访问面最小 | Verse/Framework 入口极度收敛，降低耦合与副作用 | 通过 Cursor 内置工具 Gate 检查（见 §13） |
 | 施工可验证 | 每阶段有 Debug 面板与统一日志，Gate 可录屏复现 | 每 P 有“验收 Gate + 回归脚本” |
-| 非流式纪律 | 后台/服务路径一律非流式；流式仅用于 Debug/UI | 后台 grep=0: `StreamResponseAsync\(` |
+| 非流式纪律 | 后台/服务路径一律非流式；流式仅用于 Debug/UI | 后台检查=0: `StreamResponseAsync\(` |
 | 单一事实源 | Tool JSON 的唯一产出方在 Tool Service；历史仅记录“最终输出”；Stage 统一写 `agent:stage` | CI 脚本与日志审计 |
 | 配置与快照 | 对外仅暴露 `CoreConfigSnapshot`（不可变）；热重载事件广播 | P1 Gate：Reload 生效 |
 
@@ -204,7 +204,7 @@ V5 对外最小面仅限配置：
 
 ## 10. 可观测性与日志
 
-- 统一日志前缀与关键字段（provider/model/convId-hash/latency/chunks/score 摘要等）。  
+- 统一日志前缀：V5 版本下，所有日志必须以 `[RimAI.Core]` 开头；建议叠加阶段标识形成层级前缀，如 `[RimAI.Core][P1]`、`[RimAI.Core][P4]`。关键字段包括 provider/model/convId-hash/latency/chunks/score 摘要等。  
 - Debug 面板规范：每 P 至少包含 Ping/自检/示例/指标卡；日志按钮严格不落敏感正文。  
 - 审计字段：字符裁剪、窗口区间、索引指纹、命中率、慢执行告警、节点统计等。
 
@@ -228,18 +228,16 @@ V5 对外最小面仅限配置：
 
 ---
 
-## 13. 质量门禁（CI / Grep Gate 摘要）
+## 13. 质量门禁（CI / 内置工具 Gate 摘要）
 
-- Verse/Scribe 面最小化：除 `Modules/World/**` 与 `Modules/Persistence/**` 外 grep=0：`\bScribe\.|using\s+Verse`。  
-- Framework 面最小化：除 `Modules/LLM/**` 外 grep=0：`using\s+RimAI\.Framework`。  
-- 后台非流式：相关目录 grep=0：`StreamResponseAsync\(`。  
-- Tooling 不自动降级：索引/TopK 路径 grep=0：`\bAuto\b|degrad|fallback`（上下文限定）。  
+- Verse/Scribe 面最小化：除 `Modules/World/**` 与 `Modules/Persistence/**` 外 检查=0：`\bScribe\.|using\s+Verse`。  
+- Framework 面最小化：除 `Modules/LLM/**` 外 检查=0：`using\s+RimAI\.Framework`。  
+- 后台非流式：相关目录 检查=0：`StreamResponseAsync\(`。  
+- Tooling 不自动降级：索引/TopK 路径 检查=0：`\bAuto\b|degrad|fallback`（上下文限定）。  
 - 注入纪律：禁止属性注入；仅构造函数注入；Service Locator 禁用。  
-- 文件命名与工件：构建后应存在 `tools_index_{provider}_{model}.json`（仅设置文件）；存档节点按版本后缀；仓级 grep 禁止除 Persistence 外的 `System.IO` 直接使用。
+- 文件命名与工件：构建后应存在 `tools_index_{provider}_{model}.json`（仅设置文件）；存档节点按版本后缀；仓级 检查禁用除 Persistence 外的 `System.IO` 直接使用。
 
-> 建议在仓级提供统一脚本（示例）：
-> - `scripts/ci/grep_bounds.ps1|sh`：聚合上述规则；
-> - `scripts/ci/smoke_debug.ps1|sh`：录屏指令清单与结果采集。
+> Gate 执行方式：统一由 Cursor 内置工具在提交前/PR 审阅时运行，不再依赖外部脚本。
 
 ---
 

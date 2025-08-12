@@ -176,15 +176,15 @@ while (processed < cfg.Scheduler.MaxTasksPerUpdate && _queue.TryDequeue(out var 
     item.ExecuteOnMainThread(); // action/func with TCS
     swTask.Stop();
     if (swTask.ElapsedMilliseconds > cfg.Scheduler.LongTaskWarnMs) {
-      Log.Warn($"[Scheduler] Long task {item.Name} took {swTask.ElapsedMilliseconds}ms");
+      Log.Warn($"[RimAI.Core][Scheduler] Long task {item.Name} took {swTask.ElapsedMilliseconds}ms");
     }
   } catch (Exception ex) {
     item.TrySetException(ex);
-    Log.Error($"[Scheduler] Task {item.Name} failed: {ex}");
+    Log.Error($"[RimAI.Core][Scheduler] Task {item.Name} failed: {ex}");
   }
   processed++;
   if (swFrame.Elapsed.TotalMilliseconds > cfg.Scheduler.MaxBudgetMsPerUpdate) {
-    Log.Warn($"[Scheduler] Frame budget exceeded: {swFrame.Elapsed.TotalMilliseconds}ms");
+    Log.Warn($"[RimAI.Core][Scheduler] Frame budget exceeded: {swFrame.Elapsed.TotalMilliseconds}ms");
     break;
   }
 }
@@ -273,12 +273,12 @@ public Task<string> GetPlayerNameAsync(CancellationToken ct = default) =>
 
 ---
 
-## 8. CI/Grep Gate（必须通过）
+## 8. CI/Gate（使用 Cursor 内置工具，必须通过）
 
 - Verse 访问最小面
-  - 全仓 grep：`using\s+Verse` 仅允许出现在：`WorldDataService.cs` 与 `SchedulerGameComponent.cs`
+  - 全仓检查：`using\s+Verse` 仅允许出现在：`WorldDataService.cs` 与 `SchedulerGameComponent.cs`
 - 主线程化纪律
-  - 全仓 grep：Verse API 名称出现处的同文件必须存在 `ISchedulerService` 调用（人工抽样/脚本辅助）
+  - 全仓检查：Verse API 名称出现处的同文件必须存在 `ISchedulerService` 调用（人工抽样/工具辅助）
 - 注入纪律
   - 禁止属性注入；仅构造函数注入
 - 组件单例性
@@ -308,7 +308,7 @@ public Task<string> GetPlayerNameAsync(CancellationToken ct = default) =>
 
 ## 11. 变更记录（提交要求）
 
-- 初版（v5-P3）：交付 Scheduler + WorldData + Debug 面板 + CI/Grep Gate；不改对外 Contracts
+- 初版（v5-P3）：交付 Scheduler + WorldData + Debug 面板 + CI/Gate（Cursor 内置工具）；不改对外 Contracts
 - 后续修改：新增内部配置字段需向后兼容，并在本文“配置”与 Gate 中同步更新
 
 ---

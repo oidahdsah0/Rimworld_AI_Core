@@ -401,7 +401,7 @@ sequenceDiagram
   - 历史分页浏览（显示名绑定）、单条编辑/删除/撤销；
   - Recap 列表（长度/裁剪审计/替换或追加）、一键 Rebuild；
   - Relations：超集/子集预览与跳转；
-  - 统一日志前缀 `[RimAI.P8.History]`。
+  - 统一日志前缀 `[RimAI.Core][P8.History]`。
 
 ### S11：配置热生效与异常处理
 - 订阅 `IConfigurationService.OnConfigurationChanged`，更新 PageSize/N/MaxChars/AutoRebuildOnEdit；
@@ -436,12 +436,12 @@ sequenceDiagram
 
 ---
 
-## 15. CI / Grep Gate（必须通过）
+## 15. CI / Gate（使用 Cursor 内置工具，必须通过）
 
 - 历史域禁止流式：
-  - 全仓（排除 docs）：grep=0：`History/.*StreamResponseAsync\(`。
+  - 全仓（排除 docs）：检查=0：`History/.*StreamResponseAsync\(`。
 - Verse 面最小化：
-  - 除 `Modules/World/**` 与 `Modules/Persistence/**` 外，grep=0：`\bScribe\.|using\s+Verse`。
+  - 除 `Modules/World/**` 与 `Modules/Persistence/**` 外，检查=0：`\bScribe\.|using\s+Verse`。
 - 仅最终输出纪律：
   - 历史写入路径不得出现“工具/中间分片”关键字（抽样脚本或审计日志）。
 

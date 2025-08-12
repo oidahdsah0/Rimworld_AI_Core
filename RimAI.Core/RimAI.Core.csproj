@@ -35,7 +35,7 @@
     </ProjectReference>
     
     <!-- Use DLL reference for standalone development -->
-    <Reference Include="RimAI.Framework" Condition="!Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj')">
+    <Reference Include="RimAI.Framework" Condition="!Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\RimAI.Framework.csproj') and Exists('..\..\Rimworld_AI_Framework\RimAI.Framework\Assemblies\RimAI.Framework.dll')">
       <HintPath>..\..\Rimworld_AI_Framework\RimAI.Framework\Assemblies\RimAI.Framework.dll</HintPath>
       <Private>false</Private>
     </Reference>

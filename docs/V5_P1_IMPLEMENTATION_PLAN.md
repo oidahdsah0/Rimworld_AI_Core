@@ -12,7 +12,7 @@
   - 基础设施：`ServiceContainer`（DI 容器，单例、构造函数注入、预热、自检、环依赖检测）
   - 配置系统：`IConfigurationService`（Contracts 只读接口 + Core 实现）；`CoreConfig`（内部）→ `CoreConfigSnapshot`（对外只读）
   - 可观测性：最小 Debug 面板与日志（Ping、ResolveAll、Config 预览与热重载回显）
-  - 文档与 Gate：接口签名冻结、目录规范、grep Gate 清单、最小回归脚本
+  - 文档与 Gate：接口签名冻结、目录规范、Gate 清单（Cursor 内置工具）、最小回归脚本
 
 - 非目标（后续阶段处理）
   - LLM 网关与外部 API（P2）
@@ -217,9 +217,9 @@ UI 要点：
 
 ### S4：文档、脚本与 Gate（人工或 CI 皆可执行）
 
-1) grep Gate（保证 P1 纪律）
-   - 禁止属性注入：`grep -R "set;\s*}" RimAI.Core/Source | cat`（人工检查）
-   - 容器唯一入口：`grep -R "new ServiceContainer\(" RimAI.Core/Source | cat`（仅启动处允许）
+1) Gate（保证 P1 纪律，使用 Cursor 内置工具执行）
+   - 禁止属性注入：搜索属性 setter 滥用
+   - 容器唯一入口：搜索 `new ServiceContainer(` 仅应出现在启动处
 2) 最小回归脚本（人工）
    - 进入游戏 → 打开 Debug 面板 → 依次点击三按钮 → 日志观察关键输出
 3) 文档标注本文件为 P1 标准；接口签名冻结点：`IConfigurationService` / `CoreConfigSnapshot`
@@ -229,7 +229,7 @@ UI 要点：
 ## 6. 验收 Gate（必须全绿）
 
 - 引导与日志
-  - 启动不报错；日志出现：`[RimAI.P1] Boot OK (services=N, elapsed=xxx ms)`
+- 启动不报错；日志出现：`[RimAI.Core][P1] Boot OK (services=N, elapsed=xxx ms)`
 - Debug 面板
   - Ping：输出 `pong`、服务数与版本号
   - ResolveAll：所有注册项均 OK，构造耗时 < 100ms（阈值可调）；若失败显示详细异常与依赖链

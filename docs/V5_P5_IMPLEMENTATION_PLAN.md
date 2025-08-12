@@ -246,11 +246,11 @@ RimAI.Core/
 
 ---
 
-## 9. CI / Grep Gate（必须通过）
+## 9. CI / Gate（使用 Cursor 内置工具，必须通过）
 
 - 编排层不做向量与降级：
-  - grep=0：`\bGetEmbeddingsAsync\b|\bIPromptService\b|\bPrompt\b|StreamResponseAsync\(`
+  - 检查=0：`\bGetEmbeddingsAsync\b|\bIPromptService\b|\bPrompt\b|StreamResponseAsync\(`
 - 仅消费 Tool Service：
   - `Modules/Orchestration/**` 中不得 `using\s+RimAI\.Framework`；只允许经 `IToolRegistryService` 取得 Tool JSON。
-- 非流式纪律：后台路径 grep=0：`StreamResponseAsync\(`。
+- 非流式纪律：后台路径 检查=0：`StreamResponseAsync\(`。
 - 注入纪律：仅构造函数注入；禁止属性注入。

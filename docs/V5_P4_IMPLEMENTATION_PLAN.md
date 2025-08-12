@@ -341,11 +341,11 @@ RimAI.Core/
 
 ---
 
-## 9. CI/Grep Gate（必须通过）
+## 9. CI/Gate（使用 Cursor 内置工具，必须通过）
 
 - Verse 访问最小面：`Modules/Tooling/**` 与 `DemoTools/**` 不得 `using Verse`
 - Framework 访问最小面：Tooling 中不得 `using RimAI.Framework.*`；统一经 `ILLMService` 获取 Embeddings
-- 自动降级禁用：全仓 grep 确认 `\bAuto\b|degrad|fallback` 不出现在 Tooling 索引/TopK 路径
+- 自动降级禁用：全仓检查 `\bAuto\b|degrad|fallback` 不出现在 Tooling 索引/TopK 路径
 - 索引文件命名：构建后应存在 `tools_index_{provider}_{model}.json`；文件 IO 必须经 `IPersistenceService`。
 ---
 

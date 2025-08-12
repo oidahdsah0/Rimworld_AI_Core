@@ -1,135 +1,133 @@
-# RimAI V5 — P4 实施计划（Tool System）
+# RimAI V5 — P4 实施计划（Tool System：含内置向量索引与 Tool JSON 产出）
 
-> 目标：一次性交付“稳定、可扩展、可观测”的工具系统骨架：自动发现与注册、统一 Schema 暴露、参数校验、受控执行（并发/主线程/副作用/超时/速率）与 Debug 面板自检。本文档为唯一入口文档，无需翻阅旧文即可落地与验收。
+> 目标：交付“稳定、可扩展、可观测”的工具系统，并内置“工具向量索引（Embedding）”。Tool Service 成为 Framework Tool Calls 所需 Tool JSON 的**唯一产出方**；Classic 直接产出“全集 Tool JSON”，NarrowTopK 产出“TopK Tool JSON + 置信度分数表”。索引构建与检索完全由 Tool Service 负责，上游（编排层）仅消费该服务，不再自行拼装或做向量检索。本文档为唯一入口，无需翻阅旧文即可落地与验收。
 
 ---
 
 ## 0. 范围与非目标
 
 - 范围（本阶段交付）
-  - 工具契约与元数据：`IRimAITool`、`ToolMeta`、`ToolContext`、并发/副作用/来源声明
-  - 工具注册与发现：`IToolRegistryService` + 反射扫描 + DI 构造 + 黑白名单
-  - Schema 暴露与参数校验：沿用 `RimAI.Framework.Contracts.ToolFunction`；JSON Schema 校验与绑定
-  - 执行沙箱：主线程调度、并发互斥、资源锁、速率限制、超时、错误映射
-  - 可观测：统一日志与 Debug 面板（列表/筛选/测试执行）
+  - 工具契约/注册/参数校验/执行沙箱（并发/主线程/副作用/超时/速率）
+  - 工具向量索引（Embedding Index）：构建/持久化/检索/健康状态与自动重建
+  - Tool JSON 产出：
+    - Classic：返回可直接发送给 Framework Tool Calls 的完整 Tool JSON 列表
+    - NarrowTopK：将提示转 Embedding，与工具库比对返回 TopK Tool JSON + 置信度分数表
+  - 配置与事件：Embedding 供应商变更触发“立刻重建”；游戏开始自动向量化；Debug 面板索引页签
 
-- 非目标（后续阶段处理）
-  - 工具向量索引/匹配模式（P9）
-  - 最终自然语言总结与编排（P12 工具仅编排；本阶段仅返回结构化结果）
-  - 大规模“写世界”示例与权限模板（后续逐步上线）
+- 非目标（后续阶段）
+  - 最终自然语言总结/编排策略（P5+ 与 Organizer/Prompt）
+  - 任意“自动降级/自动切换”逻辑（上游显式选择模式；索引未就绪则报错，不回退）
 
 ---
 
 ## 1. 架构总览（全局视角）
 
-- 边界与依赖
-  - 工具系统对上游暴露统一清单与执行入口；上游（UI/Stage/Orchestration）只与 `IToolRegistryService` 交互
-  - 工具内严禁直接访问 Verse/Unity：
-    - 只读数据 → 通过 `IWorldDataService`（P3）
-    - 写世界/副作用 → 通过 `ICommandService`（后续阶段接入）；本阶段若工具声明副作用，仅记录/拒绝或走沙箱占位
-  - 主线程访问 → 统一经 `ISchedulerService`（P3）
+- 单一事实源（SSOT）
+  - Tool Service 是 Framework Tool Calls 所需 Tool JSON 的唯一产出方（Classic & NarrowTopK）
+  - 向量索引完全内置在 Tool Service，负责构建/存储/检索与状态
 
-- 设计原则
-  - 可发现、可禁用、可观测：开箱即用，Debug 面板可一键验证
-  - 安全沙箱：并发/互斥/超时/速率统一在注册表层面治理，工具实现保持纯净
-  - 契约稳定：为 P9/P12 预留扩展位（无需破坏本阶段契约）
+- 依赖关系
+  - 只读/主线程：依赖 `IWorldDataService`、`ISchedulerService`（P3）
+  - LLM/Embedding：依赖 `ILLMService.GetEmbeddingsAsync`（P2）以调用 Framework Embedding API（Tool Service 本身不直接引用 Framework）
+  - 配置：`IConfigurationService`（P1），监听 Embedding 供应商变更
+
+- 运行原则
+  - Classic 直接返回“可用工具全集”的 Tool JSON
+  - NarrowTopK：以 `userInput` → Embedding → 与“工具向量库”比对 → 返回 TopK Tool JSON + 置信度分数
+  - 无任何“自动切换/自动降级”；索引未就绪或无候选，返回明确错误，由上游决定后续动作
 
 ---
 
 ## 2. 接口契约（内部 API）
 
-> 下述接口位于 Core 内部，不进入 Contracts 稳定层；Schema 类型沿用 `RimAI.Framework.Contracts`。
+> Schema 类型沿用 `RimAI.Framework.Contracts.ToolFunction`（与 Framework 对齐）；接口位于 Core 内部。
 
 ```csharp
-// RimAI.Core/Source/Modules/Tooling/IRimAITool.cs
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using RimAI.Framework.Contracts; // ToolFunction, ToolCall
-
-namespace RimAI.Core.Modules.Tooling {
-  internal enum ToolConcurrency { ReadOnly, RequiresMainThread, Exclusive }
-  internal enum ToolOrigin { PlayerUI, Stage, AIServer, EventAggregator, Other }
-
-  internal sealed class ToolMeta {
-    public ToolConcurrency Concurrency { get; init; } = ToolConcurrency.ReadOnly;
-    public bool HasSideEffects { get; init; } = false;     // 是否可能改写世界/产生外部影响
-    public string ResourceKey { get; init; }               // 可选：互斥粒度（同 key 互斥）
-    public int DefaultTimeoutMs { get; init; } = 3000;     // 缺省超时
-    public int RateLimitPerMinute { get; init; } = 60;     // 简单速率限制（按工具名/资源键）
-    public IReadOnlyList<ToolOrigin> AllowedOrigins { get; init; } = new[] { ToolOrigin.PlayerUI, ToolOrigin.Stage, ToolOrigin.AIServer, ToolOrigin.EventAggregator, ToolOrigin.Other };
+// RimAI.Core/Source/Modules/Tooling/ToolIndexModels.cs
+namespace RimAI.Core.Modules.Tooling.Indexing {
+  internal sealed class ToolEmbeddingRecord {
+    public string Id { get; init; }                    // 记录ID（guid）
+    public string ToolName { get; init; }              // 唯一真函数名（工具名）
+    public string Variant { get; init; }               // name | description | parameters
+    public string Text { get; init; }                  // 嵌入文本
+    public float[] Vector { get; init; }               // 嵌入向量
+    public string Provider { get; init; }
+    public string Model { get; init; }
+    public int Dimension { get; init; }
+    public string Instruction { get; init; }
+    public DateTime BuiltAtUtc { get; init; }
   }
 
-  internal sealed class ToolContext {
-    public string ConversationId { get; init; }
-    public IReadOnlyList<string> ParticipantIds { get; init; }
-    public string Locale { get; init; }
-    public ToolOrigin Origin { get; init; }
-
-    // 服务入口（只读/主线程/命令）
-    public Infrastructure.Scheduler.ISchedulerService Scheduler { get; init; }
-    public Modules.World.IWorldDataService WorldData { get; init; }
-    public object CommandService { get; init; } // 占位：后续阶段替换为 ICommandService
-
-    // 预算与控制
-    public int TimeoutMs { get; init; }
-    public CancellationToken CancellationToken { get; init; }
+  internal sealed class ToolIndexFingerprint {
+    public string Provider { get; init; }
+    public string Model { get; init; }
+    public int Dimension { get; init; }
+    public string Instruction { get; init; }
+    public string Hash { get; init; }                  // Provider+Model+Dimension+Instruction 的哈希
   }
 
-  internal interface IRimAITool {
-    string Name { get; }
-    string Description { get; }
+  internal sealed class ToolIndexSnapshot {
+    public ToolIndexFingerprint Fingerprint { get; init; }
+    public IReadOnlyList<ToolEmbeddingRecord> Records { get; init; }
+    public (double Name, double Desc, double Params) Weights { get; init; }  // 评分权重
+    public DateTime BuiltAtUtc { get; init; }
+  }
 
-    ToolFunction GetSchema();                 // JSON Schema（Framework Contracts）
-    ToolMeta GetMeta();                       // 并发/副作用/超时/资源/来源
-    bool IsAvailable(ToolContext ctx);        // 可选：硬件/电力/场景限制
-
-    // 返回序列化友好的对象（字符串/POCO/匿名对象），供上游总结或直出
-    Task<object> ExecuteAsync(Dictionary<string, object> args, ToolContext ctx, CancellationToken ct);
+  internal sealed class ToolScore {
+    public string ToolName { get; init; }
+    public double Score { get; init; }
   }
 }
 
-// RimAI.Core/Source/Modules/Tooling/IToolRegistryService.cs
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+// RimAI.Core/Source/Modules/Tooling/IToolRegistryService.cs （扩展）
 using RimAI.Framework.Contracts; // ToolFunction
 
 namespace RimAI.Core.Modules.Tooling {
   internal sealed class ToolQueryOptions {
     public ToolOrigin Origin { get; init; } = ToolOrigin.PlayerUI;
-    public IReadOnlyList<string> IncludeWhitelist { get; init; } // 可空
-    public IReadOnlyList<string> ExcludeBlacklist { get; init; } // 可空
+    public IReadOnlyList<string> IncludeWhitelist { get; init; }
+    public IReadOnlyList<string> ExcludeBlacklist { get; init; }
   }
 
-  internal sealed class ToolCallOptions {
-    public ToolContext Context { get; init; }
-    public int? TimeoutMsOverride { get; init; }
+  internal sealed class ToolClassicResult {
+    public IReadOnlyList<ToolFunction> Tools { get; init; }             // 可直接发送到 Framework 的 Tool JSON
   }
 
-  internal sealed class ToolInfo {
-    public string Name { get; init; }
-    public ToolFunction Schema { get; init; }
-    public ToolMeta Meta { get; init; }
-    public bool Available { get; init; }
+  internal sealed class ToolNarrowTopKResult {
+    public IReadOnlyList<ToolFunction> Tools { get; init; }             // TopK Tool JSON
+    public IReadOnlyList<Indexing.ToolScore> Scores { get; init; }      // 置信度分数表（与 Tools 对齐或按名称）
   }
 
   internal interface IToolRegistryService {
-    IReadOnlyList<ToolFunction> GetAllToolSchemas(ToolQueryOptions options = null);
-    ToolInfo GetToolInfo(string toolName);
+    // 工具清单（Classic）
+    ToolClassicResult GetClassicToolCallSchema(ToolQueryOptions options = null);
 
+    // TopK 候选（NarrowTopK）。若索引未就绪或无候选，抛出 ToolIndexNotReadyException / 返回空集（按约定抛错更清晰）
+    Task<ToolNarrowTopKResult> GetNarrowTopKToolCallSchemaAsync(
+      string userInput,
+      int k,
+      double? minScore,
+      ToolQueryOptions options = null,
+      CancellationToken ct = default);
+
+    // 工具执行（与 P4 既有定义一致）
     Task<object> ExecuteToolAsync(
       string toolName,
       Dictionary<string, object> args,
       ToolCallOptions options,
       CancellationToken ct = default);
+
+    // 索引生命周期与状态
+    bool IsIndexReady();
+    Tooling.Indexing.ToolIndexFingerprint GetIndexFingerprint();
+    Task EnsureIndexBuiltAsync(CancellationToken ct = default);   // 若缺失/过期则构建
+    Task RebuildIndexAsync(CancellationToken ct = default);       // 强制重建
+    void MarkIndexStale();                                        // 标记过期（工具变化/配置变化）
   }
 }
 ```
 
-说明：
-- 参数校验基于 `ToolFunction` 的 JSON Schema；校验失败必须短路返回结构化错误（不执行工具）
-- 工具返回对象不强制类型；上游（P12）负责将结果纳入提示词或直出
+> 执行契约 `IRimAITool`/`ToolSandbox` 保持原有：参数校验/主线程/速率/超时/互斥，本文不再重复。
 
 ---
 
@@ -143,24 +141,28 @@ RimAI.Core/
         IRimAITool.cs
         IToolRegistryService.cs
         ToolRegistryService.cs
-        ToolDiscovery.cs            // 反射扫描 + DI 构造
-        ToolSandbox.cs              // 并发/主线程/互斥/速率/超时治理
-        ToolBinding.cs              // 参数绑定/JSON Schema 校验
-        ToolLogging.cs              // 统一日志/事件
+        ToolDiscovery.cs               // 反射扫描 + DI 构造
+        ToolSandbox.cs                 // 并发/主线程/互斥/速率/超时
+        ToolBinding.cs                 // 参数校验
+        ToolLogging.cs
+        Indexing/                      // 新增：工具向量索引
+          ToolIndexModels.cs          // 记录/指纹/快照/分数
+          ToolIndexManager.cs         // 构建/加载/保存/检索
+          ToolIndexBuilder.cs         // 调用 ILLMService.GetEmbeddingsAsync 批量向量化
+          ToolIndexStorage.cs         // JSON 文件存取：tools_index_{provider}_{model}.json
         DemoTools/
-          GetColonyStatusTool.cs    // 只读示例
+          GetColonyStatusTool.cs
     UI/DebugPanel/Parts/
-      P4_ToolExplorer.cs           // 列表/筛选/查看 Schema/Meta/可用性
-      P4_ToolRunner.cs             // 参数编辑与执行按钮
+      P4_ToolExplorer.cs
+      P4_ToolRunner.cs
+      P4_ToolIndexPanel.cs            // 索引状态/重建/TopK 试算
 ```
 
 ---
 
-## 4. 配置（内部 CoreConfig.Tooling）
+## 4. 配置（内部 CoreConfig.Tooling 增量）
 
 > 通过 `IConfigurationService` 读取；不新增对外 Snapshot 字段。
-
-建议默认值：
 
 ```json
 {
@@ -171,198 +173,228 @@ RimAI.Core/
     "Whitelist": [],
     "Blacklist": [],
     "DangerousToolConfirmation": false,
-    "PerToolOverrides": {
-      // "GetColonyStatus": { "timeoutMs": 2000, "rateLimitPerMinute": 120 }
+    "PerToolOverrides": {},
+    "Embedding": {
+      "Provider": "auto",
+      "Model": "auto",
+      "Dimension": 0,
+      "Instruction": "",
+      "Weights": { "Name": 0.6, "Desc": 0.4, "Params": 0.0 },
+      "AutoBuildOnStart": true,
+      "BlockDuringBuild": true,
+      "MaxParallel": 4,
+      "MaxPerMinute": 120,
+      "PersistInSave": {
+        "Mode": "MetaOnly",               // None | MetaOnly | FullVectors
+        "MaxVectors": 2000,                 // FullVectors 时上限（避免存档过大）
+        "NodeName": "RimAI_ToolingIndexV1" // Scribe 节点名（与 P6 对齐）
+      }
+    },
+    "NarrowTopK": {
+      "TopK": 5,
+      "MinScoreThreshold": 0.0
     }
   }
 }
 ```
 
 说明：
-- `Whitelist/Blacklist` 按工具名匹配；白名单优先
-- `PerToolOverrides` 仅覆盖超时/速率等运行时配置，不改变工具声明的 Meta
+- `Provider/Model/Dimension/Instruction` 变化会触发 `MarkIndexStale()` 并 `RebuildIndexAsync()`
+- `BlockDuringBuild=true` 时，索引构建期间 NarrowTopK 相关调用被拒绝并给出明确错误
+- `PersistInSave.Mode` 控制“索引入档”策略：
+  - `None`：不入档（仅写外部 JSON `tools_index_{provider}_{model}.json`）。
+  - `MetaOnly`（默认）：入档指纹/权重/记录数/构建时间等元信息；向量仍写入外部 JSON。
+  - `FullVectors`：可选，将向量与记录一并入档（受 `MaxVectors` 限制），以实现“开档即用”但可能增大存档体积。
 
 ---
 
-## 5. 实施步骤（一步到位）
+## 5. 工具向量索引（核心流程 + 与 P6 持久化整合）
 
-> 按顺序完成 S1→S12；期间可通过 Debug 面板与日志进行自检。
+### 5.1 构建（Build）
 
-### S1：定义契约与元数据
+1) 收集文本：对每个已注册工具生成 2~3 条语料：`name`、`description`、（可选）`parameters` 摘要
+2) 文本规范化：小写化、裁剪控制字符、合并空白、长度上限（避免过长 Schema）
+3) 批量嵌入：使用 `ILLMService.GetEmbeddingsAsync`（P2）进行批量；控制并发与速率
+4) 生成记录：`ToolEmbeddingRecord`（variant 指示 source）；写入 `ToolIndexSnapshot`
+5) 写盘：`tools_index_{provider}_{model}.json`（含 Fingerprint/Weights/BuiltAt/Records）
 
-1) 新建 `IRimAITool`/`IToolRegistryService`/`ToolMeta`/`ToolContext`/`ToolConcurrency`/`ToolOrigin`
-2) 契约遵循：Schema = `ToolFunction`；返回 `object`；声明副作用/并发/资源键
+与持久化（P6）协作：
+- Tooling 仅写外部 JSON `tools_index_{provider}_{model}.json`；
+- 是否“随档入库”由 P6 在存档阶段根据 `Embedding.PersistInSave` 配置执行（节点名同配置 `NodeName`，默认 `RimAI_ToolingIndexV1`）。
 
-### S2：实现工具发现（ToolDiscovery）
+### 5.2 检索（Query）
 
-1) 反射扫描已加载程序集，寻找 `IRimAITool` 非抽象公开类
-2) 通过 `ServiceContainer` 构造实例（支持依赖注入）
-3) 记录发现日志；遇到构造失败打印错误并跳过
+1) 将 `userInput` 规范化后嵌入向量（同一 Provider/Model）
+2) 计算与“各工具变体向量”的相似度（余弦）
+3) 对同一 ToolName 汇总得分：`score = w_name*sim(name) + w_desc*sim(desc) + w_params*sim(params)`
+4) 过滤与排序：按 `MinScoreThreshold` 过滤，取 TopK
+5) 产出：TopK 的 `ToolFunction` 列表 + `(toolName, score)` 分数表
 
-### S3：注册表与清单（ToolRegistryService）
+### 5.3 生命周期
 
-1) 内部字典：`name → tool instance`、`name → ToolInfo`（含 Schema/Meta/可用性）
-2) 应用黑白名单过滤；记录禁用原因
-3) `GetAllToolSchemas` 根据 `ToolQueryOptions` 过滤可见集（含 Origin）
+- 自动：进入地图或第 1000 Tick 自动构建（避免加载抖动）
+- 配置变化：Embedding 相关配置保存后即 `MarkIndexStale()` 并后台 `RebuildIndexAsync()`
+- 工具变化：新增/删除/Schema 变更 → `MarkIndexStale()`（可选择立即重建或合并至下次自动点）
+- 调用保障：当未就绪/过期且 `BlockDuringBuild=true` 时，NarrowTopK 调用直接拒绝（带原因）；Classic 不受影响
 
-### S4：参数校验与绑定（ToolBinding）
-
-1) 基于 `ToolFunction` 的参数定义对 `Dictionary<string,object>` 做校验：
-   - 必填/可选、类型/枚举、范围/格式
-   - 校验失败返回结构化错误 `{ code:"validation_error", field:"...", message:"..." }`
-2) 将校验通过的参数以原始字典传给工具；如需 POCO 由工具自身解析
-
-> 实现提示：可用 System.Text.Json + 轻量校验逻辑；或接入小型 JSON Schema 校验库（保持 4.7.2 兼容）
-
-### S5：执行沙箱（ToolSandbox）
-
-1) 并发与资源锁：
-   - `Exclusive` 或存在 `ResourceKey` → 使用 `ConcurrentDictionary<string,SemaphoreSlim>` 做互斥
-   - `ReadOnly` 默认无互斥；`RequiresMainThread` 通过 Scheduler 串行化在主线程
-2) 主线程调度：
-   - `RequiresMainThread` → `ISchedulerService.ScheduleOnMainThreadAsync`
-   - 其它情况可在线程池执行；禁止工具内部触达 Verse
-3) 速率限制：
-   - 按 `name` 或 `resourceKey` 维度的滑动窗口计数；超过阈值返回 `{ code:"rate_limited" }`
-4) 超时：
-   - 结合 `ToolMeta.DefaultTimeoutMs` 与 `PerToolOverrides` 得到本次执行超时；套用 `CancellationTokenSource.CancelAfter`
-5) 错误映射：
-   - 捕获所有异常 → 封装为 `ToolExecutionException(toolName, argsSummary, reason)` 并记录
-
-### S6：可用性过滤（IsAvailable）
-
-1) 在清单阶段与执行阶段各调用一次 `IsAvailable(ctx)`；任一为 false 则隐藏/拒绝
-2) 典型实现：硬件存在/通电、世界状态满足、玩家权限等
-
-### S7：执行入口（ExecuteToolAsync）
-
-1) 读取工具/Schema/Meta → 可用性 → 参数校验 → 沙箱执行
-2) 记录完整审计：开始/结束/失败/耗时/参数摘要（脱敏）
-3) 返回执行结果对象
-
-### S8：演示工具（DemoTools）
-
-1) `GetColonyStatusTool`（只读）：
-   - Schema：无参/或简单开关参数
-   - 依赖 `IWorldDataService` 获取 Colony 概要数据（字符串或对象摘要）
-   - Meta：`ReadOnly`、`HasSideEffects=false`、`DefaultTimeoutMs=2000`
-
-示例（伪代码）：
-```csharp
-internal sealed class GetColonyStatusTool : IRimAITool {
-  private readonly Modules.World.IWorldDataService _world;
-  public GetColonyStatusTool(Modules.World.IWorldDataService world) { _world = world; }
-
-  public string Name => "GetColonyStatus";
-  public string Description => "获取殖民地资源/心情/威胁的简要概览";
-
-  public ToolFunction GetSchema() => new ToolFunction {
-    Name = Name,
-    Description = Description,
-    Parameters = new ToolParameters { /* 最小 JSON Schema */ }
-  };
-
-  public ToolMeta GetMeta() => new ToolMeta { Concurrency = ToolConcurrency.ReadOnly, HasSideEffects = false, DefaultTimeoutMs = 2000 };
-  public bool IsAvailable(ToolContext ctx) => true; // 可接入硬件/通电检测
-
-  public async Task<object> ExecuteAsync(Dictionary<string, object> args, ToolContext ctx, CancellationToken ct) {
-    var player = await _world.GetPlayerNameAsync(ct);
-    // 这里可组装简单摘要对象
-    return new { player, summary = "OK" };
-  }
-}
-```
-
-### S9：日志与事件（ToolLogging）
-
-1) 统一前缀：`[RimAI.P4.Tool]`；打印 Start/Finish/Fail，含 tool、origin、convId 哈希、耗时、rate/timeout 命中
-2) 可选事件（当存在事件总线时）：`ToolDiscovered/ToolAvailabilityChanged/ToolExecuted/ToolFailed`
-
-### S10：Debug 面板（P4_ToolExplorer / P4_ToolRunner）
-
-1) 工具列表：搜索/过滤（可用/危险/只读/主线程/独占）
-2) 详情视图：Schema/Meta/可用性实时状态
-3) 运行器：基于 Schema 自动生成参数编辑表单 → 执行 → 输出结果/耗时/错误
-4) 黑白名单管理：启用/禁用工具；危险工具（HasSideEffects）可显示确认对话（默认关闭）
-
-### S11：DI 注册与启动检查
-
-1) `ServiceContainer.Init()` 注册：`IToolRegistryService -> ToolRegistryService`
-2) 启动：`ToolDiscovery` 扫描并构造 → 注册表加载 → 打印清单摘要（总数/禁用/可用）
-
-### S12：边界自检与回归
-
-1) 工具实现文件 grep 检查：不得 `using Verse`；不得使用 `CoreServices` 直接定位依赖
-2) 压测：并发执行只读工具 N=100（线程池），确认无帧抖动；主线程工具执行有序
+装载（由 P6 驱动注入）：
+- 若 P6 注入 `ToolingIndexState`（MetaOnly/FullVectors）：
+  - MetaOnly：恢复状态与指纹，随后尝试从外部 JSON 加载；缺失则后台重建。
+  - FullVectors：直接恢复 Ready；若被裁剪则后台补齐/合并 JSON。
+- 指纹不匹配 → 标记 Stale 并重建。
 
 ---
 
-## 6. 验收 Gate（必须全绿）
+## 6. 实施步骤（一步到位）
 
-- 发现/清单
-  - 启动日志打印：已发现工具 ≥ 1；黑白名单正确生效
-  - Debug 列表可见工具与 Schema/Meta
-- 参数校验
-  - 缺参/类型错 → 清晰 `validation_error`，工具不执行
-- 并发与主线程
-  - `RequiresMainThread` 工具在主线程执行（日志可证）；`Exclusive` 工具互斥（两次调用串行）
-- 速率/超时
-  - RateLimit 命中返回 `rate_limited`；设置 Timeout=500ms 的演示工具在 500ms 左右失败
-- 可用性
-  - `IsAvailable=false` 时，清单隐藏或执行拒绝（带原因）
-- Debug 面板
-  - 可搜索/过滤/查看详情/一键运行；结果与错误可录屏复现
+> 按顺序完成 S1→S14；期间可通过 Debug 面板与日志进行自检。
+
+### S1：契约与元数据
+
+- 保持 `IRimAITool`/`ToolMeta`/`ToolContext` 与 P4 既有定义
+- 扩展 `IToolRegistryService`：新增 Classic/TopK Tool JSON 接口与索引生命周期 API
+
+### S2：索引模型与存储
+
+- 新增 `ToolIndexModels.cs`/`ToolIndexStorage.cs`，实现 JSON 持久化与文件命名 `tools_index_{provider}_{model}.json`
+- 指纹计算：`Provider|Model|Dimension|Instruction` SHA256 → 写入文件
+
+（新增）快照接口：
+- 在 `ToolIndexManager` 中提供：
+  - `ExportSnapshot(includeVectors, maxVectors)` → `ToolingIndexState`
+  - `ImportSnapshot(ToolingIndexState state)` 恢复内存结构/状态
+P6 负责调用上述接口完成入档/读档；Tooling 不直接触达 `Scribe`。
+
+### S3：索引管理器（ToolIndexManager）
+
+- 负责装载/保存、状态（Ready/Stale/Building/Error）、并发控制与事件
+- 提供 `IsReady/MarkStale/EnsureBuiltAsync/RebuildIndexAsync/GetFingerprint`
+
+（新增）集成持久化：
+- 在 `EnsureBuiltAsync` 前，若 P6 已注入快照则优先 `ImportSnapshot`；
+- 在构建完成后，通过 `ExportSnapshot` 回传给 P6 以决定是否入档。
+
+### S4：索引构建器（ToolIndexBuilder）
+
+- 从已注册工具收集语料 → 规范化 → 通过 `ILLMService.GetEmbeddingsAsync` 批量嵌入
+- 受 `MaxParallel/MaxPerMinute` 控制；失败项重试有限次
+
+### S5：工具变化监听
+
+- `ToolDiscovery` 完成后，对新增/删除/Schema 变化调用 `MarkIndexStale()`
+
+### S6：配置变化监听
+
+- 订阅 `IConfigurationService.OnConfigurationChanged`；Embedding 配置字段变化 → `MarkIndexStale()` 并 `RebuildIndexAsync()`
+
+### S7：启动自动构建
+
+- 进入地图或第 1000 Tick 调用 `EnsureIndexBuiltAsync()`（按配置 `AutoBuildOnStart`）
+
+### S8：Classic Tool JSON
+
+- 实现 `GetClassicToolCallSchema`：过滤 Origin/黑白名单/`IsAvailable` → 返回 `ToolFunction[]`
+
+### S9：NarrowTopK Tool JSON
+
+- 实现 `GetNarrowTopKToolCallSchemaAsync`：
+  - 若 `IsIndexReady()==false`：抛 `ToolIndexNotReadyException`
+  - 嵌入 `userInput` → 与索引比对 → 取 TopK/阈值过滤
+  - 返回 `ToolNarrowTopKResult { Tools, Scores }`
+
+### S10：执行沙箱与参数校验
+
+- 延续 P4 既有实现：`ToolBinding`（JSON Schema 校验）、`ToolSandbox`（主线程/速率/超时/互斥）
+
+### S11：日志与事件
+
+- 统一前缀 `[RimAI.P4.Tool]`；新增索引事件 `ToolIndexRebuilding/Ready/Error`
+- TopK 调用日志包含 provider/model/TopK/阈值/命中分数摘要
+
+### S12：Debug 面板增强
+
+- 新增 `P4_ToolIndexPanel`：
+  - 状态卡：Ready/Stale/Building/Error、Fingerprint、记录数、维度、构建耗时
+  - 动作：重建索引/标记过期/打开目录
+  - TopK 试算：输入文本 → 展示 TopK 工具 + 分数表 + Tool JSON 预览
+  - 存档策略：显示 `PersistInSave.Mode/MaxVectors` 与“来自 P6 的快照状态”（是否注入、记录数、指纹是否匹配）；Scribe 写入操作统一在 P6 面板执行。
+
+### S13：DI 注册
+
+- `ServiceContainer.Init()` 注册索引组件与事件订阅；启动打印索引状态摘要
+
+### S14：边界与异常
+
+- `BlockDuringBuild=true` 时，NarrowTopK 请求在构建期间一律拒绝（错误码 `index_building`）
+- 嵌入失败重试，超过阈值后记录并跳过该记录；整体构建继续
 
 ---
 
-## 7. 回归脚本（人工/录屏）
+## 7. 验收 Gate（必须全绿）
 
-1) 打开 Debug → Tool Explorer：确认工具列表与 Schema/Meta 正确
-2) 运行 `GetColonyStatusTool` 两次（冷/热），记录耗时（预期 < 200ms）
-3) 构造缺参请求 → 应返回 `validation_error`
-4) 将工具 Meta 临时改为 `RequiresMainThread` → 运行并观察主线程日志
-5) 设置 `PerToolOverrides.TimeoutMs=500` → 运行并观察超时
-6) 开启 RateLimit=1/min → 连续两次调用，第二次 `rate_limited`
-
----
-
-## 8. CI/Grep Gate（必须通过）
-
-- Verse 访问最小面：
-  - 全仓 grep：`using\s+Verse` 不得出现在 `Modules/Tooling/**` 与 `DemoTools/**`
-- 依赖纪律：
-  - 全仓 grep：工具实现禁用 `CoreServices`/Service Locator；仅构造函数注入
-- 契约一致性：
-  - 全仓 grep：`IToolRegistryService`/`IRimAITool` 签名与本文一致（字段/方法/大小写）
-- 性能预算：
-  - 并发只读压测无持续帧抖动（可通过脚本/人工验证）
+- Classic
+  - 能返回“可用工具全集”的 `ToolFunction[]`，Framework 可直接消费
+- 索引构建
+  - 首次进入地图后自动构建完成；Debug 页签显示 Fingerprint/记录数/耗时
+  - 修改 Embedding 配置后自动重建；日志与面板状态可观测
+- NarrowTopK
+  - TopK 试算：输入文本可得到 TopK 工具与分数表；阈值生效；当未就绪/构建中/无候选返回明确错误
+  - 返回 Tool JSON 可直接用于上游编排的 Tools 列表
+- 执行与沙箱
+  - 仍可执行演示工具（只读）并通过参数校验与主线程策略
 
 ---
 
-## 9. 风险与缓解
+## 8. 回归脚本（人工/录屏）
 
-- 工具绕过沙箱 → 通过 CI/Grep Gate 禁止 Verse/ServiceLocator；审查工具依赖
-- 速率/互斥过严导致卡顿 → 逐步放宽阈值；对只读工具放行并发
-- 参数校验误报/漏报 → 保守策略：严格必填/类型，宽松枚举/范围并给出警告
-- 危险工具误触发 → 默认隐藏/确认；仅在开发/Debug 中开启
-
----
-
-## 10. FAQ（常见问题）
-
-- Q：工具必须返回什么类型？
-  - A：返回可序列化对象（字符串/匿名对象/POCO）。上游会在 P12 将其转为提示词片段或直接展示。
-- Q：如何声明“快速直出”支持？
-  - A：上游可传入保留参数 `__fastResponse=true`；工具可返回面向玩家的成品字符串作为直出文本。
-- Q：工具能直接访问世界吗？
-  - A：不行。只读通过 `IWorldDataService`，写操作通过 `ICommandService`（后续阶段）。
+1) 启动 → 观察索引自动构建日志与 Debug 状态
+2) Tool Explorer 查看全集 Tool JSON（Classic）
+3) TopK 试算：输入“殖民地概况”，展示 TopK + 分数，预览 Tool JSON
+4) 修改 Embedding Provider/Model → 保存 → 观察“标记过期→重建→就绪”全流程
+5) 开启 BlockDuringBuild=true → 重建过程中触发 TopK → 显示 `index_building`
 
 ---
 
-## 11. 变更记录（提交要求）
+## 9. CI/Grep Gate（必须通过）
 
-- 初版（v5-P4）：交付工具契约/注册/绑定/沙箱/Debug/CI Gate；不改对外 Contracts
-- 后续修改：如需新增 Meta/Context 字段，需向后兼容并在本文“配置/步骤/Gate”同步更新
+- Verse 访问最小面：`Modules/Tooling/**` 与 `DemoTools/**` 不得 `using Verse`
+- Framework 访问最小面：Tooling 中不得 `using RimAI.Framework.*`；统一经 `ILLMService` 获取 Embeddings
+- 自动降级禁用：全仓 grep 确认 `\bAuto\b|degrad|fallback` 不出现在 Tooling 索引/TopK 路径
+- 索引文件命名：构建后应存在 `tools_index_{provider}_{model}.json`
+ - 持久化纪律：Tooling 不得直接触达 `Scribe`；入档/读档由 P6 统一完成。
+---
+
+## 10. 风险与缓解
+
+- 构建风暴/阻断体验：默认在进入地图/第1000 Tick 构建；可关闭阻断或降低并发
+- 分数不稳定：采用权重与文本规范化；必要时加入分数平滑或最小阈值
+- 工具频繁变化：标记过期但可延迟到下次稳定窗口构建；提供手动重建
+- Embedding 费用：依赖 P2 的缓存与速率限制；对文本做去重与摘要裁剪
+- 存档膨胀：默认 `MetaOnly`，仅在明确需要“开档即用”时启用 `FullVectors`，并受 `MaxVectors` 与向量压缩策略控制。
+
+---
+
+## 11. FAQ（常见问题）
+
+- Q：为什么索引构建在 Tool Service 而非编排层？
+  - A：单一事实源，减少耦合；编排只消费 Tool JSON/TopK 结果，职责清晰。
+- Q：NarrowTopK 未就绪怎么办？
+  - A：返回明确错误（如 `index_building`/`index_not_ready`/`no_candidates`），由上游决定 UI/策略，不做回退。
+- Q：权重如何设置？
+  - A：默认 Name:0.6, Desc:0.4, Params:0.0；可在配置中调整并热生效（重建后生效）。
+
+- Q：为什么提供“索引入档”能力？
+  - A：在部分环境中希望“开档即用”（例如离线/慢盘/受限环境），允许将元信息或向量裁剪后随档保存，减少每次读档的冷启动时间。
+
+- Q：入档与外部 JSON 如何协同？
+  - A：优先使用入档内容恢复状态；若为 `MetaOnly` 或 `FullVectors` 被裁剪的情况，再尝试加载外部 JSON；两者指纹不一致则标记 Stale 并重建。
+
+---
+
+## 12. 变更记录
+
+- v5-P4（重制）：将“工具向量索引 + Tool JSON 产出”完全下沉到 Tool Service；上游仅消费 Classic/NarrowTopK 所需产出物；移除任何“自动降级/切换”表述。
+- v5-P4（增量）：新增“索引入档”能力（`Embedding.PersistInSave`），配合 P6 的 Scribe 节点 `RimAI_ToolingIndexV1`，支持 MetaOnly/FullVectors 两种策略。
 
 ---
 

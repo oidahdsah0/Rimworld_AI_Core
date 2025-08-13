@@ -18,6 +18,11 @@ namespace RimAI.Core.Source.Boot
                 var method = AccessTools.Method(typeof(Pawn), nameof(Pawn.GetGizmos));
                 var postfix = new HarmonyMethod(typeof(Pawn_GetGizmos_Patch), nameof(Pawn_GetGizmos_Patch.Postfix));
                 harmony.Patch(method, postfix: postfix);
+
+				// Ensure SchedulerGameComponent is present when game finishes init
+				var gameFinalize = AccessTools.Method(typeof(Game), nameof(Game.FinalizeInit));
+				var gamePostfix = new HarmonyMethod(typeof(Game_FinalizeInit_Patch), nameof(Game_FinalizeInit_Patch.Postfix));
+				harmony.Patch(gameFinalize, postfix: gamePostfix);
             }
             catch (Exception ex)
             {
@@ -52,5 +57,23 @@ namespace RimAI.Core.Source.Boot
         }
     }
 }
+
+	[HarmonyPatch]
+	internal static class Game_FinalizeInit_Patch
+	{
+		public static void Postfix(Game __instance)
+		{
+			try
+			{
+				if (__instance == null) return;
+				// Create or get our Scheduler component (idempotent)
+				__instance.GetComponent<RimAI.Core.Source.Infrastructure.Scheduler.SchedulerGameComponent>();
+			}
+			catch (Exception ex)
+			{
+				Log.Error($"[RimAI.Core][P3] Ensure SchedulerGameComponent failed: {ex}");
+			}
+		}
+	}
 
 

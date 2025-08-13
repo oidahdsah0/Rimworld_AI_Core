@@ -7,7 +7,9 @@ using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Boot;
 using RimAI.Core.Source.Infrastructure;
 using RimAI.Core.Source.Infrastructure.Configuration;
+using RimAI.Core.Source.Infrastructure.Scheduler;
 using RimAI.Core.Source.Modules.LLM;
+using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.UI.DebugPanel.Parts;
 using UnityEngine;
 using Verse;
@@ -19,6 +21,8 @@ namespace RimAI.Core.Source.UI.DebugPanel
         private readonly IConfigurationService _configService;
         private readonly ServiceContainer _container;
 		private readonly ILLMService _llm;
+        private readonly ISchedulerService _scheduler;
+        private readonly IWorldDataService _world;
 		private Vector2 _scrollPos = Vector2.zero; // config preview
 		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
 
@@ -43,13 +47,15 @@ namespace RimAI.Core.Source.UI.DebugPanel
             _container = RimAICoreMod.Container;
             _configService = _container.Resolve<IConfigurationService>();
 			_llm = _container.Resolve<ILLMService>();
+            _scheduler = _container.Resolve<ISchedulerService>();
+            _world = _container.Resolve<IWorldDataService>();
             _configPreviewJson = JsonPreview();
         }
 
 		public override void DoWindowContents(Rect inRect)
         {
 			// 外层滚动容器（整页滚动）
-			var viewHeightBase = 900f; // 固定页面内容高度，流式区域已有自身滚动
+			var viewHeightBase = 2000f; // 固定页面内容高度，流式区域已有自身滚动
 			var pageViewRect = new Rect(0f, 0f, inRect.width - 16f, viewHeightBase);
 			Widgets.BeginScrollView(inRect, ref _pageScrollPos, pageViewRect);
 
@@ -98,7 +104,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
             }
 
             listing.GapLine();
-            Text.Font = GameFont.Medium;
+			Text.Font = GameFont.Medium;
             listing.Label("[RimAI.Core][P2] LLM Gateway");
             Text.Font = GameFont.Small;
             listing.GapLine();
@@ -142,6 +148,13 @@ namespace RimAI.Core.Source.UI.DebugPanel
 			Widgets.BeginScrollView(outRect2, ref _streamScrollPos, viewRect2);
 			Widgets.Label(viewRect2, _streamOutput ?? string.Empty);
 			Widgets.EndScrollView();
+
+
+			// P3 Panels
+			listing.GapLine();
+			P3_SchedulerPanel.Draw(listing, _scheduler);
+			listing.GapLine();
+			P3_WorldDataPanel.Draw(listing, _world);
 
 			listing.End();
 			Widgets.EndScrollView();

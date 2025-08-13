@@ -19,6 +19,10 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		// P2 internal config node for LLM Gateway
 		public LlmSection LLM { get; set; } = new();
 
+		// P3 internal config nodes
+		public SchedulerSection Scheduler { get; set; } = new();
+		public WorldDataSection WorldData { get; set; } = new();
+
         public sealed class GeneralSection
         {
             public string Locale { get; set; } = "zh-Hans";
@@ -48,6 +52,21 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public sealed class RetrySection { public int MaxAttempts { get; set; } = 3; public int BaseDelayMs { get; set; } = 400; }
 		public sealed class CircuitSection { public double ErrorThreshold { get; set; } = 0.5; public int WindowMs { get; set; } = 60000; public int CooldownMs { get; set; } = 60000; }
 		public sealed class BatchSection { public int MaxConcurrent { get; set; } = 4; }
+
+		public sealed class SchedulerSection
+		{
+			public int MaxTasksPerUpdate { get; set; } = 64;
+			public double MaxBudgetMsPerUpdate { get; set; } = 0.5;
+			public int MaxQueueLength { get; set; } = 2000;
+			public int LongTaskWarnMs { get; set; } = 5;
+			public bool EnablePriorityQueue { get; set; } = false;
+		}
+
+		public sealed class WorldDataSection
+		{
+			public int DefaultTimeoutMs { get; set; } = 2000;
+			public string NameFallbackLocale { get; set; } = "zh-Hans";
+		}
     }
 }
 

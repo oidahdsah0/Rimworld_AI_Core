@@ -49,9 +49,8 @@ namespace RimAI.Core.Source.UI.DebugPanel
 		public override void DoWindowContents(Rect inRect)
         {
 			// 外层滚动容器（整页滚动）
-			var viewHeightBase = 900f;
-			var streamTextHeight = Text.CalcHeight(_streamOutput ?? string.Empty, Math.Max(0f, inRect.width - 24f));
-			var pageViewRect = new Rect(0f, 0f, inRect.width - 16f, viewHeightBase + Math.Min(1200f, streamTextHeight));
+			var viewHeightBase = 900f; // 固定页面内容高度，流式区域已有自身滚动
+			var pageViewRect = new Rect(0f, 0f, inRect.width - 16f, viewHeightBase);
 			Widgets.BeginScrollView(inRect, ref _pageScrollPos, pageViewRect);
 
 			var listing = new Listing_Standard();

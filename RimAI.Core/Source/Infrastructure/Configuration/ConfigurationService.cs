@@ -55,6 +55,9 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         // Helpers for UI without referencing contracts at compile-time elsewhere
         public string GetVersion() => _current.Version;
         public bool IsDebugPanelEnabled() => _current.UI.DebugPanelEnabled;
+
+		// Internal accessors (Core-only consumers may cast to ConfigurationService)
+		public CoreConfig.LlmSection GetLlmConfig() => _current.LLM;
     }
 }
 

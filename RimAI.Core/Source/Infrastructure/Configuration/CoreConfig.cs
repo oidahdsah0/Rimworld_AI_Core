@@ -14,7 +14,10 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         public object History { get; set; } = new();
         public object Stage { get; set; } = new();
         public object Orchestration { get; set; } = new();
-        public object Embedding { get; set; } = new();
+		public object Embedding { get; set; } = new();
+
+		// P2 internal config node for LLM Gateway
+		public LlmSection LLM { get; set; } = new();
 
         public sealed class GeneralSection
         {
@@ -30,6 +33,21 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         {
             public bool DebugPanelEnabled { get; set; } = true;
         }
+
+		public sealed class LlmSection
+		{
+			public string Locale { get; set; } = "zh-Hans";
+			public int DefaultTimeoutMs { get; set; } = 15000;
+			public StreamSection Stream { get; set; } = new();
+			public RetrySection Retry { get; set; } = new();
+			public CircuitSection CircuitBreaker { get; set; } = new();
+			public BatchSection Batch { get; set; } = new();
+		}
+
+		public sealed class StreamSection { public int HeartbeatTimeoutMs { get; set; } = 15000; public int LogEveryNChunks { get; set; } = 20; }
+		public sealed class RetrySection { public int MaxAttempts { get; set; } = 3; public int BaseDelayMs { get; set; } = 400; }
+		public sealed class CircuitSection { public double ErrorThreshold { get; set; } = 0.5; public int WindowMs { get; set; } = 60000; public int CooldownMs { get; set; } = 60000; }
+		public sealed class BatchSection { public int MaxConcurrent { get; set; } = 4; }
     }
 }
 

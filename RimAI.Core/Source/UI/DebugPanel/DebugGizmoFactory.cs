@@ -12,7 +12,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
             var cmd = new Command_Action
             {
                 defaultLabel = "RimAI Debug",
-                defaultDesc = "Open RimAI Core debug window (P1).",
+                defaultDesc = "Open RimAI Core debug window (P1/P2).",
                 icon = ContentFinder<Texture2D>.Get("UI/Commands/DesirePower", true),
                 action = () => Find.WindowStack.Add(new DebugWindow())
             };

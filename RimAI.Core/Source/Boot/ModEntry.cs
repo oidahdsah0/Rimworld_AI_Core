@@ -4,6 +4,7 @@ using HarmonyLib;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Infrastructure;
 using RimAI.Core.Source.Infrastructure.Configuration;
+using RimAI.Core.Source.Modules.LLM;
 using Verse;
 
 namespace RimAI.Core.Source.Boot
@@ -17,8 +18,9 @@ namespace RimAI.Core.Source.Boot
             var sw = Stopwatch.StartNew();
             try
             {
-                // Register P1 services only
+                // Register services (P1 + P2)
                 Container.Register<IConfigurationService, ConfigurationService>();
+                Container.Register<ILLMService, LLMService>();
 
                 // Prewarm and fail fast
                 Container.Init();
@@ -28,7 +30,9 @@ namespace RimAI.Core.Source.Boot
                 HarmonyPatcher.Apply(harmony);
 
                 sw.Stop();
-                Log.Message($"[RimAI.Core][P1] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
+                // P2: resolve ILLMService to self-check readiness
+                _ = Container.Resolve<ILLMService>();
+                Log.Message($"[RimAI.Core][P1][P2] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
             }
             catch (Exception ex)
             {

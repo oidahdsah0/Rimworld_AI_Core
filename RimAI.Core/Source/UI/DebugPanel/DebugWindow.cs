@@ -4,6 +4,8 @@ using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Boot;
 using RimAI.Core.Source.Infrastructure;
 using RimAI.Core.Source.Infrastructure.Configuration;
+using RimAI.Core.Source.Modules.LLM;
+using RimAI.Core.Source.UI.DebugPanel.Parts;
 using UnityEngine;
 using Verse;
 
@@ -75,6 +77,19 @@ namespace RimAI.Core.Source.UI.DebugPanel
                 var snap = _configService.Current;
                 Log.Message($"[RimAI.Core][P1] Config Reloaded (version={snap.Version}, locale={snap.Locale}, at={DateTime.UtcNow:O})");
             }
+
+            listing.GapLine();
+            Text.Font = GameFont.Medium;
+            listing.Label("[RimAI.Core][P2] LLM Gateway");
+            Text.Font = GameFont.Small;
+            listing.GapLine();
+
+            var llm = _container.Resolve<ILLMService>();
+            LLM_PingButton.Draw(listing, llm);
+            LLM_StreamDemoButton.Draw(listing, llm);
+            LLM_JsonModeDemoButton.Draw(listing, llm);
+            LLM_EmbeddingTestButton.Draw(listing, llm);
+            LLM_InvalidateCacheButton.Draw(listing, llm);
 
             listing.End();
         }

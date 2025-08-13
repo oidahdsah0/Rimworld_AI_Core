@@ -1,5 +1,8 @@
 using System;
 using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Boot;
 using RimAI.Core.Source.Infrastructure;
@@ -15,12 +18,22 @@ namespace RimAI.Core.Source.UI.DebugPanel
     {
         private readonly IConfigurationService _configService;
         private readonly ServiceContainer _container;
-        private Vector2 _scrollPos = Vector2.zero;
+		private readonly ILLMService _llm;
+		private Vector2 _scrollPos = Vector2.zero; // config preview
+		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
+
+		// P2 Streaming live view state
+		private volatile string _streamOutput = string.Empty;
+		private Vector2 _streamScrollPos = Vector2.zero;
+		private bool _streaming = false;
+		private CancellationTokenSource _streamCts;
+		private string _streamConv = string.Empty;
+		private DateTime _streamStartUtc;
         private string _configPreviewJson = string.Empty;
 
         public override Vector2 InitialSize => new Vector2(700f, 600f);
 
-        public DebugWindow()
+		public DebugWindow()
         {
             doCloseX = true;
             draggable = true;
@@ -29,13 +42,20 @@ namespace RimAI.Core.Source.UI.DebugPanel
 
             _container = RimAICoreMod.Container;
             _configService = _container.Resolve<IConfigurationService>();
+			_llm = _container.Resolve<ILLMService>();
             _configPreviewJson = JsonPreview();
         }
 
-        public override void DoWindowContents(Rect inRect)
+		public override void DoWindowContents(Rect inRect)
         {
-            var listing = new Listing_Standard();
-            listing.Begin(inRect);
+			// 外层滚动容器（整页滚动）
+			var viewHeightBase = 900f;
+			var streamTextHeight = Text.CalcHeight(_streamOutput ?? string.Empty, Math.Max(0f, inRect.width - 24f));
+			var pageViewRect = new Rect(0f, 0f, inRect.width - 16f, viewHeightBase + Math.Min(1200f, streamTextHeight));
+			Widgets.BeginScrollView(inRect, ref _pageScrollPos, pageViewRect);
+
+			var listing = new Listing_Standard();
+			listing.Begin(pageViewRect);
 
             Text.Font = GameFont.Medium;
             listing.Label("[RimAI.Core][P1] Debug Panel");
@@ -64,9 +84,9 @@ namespace RimAI.Core.Source.UI.DebugPanel
             listing.Label("Config Snapshot Preview:");
             var outRect = listing.GetRect(200f);
             Widgets.DrawBoxSolid(outRect, new Color(0f, 0f, 0f, 0.1f));
-            var viewRect = new Rect(0f, 0f, outRect.width - 16f, Mathf.Max(200f, Text.CalcHeight(_configPreviewJson, outRect.width - 16f)));
-            Widgets.BeginScrollView(outRect, ref _scrollPos, viewRect);
-            Widgets.Label(viewRect, _configPreviewJson);
+			var configViewRect = new Rect(0f, 0f, outRect.width - 16f, Mathf.Max(200f, Text.CalcHeight(_configPreviewJson, outRect.width - 16f)));
+			Widgets.BeginScrollView(outRect, ref _scrollPos, configViewRect);
+			Widgets.Label(configViewRect, _configPreviewJson);
             Widgets.EndScrollView();
 
             if (listing.ButtonText("Reload Config"))
@@ -84,17 +104,51 @@ namespace RimAI.Core.Source.UI.DebugPanel
             Text.Font = GameFont.Small;
             listing.GapLine();
 
-            var llm = _container.Resolve<ILLMService>();
-            LLM_PingButton.Draw(listing, llm);
-            LLM_StreamDemoButton.Draw(listing, llm);
-            LLM_JsonModeDemoButton.Draw(listing, llm);
-            LLM_EmbeddingTestButton.Draw(listing, llm);
-            LLM_InvalidateCacheButton.Draw(listing, llm);
+			LLM_PingButton.Draw(listing, _llm);
+			LLM_StreamDemoButton.Draw(listing, _llm);
+			LLM_JsonModeDemoButton.Draw(listing, _llm);
+			LLM_EmbeddingTestButton.Draw(listing, _llm);
+			LLM_InvalidateCacheButton.Draw(listing, _llm);
 
-            listing.End();
+			// P2: Streaming Live View（UI 真正流式显示）
+			listing.GapLine();
+			Text.Font = GameFont.Medium;
+			listing.Label("[RimAI.Core][P2] Streaming Live View");
+			Text.Font = GameFont.Small;
+			if (!_streaming)
+			{
+				if (listing.ButtonText("Start Stream (中文笑话示例)"))
+				{
+					_streamOutput = string.Empty;
+					_streamConv = "ui-stream-" + DateTime.UtcNow.Ticks;
+					_streamStartUtc = DateTime.UtcNow;
+					_streamCts = new CancellationTokenSource();
+					_streaming = true;
+					_ = Task.Run(() => RunStreamingDemoAsync(_streamCts.Token));
+				}
+			}
+			else
+			{
+				listing.Label($"Streaming... conv={_streamConv} elapsed={(DateTime.UtcNow - _streamStartUtc).TotalMilliseconds:F0} ms");
+				if (listing.ButtonText("Cancel Stream"))
+				{
+					try { _streamCts?.Cancel(); } catch { }
+				}
+			}
+
+			// 输出区域（可滚动）
+			var outRect2 = listing.GetRect(200f);
+			Widgets.DrawBoxSolid(outRect2, new Color(0f, 0f, 0f, 0.08f));
+			var viewRect2 = new Rect(0f, 0f, outRect2.width - 16f, Math.Max(200f, Text.CalcHeight(_streamOutput ?? string.Empty, outRect2.width - 16f) + 8f));
+			Widgets.BeginScrollView(outRect2, ref _streamScrollPos, viewRect2);
+			Widgets.Label(viewRect2, _streamOutput ?? string.Empty);
+			Widgets.EndScrollView();
+
+			listing.End();
+			Widgets.EndScrollView();
         }
 
-        private string JsonPreview()
+		private string JsonPreview()
         {
             if (_configService is ConfigurationService impl)
             {
@@ -103,6 +157,55 @@ namespace RimAI.Core.Source.UI.DebugPanel
             var snap = _configService.Current;
             return $"Version: {snap.Version}\nLocale: {snap.Locale}\nDebugPanelEnabled: {snap.DebugPanelEnabled}\nVerboseLogs: {snap.VerboseLogs}";
         }
+
+		private async Task RunStreamingDemoAsync(CancellationToken ct)
+		{
+			try
+			{
+				var firstUiAppended = false;
+				await foreach (var r in _llm.StreamResponseAsync(_streamConv,
+					"You are a helpful assistant.",
+					"请用中文给我讲一个关于机器人和猫的短笑话。",
+					ct))
+				{
+					if (!r.IsSuccess)
+					{
+						_streamOutput += $"\n[error] {r.Error}";
+						break;
+					}
+					var chunk = r.Value;
+					if (!string.IsNullOrEmpty(chunk.ContentDelta))
+					{
+						_streamOutput += chunk.ContentDelta;
+						if (!firstUiAppended)
+						{
+							firstUiAppended = true;
+							var elapsedMs = (DateTime.UtcNow - _streamStartUtc).TotalMilliseconds;
+							Verse.Log.Message($"[RimAI.Core][P2.UI][Obs] first UI append at {elapsedMs:F0} ms conv={RimAI.Core.Source.Modules.LLM.LlmLogging.HashConversationId(_streamConv)}");
+						}
+					}
+					if (!string.IsNullOrEmpty(chunk.FinishReason))
+					{
+						_streamOutput += $"\n\n[finish] {chunk.FinishReason}";
+						break;
+					}
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				_streamOutput += "\n[cancelled]";
+			}
+			catch (Exception ex)
+			{
+				_streamOutput += $"\n[exception] {ex.Message}";
+			}
+			finally
+			{
+				_streaming = false;
+				try { _streamCts?.Dispose(); } catch { }
+				_streamCts = null;
+			}
+		}
     }
 }
 

@@ -10,7 +10,7 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 		{
 			if (listing.ButtonText("[P2] JSON Mode (non-stream)"))
 			{
-				_ = RunAsync(llm);
+				_ = System.Threading.Tasks.Task.Run(async () => await RunAsync(llm));
 			}
 		}
 

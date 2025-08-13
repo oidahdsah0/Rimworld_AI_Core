@@ -13,7 +13,7 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 			{
 				var conv = "debug-p2-" + DateTime.UtcNow.Ticks;
 				var start = DateTime.UtcNow;
-				_ = DoPingAsync(llm, conv, start);
+				_ = System.Threading.Tasks.Task.Run(async () => await DoPingAsync(llm, conv, start));
 			}
 		}
 

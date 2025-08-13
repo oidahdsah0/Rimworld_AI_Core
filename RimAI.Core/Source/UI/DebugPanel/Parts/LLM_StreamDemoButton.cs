@@ -11,7 +11,7 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 		{
 			if (listing.ButtonText("[P2] LLM Stream Demo"))
 			{
-				_ = RunStreamAsync(llm);
+				_ = System.Threading.Tasks.Task.Run(async () => await RunStreamAsync(llm));
 			}
 		}
 

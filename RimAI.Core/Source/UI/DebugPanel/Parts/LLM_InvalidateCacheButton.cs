@@ -14,7 +14,7 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 			_convId = listing.TextEntry(_convId ?? string.Empty, 1);
 			if (listing.ButtonText("Invalidate"))
 			{
-				_ = RunAsync(llm, _convId);
+				_ = System.Threading.Tasks.Task.Run(async () => await RunAsync(llm, _convId));
 			}
 		}
 

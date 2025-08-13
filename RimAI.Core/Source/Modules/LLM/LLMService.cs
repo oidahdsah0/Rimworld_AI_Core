@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using RimAI.Core.Contracts.Config;
 using RimAI.Framework.API;
 using RimAI.Framework.Contracts;
+using Verse;
 
 namespace RimAI.Core.Source.Modules.LLM
 {
@@ -86,6 +87,7 @@ namespace RimAI.Core.Source.Modules.LLM
 					new ChatMessage { Role = "system", Content = systemPrompt ?? string.Empty },
 					new ChatMessage { Role = "user", Content = userText ?? string.Empty }
 				}
+				, Stream = true
 			};
 			await foreach (var r in StreamResponseAsync(req, cancellationToken).ConfigureAwait(false))
 			{
@@ -140,6 +142,8 @@ namespace RimAI.Core.Source.Modules.LLM
 				yield return Result<UnifiedChatChunk>.Failure("Invalid request: ConversationId/Messages required.");
 				yield break;
 			}
+			// 明确标识 Streaming，若底层 Provider 依据该标志优化首包行为
+			request.Stream = true;
 			var circuitKey = "stream:" + (request.ConversationId ?? "-");
 			if (!LlmPolicies.IsAllowedByCircuit(circuitKey, _circuitWindowMs, _circuitCooldownMs, _circuitErrorThreshold))
 			{
@@ -152,13 +156,28 @@ namespace RimAI.Core.Source.Modules.LLM
 			var chunks = 0;
 			for (int attempt = 1; attempt <= _retryMaxAttempts; attempt++)
 			{
-				DateTime last = DateTime.UtcNow;
+				DateTime start = DateTime.UtcNow;
+				DateTime last = start;
 				bool firstChunkReceived = false;
 				bool wasCancelled = false;
 				bool failBeforeFirstChunk = false;
 				Result<UnifiedChatChunk> earlyError = null;
 				var stream = RimAIApi.StreamCompletionAsync(request, cancellationToken);
 				await using var enumerator = stream.GetAsyncEnumerator(cancellationToken);
+				// 首包 watchdog：若超过 hbTimeoutMs/2 仍未收到任何分片，主动输出一个心跳占位，提升 UI 反馈
+				var firstChunkWatchdog = Task.Run(async () =>
+				{
+					try
+					{
+						await Task.Delay(Math.Max(100, hbTimeoutMs / 2), cancellationToken).ConfigureAwait(false);
+						if (!firstChunkReceived)
+						{
+							return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = string.Empty });
+						}
+					}
+					catch { }
+					return null;
+				});
 				while (true)
 				{
 					bool hasNext;
@@ -201,6 +220,7 @@ namespace RimAI.Core.Source.Modules.LLM
 					chunks++;
 					if (logEveryN > 0 && (chunks % logEveryN == 0))
 					{
+						// Keep frequent progress logs out of in-game console to avoid spam; remain as debug
 						System.Diagnostics.Debug.WriteLine($"[RimAI.Core][P2.LLM] stream progress conv={LlmLogging.HashConversationId(request.ConversationId)} chunks={chunks}");
 					}
 					last = DateTime.UtcNow;

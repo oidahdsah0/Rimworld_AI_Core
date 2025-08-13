@@ -15,6 +15,7 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 		private ConfigurationService _cfg;
 		private bool _bound;
 		private bool _printedReady;
+		private bool _toolingEnsured;
 
 		public SchedulerGameComponent(Game game) { }
 
@@ -26,6 +27,22 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				msg => Log.Message(msg),
 				warn => Log.Warning(warn),
 				err => Log.Error(err));
+
+			// P4: 在第 1000 Tick 后确保索引构建（后台非阻塞）
+			if (!_toolingEnsured && tick >= 1000)
+			{
+				_toolingEnsured = true;
+				try
+				{
+					var tooling = RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
+					_ = System.Threading.Tasks.Task.Run(async () =>
+					{
+						try { await tooling.EnsureIndexBuiltAsync(); }
+						catch (System.Exception ex) { Log.Error($"[RimAI.Core][P4] EnsureIndexBuiltAsync failed: {ex.Message}"); }
+					});
+				}
+				catch { }
+			}
 			if (!_printedReady)
 			{
 				_printedReady = true;

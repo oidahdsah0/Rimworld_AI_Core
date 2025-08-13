@@ -23,6 +23,9 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public SchedulerSection Scheduler { get; set; } = new();
 		public WorldDataSection WorldData { get; set; } = new();
 
+		// P4 internal config node for Tooling (仅内部使用，不暴露到 Snapshot)
+		public ToolingSection Tooling { get; set; } = new();
+
         public sealed class GeneralSection
         {
             public string Locale { get; set; } = "zh-Hans";
@@ -67,6 +70,36 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 			public int DefaultTimeoutMs { get; set; } = 2000;
 			public string NameFallbackLocale { get; set; } = "zh-Hans";
 		}
+
+		public sealed class ToolingSection
+		{
+			public bool Enabled { get; set; } = true;
+			public int DefaultTimeoutMs { get; set; } = 3000;
+			public int MaxConcurrent { get; set; } = 8;
+			public string[] Whitelist { get; set; } = System.Array.Empty<string>();
+			public string[] Blacklist { get; set; } = System.Array.Empty<string>();
+			public bool DangerousToolConfirmation { get; set; } = false;
+			public EmbeddingSection Embedding { get; set; } = new();
+			public NarrowTopKSection NarrowTopK { get; set; } = new();
+			public IndexFilesSection IndexFiles { get; set; } = new();
+		}
+
+		public sealed class EmbeddingSection
+		{
+			public string Provider { get; set; } = "auto";
+			public string Model { get; set; } = "auto";
+			public int Dimension { get; set; } = 0;
+			public string Instruction { get; set; } = string.Empty;
+			public WeightSection Weights { get; set; } = new();
+			public bool AutoBuildOnStart { get; set; } = true;
+			public bool BlockDuringBuild { get; set; } = true;
+			public int MaxParallel { get; set; } = 4;
+			public int MaxPerMinute { get; set; } = 120;
+		}
+
+		public sealed class WeightSection { public double Name { get; set; } = 0.6; public double Desc { get; set; } = 0.4; public double Params { get; set; } = 0.0; }
+		public sealed class NarrowTopKSection { public int TopK { get; set; } = 5; public double MinScoreThreshold { get; set; } = 0.0; }
+		public sealed class IndexFilesSection { public string BasePath { get; set; } = "Config/RimAI/Indices"; public string FileNameFormat { get; set; } = "tools_index_{provider}_{model}.json"; }
     }
 }
 

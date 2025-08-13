@@ -60,6 +60,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public CoreConfig.LlmSection GetLlmConfig() => _current.LLM;
 		public CoreConfig.SchedulerSection GetSchedulerConfig() => _current.Scheduler;
 		public CoreConfig.WorldDataSection GetWorldDataConfig() => _current.WorldData;
+		public CoreConfig.ToolingSection GetToolingConfig() => _current.Tooling;
     }
 }
 

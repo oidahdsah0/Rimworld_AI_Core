@@ -23,6 +23,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
 		private readonly ILLMService _llm;
         private readonly ISchedulerService _scheduler;
         private readonly IWorldDataService _world;
+        private readonly RimAI.Core.Source.Modules.Tooling.IToolRegistryService _tooling;
 		private Vector2 _scrollPos = Vector2.zero; // config preview
 		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
 
@@ -49,6 +50,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
 			_llm = _container.Resolve<ILLMService>();
             _scheduler = _container.Resolve<ISchedulerService>();
             _world = _container.Resolve<IWorldDataService>();
+            _tooling = _container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
             _configPreviewJson = JsonPreview();
         }
 
@@ -115,7 +117,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
 			LLM_EmbeddingTestButton.Draw(listing, _llm);
 			LLM_InvalidateCacheButton.Draw(listing, _llm);
 
-			// P2: Streaming Live View（UI 真正流式显示）
+			// P2: Streaming Live View（UI 真正流式显示，仅 UI 允许流式）
 			listing.GapLine();
 			Text.Font = GameFont.Medium;
 			listing.Label("[RimAI.Core][P2] Streaming Live View");
@@ -150,13 +152,19 @@ namespace RimAI.Core.Source.UI.DebugPanel
 			Widgets.EndScrollView();
 
 
-			// P3 Panels
+            // P3 Panels
 			listing.GapLine();
 			P3_SchedulerPanel.Draw(listing, _scheduler);
 			listing.GapLine();
 			P3_WorldDataPanel.Draw(listing, _world);
 
-			listing.End();
+            // P4 Tooling panels
+            listing.GapLine();
+            RimAI.Core.Source.UI.DebugPanel.Parts.P4_ToolIndexPanel.Draw(listing, _tooling);
+            listing.GapLine();
+            RimAI.Core.Source.UI.DebugPanel.Parts.P4_ToolRunner.Draw(listing, _tooling);
+
+            listing.End();
 			Widgets.EndScrollView();
         }
 

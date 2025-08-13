@@ -1,0 +1,25 @@
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace RimAI.Core.Source.Modules.Persistence
+{
+	// P6 提前提供的最小文件 IO 接口，供 P4 索引存取使用
+	// 仅 Persistence 模块允许触达 System.IO/Verse。
+	internal interface IPersistenceService
+	{
+		// 将文本写入配置根目录下的相对路径（必要时自动创建目录）
+		Task WriteTextUnderConfigAsync(string relativePath, string content, CancellationToken ct = default);
+
+		// 从配置根目录下读取文本（不存在则返回 null）
+		Task<string> ReadTextUnderConfigOrNullAsync(string relativePath, CancellationToken ct = default);
+
+		// 配置根目录的绝对路径（只读）
+		string GetConfigRootDirectory();
+
+		// 确保配置根目录下的相对子目录存在，返回目录的绝对路径
+		string EnsureDirectoryUnderConfig(string relativeDir);
+	}
+}
+
+
+

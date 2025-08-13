@@ -25,6 +25,9 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<ILLMService, LLMService>();
 				Container.Register<ISchedulerService, SchedulerService>();
 				Container.Register<IWorldDataService, WorldDataService>();
+				// P4 + P6 minimal services
+				Container.Register<RimAI.Core.Source.Modules.Persistence.IPersistenceService, RimAI.Core.Source.Modules.Persistence.PersistenceService>();
+				Container.Register<RimAI.Core.Source.Modules.Tooling.IToolRegistryService, RimAI.Core.Source.Modules.Tooling.ToolRegistryService>();
 
                 // Prewarm and fail fast
                 Container.Init();
@@ -34,8 +37,10 @@ namespace RimAI.Core.Source.Boot
                 HarmonyPatcher.Apply(harmony);
 
                 sw.Stop();
-                // P2: resolve ILLMService to self-check readiness
+				// P2: resolve ILLMService to self-check readiness
                 _ = Container.Resolve<ILLMService>();
+				// P4: ensure tooling index attempt load (non-blocking)
+				try { _ = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>(); } catch { }
 				Log.Message($"[RimAI.Core][P1][P2][P3] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
             }
             catch (Exception ex)

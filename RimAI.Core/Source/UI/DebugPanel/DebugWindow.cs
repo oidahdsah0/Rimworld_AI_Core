@@ -25,6 +25,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
         private readonly ISchedulerService _scheduler;
         private readonly IWorldDataService _world;
         private readonly RimAI.Core.Source.Modules.Tooling.IToolRegistryService _tooling;
+        private readonly RimAI.Core.Source.Modules.Persistence.IPersistenceService _persistence;
         private readonly IOrchestrationService _orchestration;
 		private Vector2 _scrollPos = Vector2.zero; // config preview
 		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
@@ -54,6 +55,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
             _world = _container.Resolve<IWorldDataService>();
             _tooling = _container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
             _orchestration = _container.Resolve<IOrchestrationService>();
+            _persistence = _container.Resolve<RimAI.Core.Source.Modules.Persistence.IPersistenceService>();
             _configPreviewJson = JsonPreview();
         }
 
@@ -168,6 +170,10 @@ namespace RimAI.Core.Source.UI.DebugPanel
             RimAI.Core.Source.UI.DebugPanel.Parts.P4_ToolRunner.Draw(listing, _tooling);
             listing.GapLine();
             P5_OrchestrationPanel.Draw(listing, _orchestration);
+
+            // P6 Persistence
+            listing.GapLine();
+            RimAI.Core.Source.UI.DebugPanel.Parts.P6_PersistencePanel.Draw(listing, _persistence);
 
             listing.End();
 			Widgets.EndScrollView();

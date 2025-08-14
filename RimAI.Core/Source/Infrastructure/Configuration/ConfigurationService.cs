@@ -61,6 +61,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public CoreConfig.SchedulerSection GetSchedulerConfig() => _current.Scheduler;
 		public CoreConfig.WorldDataSection GetWorldDataConfig() => _current.WorldData;
 		public CoreConfig.ToolingSection GetToolingConfig() => _current.Tooling;
+		public CoreConfig GetInternal() => _current;
     }
 }
 

@@ -26,6 +26,9 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		// P4 internal config node for Tooling (仅内部使用，不暴露到 Snapshot)
 		public ToolingSection Tooling { get; set; } = new();
 
+		// P6 internal config node for Persistence (仅内部使用，不暴露到 Snapshot)
+		public PersistenceSection Persistence { get; set; } = new();
+
         public sealed class GeneralSection
         {
             public string Locale { get; set; } = "zh-Hans";
@@ -100,6 +103,21 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public sealed class WeightSection { public double Name { get; set; } = 0.6; public double Desc { get; set; } = 0.4; public double Params { get; set; } = 0.0; }
 		public sealed class NarrowTopKSection { public int TopK { get; set; } = 5; public double MinScoreThreshold { get; set; } = 0.0; }
 		public sealed class IndexFilesSection { public string BasePath { get; set; } = "Config/RimAI/Indices"; public string FileNameFormat { get; set; } = "tools_index_{provider}_{model}.json"; }
+
+		public sealed class PersistenceSection
+		{
+			public int MaxTextLength { get; set; } = 4000;
+			public bool EnableDebugExport { get; set; } = true;
+			public int NodeTimeoutMs { get; set; } = 200;
+			public bool OnLoadRebuildIndexes { get; set; } = true;
+			public FilesSection Files { get; set; } = new();
+		}
+
+		public sealed class FilesSection
+		{
+			public string BasePath { get; set; } = "Config/RimAI";
+			public string IndicesPath { get; set; } = "Config/RimAI/Indices";
+		}
     }
 }
 

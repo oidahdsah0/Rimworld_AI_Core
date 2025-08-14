@@ -66,8 +66,11 @@ namespace RimAI.Core.Source.Boot
 			try
 			{
 				if (__instance == null) return;
-				// Create or get our Scheduler component (idempotent)
+				// Ensure SchedulerGameComponent is created (idempotent)
 				__instance.GetComponent<RimAI.Core.Source.Infrastructure.Scheduler.SchedulerGameComponent>();
+
+				// Ensure PersistenceManager is created (idempotent)
+				__instance.GetComponent<RimAI.Core.Source.Modules.Persistence.PersistenceManager>();
 			}
 			catch (Exception ex)
 			{

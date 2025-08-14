@@ -1,12 +1,30 @@
 using System.Threading;
 using System.Threading.Tasks;
 
+using RimAI.Core.Source.Modules.Persistence.Diagnostics;
+using RimAI.Core.Source.Modules.Persistence.Snapshots;
+
 namespace RimAI.Core.Source.Modules.Persistence
 {
 	// P6 提前提供的最小文件 IO 接口，供 P4 索引存取使用
 	// 仅 Persistence 模块允许触达 System.IO/Verse。
 	internal interface IPersistenceService
 	{
+		// 组合入口
+		void SaveAll(PersistenceSnapshot snapshot);
+		PersistenceSnapshot LoadAll();
+
+		// 统计
+		PersistenceStats GetLastStats();
+
+		// Debug 导出/导入
+		string ExportAllToJson();
+		void ImportAllFromJson(string json);
+
+		// Debug/in-memory 操作（不触达 Scribe）
+		PersistenceSnapshot GetLastSnapshotForDebug();
+		void ReplaceLastSnapshotForDebug(PersistenceSnapshot snapshot);
+
 		// 将文本写入配置根目录下的相对路径（必要时自动创建目录）
 		Task WriteTextUnderConfigAsync(string relativePath, string content, CancellationToken ct = default);
 

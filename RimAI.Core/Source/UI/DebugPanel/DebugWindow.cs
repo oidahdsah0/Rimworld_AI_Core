@@ -19,6 +19,9 @@ using RimAI.Core.Source.Modules.Persona.FixedPrompt;
 using RimAI.Core.Source.UI.DebugPanel.Parts;
 using UnityEngine;
 using Verse;
+using RimAI.Core.Source.Modules.History;
+using RimAI.Core.Source.Modules.History.Recap;
+using RimAI.Core.Source.Modules.History.Relations;
 
 namespace RimAI.Core.Source.UI.DebugPanel
 {
@@ -37,6 +40,9 @@ namespace RimAI.Core.Source.UI.DebugPanel
         private readonly IBiographyService _pbio;
         private readonly IIdeologyService _pideo;
         private readonly IFixedPromptService _pfixed;
+        private readonly IHistoryService _history;
+        private readonly IRecapService _recap;
+        private readonly IRelationsService _relations;
 		private Vector2 _scrollPos = Vector2.zero; // config preview
 		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
 
@@ -71,13 +77,16 @@ namespace RimAI.Core.Source.UI.DebugPanel
             _pbio = _container.Resolve<IBiographyService>();
             _pideo = _container.Resolve<IIdeologyService>();
             _pfixed = _container.Resolve<IFixedPromptService>();
+            _history = _container.Resolve<IHistoryService>();
+            _recap = _container.Resolve<IRecapService>();
+            _relations = _container.Resolve<IRelationsService>();
             _configPreviewJson = JsonPreview();
         }
 
 		public override void DoWindowContents(Rect inRect)
         {
 			// 外层滚动容器（整页滚动）
-			var viewHeightBase = 2000f; // 固定页面内容高度，流式区域已有自身滚动
+            var viewHeightBase = 2600f; // 固定页面内容高度，流式区域已有自身滚动（增加以容纳 P8）
 			var pageViewRect = new Rect(0f, 0f, inRect.width - 16f, viewHeightBase);
 			Widgets.BeginScrollView(inRect, ref _pageScrollPos, pageViewRect);
 
@@ -193,6 +202,10 @@ namespace RimAI.Core.Source.UI.DebugPanel
             // P7 Persona
             listing.GapLine();
             P7_PersonaPanel.Draw(listing, _persona, _pjob, _pbio, _pideo, _pfixed);
+
+            // P8 History
+            listing.GapLine();
+            P8_HistoryPanel.Draw(listing, _history, _recap, _relations);
 
             listing.End();
 			Widgets.EndScrollView();

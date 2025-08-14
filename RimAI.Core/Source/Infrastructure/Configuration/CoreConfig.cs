@@ -11,7 +11,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 
         // Placeholders for future phases to keep shape stable
         public object Prompt { get; set; } = new();
-        public object History { get; set; } = new();
+        public HistorySection History { get; set; } = new();
         public object Stage { get; set; } = new();
         public object Orchestration { get; set; } = new();
 		public object Embedding { get; set; } = new();
@@ -158,6 +158,29 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		{
 			public bool EnableExtractFixedFromExisting { get; set; } = true;
 		}
+
+        // P8 internal config node for History (仅内部使用，不暴露到 Snapshot)
+        public sealed class HistorySection
+        {
+            public int SummaryEveryNRounds { get; set; } = 5;
+            public RecapSection Recap { get; set; } = new();
+            public int PageSize { get; set; } = 100;
+            public int UndoWindowSeconds { get; set; } = 3;
+            public HistoryBudgetSection Budget { get; set; } = new();
+            public int DisplayNameCacheSize { get; set; } = 256;
+        }
+
+        public sealed class RecapSection
+        {
+            public string Mode { get; set; } = "Append"; // Replace | Append
+            public int MaxChars { get; set; } = 1200;
+            public bool AutoRebuildOnEdit { get; set; } = false;
+        }
+
+        public sealed class HistoryBudgetSection
+        {
+            public int MaxLatencyMs { get; set; } = 5000;
+        }
     }
 }
 

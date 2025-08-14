@@ -32,6 +32,7 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public string Role { get; set; } = string.Empty; // "user" | "ai"
 		public string Text { get; set; } = string.Empty;
 		public long CreatedAtTicksUtc { get; set; }
+		public long? TurnOrdinal { get; set; }
 	}
 
 	public sealed class RecapState
@@ -44,6 +45,11 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public string Id { get; set; } = string.Empty;
 		public string Text { get; set; } = string.Empty;
 		public long CreatedAtTicksUtc { get; set; }
+		// P8: additional fields for idempotency and window tracking
+		public string IdempotencyKey { get; set; } = string.Empty;
+		public long FromTurnExclusive { get; set; }
+		public long ToTurnInclusive { get; set; }
+		public string Mode { get; set; } = "Append";
 	}
 
 	public sealed class FixedPromptsSnapshot

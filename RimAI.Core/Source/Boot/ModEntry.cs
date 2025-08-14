@@ -14,6 +14,9 @@ using RimAI.Core.Source.Modules.Persona.Biography;
 using RimAI.Core.Source.Modules.Persona.Ideology;
 using RimAI.Core.Source.Modules.Persona.FixedPrompt;
 using RimAI.Core.Source.Modules.Persona.Templates;
+using RimAI.Core.Source.Modules.History;
+using RimAI.Core.Source.Modules.History.Recap;
+using RimAI.Core.Source.Modules.History.Relations;
 using Verse;
 
 namespace RimAI.Core.Source.Boot
@@ -46,6 +49,11 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<IFixedPromptService, FixedPromptService>();
                 Container.Register<IPersonaTemplateManager, PersonaTemplateManager>();
 
+                // Register P8 History services
+                Container.Register<IHistoryService, HistoryService>();
+                Container.Register<IRecapService, RecapService>();
+                Container.Register<IRelationsService, RelationsService>();
+
                 // Prewarm and fail fast
                 Container.Init();
 
@@ -58,7 +66,7 @@ namespace RimAI.Core.Source.Boot
                 _ = Container.Resolve<ILLMService>();
 				// P4: ensure tooling index attempt load (non-blocking)
 				try { _ = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>(); } catch { }
-                Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
+                Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
             }
             catch (Exception ex)
             {

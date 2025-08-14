@@ -39,15 +39,55 @@ namespace RimAI.Core.Source.Modules.Persistence
 			catch { return null; }
 		}
 
+
 		private PersistenceSnapshot BuildSnapshotFromServices()
 		{
-			// 当前无领域服务实现，返回空快照占位；后续由各服务 ExportSnapshot() 补齐
-			return new PersistenceSnapshot();
+			// 简化策略：直接使用 PersistenceService 维护的内存快照作为写入源
+			var svc = Resolve();
+			return svc?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
 		}
+
 
 		private void ApplySnapshotToServices(PersistenceSnapshot snapshot)
 		{
-			// 当前无领域服务实现，暂不写回；后续由各服务 ImportSnapshot(state) 补齐
+			// 写回 Persona 门面缓存（原子 Upsert 保持一致性）
+			try
+			{
+				var container = RimAI.Core.Source.Boot.RimAICoreMod.Container;
+				var persona = container.Resolve<RimAI.Core.Source.Modules.Persona.IPersonaService>();
+				if (persona != null && snapshot != null)
+				{
+					// Fixed Prompts
+					foreach (var kv in snapshot.FixedPrompts.Items)
+					{
+						var id = kv.Key; var text = kv.Value;
+						persona.Upsert(id, e => e.SetFixedPrompt(text));
+					}
+					// Biographies
+					foreach (var kv in snapshot.Biographies.Items)
+					{
+						var id = kv.Key; var list = kv.Value;
+						if (list == null) continue;
+						foreach (var b in list)
+						{
+							persona.Upsert(id, e => e.AddOrUpdateBiography(b.Id, b.Text, b.Source));
+						}
+					}
+					// Personal Beliefs (Ideology)
+					foreach (var kv in snapshot.PersonalBeliefs.Items)
+					{
+						var id = kv.Key; var s = kv.Value;
+						persona.Upsert(id, e => e.SetIdeology(s?.Worldview, s?.Values, s?.CodeOfConduct, s?.TraitsText));
+					}
+					// Persona Job
+					foreach (var kv in snapshot.PersonaJob.Items)
+					{
+						var id = kv.Key; var j = kv.Value;
+						persona.Upsert(id, e => e.SetJob(j?.Name, j?.Description));
+					}
+				}
+			}
+			catch { }
 		}
 	}
 }

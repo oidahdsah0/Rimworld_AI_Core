@@ -7,6 +7,7 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public HistoryState History { get; set; } = new HistoryState();
 		public RecapState Recap { get; set; } = new RecapState();
 		public FixedPromptsSnapshot FixedPrompts { get; set; } = new FixedPromptsSnapshot();
+		public PersonaJobState PersonaJob { get; set; } = new PersonaJobState();
 		public BiographySnapshot Biographies { get; set; } = new BiographySnapshot();
 		public PersonaBindingsSnapshot PersonaBindings { get; set; } = new PersonaBindingsSnapshot();
 		public PersonalBeliefsState PersonalBeliefs { get; set; } = new PersonalBeliefsState();
@@ -48,6 +49,18 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 	public sealed class FixedPromptsSnapshot
 	{
 		public Dictionary<string, string> Items { get; set; } = new Dictionary<string, string>();
+	}
+
+	public sealed class PersonaJobState
+	{
+		public Dictionary<string, PersonaJob> Items { get; set; } = new Dictionary<string, PersonaJob>();
+	}
+
+	public sealed class PersonaJob
+	{
+		public string Name { get; set; } = string.Empty;
+		public string Description { get; set; } = string.Empty;
+		public long UpdatedAtTicksUtc { get; set; }
 	}
 
 	public sealed class BiographySnapshot

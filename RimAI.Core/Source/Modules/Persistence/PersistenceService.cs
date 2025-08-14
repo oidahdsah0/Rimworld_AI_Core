@@ -160,6 +160,23 @@ namespace RimAI.Core.Source.Modules.Persistence
             {
                 stats.Details.Add(new NodeStat { Node = "RimAI_FixedPromptsV1", Ok = false, Error = ex.Message });
             }
+            // PersonaJob
+            try
+            {
+                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
+                Scribe.EnterNode("RimAI_PersonaJobV1");
+                int schemaVersion = 1;
+                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
+                var jobs = snapshot?.PersonaJob?.Items ?? new System.Collections.Generic.Dictionary<string, Snapshots.PersonaJob>();
+                Scribe_Poco.LookJsonDict(ref jobs, "items");
+                Scribe.ExitNode();
+                nodeSw.Stop();
+                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = true, Entries = jobs?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
+            }
+            catch (Exception ex)
+            {
+                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = false, Error = ex.Message });
+            }
 			// Biographies（按配置最大长度裁剪）
             try
             {
@@ -347,6 +364,25 @@ namespace RimAI.Core.Source.Modules.Persistence
             catch (Exception ex)
             {
                 stats.Details.Add(new NodeStat { Node = "RimAI_FixedPromptsV1", Ok = false, Error = ex.Message });
+            }
+            // PersonaJob
+            try
+            {
+                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
+                Scribe.EnterNode("RimAI_PersonaJobV1");
+                int schemaVersion = 1;
+                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
+                var jobs = result.PersonaJob.Items;
+                Scribe_Poco.LookJsonDict(ref jobs, "items");
+                jobs ??= new System.Collections.Generic.Dictionary<string, Snapshots.PersonaJob>();
+                result.PersonaJob.Items = jobs;
+                Scribe.ExitNode();
+                nodeSw.Stop();
+                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = true, Entries = jobs?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
+            }
+            catch (Exception ex)
+            {
+                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = false, Error = ex.Message });
             }
             // Biographies
             try

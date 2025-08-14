@@ -11,6 +11,11 @@ using RimAI.Core.Source.Infrastructure.Scheduler;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.Modules.World;
+using RimAI.Core.Source.Modules.Persona;
+using RimAI.Core.Source.Modules.Persona.Job;
+using RimAI.Core.Source.Modules.Persona.Biography;
+using RimAI.Core.Source.Modules.Persona.Ideology;
+using RimAI.Core.Source.Modules.Persona.FixedPrompt;
 using RimAI.Core.Source.UI.DebugPanel.Parts;
 using UnityEngine;
 using Verse;
@@ -27,6 +32,11 @@ namespace RimAI.Core.Source.UI.DebugPanel
         private readonly RimAI.Core.Source.Modules.Tooling.IToolRegistryService _tooling;
         private readonly RimAI.Core.Source.Modules.Persistence.IPersistenceService _persistence;
         private readonly IOrchestrationService _orchestration;
+        private readonly IPersonaService _persona;
+        private readonly IPersonaJobService _pjob;
+        private readonly IBiographyService _pbio;
+        private readonly IIdeologyService _pideo;
+        private readonly IFixedPromptService _pfixed;
 		private Vector2 _scrollPos = Vector2.zero; // config preview
 		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
 
@@ -56,6 +66,11 @@ namespace RimAI.Core.Source.UI.DebugPanel
             _tooling = _container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
             _orchestration = _container.Resolve<IOrchestrationService>();
             _persistence = _container.Resolve<RimAI.Core.Source.Modules.Persistence.IPersistenceService>();
+            _persona = _container.Resolve<IPersonaService>();
+            _pjob = _container.Resolve<IPersonaJobService>();
+            _pbio = _container.Resolve<IBiographyService>();
+            _pideo = _container.Resolve<IIdeologyService>();
+            _pfixed = _container.Resolve<IFixedPromptService>();
             _configPreviewJson = JsonPreview();
         }
 
@@ -174,6 +189,10 @@ namespace RimAI.Core.Source.UI.DebugPanel
             // P6 Persistence
             listing.GapLine();
             RimAI.Core.Source.UI.DebugPanel.Parts.P6_PersistencePanel.Draw(listing, _persistence);
+
+            // P7 Persona
+            listing.GapLine();
+            P7_PersonaPanel.Draw(listing, _persona, _pjob, _pbio, _pideo, _pfixed);
 
             listing.End();
 			Widgets.EndScrollView();

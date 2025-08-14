@@ -29,6 +29,9 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		// P6 internal config node for Persistence (仅内部使用，不暴露到 Snapshot)
 		public PersistenceSection Persistence { get; set; } = new();
 
+		// P7 internal config node for Persona（仅内部使用，不暴露到 Snapshot）
+		public PersonaSection Persona { get; set; } = new();
+
         public sealed class GeneralSection
         {
             public string Locale { get; set; } = "zh-Hans";
@@ -117,6 +120,43 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		{
 			public string BasePath { get; set; } = "Config/RimAI";
 			public string IndicesPath { get; set; } = "Config/RimAI/Indices";
+		}
+
+		public sealed class PersonaSection
+		{
+			public string Locale { get; set; } = "zh-Hans";
+			public PersonaBudgetSection Budget { get; set; } = new();
+			public PersonaGenerationSection Generation { get; set; } = new();
+			public PersonaTemplatesSection Templates { get; set; } = new();
+			public PersonaUiSection UI { get; set; } = new();
+		}
+
+		public sealed class PersonaBudgetSection
+		{
+			public int MaxTotalChars { get; set; } = 4000;
+			public int Job { get; set; } = 600;
+			public int Fixed { get; set; } = 800;
+			public int IdeologySegment { get; set; } = 600;
+			public int BiographyPerItem { get; set; } = 400;
+			public int BiographyMaxItems { get; set; } = 4;
+		}
+
+		public sealed class PersonaGenerationSection
+		{
+			public int TimeoutMs { get; set; } = 15000;
+			public RetrySection Retry { get; set; } = new();
+		}
+
+		public sealed class PersonaTemplatesSection
+		{
+			public string MasterPath { get; set; } = "Resources/prompts/persona/{locale}.persona.json";
+			public string UserOverridePath { get; set; } = "Config/RimAI/Prompts/persona/{locale}.persona.user.json";
+			public bool HotReload { get; set; } = true;
+		}
+
+		public sealed class PersonaUiSection
+		{
+			public bool EnableExtractFixedFromExisting { get; set; } = true;
 		}
     }
 }

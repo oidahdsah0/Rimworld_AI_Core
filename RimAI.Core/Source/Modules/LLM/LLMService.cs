@@ -77,6 +77,66 @@ namespace RimAI.Core.Source.Modules.LLM
 			return GetResponseAsync(req, cancellationToken);
 		}
 
+		public Task<Result<UnifiedChatResponse>> GetResponseAsync(string conversationId, string systemPrompt, string userText, IReadOnlyList<string> toolsJson, bool jsonMode, CancellationToken cancellationToken = default)
+		{
+			var req = new UnifiedChatRequest
+			{
+				ConversationId = conversationId,
+				Messages = new List<ChatMessage>
+				{
+					new ChatMessage { Role = "system", Content = systemPrompt ?? string.Empty },
+					new ChatMessage { Role = "user", Content = userText ?? string.Empty }
+				},
+				ForceJsonOutput = jsonMode,
+				Stream = false
+			};
+			ApplyToolsToRequest(req, toolsJson);
+			return GetResponseAsync(req, cancellationToken);
+		}
+
+		private static void ApplyToolsToRequest(UnifiedChatRequest request, IReadOnlyList<string> toolsJson)
+		{
+			if (request == null || toolsJson == null || toolsJson.Count == 0) return;
+			try
+			{
+				var tj = request.GetType().GetProperty("ToolsJson");
+				if (tj != null && tj.CanWrite)
+				{
+					var list = toolsJson.ToList();
+					tj.SetValue(request, list);
+					return;
+				}
+			}
+			catch { }
+
+			try
+			{
+				var tProp = request.GetType().GetProperty("Tools");
+				if (tProp != null && tProp.CanWrite)
+				{
+					var listType = tProp.PropertyType;
+					if (listType.IsGenericType)
+					{
+						var elemType = listType.GetGenericArguments()[0];
+						if (string.Equals(elemType.Name, "ToolFunction", StringComparison.OrdinalIgnoreCase))
+						{
+							var concreteListType = typeof(List<>).MakeGenericType(elemType);
+							var listInstance = Activator.CreateInstance(concreteListType);
+							var add = concreteListType.GetMethod("Add");
+							foreach (var s in toolsJson)
+							{
+								object obj = null;
+								try { obj = Newtonsoft.Json.JsonConvert.DeserializeObject(s, elemType); } catch { }
+								if (obj != null) add?.Invoke(listInstance, new[] { obj });
+							}
+							tProp.SetValue(request, listInstance);
+						}
+					}
+				}
+			}
+			catch { }
+		}
+
 		public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(string conversationId, string systemPrompt, string userText, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
 		{
 			var req = new UnifiedChatRequest

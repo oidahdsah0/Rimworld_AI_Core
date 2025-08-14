@@ -40,6 +40,15 @@ namespace RimAI.Core.Source.Modules.LLM
 			RimAI.Framework.Contracts.UnifiedChatRequest request,
 			CancellationToken cancellationToken = default);
 
+		// Chat — 非流式，附工具列表（隐藏 Framework 细节给上游）
+		Task<RimAI.Framework.Contracts.Result<RimAI.Framework.Contracts.UnifiedChatResponse>> GetResponseAsync(
+			string conversationId,
+			string systemPrompt,
+			string userText,
+			System.Collections.Generic.IReadOnlyList<string> toolsJson,
+			bool jsonMode,
+			CancellationToken cancellationToken = default);
+
 		// Chat — 流式（仅 UI/Debug 面板使用）
 		IAsyncEnumerable<RimAI.Framework.Contracts.Result<RimAI.Framework.Contracts.UnifiedChatChunk>> StreamResponseAsync(
 			RimAI.Framework.Contracts.UnifiedChatRequest request,

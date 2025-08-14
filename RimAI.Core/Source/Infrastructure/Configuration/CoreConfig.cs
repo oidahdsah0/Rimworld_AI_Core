@@ -12,9 +12,9 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         // Placeholders for future phases to keep shape stable
         public object Prompt { get; set; } = new();
         public HistorySection History { get; set; } = new();
-        public object Stage { get; set; } = new();
+        public StageSection Stage { get; set; } = new();
         public object Orchestration { get; set; } = new();
-		public object Embedding { get; set; } = new();
+        public object Embedding { get; set; } = new();
 
 		// P2 internal config node for LLM Gateway
 		public LlmSection LLM { get; set; } = new();
@@ -181,6 +181,55 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         {
             public int MaxLatencyMs { get; set; } = 5000;
         }
+
+		// P9 internal config node for Stage（仅内部使用，不暴露到 Snapshot）
+		public sealed class StageSection
+		{
+			public int CoalesceWindowMs { get; set; } = 300;
+			public int CooldownSeconds { get; set; } = 30;
+			public int MaxRunning { get; set; } = 4;
+			public int LeaseTtlMs { get; set; } = 10000;
+			public int IdempotencyTtlMs { get; set; } = 60000;
+			public string LocaleOverride { get; set; } = null;
+			public StageHistoryLoggingSection History { get; set; } = new();
+			public StageLoggingSection Logging { get; set; } = new();
+			public string[] DisabledActs { get; set; } = System.Array.Empty<string>();
+			public string[] DisabledTriggers { get; set; } = System.Array.Empty<string>();
+			public ActsSection Acts { get; set; } = new();
+		}
+
+		public sealed class StageHistoryLoggingSection
+		{
+			public string StageLogConvKey { get; set; } = "agent:stage";
+			public int MaxFinalTextChars { get; set; } = 800;
+			public bool HeaderEnabled { get; set; } = true;
+		}
+
+		public sealed class StageLoggingSection
+		{
+			public int PayloadPreviewChars { get; set; } = 200;
+			public int SlowActWarnMs { get; set; } = 5000;
+		}
+
+		public sealed class ActsSection
+		{
+			public GroupChatActSection GroupChat { get; set; } = new();
+			public AlphaFiberActSection AlphaFiberInterServerChat { get; set; } = new();
+		}
+
+		public sealed class GroupChatActSection
+		{
+			public int Rounds { get; set; } = 1;
+			public int MaxLatencyMsPerTurn { get; set; } = 8000;
+			public string SeedPolicy { get; set; } = "ConvKeyWithTick";
+		}
+
+		public sealed class AlphaFiberActSection
+		{
+			public int ScanIntervalSeconds { get; set; } = 600;
+			public string Pairing { get; set; } = "Random";
+			public int MaxPairsPerScan { get; set; } = 1;
+		}
     }
 }
 

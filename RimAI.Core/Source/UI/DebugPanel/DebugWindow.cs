@@ -22,6 +22,7 @@ using Verse;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Recap;
 using RimAI.Core.Source.Modules.History.Relations;
+using RimAI.Core.Source.Modules.Stage;
 
 namespace RimAI.Core.Source.UI.DebugPanel
 {
@@ -43,6 +44,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
         private readonly IHistoryService _history;
         private readonly IRecapService _recap;
         private readonly IRelationsService _relations;
+        private readonly IStageService _stage;
 		private Vector2 _scrollPos = Vector2.zero; // config preview
 		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
 
@@ -80,6 +82,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
             _history = _container.Resolve<IHistoryService>();
             _recap = _container.Resolve<IRecapService>();
             _relations = _container.Resolve<IRelationsService>();
+            _stage = _container.Resolve<IStageService>();
             _configPreviewJson = JsonPreview();
         }
 
@@ -206,6 +209,9 @@ namespace RimAI.Core.Source.UI.DebugPanel
             // P8 History
             listing.GapLine();
             P8_HistoryPanel.Draw(listing, _history, _recap, _relations);
+            listing.GapLine();
+            // P9 Stage Panel
+            RimAI.Core.Source.UI.DebugPanel.Parts.P9_StagePanel.Draw(listing, _stage, _history);
 
             listing.End();
 			Widgets.EndScrollView();

@@ -17,6 +17,12 @@ using RimAI.Core.Source.Modules.Persona.Templates;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Recap;
 using RimAI.Core.Source.Modules.History.Relations;
+using RimAI.Core.Source.Modules.Stage;
+using RimAI.Core.Source.Modules.Stage.Acts;
+using RimAI.Core.Source.Modules.Stage.Diagnostics;
+using RimAI.Core.Source.Modules.Stage.History;
+using RimAI.Core.Source.Modules.Stage.Kernel;
+using RimAI.Core.Source.Modules.Stage.Triggers;
 using Verse;
 
 namespace RimAI.Core.Source.Boot
@@ -54,8 +60,30 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<IRecapService, RecapService>();
                 Container.Register<IRelationsService, RelationsService>();
 
+                // Register P9 Stage services
+                Container.Register<IStageKernel, StageKernel>();
+                Container.Register<StageLogging, StageLogging>();
+                Container.Register<StageHistorySink, StageHistorySink>();
+                Container.Register<IStageService, StageService>();
+
+                // Register built-in Acts/Triggers via StageService after construction
+
                 // Prewarm and fail fast
                 Container.Init();
+
+                // After Init, resolve StageService and register built-ins
+                try
+                {
+                    var stage = Container.Resolve<IStageService>() as StageService;
+                    if (stage != null)
+                    {
+                        stage.RegisterAct(new GroupChatAct(Container.Resolve<ILLMService>()));
+                        stage.RegisterAct(new AlphaFiberInterServerChatAct(Container.Resolve<ILLMService>(), Container.Resolve<IWorldDataService>()));
+                        stage.RegisterTrigger(new ProximityGroupChatTrigger());
+                        stage.RegisterTrigger(new AlphaFiberLinkTrigger());
+                    }
+                }
+                catch { }
 
                 // Harmony patches (UI button etc.)
                 var harmony = new Harmony("kilokio.rimai.core");
@@ -66,7 +94,7 @@ namespace RimAI.Core.Source.Boot
                 _ = Container.Resolve<ILLMService>();
 				// P4: ensure tooling index attempt load (non-blocking)
 				try { _ = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>(); } catch { }
-                Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
+                Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
             }
             catch (Exception ex)
             {

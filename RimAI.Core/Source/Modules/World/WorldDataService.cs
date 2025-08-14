@@ -32,6 +32,30 @@ namespace RimAI.Core.Source.Modules.World
 				return name;
 			}, name: "GetPlayerName", ct: cts.Token);
 		}
+
+		public Task<System.Collections.Generic.IReadOnlyList<(string serverAId, string serverBId)>> GetAlphaFiberLinksAsync(CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				// 最小占位：返回固定对
+				return (System.Collections.Generic.IReadOnlyList<(string, string)>)new (string, string)[] { ("thing:serverA", "thing:serverB") };
+			}, name: "GetAlphaFiberLinks", ct: cts.Token);
+		}
+
+		public Task<AiServerSnapshot> GetAiServerSnapshotAsync(string serverId, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				// 最小占位：返回空快照
+				return new AiServerSnapshot { ServerId = serverId, TemperatureC = 37, LoadPercent = 50, PowerOn = true, HasAlarm = false };
+			}, name: "GetAiServerSnapshot", ct: cts.Token);
+		}
 	}
 
 	internal sealed class WorldDataException : Exception

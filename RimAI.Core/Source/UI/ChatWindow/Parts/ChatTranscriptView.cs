@@ -8,18 +8,25 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 	{
 		public static void Draw(Rect rect, RimAI.Core.Source.UI.ChatWindow.ChatConversationState state, Vector2 scrollPos, out Vector2 newScrollPos)
 		{
-			var inner = rect;
-			var contentW = inner.width - 16f;
+			// 阴影与边框背景
+			Widgets.DrawShadowAround(rect);
+			Widgets.DrawBoxSolid(rect, new Color(0f, 0f, 0f, 0.20f));
+			var bgRect = rect.ContractedBy(2f);
+			Widgets.DrawWindowBackground(bgRect);
+			var inner = bgRect.ContractedBy(4f);
+			var contentW = inner.width - 16f; // 预留竖向滚动条宽度，避免出现水平条
+			var textW = contentW - 12f;       // 文本左右内边距（6 + 6）
 
-			// 计算高度
-			float y = 0f;
+			// 计算整体内容高度
+			float totalHeight = 0f;
 			for (int i = 0; i < state.Messages.Count; i++)
 			{
 				var msg = state.Messages[i];
 				var label = FormatMessage(msg);
-				y += Mathf.Max(24f, Text.CalcHeight(label, contentW)) + 6f;
+				var textH = Mathf.Max(24f, Text.CalcHeight(label, textW));
+				totalHeight += textH + 6f; // 行间距
 			}
-			var viewRect = new Rect(0f, 0f, contentW, Math.Max(inner.height, y + 8f));
+			var viewRect = new Rect(0f, 0f, contentW, Math.Max(inner.height, totalHeight + 8f));
 
 			Widgets.BeginScrollView(inner, ref scrollPos, viewRect);
 			float cy = 0f;
@@ -27,13 +34,30 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			{
 				var msg = state.Messages[i];
 				var label = FormatMessage(msg);
-				var h = Mathf.Max(24f, Text.CalcHeight(label, contentW));
-				var rowRect = new Rect(0f, cy, contentW, h);
-				Widgets.Label(rowRect, label);
-				cy += h + 6f;
+				var textH = Mathf.Max(24f, Text.CalcHeight(label, textW));
+				var rowRect = new Rect(0f, cy, contentW, textH + 6f);
+				var labelRect = new Rect(6f, cy + 3f, textW, textH);
+
+				// 玩家消息：深蓝灰底色；AI：无底色
+				if (msg.Sender == RimAI.Core.Source.UI.ChatWindow.MessageSender.User)
+				{
+					var deepBlueGray = new Color(0.13f, 0.17f, 0.23f, 1f); // 深蓝灰
+					Widgets.DrawBoxSolid(rowRect, deepBlueGray);
+					var prevColor = GUI.color;
+					GUI.color = Color.white;
+					Widgets.Label(labelRect, label);
+					GUI.color = prevColor;
+				}
+				else
+				{
+					Widgets.Label(labelRect, label);
+				}
+
+				cy += textH + 6f;
 			}
 			Widgets.EndScrollView();
-			newScrollPos = new Vector2(0f, viewRect.height);
+			// 保留用户滚动位置（不再强制置底）
+			newScrollPos = scrollPos;
 		}
 
 		private static string FormatMessage(RimAI.Core.Source.UI.ChatWindow.ChatMessage m)

@@ -30,6 +30,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private Vector2 _scrollRight = Vector2.zero;
         private bool _historyWritten;
 		private static string _cachedPlayerId;
+		private float _lastTranscriptContentHeight;
 
 		public override Vector2 InitialSize => new Vector2(900f, 600f);
 
@@ -75,14 +76,29 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 			// 右列
 			TitleBar.Draw(titleRect, null, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
+
+			// 在绘制前计算内容高度并判断是否需要自动吸底
+			var prevViewH = _lastTranscriptContentHeight;
+			var newViewH = ComputeTranscriptViewHeight(transcriptRect, _controller.State);
+			var prevMaxScrollY = Mathf.Max(0f, prevViewH - transcriptRect.height);
+			bool wasNearBottom = _scrollTranscript.y >= (prevMaxScrollY - 20f);
+
 			ChatTranscriptView.Draw(transcriptRect, _controller.State, _scrollTranscript, out _scrollTranscript);
+
+			// 若先前处于底部附近且内容增长，则自动滚动到底（不打断用户向上查看）
+			if (wasNearBottom && newViewH > prevViewH + 1f)
+			{
+				_scrollTranscript.y = newViewH; // 设置为大值，Unity 会夹取为最大滚动位置
+			}
+			_lastTranscriptContentHeight = newViewH;
 			// 左侧指示灯（Busy=黄色：根据 IsStreaming）
 			IndicatorLights.Draw(indicatorRect, _controller.State.Indicators, _controller.State.IsStreaming);
 			// 右侧剩余区域绘制 LCD 跑马灯
 			var lcdLeft = indicatorRect.x + 180f; // 预留左侧指示灯区域宽度
 			if (lcdLeft < indicatorRect.xMax)
 			{
-				var lcdRect = new Rect(lcdLeft, indicatorRect.y, indicatorRect.xMax - lcdLeft, indicatorRect.height);
+				const float lcdRightMargin = 5f; // 右端向左缩 5px
+				var lcdRect = new Rect(lcdLeft, indicatorRect.y, Mathf.Max(0f, indicatorRect.xMax - lcdLeft - lcdRightMargin), indicatorRect.height);
 				var pulse = _controller.State.Indicators.DataOn;
 				var text = BuildLcdText();
 				Parts.LcdMarquee.Draw(lcdRect, _controller.State.Lcd, text, pulse, _controller.State.IsStreaming);
@@ -192,6 +208,22 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private static string GetJobTitleOrNone(Pawn pawn)
 		{
 			return "无职务"; // 占位：后续接入 Persona Job Service
+		}
+
+		private static float ComputeTranscriptViewHeight(Rect rect, ChatConversationState state)
+		{
+			// 与 ChatTranscriptView 使用相同的度量逻辑，确保一致
+			var contentW = rect.width - 16f;
+			var textW = contentW - 12f;
+			float totalHeight = 0f;
+			for (int i = 0; i < state.Messages.Count; i++)
+			{
+				var m = state.Messages[i];
+				var label = $"[{m.DisplayName} {m.TimestampUtc.ToLocalTime():HH:mm:ss}] {m.Text}";
+				var textH = Mathf.Max(24f, Text.CalcHeight(label, textW));
+				totalHeight += textH + 6f;
+			}
+			return Math.Max(rect.height, totalHeight + 8f);
 		}
 
 		private static string GetOrCreatePlayerSessionId()

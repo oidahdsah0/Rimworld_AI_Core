@@ -63,16 +63,25 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 			var participantIds = BuildParticipantIds(pawn);
 			var convKey = BuildConvKey(participantIds);
+			// 若已存在与该 pawn 相关的历史会话，优先复用其 convKey（避免因 playerId 不稳定导致历史无法匹配）
+			TryBindExistingConversation(_history, ref participantIds, ref convKey);
 			_controller = new ChatController(_llm, _history, _world, _orchestration, convKey, participantIds);
 			_lcdRng = new System.Random(convKey.GetHashCode());
 			_lcdNextShuffleRealtime = 0.0;
 			// 启动健康轮询
 			_healthCts = new CancellationTokenSource();
 			_ = PollHealthAsync(_healthCts.Token);
+			// 加载历史（若无则空）
+			_ = _controller.StartAsync();
 		}
 
 		public override void DoWindowContents(Rect inRect)
 		{
+			// 将后台初始化加载的历史消息在主线程合并到可见消息列表
+			while (_controller.State.PendingInitMessages.TryDequeue(out var initMsg))
+			{
+				_controller.State.Messages.Add(initMsg);
+			}
 			var leftW = inRect.width * (1f / 6f);
 			var rightW = inRect.width - leftW - 8f;
 			var leftRect = new Rect(inRect.x, inRect.y, leftW, inRect.height);
@@ -236,6 +245,37 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private static string BuildConvKey(IReadOnlyList<string> participantIds)
 		{
 			return string.Join("|", participantIds);
+		}
+
+		private static void TryBindExistingConversation(IHistoryService history, ref List<string> participantIds, ref string convKey)
+		{
+			try
+			{
+				if (history == null || participantIds == null || participantIds.Count == 0) return;
+				// 历史使用 convKey 作为会话键：尝试以 pawn:<id> 为主键定位旧会话
+				string pawnId = null;
+				foreach (var id in participantIds)
+				{
+					if (id != null && id.StartsWith("pawn:")) { pawnId = id; break; }
+				}
+				if (string.IsNullOrEmpty(pawnId)) return;
+				var all = history.GetAllConvKeys();
+				if (all == null || all.Count == 0) return;
+				foreach (var ck in all)
+				{
+					var parts = history.GetParticipantsOrEmpty(ck);
+					if (parts == null || parts.Count == 0) continue;
+					bool hasPawn = false;
+					foreach (var p in parts) { if (string.Equals(p, pawnId, StringComparison.Ordinal)) { hasPawn = true; break; } }
+					if (!hasPawn) continue;
+					// 复用旧 convKey，并以旧参会者列表为准（保持稳定性）
+					convKey = ck;
+					participantIds = new List<string>(parts);
+					participantIds.Sort(StringComparer.Ordinal);
+					return;
+				}
+			}
+			catch { }
 		}
 
 		private static string GetJobTitleOrNone(Pawn pawn)

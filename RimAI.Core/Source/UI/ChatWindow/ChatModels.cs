@@ -42,6 +42,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		public List<ChatMessage> Messages { get; } = new List<ChatMessage>();
 		public IndicatorLightsState Indicators { get; } = new IndicatorLightsState();
 		public ConcurrentQueue<string> StreamingChunks { get; } = new ConcurrentQueue<string>();
+		public ConcurrentQueue<ChatMessage> PendingInitMessages { get; } = new ConcurrentQueue<ChatMessage>();
 		public LcdMarqueeState Lcd { get; } = new LcdMarqueeState();
 		public bool IsStreaming { get; set; }
 		public string LastUserInputStash { get; set; }

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.History;
+using RimAI.Core.Source.Modules.History.Models;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
 
@@ -42,9 +43,34 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			};
 		}
 
-		public Task StartAsync()
+		public async Task StartAsync()
 		{
-			return Task.CompletedTask;
+			try
+			{
+				// 记录参与者（若无则创建），并加载现有历史（若无则为空列表）
+				await _history.UpsertParticipantsAsync(State.ConvKey, State.ParticipantIds).ConfigureAwait(false);
+				var thread = await _history.GetThreadAsync(State.ConvKey, page: 1, pageSize: 200).ConfigureAwait(false);
+				string playerName = "Player";
+				try { playerName = await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "Player"; } catch { }
+				if (thread?.Entries != null)
+				{
+					foreach (var e in thread.Entries)
+					{
+						if (e == null || e.Deleted) continue;
+						var msg = new ChatMessage
+						{
+							Id = e.Id ?? Guid.NewGuid().ToString("N"),
+							Sender = e.Role == EntryRole.User ? MessageSender.User : MessageSender.Ai,
+							DisplayName = e.Role == EntryRole.User ? playerName : "Pawn",
+							TimestampUtc = e.Timestamp,
+							Text = e.Content ?? string.Empty,
+							IsCommand = false
+						};
+						State.PendingInitMessages.Enqueue(msg);
+					}
+				}
+			}
+			catch { }
 		}
 
 		public async Task SendSmalltalkAsync(string userText, CancellationToken ct = default)

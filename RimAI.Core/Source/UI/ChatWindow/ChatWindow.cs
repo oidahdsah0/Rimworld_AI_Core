@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
+using RimWorld;
 using RimAI.Core.Source.Boot;
 using RimAI.Core.Source.Infrastructure;
 using RimAI.Core.Source.Modules.History;
@@ -31,6 +32,14 @@ namespace RimAI.Core.Source.UI.ChatWindow
         private bool _historyWritten;
 		private static string _cachedPlayerId;
 		private float _lastTranscriptContentHeight;
+		private Texture _pawnPortrait;
+		private Parts.HealthPulseState _healthPulse = new Parts.HealthPulseState();
+		private float? _healthPercent;
+		private bool _pawnDead;
+		private CancellationTokenSource _healthCts;
+		private string _lcdText;
+		private System.Random _lcdRng;
+		private double _lcdNextShuffleRealtime;
 
 		public override Vector2 InitialSize => new Vector2(900f, 600f);
 
@@ -55,6 +64,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			var participantIds = BuildParticipantIds(pawn);
 			var convKey = BuildConvKey(participantIds);
 			_controller = new ChatController(_llm, _history, _world, _orchestration, convKey, participantIds);
+			_lcdRng = new System.Random(convKey.GetHashCode());
+			_lcdNextShuffleRealtime = 0.0;
+			// 启动健康轮询
+			_healthCts = new CancellationTokenSource();
+			_ = PollHealthAsync(_healthCts.Token);
 		}
 
 		public override void DoWindowContents(Rect inRect)
@@ -63,7 +77,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			var rightW = inRect.width - leftW - 8f;
 			var leftRect = new Rect(inRect.x, inRect.y, leftW, inRect.height);
 			var rightRectOuter = new Rect(leftRect.xMax + 8f, inRect.y, rightW, inRect.height);
-			var titleH = 48f;
+			var titleH = 72f; // 放大标题栏用于半身像展示
 			var indicatorH = 20f;
 			var inputH = 60f; // 输入栏高度与按钮同高
 			var titleRect = new Rect(rightRectOuter.x, rightRectOuter.y, rightRectOuter.width, titleH);
@@ -72,10 +86,23 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			var inputRect = new Rect(rightRectOuter.x, indicatorRect.yMax + 12f, rightRectOuter.width, inputH);
 
 			// 左列
-			LeftSidebarCard.Draw(leftRect, ref _activeTab, null, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
+			EnsurePawnPortrait(96f);
+			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
 
-			// 右列
-			TitleBar.Draw(titleRect, null, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
+			// 右列：标题 + 生命体征标题 + 脉冲窗口
+			var pulseW = 200f;
+			var pulseLabelW = 72f;
+			var pulseSpacing = 6f;
+			var rightReserveW = pulseLabelW + pulseSpacing + pulseW;
+			var titleLabelRect = new Rect(titleRect.x, titleRect.y, Mathf.Max(0f, titleRect.width - rightReserveW), titleRect.height);
+			TitleBar.Draw(titleLabelRect, _pawnPortrait, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
+			var pulseRect = new Rect(titleRect.xMax - pulseW, titleRect.y + 12f, pulseW - 6f, titleRect.height - 18f);
+			var pulseTitleRect = new Rect(pulseRect.x - pulseSpacing - pulseLabelW - 10f, pulseRect.y, pulseLabelW, pulseRect.height);
+			Text.Anchor = TextAnchor.MiddleRight;
+			Text.Font = GameFont.Small;
+			Widgets.Label(pulseTitleRect, "生命体征：");
+			Text.Anchor = TextAnchor.UpperLeft;
+			HealthPulse.Draw(pulseRect, _healthPulse, _healthPercent, _pawnDead);
 
 			// 在绘制前计算内容高度并判断是否需要自动吸底
 			var prevViewH = _lastTranscriptContentHeight;
@@ -100,14 +127,14 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				const float lcdRightMargin = 5f; // 右端向左缩 5px
 				var lcdRect = new Rect(lcdLeft, indicatorRect.y, Mathf.Max(0f, indicatorRect.xMax - lcdLeft - lcdRightMargin), indicatorRect.height);
 				var pulse = _controller.State.Indicators.DataOn;
-				var text = BuildLcdText();
+				var text = GetOrShuffleLcdText();
 				Parts.LcdMarquee.Draw(lcdRect, _controller.State.Lcd, text, pulse, _controller.State.IsStreaming);
 			}
 			InputRow.Draw(inputRect, ref _inputText,
 				onSmalltalk: () => _ = OnSendSmalltalkAsync(),
 				onCommand: () => _ = OnSendCommandAsync(),
 				onCancel: () => OnCancelStreaming(),
-				isStreaming: _controller.State.IsStreaming);
+				isStreaming: _controller.State.IsStreaming || _pawnDead);
 
 			// 消费流式 chunk：将其累加到最后一条 AI 文本
 			if (_controller.TryDequeueChunk(out var chunk))
@@ -139,6 +166,12 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				_inputText = _controller.State.LastUserInputStash;
 				_controller.State.LastUserInputStash = null;
 			}
+		}
+
+		public override void PreClose()
+		{
+			base.PreClose();
+			try { _healthCts?.Cancel(); } catch { }
 		}
 
 		private string BuildLcdText()
@@ -231,6 +264,68 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			if (!string.IsNullOrEmpty(_cachedPlayerId)) return _cachedPlayerId;
 			_cachedPlayerId = $"player:{Guid.NewGuid().ToString("N").Substring(0, 8)}";
 			return _cachedPlayerId;
+		}
+
+		private void EnsurePawnPortrait(float size)
+		{
+			if (_pawn == null) { _pawnPortrait = null; return; }
+			if (_pawnPortrait == null)
+			{
+				var sz = new Vector2(size, size);
+				_pawnPortrait = PortraitsCache.Get(_pawn, sz, Rot4.South);
+			}
+		}
+
+		private async System.Threading.Tasks.Task PollHealthAsync(System.Threading.CancellationToken ct)
+		{
+			while (!ct.IsCancellationRequested)
+			{
+				try
+				{
+					if (_pawn != null && _pawn.thingIDNumber != 0 && _world != null)
+					{
+						var snap = await _world.GetPawnHealthSnapshotAsync(_pawn.thingIDNumber, ct);
+						_pawnDead = snap.IsDead;
+						// 平均值计算在 Tool 层；此处按需求直接计算用于 UI 展示
+						_healthPercent = (snap.Consciousness + snap.Moving + snap.Manipulation + snap.Sight + snap.Hearing + snap.Talking + snap.Breathing + snap.BloodPumping + snap.BloodFiltration + snap.Metabolism) / 10f * 100f;
+					}
+				}
+				catch { }
+				await System.Threading.Tasks.Task.Delay(3000, ct);
+			}
+		}
+
+		private string GetOrShuffleLcdText()
+		{
+			// 每 N 秒刷新一次滚动文案，随机队列拼接（稳定的 RNG 种子，确保不同会话一致）
+			var now = Time.realtimeSinceStartup;
+			if (now >= _lcdNextShuffleRealtime || string.IsNullOrEmpty(_lcdText))
+			{
+				var parts = new[]
+				{
+					"RIMAI", "CORE", "V5", "SAFE", "FAST", "STABLE", "AGENT", "STAGE", "TOOL", "WORLD",
+					"HISTORY", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10", "AI"
+				};
+				// 洗牌
+				for (int i = parts.Length - 1; i > 0; i--)
+				{
+					int j = _lcdRng.Next(i + 1);
+					var tmp = parts[i];
+					parts[i] = parts[j];
+					parts[j] = tmp;
+				}
+				// 取前若干并拼接，间隔更紧凑（单空格），并尽量等一轮跑完后再刷新
+				var take = Mathf.Clamp(8, 3, parts.Length);
+				var sel = string.Join(" ", parts, 0, take);
+				_lcdText = sel + " ";
+				// 估算一轮滚动耗时：根据列数和 Marquee 步进间隔，直到完整循环后再刷新
+				Parts.LcdMarquee.EnsureColumns(_controller.State.Lcd, _lcdText);
+				int totalCols = Mathf.Max(1, _controller.State.Lcd.Columns.Count);
+				// 每次推进 3 列；每步间隔由 state.IntervalSec 指定
+				float secsPerLoop = (totalCols / 3f) * (float)_controller.State.Lcd.IntervalSec;
+				_lcdNextShuffleRealtime = now + Mathf.Max(4f, secsPerLoop);
+			}
+			return _lcdText;
 		}
 	}
 }

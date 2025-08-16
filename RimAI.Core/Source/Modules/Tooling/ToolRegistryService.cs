@@ -8,6 +8,7 @@ using System.Globalization;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.Persistence;
 using RimAI.Core.Source.Modules.Tooling.Indexing;
+using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Infrastructure.Configuration;
 using RimAI.Core.Contracts.Config;
 
@@ -172,6 +173,32 @@ namespace RimAI.Core.Source.Modules.Tooling
 			{
 				var result = new { name = "Colony", population = 0, wealth = 0 };
 				return Task.FromResult<object>(result);
+			}
+			if (string.Equals(toolName, "get_pawn_health", StringComparison.OrdinalIgnoreCase))
+			{
+				if (args == null || !args.TryGetValue("pawn_id", out var v) || v == null)
+					throw new ArgumentException("missing pawn_id");
+				var pawnId = Convert.ToInt32(v, CultureInfo.InvariantCulture);
+				IWorldDataService world = null;
+				try { world = (IWorldDataService)RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve(typeof(IWorldDataService)); } catch { }
+				if (world == null)
+				{
+					// 回退：工具注册期不可用时（不应发生），返回占位
+					return Task.FromResult<object>(new { pawn_id = pawnId, ok = false });
+				}
+				return world.GetPawnHealthSnapshotAsync(pawnId, ct).ContinueWith<Task<object>>(t =>
+				{
+					if (t.IsFaulted || t.IsCanceled) return Task.FromResult<object>(new { pawn_id = pawnId, ok = false });
+					var s = t.Result;
+					var avg = (s.Consciousness + s.Moving + s.Manipulation + s.Sight + s.Hearing + s.Talking + s.Breathing + s.BloodPumping + s.BloodFiltration + s.Metabolism) / 10f * 100f;
+					object res = new
+					{
+						pawn_id = s.PawnLoadId,
+						avg = avg,
+						is_dead = s.IsDead
+					};
+					return Task.FromResult(res);
+				}).Unwrap();
 			}
 			throw new NotImplementedException(toolName);
 		}

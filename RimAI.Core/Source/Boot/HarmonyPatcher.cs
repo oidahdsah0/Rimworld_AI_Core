@@ -39,15 +39,21 @@ namespace RimAI.Core.Source.Boot
         {
             try
             {
-                // Only show in developer mode and when DebugPanel is enabled
-                if (!Prefs.DevMode) return;
-
-                var cfgService = RimAICoreMod.Container.Resolve<IConfigurationService>();
-                if (cfgService?.Current?.DebugPanelEnabled != true) return;
-
-                // Append our debug button at the end of gizmos
                 var list = __result?.ToList() ?? new List<Gizmo>();
-                list.Add(DebugGizmoFactory.CreateOpenDebugWindowGizmo());
+
+                // Debug 按钮（保留原逻辑：仅 Dev 模式 + DebugPanel 开启）
+                if (Prefs.DevMode)
+                {
+                    var cfgService = RimAICoreMod.Container.Resolve<IConfigurationService>();
+                    if (cfgService?.Current?.DebugPanelEnabled == true)
+                    {
+                        list.Add(DebugGizmoFactory.CreateOpenDebugWindowGizmo());
+                    }
+                }
+
+                // 常规入口：信息传输（与 Debug 同级显示，不依赖 DevMode）
+                list.Add(DebugGizmoFactory.CreateOpenChatWindowGizmo(__instance));
+
                 __result = list;
             }
             catch (Exception ex)

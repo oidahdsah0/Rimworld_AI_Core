@@ -23,6 +23,9 @@ using RimAI.Core.Source.Modules.Stage.Diagnostics;
 using RimAI.Core.Source.Modules.Stage.History;
 using RimAI.Core.Source.Modules.Stage.Kernel;
 using RimAI.Core.Source.Modules.Stage.Triggers;
+using RimAI.Core.Source.Services.Prompting;
+using RimAI.Core.Source.Services.Prompting.Composers.ChatUI;
+using RimAI.Core.Source.Infrastructure.Localization;
 using Verse;
 
 namespace RimAI.Core.Source.Boot
@@ -65,6 +68,24 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<StageLogging, StageLogging>();
                 Container.Register<StageHistorySink, StageHistorySink>();
                 Container.Register<IStageService, StageService>();
+
+                // Register Prompting (P11)
+                Container.Register<IPromptService, PromptService>();
+                Container.Register<ILocalizationService, LocalizationService>();
+                // Register a minimal subset of composers (DI for collection not supported; PromptService currently takes IEnumerable via manual assembly if needed)
+                // For now, register concrete composers as singletons resolved ad-hoc where needed
+                Container.Register<IPromptComposer, PawnIdentityComposer>();
+                Container.Register<IPromptComposer, PawnBackstoryComposer>();
+                Container.Register<IPromptComposer, PawnTraitsComposer>();
+                Container.Register<IPromptComposer, PawnSkillsComposer>();
+                Container.Register<IPromptComposer, PersonaJobComposer>();
+                Container.Register<IPromptComposer, PersonaBiographyComposer>();
+                Container.Register<IPromptComposer, PersonaIdeologyComposer>();
+                Container.Register<IPromptComposer, PersonaFixedPromptComposer>();
+                Container.Register<IPromptComposer, PawnSocialRelationsComposer>();
+                Container.Register<IPromptComposer, HistoryRecapComposer>();
+                Container.Register<IPromptComposer, RelatedConversationsComposer>();
+                Container.Register<IPromptComposer, PawnSocialHistoryComposer>();
 
                 // Register built-in Acts/Triggers via StageService after construction
 

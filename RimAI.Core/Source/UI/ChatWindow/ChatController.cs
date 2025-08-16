@@ -8,6 +8,8 @@ using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
+using RimAI.Core.Source.Services.Prompting;
+using RimAI.Core.Source.Services.Prompting.Models;
 
 namespace RimAI.Core.Source.UI.ChatWindow
 {
@@ -17,6 +19,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private readonly IHistoryService _history;
 		private readonly IWorldDataService _world;
 		private readonly IOrchestrationService _orchestration;
+		private readonly IPromptService _prompting;
 
 		private static readonly ThreadLocal<Random> _rng = new ThreadLocal<Random>(() => new Random(unchecked(Environment.TickCount * 31 + Thread.CurrentThread.ManagedThreadId)));
 
@@ -29,6 +32,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			IHistoryService history,
 			IWorldDataService world,
 			IOrchestrationService orchestration,
+			IPromptService prompting,
 			string convKey,
 			IReadOnlyList<string> participantIds)
 		{
@@ -36,6 +40,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_history = history;
 			_world = world;
 			_orchestration = orchestration;
+			_prompting = prompting;
 			State = new ChatConversationState
 			{
 				ConvKey = convKey,
@@ -111,8 +116,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				try
 				{
-					const string systemPrompt = "你是一个Rimworld边缘世界的新领地殖民者，你的总督正在通过随身通信终端与你取得联系。";
-					var finalUserText = "总督传来的信息如下：" + userText;
+					var req = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = false, Locale = null, UserInput = userText };
+					var prompt = await _prompting.BuildAsync(req, linked).ConfigureAwait(false);
+					var systemPrompt = prompt.SystemPrompt;
+					var finalUserText = ComposeUserMessage(prompt);
 					await foreach (var r in _llm.StreamResponseAsync(State.ConvKey,
 						systemPrompt,
 						finalUserText,
@@ -196,7 +203,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				try
 				{
-					var finalUserText = "总督传来的信息如下：" + userText;
+					var req = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = true, Locale = null, UserInput = userText };
+					var prompt = await _prompting.BuildAsync(req, linked).ConfigureAwait(false);
+					var finalUserText = ComposeUserMessage(prompt);
 					var result = await _orchestration.ExecuteAsync(finalUserText, State.ParticipantIds, new RimAI.Core.Source.Modules.Orchestration.ToolOrchestrationOptions
 					{
 						Mode = RimAI.Core.Source.Modules.Orchestration.OrchestrationMode.Classic,
@@ -325,6 +334,40 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				yield return text.Substring(idx, len);
 				idx += len;
 			}
+		}
+
+		private int? TryGetPawnLoadId()
+		{
+			try
+			{
+				foreach (var id in State.ParticipantIds)
+				{
+					if (id != null && id.StartsWith("pawn:"))
+					{
+						var s = id.Substring("pawn:".Length);
+						if (int.TryParse(s, out var v)) return v;
+					}
+				}
+			}
+			catch { }
+			return null;
+		}
+
+		private static string ComposeUserMessage(PromptBuildResult prompt)
+		{
+			if (prompt == null) return string.Empty;
+			var sb = new System.Text.StringBuilder();
+			if (prompt.ContextBlocks != null)
+			{
+				foreach (var b in prompt.ContextBlocks)
+				{
+					if (!string.IsNullOrWhiteSpace(b.Title)) sb.AppendLine(b.Title);
+					if (!string.IsNullOrWhiteSpace(b.Text)) sb.AppendLine(b.Text);
+					if (sb.Length > 0) sb.AppendLine();
+				}
+			}
+			sb.Append(prompt.UserPrefixedInput ?? string.Empty);
+			return sb.ToString();
 		}
 
 		private static string ExtractTextFromOrchestrationResult(RimAI.Core.Source.Modules.Orchestration.ToolCallsResult result)

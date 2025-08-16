@@ -45,6 +45,38 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         public sealed class UiSection
         {
             public bool DebugPanelEnabled { get; set; } = true;
+            public ChatWindowSection ChatWindow { get; set; } = new();
+        }
+
+        public sealed class ChatWindowSection
+        {
+            public ChatPromptsSection Prompts { get; set; } = new();
+        }
+
+        public sealed class ChatPromptsSection
+        {
+            public string Locale { get; set; } = null; // null=follow General.Locale
+            public int MaxSystemPromptChars { get; set; } = 1600;
+            public int MaxBlocksChars { get; set; } = 2400;
+            public SocialSection Social { get; set; } = new();
+            public ComposersSection Composers { get; set; } = new();
+        }
+
+        public sealed class SocialSection
+        {
+            public int TopRelations { get; set; } = 5;
+            public int RecentEvents { get; set; } = 5;
+        }
+
+        public sealed class ComposersSection
+        {
+            public ComposerGroup ChatUI { get; set; } = new();
+        }
+
+        public sealed class ComposerGroup
+        {
+            public string[] Enabled { get; set; } = System.Array.Empty<string>();
+            public string[] Order { get; set; } = System.Array.Empty<string>();
         }
 
 		public sealed class LlmSection

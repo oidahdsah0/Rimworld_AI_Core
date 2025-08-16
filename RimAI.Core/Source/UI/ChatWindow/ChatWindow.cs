@@ -12,6 +12,7 @@ using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.UI.ChatWindow.Parts;
+using RimAI.Core.Source.Services.Prompting;
 
 namespace RimAI.Core.Source.UI.ChatWindow
 {
@@ -22,6 +23,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private readonly IHistoryService _history;
 		private readonly IWorldDataService _world;
 		private readonly IOrchestrationService _orchestration;
+		private readonly IPromptService _prompting;
 
 		private readonly Pawn _pawn;
 		private ChatController _controller;
@@ -60,12 +62,13 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_history = _container.Resolve<IHistoryService>();
 			_world = _container.Resolve<IWorldDataService>();
 			_orchestration = _container.Resolve<IOrchestrationService>();
+			_prompting = _container.Resolve<IPromptService>();
 
 			var participantIds = BuildParticipantIds(pawn);
 			var convKey = BuildConvKey(participantIds);
 			// 若已存在与该 pawn 相关的历史会话，优先复用其 convKey（避免因 playerId 不稳定导致历史无法匹配）
 			TryBindExistingConversation(_history, ref participantIds, ref convKey);
-			_controller = new ChatController(_llm, _history, _world, _orchestration, convKey, participantIds);
+			_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, participantIds);
 			_lcdRng = new System.Random(convKey.GetHashCode());
 			_lcdNextShuffleRealtime = 0.0;
 			// 启动健康轮询

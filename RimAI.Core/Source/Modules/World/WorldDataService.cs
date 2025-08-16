@@ -106,6 +106,134 @@ namespace RimAI.Core.Source.Modules.World
 				return snap;
 			}, name: "GetPawnHealthSnapshot", ct: cts.Token);
 		}
+
+		public Task<PawnPromptSnapshot> GetPawnPromptSnapshotAsync(int pawnLoadId, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null;
+				foreach (var map in Find.Maps)
+				{
+					foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
+					{
+						if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; }
+					}
+					if (pawn != null) break;
+				}
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				var snap = new PawnPromptSnapshot
+				{
+					Id = new Identity
+					{
+						Name = pawn.Name?.ToStringShort ?? pawn.LabelCap ?? "Pawn",
+						Gender = pawn.gender.ToString(),
+						Age = (int)pawn.ageTracker?.AgesBiologicalYears ?? 0,
+						Race = pawn.def?.label ?? string.Empty,
+						Belief = null
+					},
+					Story = new Backstory
+					{
+						Childhood = pawn.story?.childhood?.titleShortCap ?? string.Empty,
+						Adulthood = pawn.story?.adulthood?.titleShortCap ?? string.Empty
+					},
+					Traits = new TraitsAndWork
+					{
+						Traits = (pawn.story?.traits?.allTraits ?? new System.Collections.Generic.List<Trait>()).Select(t => t.LabelCap ?? t.Label).ToList(),
+						WorkDisables = pawn.story?.CombinedDisabledWorkTags?.ToString()?.Split(new[] { ',', ';' }, System.StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList() ?? new System.Collections.Generic.List<string>()
+					},
+					Skills = new Skills
+					{
+						Items = (pawn.skills?.skills ?? new System.Collections.Generic.List<SkillRecord>()).Select(s => new SkillItem
+						{
+							Name = s.def?.label ?? s.def?.defName ?? string.Empty,
+							Level = s.Level,
+							Passion = s.passion.ToString(),
+							Normalized = UnityEngine.Mathf.Clamp01(s.Level / 20f)
+						}).ToList()
+					},
+					IsIdeologyAvailable = ModsConfig.IdeologyActive
+				};
+				if (snap.IsIdeologyAvailable)
+				{
+					try
+					{
+						// 尝试读取信仰/意识形态简要（若不可用则跳过）
+						snap.Id.Belief = pawn.Ideo?.name ?? pawn.Ideo?.ToString() ?? null;
+					}
+					catch { snap.Id.Belief = null; }
+				}
+				return snap;
+			}, name: "GetPawnPromptSnapshot", ct: cts.Token);
+		}
+
+		public Task<PawnSocialSnapshot> GetPawnSocialSnapshotAsync(int pawnLoadId, int topRelations, int recentSocialEvents, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null;
+				foreach (var map in Find.Maps)
+				{
+					foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
+					{
+						if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; }
+					}
+					if (pawn != null) break;
+				}
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				var relations = new System.Collections.Generic.List<SocialRelationItem>();
+				try
+				{
+					var rels = pawn.relations?.DirectRelations ?? new System.Collections.Generic.List<DirectPawnRelation>();
+					foreach (var r in rels)
+					{
+						var other = r.otherPawn;
+						if (other == null) continue;
+						relations.Add(new SocialRelationItem
+						{
+							RelationKind = r.def?.label ?? r.def?.defName ?? string.Empty,
+							OtherName = other.Name?.ToStringShort ?? other.LabelCap ?? "Pawn",
+							OtherEntityId = $"pawn:{other.thingIDNumber}",
+							Opinion = pawn.relations?.OpinionOf(other) ?? 0
+						});
+					}
+				}
+				catch { }
+				var ordered = relations.OrderByDescending(x => x.Opinion).Take(Math.Max(0, topRelations)).ToList();
+				var eventsList = new System.Collections.Generic.List<SocialEventItem>();
+				try
+				{
+					var logs = Find.PlayLog?.AllEntries ?? new System.Collections.Generic.List<LogEntry>();
+					for (int i = logs.Count - 1; i >= 0 && eventsList.Count < recentSocialEvents; i--)
+					{
+						var e = logs[i];
+						if (e is InteractionLogEntry intx)
+						{
+							var initiator = intx.initiator as Pawn;
+							var recipient = intx.recipient as Pawn;
+							if (initiator == null && recipient == null) continue;
+							bool related = (initiator?.thingIDNumber == pawnLoadId) || (recipient?.thingIDNumber == pawnLoadId);
+							if (!related) continue;
+							var who = initiator?.thingIDNumber == pawnLoadId ? recipient : initiator;
+							var withName = who?.Name?.ToStringShort ?? who?.LabelCap ?? "Pawn";
+							var withId = who == null ? null : $"pawn:{who.thingIDNumber}";
+							var kind = intx.def?.label ?? intx.def?.defName ?? "Social";
+							var when = new System.DateTime(Verse.Find.TickManager.TicksGame * 60L * 10000L / 60, System.DateTimeKind.Utc); // 近似：按 Ticks 推断
+							eventsList.Add(new SocialEventItem { TimestampUtc = when, WithName = withName, WithEntityId = withId, InteractionKind = kind, Outcome = null });
+						}
+					}
+				}
+				catch { }
+				return new PawnSocialSnapshot { Relations = ordered, RecentEvents = eventsList };
+			}, name: "GetPawnSocialSnapshot", ct: cts.Token);
+		}
 	}
 
 	internal sealed class WorldDataException : Exception

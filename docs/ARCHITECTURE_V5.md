@@ -1,11 +1,11 @@
 # RimAI.Core V5 架构文档
 
 > 版本：v5.0.0-alpha  
-> 状态：Living Document – 每完成一个阶段（P1–P9）立即回填文档 & 图表
+> 状态：Living Document – 每完成一个阶段（P1–P11）立即回填文档 & 图表
 
 > 本文目标：
 > 1. 在 V4 实践基础上，确立 V5 的全局纪律、职责边界与分层设计，保持“访问面最小、职责单一、强可观测”。
-> 2. 指导 P1–P9 的施工推进，确保阶段实现不偏离整体架构，Gate 可录屏可复现。
+> 2. 指导 P1–P11 的施工推进，确保阶段实现不偏离整体架构，Gate 可录屏可复现。
 > 3. 与《V5 — 全局纪律与统一规范》（`docs/V5_GLOBAL_CONVENTIONS.md`）协同，冲突时以“全局规范”为准。
 
 ---
@@ -42,7 +42,7 @@
 
 ---
 
-## 3. 分阶段路线图（P1–P9）
+## 3. 分阶段路线图（P1–P11）
 
 > 细则与按钮清单见各 `V5_Px_IMPLEMENTATION_PLAN.md`。此处仅列阶段 Gate 摘要。
 
@@ -57,6 +57,8 @@
 | P7 – Persona | CRUD 与非流式生成草案；组合 Persona Block + 审计；键=实体 `pawn|thing:<loadId>` |
 | P8 – History | 仅最终输出；N 轮摘要 Replace/Append；关联对话（严格超/子集）；编辑/删除→Stale/重建 |
 | P9 – Stage | 仲裁（互斥/合流/冷却/幂等/lease）；Acts/Triggers 插件化；统一写 `agent:stage` |
+| P10 – ChatWindow UI | 闲聊真流式（仅 UI/Debug）；命令伪流式；仅“最终输出”写入历史；Gizmo 入口与快捷键 |
+| P11 – Prompting | 单入口 `IPromptService.BuildAsync`；12 项 ChatUI 作曲器；多语言 JSON；热插拔；全链非流式 |
 
 ---
 
@@ -66,9 +68,11 @@
 graph TD
     UI["UI 层\n窗口/面板/Debug"] --> Stage
     UI --> Orchestration
+    UI --> Prompting["Prompting (P11)"]
     Orchestration --> Tooling
     Orchestration --> LLM["ILLMService (P2)"]
     Stage --> History
+    Stage --> Prompting
     Tooling --> LLM
     World["WorldData (P3)"] --> Scheduler
     Tooling --> World
@@ -86,6 +90,7 @@ graph TD
 > - Framework 仅在 `LLMService`（P2）。
 > - Verse 读取仅在 `WorldDataService`（P3）与 `PersistenceService`（P6）。
 > - Tool JSON 的唯一产出方：`IToolRegistryService`（P4）。
+> - Prompting 单一入口：`IPromptService.BuildAsync`（P11）组织提示词与上下文；不触达 Framework；Verse/文件 IO 访问遵循 P3/P6。
 
 ---
 
@@ -160,6 +165,22 @@ V5 对外最小面仅限配置：
 
 ---
 
+### 5.10 P10 – ChatWindow（信息传输 UI）
+
+职责：独立聊天窗口（玩家 ↔ 小人），闲聊真流式（UI 展示）、命令后台非流式 + UI 伪流式；指示灯（Data/Busy/Fin）、LCD 跑马灯与“生命体征”小窗；仅在完成阶段将“玩家输入 + AI 最终文本”写入历史。  
+边界：UI 不直接 `using RimAI.Framework.*`；世界数据经 `IWorldDataService`（P3，主线程化）；历史写入经 `IHistoryService`（P8）；可选调用 `IOrchestrationService`（P5）执行命令；提示词统一由 `IPromptService`（P11）提供；不触达 Scribe/文件 IO。  
+纪律：流式仅限 UI/Debug；后台路径一律非流式；取消与会话自增编号避免尾包污染；日志前缀 `[RimAI.Core][P10]`；入口为 Pawn 常规 Gizmo“信息传输”。
+
+---
+
+### 5.11 P11 – Prompting（提示词服务）
+
+职责：单入口 `IPromptService.BuildAsync`，以可插拔作曲器（Composer）组织 SystemPrompt、ContextBlocks 与用户输入前缀；支持多语言 JSON、配置热插拔与预算裁剪；为 ChatUI/Stage/Tool 提供统一提示词产物。  
+边界：不触达 LLM/Framework；Verse 仅经 `IWorldDataService`（P3）获取只读快照；文件/本地化 JSON 仅经 `IPersistenceService`（P6）；可消费 P7/P8 快照（Persona/历史）。  
+纪律：全链非流式；作曲器按 `Scope/Order` 装配；缺键/缺数据容错跳过；日志前缀 `[RimAI.Core][P11]`；返回纯 POCO/字符串，不泄露 Verse 句柄。
+
+---
+
 ## 6. 全局纪律（并入）
 
 > 完整版见 `docs/V5_GLOBAL_CONVENTIONS.md`。以下为关键不变式（Invariants）：
@@ -204,7 +225,7 @@ V5 对外最小面仅限配置：
 
 ## 10. 可观测性与日志
 
-- 统一日志前缀：V5 版本下，所有日志必须以 `[RimAI.Core]` 开头；建议叠加阶段标识形成层级前缀，如 `[RimAI.Core][P1]`、`[RimAI.Core][P4]`。关键字段包括 provider/model/convId-hash/latency/chunks/score 摘要等。  
+- 统一日志前缀：V5 版本下，所有日志必须以 `[RimAI.Core]` 开头；建议叠加阶段标识形成层级前缀，如 `[RimAI.Core][P1]`、`[RimAI.Core][P4]`、`[RimAI.Core][P10]`、`[RimAI.Core][P11]`。关键字段包括 provider/model/convId-hash/latency/chunks/score 摘要等。  
 - Debug 面板规范：每 P 至少包含 Ping/自检/示例/指标卡；日志按钮严格不落敏感正文。  
 - 审计字段：字符裁剪、窗口区间、索引指纹、命中率、慢执行告警、节点统计等。
 
@@ -232,7 +253,7 @@ V5 对外最小面仅限配置：
 
 - Verse/Scribe 面最小化：除 `Modules/World/**` 与 `Modules/Persistence/**` 外 检查=0：`\bScribe\.|using\s+Verse`。  
 - Framework 面最小化：除 `Modules/LLM/**` 外 检查=0：`using\s+RimAI\.Framework`。  
-- 后台非流式：相关目录 检查=0：`StreamResponseAsync\(`。  
+- 后台非流式：相关目录 检查=0：`StreamResponseAsync\(`。例外：仅允许在 `Source/UI/ChatWindow/**` 与 `Source/UI/DebugPanel/**`（UI/Debug）中出现。  
 - Tooling 不自动降级：索引/TopK 路径 检查=0：`\bAuto\b|degrad|fallback`（上下文限定）。  
 - 注入纪律：禁止属性注入；仅构造函数注入；Service Locator 禁用。  
 - 文件命名与工件：构建后应存在 `tools_index_{provider}_{model}.json`（仅设置文件）；存档节点按版本后缀；仓级 检查禁用除 Persistence 外的 `System.IO` 直接使用。
@@ -306,7 +327,15 @@ V5 对外最小面仅限配置：
   - 典型点：`IStageService.SubmitIntentAsync/StartAsync`、`IStageAct.ExecuteAsync`、`IStageTrigger.RunOnceAsync`、`StageHistorySink` 写入。
   - 要求：仲裁/路由/执行全链异步；Act 内如需世界快照经 P3；最终总结写入历史使用异步；禁止在主线程等待外部 Task。
 
-主线程守则（通用）：
+ - P10 ChatWindow（UI 允许流式；后台非流式）
+  - 典型点：闲聊 `ILLMService.StreamResponseAsync`（UI 真流式展示）；命令经编排/服务非流式返回，UI 端伪流式切片；指示灯与 LCD 跑马灯逐帧刷新。
+  - 要求：网络/服务调用均异步；使用 `CancellationTokenSource` 支持中断；OnGUI 每帧从 `ConcurrentQueue<string>` 消费 chunk 更新最后一条 AI 文本；禁止 `.Wait()`/`.Result` 阻塞主线程；流式 API 仅在 UI/Debug 路径。
+
+ - P11 Prompting（必须异步；非流式）
+  - 典型点：`IPromptService.BuildAsync` 聚合世界/人格/历史快照与多语言资源；执行作曲器流水线并裁剪预算。
+  - 要求：全链非流式；Verse 访问主线程化经 P3；本地化 JSON 读取经 P6 的统一文件 IO；避免大字符串频繁拼接（建议 `StringBuilder`）。
+
+ 主线程守则（通用）：
 - 在 `Update/Tick`/UI 线程严禁调用阻塞等待（`.Wait()`/`.Result`/长时间锁）。
 - 任何 Verse 访问必须通过 `ISchedulerService` 主线程化；任何文件 IO 必须通过 `IPersistenceService` 异步 API。
 

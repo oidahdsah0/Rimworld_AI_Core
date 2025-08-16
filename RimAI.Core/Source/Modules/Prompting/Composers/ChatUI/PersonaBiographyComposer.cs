@@ -19,11 +19,9 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			if (list != null && list.Count > 0)
 			{
 				var title = ctx?.L?.Invoke("prompt.section.biography", "[人物传记]") ?? "[人物传记]";
-				lines.Add(title);
-				foreach (var b in list.Take(4))
-				{
-					lines.Add("- " + (b.Text ?? string.Empty));
-				}
+				var parts = list.Take(4).Select(b => (b.Text ?? string.Empty).Trim()).Where(s => !string.IsNullOrEmpty(s));
+				var oneLine = string.Join("; ", parts);
+				if (!string.IsNullOrEmpty(oneLine)) lines.Add(title + oneLine + ";");
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

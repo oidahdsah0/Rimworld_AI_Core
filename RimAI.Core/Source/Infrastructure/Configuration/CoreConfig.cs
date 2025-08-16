@@ -59,6 +59,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
             public int MaxSystemPromptChars { get; set; } = 1600;
             public int MaxBlocksChars { get; set; } = 2400;
             public SocialSection Social { get; set; } = new();
+            public EnvSection Env { get; set; } = new();
             public ComposersSection Composers { get; set; } = new();
         }
 
@@ -66,6 +67,11 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         {
             public int TopRelations { get; set; } = 5;
             public int RecentEvents { get; set; } = 5;
+        }
+
+        public sealed class EnvSection
+        {
+            public int Radius { get; set; } = 9; // 以格为单位，默认为 9 格半径（19x19）
         }
 
         public sealed class ComposersSection

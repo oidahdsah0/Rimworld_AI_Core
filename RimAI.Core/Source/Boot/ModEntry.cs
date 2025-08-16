@@ -33,20 +33,23 @@ namespace RimAI.Core.Source.Boot
     public class RimAICoreMod : Mod
     {
         public static ServiceContainer Container { get; private set; } = new();
+        public static string ModRootDir { get; private set; } = string.Empty;
 
         public RimAICoreMod(ModContentPack content) : base(content)
         {
             var sw = Stopwatch.StartNew();
             try
             {
-				// Register services (P1 + P2 + P3)
+                // Capture Mod root directory for runtime resource lookup (e.g., localization files)
+                try { ModRootDir = content?.RootDir ?? string.Empty; } catch { ModRootDir = string.Empty; }
+                // Register services (P1 + P2 + P3)
                 Container.Register<IConfigurationService, ConfigurationService>();
                 Container.Register<ILLMService, LLMService>();
                 Container.Register<ISchedulerService, SchedulerService>();
-				Container.Register<IWorldDataService, WorldDataService>();
-				// P4 + P6 minimal services
-				Container.Register<RimAI.Core.Source.Modules.Persistence.IPersistenceService, RimAI.Core.Source.Modules.Persistence.PersistenceService>();
-				Container.Register<RimAI.Core.Source.Modules.Tooling.IToolRegistryService, RimAI.Core.Source.Modules.Tooling.ToolRegistryService>();
+                Container.Register<IWorldDataService, WorldDataService>();
+                // P4 + P6 minimal services
+                Container.Register<RimAI.Core.Source.Modules.Persistence.IPersistenceService, RimAI.Core.Source.Modules.Persistence.PersistenceService>();
+                Container.Register<RimAI.Core.Source.Modules.Tooling.IToolRegistryService, RimAI.Core.Source.Modules.Tooling.ToolRegistryService>();
                 // P5 Orchestration
                 Container.Register<IOrchestrationService, OrchestrationService>();
 
@@ -97,10 +100,10 @@ namespace RimAI.Core.Source.Boot
                 HarmonyPatcher.Apply(harmony);
 
                 sw.Stop();
-				// P2: resolve ILLMService to self-check readiness
+                // P2: resolve ILLMService to self-check readiness
                 _ = Container.Resolve<ILLMService>();
-				// P4: ensure tooling index attempt load (non-blocking)
-				try { _ = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>(); } catch { }
+                // P4: ensure tooling index attempt load (non-blocking)
+                try { _ = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>(); } catch { }
                 Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
             }
             catch (Exception ex)

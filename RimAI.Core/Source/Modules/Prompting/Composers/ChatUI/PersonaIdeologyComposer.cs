@@ -18,12 +18,11 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			if (rec != null)
 			{
 				var title = ctx?.L?.Invoke("prompt.section.ideology", "[意识形态]") ?? "[意识形态]";
-				lines.Add(title);
 				void Add(string name, string text, string key)
 				{
 					if (string.IsNullOrWhiteSpace(text)) return;
 					var tpl = ctx?.F?.Invoke(key, new Dictionary<string, string> { { "name", name }, { "text", text } }, name + "：" + text) ?? (name + "：" + text);
-					lines.Add(tpl);
+					lines.Add(title + tpl);
 				}
 				Add("世界观", rec.Worldview, "prompt.format.ideology_worldview");
 				Add("价值观", rec.Values, "prompt.format.ideology_values");

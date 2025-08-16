@@ -18,8 +18,17 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var social = ctx?.PawnSocial;
 			if (social?.RecentEvents != null && social.RecentEvents.Count > 0)
 			{
-				var lines = social.RecentEvents.Take(5).Select(e => $"[{e.TimestampUtc:HH:mm}] {e.WithName}: {e.InteractionKind}{(string.IsNullOrWhiteSpace(e.Outcome) ? string.Empty : (" " + e.Outcome))}");
-				blocks.Add(new ContextBlock { Title = "[社交历史]", Text = string.Join("\n", lines) });
+				var list = new List<string>();
+				int idx = 1;
+				foreach (var e in social.RecentEvents.Take(10))
+				{
+					var ts = string.IsNullOrWhiteSpace(e.GameTime) ? e.TimestampUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : e.GameTime;
+					var who = string.IsNullOrWhiteSpace(e.WithName) ? "?" : e.WithName;
+					var kind = string.IsNullOrWhiteSpace(e.InteractionKind) ? "Social" : e.InteractionKind;
+					var outcome = string.IsNullOrWhiteSpace(e.Outcome) ? string.Empty : (" " + e.Outcome);
+					list.Add($"{idx++}. {ts} - {who}: {kind}{outcome}");
+				}
+				blocks.Add(new ContextBlock { Title = "[社交历史]", Text = string.Join("\n", list) });
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = System.Array.Empty<string>(), ContextBlocks = blocks });
 		}

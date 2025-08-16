@@ -11,6 +11,12 @@ namespace RimAI.Core.Source.Modules.Prompting
 		string Id { get; }
 		Task<ComposerOutput> ComposeAsync(PromptBuildContext ctx, CancellationToken ct);
 	}
+
+	internal interface IProvidesUserPrefix
+	{
+		PromptScope Scope { get; }
+		string GetUserPrefix(PromptBuildContext ctx);
+	}
 }
 
 

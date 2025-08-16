@@ -9,7 +9,7 @@
 ## 0. 范围与非目标
 
 - 范围（本阶段交付）
-  - 新增 `Source/Services/Prompting/**`：统一的提示词服务，单一入口 `IPromptService.BuildAsync(...)`。
+  - 新增 `Source/Modules/Prompting/**`：统一的提示词服务，单一入口 `IPromptService.BuildAsync(...)`。
   - 引入“可插拔作曲器（Composer）”机制：按场景（Scope）与顺序（Order）组合不同信息块；支持启停与热重载。
   - 多语言资源：本地化 JSON（zh-Hans / en 起步），统一 `ILocalizationService` 读取，缺键自动回退。
   - P3 世界数据扩展：一次性提示词用快照（身份/特质/技能/信仰可用性）+ 社交快照（社交关系/社交历史）。
@@ -45,7 +45,7 @@
 ```
 RimAI.Core/
   Source/
-    Services/
+    Modules/
       Prompting/
         IPromptService.cs               // 单入口接口：BuildAsync
         PromptService.cs                // 聚合作曲器、裁剪、日志、热重载
@@ -304,7 +304,7 @@ internal sealed class SocialEventItem {
 
 ## 10. 实施步骤（一步到位）
 
-- S1：建立目录与骨架（`Services/Prompting/**`），定义 `IPromptService`、`IPromptComposer`、模型与属性类。
+- S1：建立目录与骨架（`Modules/Prompting/**`），定义 `IPromptService`、`IPromptComposer`、模型与属性类。
 - S2：实现 `PromptService`：
   - 发现与装配作曲器（构造注入 + 可选反射 Attribute）；
   - 读取配置/本地化；监听热重载事件；

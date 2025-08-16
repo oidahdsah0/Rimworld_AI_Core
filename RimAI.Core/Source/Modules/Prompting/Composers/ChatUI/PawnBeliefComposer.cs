@@ -1,29 +1,24 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Source.Modules.Prompting.Models;
 
 namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 {
-	internal sealed class PawnSocialRelationsComposer : IPromptComposer
+	internal sealed class PawnBeliefComposer : IPromptComposer
 	{
 		public PromptScope Scope => PromptScope.ChatUI;
-		public int Order => 60;
-		public string Id => "pawn_social_relations";
+		public int Order => 15;
+		public string Id => "pawn_belief";
 
 		public Task<ComposerOutput> ComposeAsync(PromptBuildContext ctx, CancellationToken ct)
 		{
 			var lines = new List<string>();
-			var social = ctx?.PawnSocial;
-			if (social?.Relations != null && social.Relations.Count > 0)
+			var p = ctx?.PawnPrompt;
+			if (p != null && p.IsIdeologyAvailable && p.Id != null && !string.IsNullOrWhiteSpace(p.Id.Belief))
 			{
-				var parts = new List<string>();
-				foreach (var r in social.Relations.Take(5))
-				{
-					parts.Add($"{r.RelationKind}:{r.OtherName}({r.Opinion})");
-				}
-				if (parts.Count > 0) lines.Add("[社交关系]" + string.Join("; ", parts) + ";");
+				var title = ctx?.L?.Invoke("prompt.section.belief", "[信仰]") ?? "[信仰]";
+				lines.Add(title + p.Id.Belief);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

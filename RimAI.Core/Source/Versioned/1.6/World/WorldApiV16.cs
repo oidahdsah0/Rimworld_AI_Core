@@ -4,6 +4,7 @@ using System.Linq;
 using RimWorld;
 using Verse;
 using System.Reflection;
+using UnityEngine;
 
 namespace RimAI.Core.Source.Versioned._1_6.World
 {
@@ -46,6 +47,45 @@ namespace RimAI.Core.Source.Versioned._1_6.World
 					}
 				}
 				return bs.defName;
+			}
+			catch { return null; }
+		}
+
+		public static string GetPawnTitle(Pawn pawn)
+		{
+			try
+			{
+				if (pawn == null) return null;
+				// Royalty（若存在）
+				try
+				{
+					var royalty = pawn.GetType().GetProperty("royalty", BindingFlags.Public | BindingFlags.Instance)?.GetValue(pawn);
+					if (royalty != null)
+					{
+						var most = royalty.GetType().GetProperty("MostSeniorTitle", BindingFlags.Public | BindingFlags.Instance)?.GetValue(royalty);
+						var label = most?.GetType().GetProperty("label", BindingFlags.Public | BindingFlags.Instance)?.GetValue(most) as string;
+						if (!string.IsNullOrWhiteSpace(label)) return label;
+					}
+				}
+				catch { }
+				// Story 自带 TitleShortCap
+				try
+				{
+					var story = pawn.story;
+					if (story != null)
+					{
+						var pi = story.GetType().GetProperty("TitleShortCap", BindingFlags.Public | BindingFlags.Instance);
+						if (pi != null)
+						{
+							var s = pi.GetValue(story) as string;
+							if (!string.IsNullOrWhiteSpace(s)) return s;
+						}
+					}
+				}
+				catch { }
+				// 回退：成年/童年 Backstory 标题
+				var t = GetBackstoryTitle(pawn, false) ?? GetBackstoryTitle(pawn, true);
+				return t;
 			}
 			catch { return null; }
 		}
@@ -116,7 +156,8 @@ namespace RimAI.Core.Source.Versioned._1_6.World
 							WithName = other?.Name?.ToStringShort ?? other?.LabelCap ?? "Pawn",
 							WithEntityId = other != null ? ($"pawn:{other.thingIDNumber}") : null,
 							InteractionKind = inter.def?.label ?? inter.def?.defName ?? "Social",
-							Outcome = null
+							Outcome = null,
+							GameTime = GetCurrentGameTime()
 						};
 						list.Add(item);
 					}
@@ -124,6 +165,18 @@ namespace RimAI.Core.Source.Versioned._1_6.World
 			}
 			catch { }
 			return list;
+		}
+
+		private static string GetCurrentGameTime()
+		{
+			try
+			{
+				var abs = Find.TickManager?.TicksAbs ?? 0;
+				int tile = Find.CurrentMap?.Tile ?? 0;
+				var longLat = Find.WorldGrid?.LongLatOf(tile) ?? Vector2.zero;
+				return GenDate.DateFullStringAt(abs, longLat);
+			}
+			catch { return DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"); }
 		}
 	}
 }

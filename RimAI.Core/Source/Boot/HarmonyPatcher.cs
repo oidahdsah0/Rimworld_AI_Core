@@ -5,6 +5,7 @@ using HarmonyLib;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Infrastructure;
 using RimAI.Core.Source.UI.DebugPanel;
+using RimWorld;
 using Verse;
 
 namespace RimAI.Core.Source.Boot
@@ -51,8 +52,15 @@ namespace RimAI.Core.Source.Boot
                     }
                 }
 
-                // 常规入口：信息传输（与 Debug 同级显示，不依赖 DevMode）
-                list.Add(DebugGizmoFactory.CreateOpenChatWindowGizmo(__instance));
+                // 常规入口：信息传输（仅我方殖民地居民拥有）
+                try
+                {
+                    if (__instance != null && __instance.Faction == Faction.OfPlayer && __instance.IsColonist)
+                    {
+                        list.Add(DebugGizmoFactory.CreateOpenChatWindowGizmo(__instance));
+                    }
+                }
+                catch { }
 
                 __result = list;
             }

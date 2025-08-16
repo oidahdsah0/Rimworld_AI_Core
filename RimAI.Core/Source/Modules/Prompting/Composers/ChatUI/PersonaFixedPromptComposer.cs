@@ -18,8 +18,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			if (fp != null && !string.IsNullOrWhiteSpace(fp.Text))
 			{
 				var title = ctx?.L?.Invoke("prompt.section.fixed_prompts", "[固定提示词]") ?? "[固定提示词]";
-				lines.Add(title);
-				lines.Add(fp.Text);
+				lines.Add(title + fp.Text);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

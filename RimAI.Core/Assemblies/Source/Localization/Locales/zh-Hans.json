@@ -1,5 +1,6 @@
 {
-  "ui.chat.system.base": "你是一个Rimworld边缘世界的新领地殖民者，你的总督正在通过随身通信终端与你取得联系。",
+  "ui.chat.system.base.name": "[系统基底]",
+  "ui.chat.system.base.value": "注意，你正在扮演Rimworld中的角色，请严格遵循提示词中列出的角色相关信息，严格推敲角色性格和发言方式，不要超出角色设定，不要出现任何与角色设定不符的言行，不要凭空产生剧情。你是一个Rimworld边缘世界的新领地殖民者，你的总督正在通过随身通信终端与你取得联系，你的回答应当符合角色设定。任何数据不可以原样照读，至少应当有些口语化的表达和修饰。",
   "ui.chat.user_prefix": "总督传来的信息如下：",
 
   "prompt.section.identity": "[个体]",
@@ -11,10 +12,18 @@
   "prompt.section.biography": "[人物传记]",
   "prompt.section.ideology": "[意识形态]",
   "prompt.section.fixed_prompts": "[固定提示词]",
+  "prompt.section.belief": "[信仰]",
   "prompt.section.social_relations": "[社交关系]",
   "prompt.section.social_history": "[社交历史]",
   "prompt.section.recap": "[前情提要]",
   "prompt.section.related_conversations": "[关联对话]",
+  "prompt.section.environment": "[周边环境]",
+  "prompt.section.env_beauty": "[环境-周围美化度]",
+  "prompt.section.env_terrain": "[环境-周围地貌]",
+  "prompt.section.health_avg": "[生命体征]",
+  "prompt.section.colony": "[领地]",
+  "prompt.section.colonists": "[我方人员列表]",
+  "prompt.section.hediffs": "[健康状况]",
 
   "prompt.format.skill": "{name}: Lv{level}{passion}",
   "prompt.format.relation": "{rel}: {name}（好感{opinion}）",
@@ -25,6 +34,10 @@
   "prompt.format.ideology_worldview": "世界观：{text}",
   "prompt.format.ideology_values": "价值观：{text}",
   "prompt.format.ideology_code": "行为准则：{text}",
-  "prompt.format.ideology_traits": "性格特质：{text}"
+  "prompt.format.ideology_traits": "性格特质：{text}",
+  "prompt.format.colony_name": "名称：{name}",
+  "prompt.format.colony_count": "人口：{count}",
+  "prompt.format.colonists_line": "名单：{list}",
+  "prompt.format.colonist_item": "{name}({age}岁,{gender}{job,optional,leadingComma})"
 }
 

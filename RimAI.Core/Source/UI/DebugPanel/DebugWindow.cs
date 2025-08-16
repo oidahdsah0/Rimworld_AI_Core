@@ -23,6 +23,7 @@ using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Recap;
 using RimAI.Core.Source.Modules.History.Relations;
 using RimAI.Core.Source.Modules.Stage;
+using RimAI.Core.Source.Modules.Prompting;
 
 namespace RimAI.Core.Source.UI.DebugPanel
 {
@@ -45,6 +46,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
         private readonly IRecapService _recap;
         private readonly IRelationsService _relations;
         private readonly IStageService _stage;
+        private readonly IPromptService _prompting;
 		private Vector2 _scrollPos = Vector2.zero; // config preview
 		private Vector2 _pageScrollPos = Vector2.zero; // whole page scroll
 
@@ -83,6 +85,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
             _recap = _container.Resolve<IRecapService>();
             _relations = _container.Resolve<IRelationsService>();
             _stage = _container.Resolve<IStageService>();
+            _prompting = _container.Resolve<IPromptService>();
             _configPreviewJson = JsonPreview();
         }
 
@@ -165,6 +168,15 @@ namespace RimAI.Core.Source.UI.DebugPanel
 					_streaming = true;
 					_ = Task.Run(() => RunStreamingDemoAsync(_streamCts.Token));
 				}
+				if (listing.ButtonText("Start Stream with ChatUI Prompt (选中小人)"))
+				{
+					_streamOutput = string.Empty;
+					_streamConv = "ui-stream-chatui-" + DateTime.UtcNow.Ticks;
+					_streamStartUtc = DateTime.UtcNow;
+					_streamCts = new CancellationTokenSource();
+					_streaming = true;
+					_ = Task.Run(() => RunStreamingChatUiAsync(_streamCts.Token));
+				}
 			}
 			else
 			{
@@ -213,6 +225,10 @@ namespace RimAI.Core.Source.UI.DebugPanel
             // P9 Stage Panel
             RimAI.Core.Source.UI.DebugPanel.Parts.P9_StagePanel.Draw(listing, _stage, _history);
 
+            // P11 Prompting Panel
+            listing.GapLine();
+            RimAI.Core.Source.UI.DebugPanel.Parts.P11_PromptingPanel.Draw(listing, _prompting);
+
             listing.End();
 			Widgets.EndScrollView();
         }
@@ -235,6 +251,93 @@ namespace RimAI.Core.Source.UI.DebugPanel
 				await foreach (var r in _llm.StreamResponseAsync(_streamConv,
 					"You are a helpful assistant.",
 					"请用中文给我讲一个关于机器人和猫的短笑话。",
+					ct))
+				{
+					if (!r.IsSuccess)
+					{
+						_streamOutput += $"\n[error] {r.Error}";
+						break;
+					}
+					var chunk = r.Value;
+					if (!string.IsNullOrEmpty(chunk.ContentDelta))
+					{
+						_streamOutput += chunk.ContentDelta;
+						if (!firstUiAppended)
+						{
+							firstUiAppended = true;
+							var elapsedMs = (DateTime.UtcNow - _streamStartUtc).TotalMilliseconds;
+							Verse.Log.Message($"[RimAI.Core][P2.UI][Obs] first UI append at {elapsedMs:F0} ms conv={RimAI.Core.Source.Modules.LLM.LlmLogging.HashConversationId(_streamConv)}");
+						}
+					}
+					if (!string.IsNullOrEmpty(chunk.FinishReason))
+					{
+						_streamOutput += $"\n\n[finish] {chunk.FinishReason}";
+						break;
+					}
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				_streamOutput += "\n[cancelled]";
+			}
+			catch (Exception ex)
+			{
+				_streamOutput += $"\n[exception] {ex.Message}";
+			}
+			finally
+			{
+				_streaming = false;
+				try { _streamCts?.Dispose(); } catch { }
+				_streamCts = null;
+			}
+		}
+
+		private async Task RunStreamingChatUiAsync(CancellationToken ct)
+		{
+			try
+			{
+				var pawn = Find.Selector?.SingleSelectedThing as Pawn;
+				var participantIds = new System.Collections.Generic.List<string>();
+				if (pawn != null && pawn.thingIDNumber != 0) participantIds.Add($"pawn:{pawn.thingIDNumber}");
+				participantIds.Add("player:debug");
+				participantIds.Sort(StringComparer.Ordinal);
+				var convKey = string.Join("|", participantIds);
+
+				var req = new RimAI.Core.Source.Modules.Prompting.Models.PromptBuildRequest
+				{
+					Scope = RimAI.Core.Source.Modules.Prompting.Models.PromptScope.ChatUI,
+					ConvKey = convKey,
+					ParticipantIds = participantIds,
+					PawnLoadId = pawn != null ? (int?)pawn.thingIDNumber : null,
+					IsCommand = false,
+					Locale = null,
+					UserInput = "请用中文给我讲一个关于机器人和猫的短笑话。"
+				};
+				var prompt = await _prompting.BuildAsync(req, ct).ConfigureAwait(false);
+				var systemPrompt = prompt.SystemPrompt ?? string.Empty;
+
+				string ComposeUserMessage(RimAI.Core.Source.Modules.Prompting.Models.PromptBuildResult p)
+				{
+					if (p == null) return string.Empty;
+					var sb2 = new System.Text.StringBuilder();
+					if (p.ContextBlocks != null)
+					{
+						foreach (var b in p.ContextBlocks)
+						{
+							if (!string.IsNullOrWhiteSpace(b.Title)) sb2.Append(b.Title).Append(' ');
+							if (!string.IsNullOrWhiteSpace(b.Text)) sb2.Append(b.Text);
+							sb2.AppendLine();
+						}
+					}
+					sb2.Append(p.UserPrefixedInput ?? string.Empty);
+					return sb2.ToString();
+				}
+				var userText = ComposeUserMessage(prompt);
+
+				var firstUiAppended = false;
+				await foreach (var r in _llm.StreamResponseAsync(_streamConv,
+					systemPrompt,
+					userText,
 					ct))
 				{
 					if (!r.IsSuccess)

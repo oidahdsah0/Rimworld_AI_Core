@@ -1,5 +1,6 @@
 {
-  "ui.chat.system.base": "You are a new colonist on RimWorld's frontier. The governor is contacting you via a handheld terminal.",
+  "ui.chat.system.base.name": "[System Base]",
+  "ui.chat.system.base.value": "Note: You are role‑playing as a character in RimWorld. Strictly follow the role information listed in the prompts. Carefully adhere to the character’s personality and speaking style. Do not go beyond the character setting. Do not say anything inconsistent with the character. Do not invent plot out of thin air. You are a new colonist on RimWorld's frontier. The governor is contacting you via a handheld terminal. Your responses must conform to the character setting.",
   "ui.chat.user_prefix": "Message from the governor:",
 
   "prompt.section.identity": "[Identity]",
@@ -11,10 +12,18 @@
   "prompt.section.biography": "[Biography]",
   "prompt.section.ideology": "[Ideology]",
   "prompt.section.fixed_prompts": "[Fixed Prompts]",
+  "prompt.section.belief": "[Belief]",
   "prompt.section.social_relations": "[Social Relations]",
   "prompt.section.social_history": "[Social History]",
   "prompt.section.recap": "[Recap]",
   "prompt.section.related_conversations": "[Related Conversations]",
+  "prompt.section.environment": "[Environment Nearby]",
+  "prompt.section.health_avg": "[Vitals]",
+  "prompt.section.env_beauty": "[Env-Beauty Nearby]",
+  "prompt.section.env_terrain": "[Env-Terrain Nearby]",
+  "prompt.section.colony": "[Colony]",
+  "prompt.section.colonists": "[Our Colonists]",
+  "prompt.section.hediffs": "[Health Status]",
 
   "prompt.format.skill": "{name}: Lv{level}{passion}",
   "prompt.format.relation": "{rel}: {name} (opinion {opinion})",
@@ -25,6 +34,10 @@
   "prompt.format.ideology_worldview": "Worldview: {text}",
   "prompt.format.ideology_values": "Values: {text}",
   "prompt.format.ideology_code": "Code of Conduct: {text}",
-  "prompt.format.ideology_traits": "Traits: {text}"
+  "prompt.format.ideology_traits": "Traits: {text}",
+  "prompt.format.colony_name": "Name: {name}",
+  "prompt.format.colony_count": "Population: {count}",
+  "prompt.format.colonists_line": "Roster: {list}",
+  "prompt.format.colonist_item": "{name}({age}y,{gender}{job,optional,leadingComma})"
 }
 

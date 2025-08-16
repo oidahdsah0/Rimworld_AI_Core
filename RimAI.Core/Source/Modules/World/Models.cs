@@ -24,6 +24,7 @@ namespace RimAI.Core.Source.Modules.World
 		public float Metabolism { get; set; }
 		public float AveragePercent { get; set; }    // 0..100
 		public bool IsDead { get; set; }
+		public System.Collections.Generic.IReadOnlyList<HediffItem> Hediffs { get; set; }
 	}
 
 	// P11 Prompting 快照（身份/特质/技能/信仰可用性）
@@ -92,6 +93,49 @@ namespace RimAI.Core.Source.Modules.World
 		public string WithEntityId { get; set; }
 		public string InteractionKind { get; set; }
 		public string Outcome { get; set; }
+		public string GameTime { get; set; }
+	}
+
+	// P11+ 扩展：以小人为中心的环境矩阵快照（仅用于提示词上下文传输）
+	internal sealed class EnvironmentMatrixSnapshot
+	{
+		public int PawnLoadId { get; set; }
+		public int Radius { get; set; }                // 以格为单位，方阵边长 = 2*Radius+1
+		public System.Collections.Generic.IReadOnlyList<string> Rows { get; set; } // 自上而下，每行固定长度
+		public string Legend { get; set; }             // 符号说明（纯文本）
+		public float BeautyAverage { get; set; }       // 区域平均美观度（可能为 0..?
+		public System.Collections.Generic.IReadOnlyList<TerrainCountItem> TerrainCounts { get; set; }
+	}
+
+	internal sealed class TerrainCountItem
+	{
+		public string Terrain { get; set; }
+		public int Count { get; set; }
+	}
+
+	internal sealed class ColonySnapshot
+	{
+		public string ColonyName { get; set; }
+		public int ColonistCount { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> ColonistNames { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ColonistRecord> Colonists { get; set; }
+	}
+
+	internal sealed class ColonistRecord
+	{
+		public string Name { get; set; }
+		public int Age { get; set; }
+		public string Gender { get; set; }
+		public string JobTitle { get; set; }
+	}
+
+	internal sealed class HediffItem
+	{
+		public string Label { get; set; }
+		public string Part { get; set; }
+		public float Severity { get; set; }
+		public bool Permanent { get; set; }
+		public string Category { get; set; } // Injury | Disease | Implant | MissingPart | Other
 	}
 }
 

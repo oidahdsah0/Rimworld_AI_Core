@@ -20,8 +20,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var title = ctx?.L?.Invoke("prompt.section.backstory", "[身份]") ?? "[身份]";
 				var tpl = ctx?.F?.Invoke("prompt.format.backstory", new Dictionary<string, string> { { "child", p.Story.Childhood ?? string.Empty }, { "adult", p.Story.Adulthood ?? string.Empty } }, $"童年：{p.Story.Childhood}；成年：{p.Story.Adulthood}")
 					?? $"童年：{p.Story.Childhood}；成年：{p.Story.Adulthood}";
-				lines.Add(title);
-				lines.Add(tpl);
+				lines.Add(title + tpl);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

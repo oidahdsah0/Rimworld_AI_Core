@@ -359,6 +359,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			var sb = new System.Text.StringBuilder();
 			if (prompt.ContextBlocks != null)
 			{
+				if (prompt.ContextBlocks.Count > 0)
+				{
+					sb.AppendLine("--- Activities ---");
+				}
 				foreach (var b in prompt.ContextBlocks)
 				{
 					if (!string.IsNullOrWhiteSpace(b.Title)) sb.AppendLine(b.Title);

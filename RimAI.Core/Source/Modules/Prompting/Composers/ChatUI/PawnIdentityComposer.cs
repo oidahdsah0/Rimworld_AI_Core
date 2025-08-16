@@ -17,17 +17,16 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var p = ctx?.PawnPrompt;
 			if (p != null && p.Id != null)
 			{
-				var title = "[个体]"; // 后续接入本地化
+				var title = ctx?.L?.Invoke("prompt.section.identity", "[个体]") ?? "[个体]";
 				var parts = new List<string>();
 				if (!string.IsNullOrWhiteSpace(p.Id.Name)) parts.Add(p.Id.Name);
 				if (!string.IsNullOrWhiteSpace(p.Id.Gender)) parts.Add(p.Id.Gender);
 				if (p.Id.Age > 0) parts.Add(p.Id.Age + "岁");
 				if (!string.IsNullOrWhiteSpace(p.Id.Race)) parts.Add(p.Id.Race);
-				if (p.IsIdeologyAvailable && !string.IsNullOrWhiteSpace(p.Id.Belief)) parts.Add(p.Id.Belief);
+				// 信仰改为单独项目输出
 				if (parts.Count > 0)
 				{
-					lines.Add(title);
-					lines.Add(string.Join(" / ", parts));
+					lines.Add(title + string.Join(" / ", parts));
 				}
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });

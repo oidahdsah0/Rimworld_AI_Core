@@ -38,8 +38,10 @@ namespace RimAI.Core.Source.Modules.Prompting.Models
 		public string EntityId { get; set; }
 		public RimAI.Core.Source.Modules.World.PawnPromptSnapshot PawnPrompt { get; set; }
 		public RimAI.Core.Source.Modules.World.PawnSocialSnapshot PawnSocial { get; set; }
+		public RimAI.Core.Source.Modules.World.PawnHealthSnapshot PawnHealth { get; set; }
 		public RimAI.Core.Source.Modules.Persona.PersonaRecordSnapshot Persona { get; set; }
 		public System.Collections.Generic.IReadOnlyList<RimAI.Core.Source.Modules.History.Models.RecapItem> Recaps { get; set; }
+		public RimAI.Core.Source.Modules.World.EnvironmentMatrixSnapshot EnvMatrix { get; set; }
 		public System.Func<string, string, string> L { get; set; } // (key,fallback) -> localized
 		public System.Func<string, System.Collections.Generic.IDictionary<string,string>, string, string> F { get; set; } // (key,args,fallback) -> formatted localized
 	}

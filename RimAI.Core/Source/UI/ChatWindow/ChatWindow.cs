@@ -283,7 +283,12 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		private static string GetJobTitleOrNone(Pawn pawn)
 		{
-			return "无职务"; // 占位：后续接入 Persona Job Service
+			try
+			{
+				var title = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetPawnTitle(pawn);
+				return string.IsNullOrWhiteSpace(title) ? "" : title;
+			}
+			catch { return ""; }
 		}
 
 		private static float ComputeTranscriptViewHeight(Rect rect, ChatConversationState state)

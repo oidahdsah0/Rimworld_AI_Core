@@ -55,7 +55,7 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<IFixedPromptService, FixedPromptService>();
                 Container.Register<IPersonaTemplateManager, PersonaTemplateManager>();
 
-                // Register P8 History services
+                // Register P8 History services (Recap depends on History, so register History first, but Recap requires history in ctor and history no longer depends on recap)
                 Container.Register<IHistoryService, HistoryService>();
                 Container.Register<IRecapService, RecapService>();
                 Container.Register<IRelationsService, RelationsService>();

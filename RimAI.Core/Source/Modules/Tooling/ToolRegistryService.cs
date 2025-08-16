@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using System.Globalization;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.Persistence;
 using RimAI.Core.Source.Modules.Tooling.Indexing;
@@ -31,14 +32,14 @@ namespace RimAI.Core.Source.Modules.Tooling
 		private readonly int _dimension;
 		private readonly string _instruction;
 
-		public ToolRegistryService(ILLMService llm, IPersistenceService persistence)
+		public ToolRegistryService(ILLMService llm, IPersistenceService persistence, IConfigurationService configurationService)
 		{
 			_llm = llm;
 			_persistence = persistence;
 			_index = new ToolIndexManager(llm, persistence);
 			_allTools = ToolDiscovery.DiscoverTools();
-			// 读取内部配置
-			_cfgService = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<IConfigurationService>() as ConfigurationService;
+			// 读取内部配置（构造函数注入，禁止 Service Locator）
+			_cfgService = configurationService as ConfigurationService;
 			var tooling = _cfgService?.GetToolingConfig();
 			if (tooling == null) tooling = new CoreConfig.ToolingSection();
 			_indexBasePath = tooling.IndexFiles?.BasePath ?? "Config/RimAI/Indices";
@@ -115,7 +116,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 			return new ToolNarrowTopKResult { ToolsJson = selected, Scores = scores };
 		}
 
-		private static IReadOnlyList<ToolScore> RankTopK(float[] query, ToolIndexSnapshot snapshot, int k, double? minScore)
+		private IReadOnlyList<ToolScore> RankTopK(float[] query, ToolIndexSnapshot snapshot, int k, double? minScore)
 		{
 			// 将记录按工具名分组，并分别收集三类变体向量
 			var groups = new Dictionary<string, (List<float[]> name, List<float[]> desc, List<float[]> param)>(StringComparer.OrdinalIgnoreCase);
@@ -134,7 +135,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 			var list = new List<ToolScore>();
 			foreach (var kv in groups)
 			{
-				var s = CosineBest(query, kv.Value.name) * 0.6 + CosineBest(query, kv.Value.desc) * 0.4 + CosineBest(query, kv.Value.param) * 0.0;
+				var s = CosineBest(query, kv.Value.name) * _weights.name + CosineBest(query, kv.Value.desc) * _weights.desc + CosineBest(query, kv.Value.param) * _weights.@params;
 				if (minScore == null || s >= minScore.Value)
 				{
 					list.Add(new ToolScore { ToolName = kv.Key, Score = s });
@@ -185,6 +186,12 @@ namespace RimAI.Core.Source.Modules.Tooling
 		{
 			// 采集语料：name/description/parameters（示例使用 name/desc）
 			var records = new List<ToolEmbeddingRecord>();
+			try
+			{
+				var toolNames = _allTools.Select(x => x.Name ?? string.Empty).ToList();
+				Verse.Log.Message($"[RimAI.Core][P4] tools=[{string.Join(", ", toolNames)}] count={toolNames.Count}");
+			}
+			catch { }
 			foreach (var t in _allTools)
 			{
 				var nameText = (t.Name ?? string.Empty).Trim();
@@ -197,6 +204,13 @@ namespace RimAI.Core.Source.Modules.Tooling
 					var e = await _llm.GetEmbeddingsAsync(p.text, ct);
 					if (!e.IsSuccess || e.Value?.Data == null || e.Value.Data.Count == 0) continue;
 					var vec = e.Value.Data[0].Embedding?.Select(x => (float)x).ToArray() ?? Array.Empty<float>();
+					// Debug: 打印向量前三位
+					try
+					{
+						var head = (vec ?? Array.Empty<float>()).Take(3).Select(x => x.ToString("0.###", CultureInfo.InvariantCulture));
+						Verse.Log.Message($"[RimAI.Core][P4] vec tool={t.Name} variant={p.variant} head=[{string.Join(", ", head)}] len={vec.Length}");
+					}
+					catch { }
 					records.Add(new ToolEmbeddingRecord
 					{
 						Id = Guid.NewGuid().ToString("N"),

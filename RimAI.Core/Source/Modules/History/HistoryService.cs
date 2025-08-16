@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Source.Infrastructure.Configuration;
+using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Modules.History.Models;
 using RimAI.Core.Source.Modules.History.Recap;
 
@@ -13,7 +14,6 @@ namespace RimAI.Core.Source.Modules.History
 	internal sealed class HistoryService : IHistoryService
 	{
 		private readonly ConfigurationService _cfg;
-		private readonly IRecapService _recap;
 
 		// 主存：仅保存未删除条目；每会话串行写入
 		private readonly ConcurrentDictionary<string, List<HistoryEntry>> _store = new ConcurrentDictionary<string, List<HistoryEntry>>();
@@ -25,10 +25,9 @@ namespace RimAI.Core.Source.Modules.History
 		public event Action<string, string> OnEntryEdited;
 		public event Action<string, string> OnEntryDeleted;
 
-		public HistoryService(ConfigurationService cfg, IRecapService recap)
+		public HistoryService(IConfigurationService cfg)
 		{
-			_cfg = cfg;
-			_recap = recap;
+			_cfg = cfg as ConfigurationService ?? throw new InvalidOperationException("HistoryService requires ConfigurationService");
 		}
 
 		public async Task AppendPairAsync(string convKey, string userText, string aiFinalText, CancellationToken ct = default)
@@ -67,10 +66,6 @@ namespace RimAI.Core.Source.Modules.History
 				}
 				list.Add(entry);
 				OnEntryRecorded?.Invoke(convKey, entry.Id);
-				if (advanceTurn)
-				{
-					_ = _recap.EnqueueGenerateIfDueAsync(convKey, ct);
-				}
 			}
 			finally
 			{
@@ -110,7 +105,6 @@ namespace RimAI.Core.Source.Modules.History
 				var e = list.FirstOrDefault(x => x.Id == entryId);
 				if (e == null) return false;
 				e.Content = newContent ?? string.Empty;
-				_recap.MarkStale(convKey, e.TurnOrdinal);
 				OnEntryEdited?.Invoke(convKey, entryId);
 				return true;
 			}
@@ -128,7 +122,6 @@ namespace RimAI.Core.Source.Modules.History
 				if (e == null) return false;
 				e.Deleted = true;
 				e.DeletedAt = DateTime.UtcNow;
-				_recap.MarkStale(convKey, e.TurnOrdinal);
 				OnEntryDeleted?.Invoke(convKey, entryId);
 				return true;
 			}

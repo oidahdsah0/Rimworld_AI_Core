@@ -15,13 +15,16 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 
 		public string BuildToolJson()
 		{
+			// 采用通用工具定义结构：{"type":"function","function":{"name":...,"description":...,"parameters":{...}}}
+			var parameters = JsonConvert.DeserializeObject<object>(ParametersJson);
 			var json = JsonConvert.SerializeObject(new
 			{
-				Function = new
+				type = "function",
+				function = new
 				{
-					Name = Name,
-					Description = Description,
-					ParametersJsonSchema = ParametersJson
+					name = Name,
+					description = Description,
+					parameters = parameters
 				}
 			});
 			return json;

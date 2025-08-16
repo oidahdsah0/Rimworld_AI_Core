@@ -46,8 +46,11 @@ namespace RimAI.Core.Source.Modules.Orchestration
 
 			// 构造一次非流式请求：system 限制仅 function_call；user 使用输入；tools 传入 Tool JSON 列表
 			var convId = BuildConvKey(participantIds);
-			var systemPrompt = "You are a function-calling planner. Only return function calls via tool_calls; do not output natural language.";
-			var resp = await _llm.GetResponseAsync(convId, systemPrompt, userInput ?? string.Empty, toolsTuple.toolsJson, jsonMode: true, cancellationToken: ct).ConfigureAwait(false);
+			var systemPrompt = "You are a function-calling planner. Decide the best tool to satisfy the user's request. Return exactly one tool call via tool_calls and nothing else. Do not output natural language.";
+			// 先尝试失效会话缓存，避免命中无工具版本的缓存回复
+			try { await _llm.InvalidateConversationCacheAsync(convId, ct).ConfigureAwait(false); } catch { }
+			// 注意：为确保模型通过 function calling 返回 tool_calls，这里禁用 JSON 强制模式
+			var resp = await _llm.GetResponseAsync(convId, systemPrompt, userInput ?? string.Empty, toolsTuple.toolsJson, jsonMode: false, cancellationToken: ct).ConfigureAwait(false);
 			if (!resp.IsSuccess || resp.Value?.Message == null || resp.Value.Message.ToolCalls == null || resp.Value.Message.ToolCalls.Count == 0)
 			{
 				return new ToolCallsResult
@@ -145,14 +148,18 @@ namespace RimAI.Core.Source.Modules.Orchestration
 		private static string ExtractName(string toolJson)
 		{
 			if (string.IsNullOrEmpty(toolJson)) return null;
-			var key = "\"Name\":";
-			var idx = toolJson.IndexOf(key);
-			if (idx < 0) return null;
-			idx += key.Length;
-			while (idx < toolJson.Length && (toolJson[idx] == ' ' || toolJson[idx] == '\t' || toolJson[idx] == '"' || toolJson[idx] == '\'' || toolJson[idx] == ':')) idx++;
-			var end = idx;
-			while (end < toolJson.Length && toolJson[end] != '"' && toolJson[end] != '\'' && toolJson[end] != ',' && toolJson[end] != '}') end++;
-			return toolJson.Substring(idx, end - idx).Trim('"','\'',' ');
+			try
+			{
+				var jo = JObject.Parse(toolJson);
+				var fn = jo["function"] as JObject;
+				var n = fn?[(object)"name"]?.ToString();
+				if (!string.IsNullOrEmpty(n)) return n;
+				// 退化匹配：顶层 name/Name
+				n = jo[(object)"name"]?.ToString() ?? jo[(object)"Name"]?.ToString();
+				return string.IsNullOrWhiteSpace(n) ? null : n;
+			}
+			catch { }
+			return null;
 		}
 
 		private static string BuildConvKey(IReadOnlyList<string> participantIds)

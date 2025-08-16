@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Source.Infrastructure.Configuration;
+using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Modules.History.Models;
 using RimAI.Core.Source.Modules.LLM;
 
@@ -23,11 +24,19 @@ namespace RimAI.Core.Source.Modules.History.Recap
 
 		public event Action<string, string> OnRecapUpdated;
 
-		public RecapService(ConfigurationService cfg, ILLMService llm, IHistoryService history)
+		public RecapService(IConfigurationService cfg, ILLMService llm, IHistoryService history)
 		{
-			_cfg = cfg;
+			_cfg = cfg as ConfigurationService ?? throw new InvalidOperationException("RecapService requires ConfigurationService");
 			_llm = llm;
 			_history = history;
+			// 订阅 History 事件，避免在 HistoryService 内部直接依赖 RecapService，消除环依赖
+			try
+			{
+				_history.OnEntryRecorded += (convKey, _) => { System.Threading.Tasks.Task.Run(() => EnqueueGenerateIfDueAsync(convKey)); };
+				_history.OnEntryEdited += (convKey, _) => { try { MarkStale(convKey, null); } catch { } };
+				_history.OnEntryDeleted += (convKey, _) => { try { MarkStale(convKey, null); } catch { } };
+			}
+			catch { }
 		}
 
 		public async Task EnqueueGenerateIfDueAsync(string convKey, CancellationToken ct = default)

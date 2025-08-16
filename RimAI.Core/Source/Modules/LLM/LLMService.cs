@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using RimAI.Core.Contracts.Config;
 using RimAI.Framework.API;
 using RimAI.Framework.Contracts;
-using Verse;
 
 namespace RimAI.Core.Source.Modules.LLM
 {
@@ -79,6 +78,56 @@ namespace RimAI.Core.Source.Modules.LLM
 
 		public Task<Result<UnifiedChatResponse>> GetResponseAsync(string conversationId, string systemPrompt, string userText, IReadOnlyList<string> toolsJson, bool jsonMode, CancellationToken cancellationToken = default)
 		{
+			// 优先路径：使用 Framework 的便捷方法，显式传入 ToolDefinition 列表，提升兼容性
+			try
+			{
+				var messages = new List<ChatMessage>
+				{
+					new ChatMessage { Role = "system", Content = systemPrompt ?? string.Empty },
+					new ChatMessage { Role = "user", Content = userText ?? string.Empty }
+				};
+				var toolList = new List<RimAI.Framework.Contracts.ToolDefinition>();
+				if (toolsJson != null)
+				{
+					foreach (var s in toolsJson)
+					{
+						try
+						{
+							// 尝试直接按 ToolDefinition 反序列化（不强制校验 Name 属性，交由 Framework 校验）
+							var tool = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(s);
+							if (tool != null) { toolList.Add(tool); continue; }
+							// 回退：从 { type:function, function:{ name, description, parameters } } 提取并转为 ToolDefinition 形状
+							var jo = Newtonsoft.Json.Linq.JObject.Parse(s);
+							var func = jo["function"] as Newtonsoft.Json.Linq.JObject;
+							var fname = func?[(object)"name"]?.ToString();
+							if (!string.IsNullOrWhiteSpace(fname))
+							{
+								var fdesc = func[(object)"description"]?.ToString();
+								var fparams = func[(object)"parameters"];
+								var shaped = new Newtonsoft.Json.Linq.JObject
+								{
+									["Name"] = fname,
+									["Description"] = fdesc != null ? new Newtonsoft.Json.Linq.JValue(fdesc) : null,
+									["Parameters"] = fparams ?? new Newtonsoft.Json.Linq.JObject()
+								};
+								var shapedStr = shaped.ToString(Newtonsoft.Json.Formatting.None);
+								var tool2 = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(shapedStr);
+								if (tool2 != null) toolList.Add(tool2);
+							}
+						}
+						catch { }
+					}
+				}
+				if (toolList.Count > 0)
+				{
+					System.Diagnostics.Debug.WriteLine($"[RimAI.Core][P2.LLM] Using GetCompletionWithToolsAsync tools={toolList.Count}");
+					return CallWithRetryAsync(conversationId, ct => RimAIApi.GetCompletionWithToolsAsync(messages, toolList, conversationId, ct), cancellationToken);
+				}
+			}
+			catch { }
+
+			// 回退路径：无可用工具时，构造标准非流式请求（不做旧版字段注入）
+			System.Diagnostics.Debug.WriteLine("[RimAI.Core][P2.LLM] No valid tools provided; falling back to plain completion.");
 			var req = new UnifiedChatRequest
 			{
 				ConversationId = conversationId,
@@ -90,52 +139,25 @@ namespace RimAI.Core.Source.Modules.LLM
 				ForceJsonOutput = jsonMode,
 				Stream = false
 			};
-			ApplyToolsToRequest(req, toolsJson);
 			return GetResponseAsync(req, cancellationToken);
 		}
 
-		private static void ApplyToolsToRequest(UnifiedChatRequest request, IReadOnlyList<string> toolsJson)
+		private Task<Result<UnifiedChatResponse>> CallWithRetryAsync(string circuitKeySuffix, Func<CancellationToken, Task<Result<UnifiedChatResponse>>> action, CancellationToken cancellationToken)
 		{
-			if (request == null || toolsJson == null || toolsJson.Count == 0) return;
-			try
+			using var cts = CreateLinkedCtsWithDefaultTimeout(cancellationToken, _defaultTimeoutMs);
+			var circuitKey = "chat:" + (circuitKeySuffix ?? "-");
+			if (!LlmPolicies.IsAllowedByCircuit(circuitKey, _circuitWindowMs, _circuitCooldownMs, _circuitErrorThreshold))
 			{
-				var tj = request.GetType().GetProperty("ToolsJson");
-				if (tj != null && tj.CanWrite)
-				{
-					var list = toolsJson.ToList();
-					tj.SetValue(request, list);
-					return;
-				}
+				return Task.FromResult(Result<UnifiedChatResponse>.Failure("CircuitOpen"));
 			}
-			catch { }
-
-			try
+			return LlmPolicies.ExecuteWithRetryAsync<Result<UnifiedChatResponse>>(async ct =>
 			{
-				var tProp = request.GetType().GetProperty("Tools");
-				if (tProp != null && tProp.CanWrite)
-				{
-					var listType = tProp.PropertyType;
-					if (listType.IsGenericType)
-					{
-						var elemType = listType.GetGenericArguments()[0];
-						if (string.Equals(elemType.Name, "ToolFunction", StringComparison.OrdinalIgnoreCase))
-						{
-							var concreteListType = typeof(List<>).MakeGenericType(elemType);
-							var listInstance = Activator.CreateInstance(concreteListType);
-							var add = concreteListType.GetMethod("Add");
-							foreach (var s in toolsJson)
-							{
-								object obj = null;
-								try { obj = Newtonsoft.Json.JsonConvert.DeserializeObject(s, elemType); } catch { }
-								if (obj != null) add?.Invoke(listInstance, new[] { obj });
-							}
-							tProp.SetValue(request, listInstance);
-						}
-					}
-				}
-			}
-			catch { }
+				var result = await action(ct).ConfigureAwait(false);
+				LlmPolicies.RecordResult(circuitKey, result.IsSuccess);
+				return result;
+			}, maxAttempts: _retryMaxAttempts, baseDelayMs: _retryBaseDelayMs, isTransientFailure: r => r.IsFailure, cancellationToken: cts.Token);
 		}
+
 
 		public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(string conversationId, string systemPrompt, string userText, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
 		{
@@ -224,20 +246,7 @@ namespace RimAI.Core.Source.Modules.LLM
 				Result<UnifiedChatChunk> earlyError = null;
 				var stream = RimAIApi.StreamCompletionAsync(request, cancellationToken);
 				await using var enumerator = stream.GetAsyncEnumerator(cancellationToken);
-				// 首包 watchdog：若超过 hbTimeoutMs/2 仍未收到任何分片，主动输出一个心跳占位，提升 UI 反馈
-				var firstChunkWatchdog = Task.Run(async () =>
-				{
-					try
-					{
-						await Task.Delay(Math.Max(100, hbTimeoutMs / 2), cancellationToken).ConfigureAwait(false);
-						if (!firstChunkReceived)
-						{
-							return Result<UnifiedChatChunk>.Success(new UnifiedChatChunk { ContentDelta = string.Empty });
-						}
-					}
-					catch { }
-					return null;
-				});
+				// 移除未使用的首包 watchdog 以保持代码简洁
 				while (true)
 				{
 					bool hasNext;

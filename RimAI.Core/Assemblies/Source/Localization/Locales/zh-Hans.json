@@ -1,0 +1,30 @@
+{
+  "ui.chat.system.base": "你是一个Rimworld边缘世界的新领地殖民者，你的总督正在通过随身通信终端与你取得联系。",
+  "ui.chat.user_prefix": "总督传来的信息如下：",
+
+  "prompt.section.identity": "[个体]",
+  "prompt.section.backstory": "[身份]",
+  "prompt.section.traits": "[特质]",
+  "prompt.section.work_disables": "[无法从事]",
+  "prompt.section.skills": "[技能]",
+  "prompt.section.job": "[职务]",
+  "prompt.section.biography": "[人物传记]",
+  "prompt.section.ideology": "[意识形态]",
+  "prompt.section.fixed_prompts": "[固定提示词]",
+  "prompt.section.social_relations": "[社交关系]",
+  "prompt.section.social_history": "[社交历史]",
+  "prompt.section.recap": "[前情提要]",
+  "prompt.section.related_conversations": "[关联对话]",
+
+  "prompt.format.skill": "{name}: Lv{level}{passion}",
+  "prompt.format.relation": "{rel}: {name}（好感{opinion}）",
+  "prompt.format.social_event": "[{time}] {who}: {kind}{outcome}",
+  "prompt.format.backstory": "童年：{child}；成年：{adult}",
+  "prompt.format.traits_line": "特质：{traits}",
+  "prompt.format.work_disables_line": "无法从事：{list}",
+  "prompt.format.ideology_worldview": "世界观：{text}",
+  "prompt.format.ideology_values": "价值观：{text}",
+  "prompt.format.ideology_code": "行为准则：{text}",
+  "prompt.format.ideology_traits": "性格特质：{text}"
+}
+

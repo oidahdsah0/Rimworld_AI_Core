@@ -9,45 +9,45 @@ namespace RimAI.Core.Source.Modules.Prompting.Models
 
 	internal sealed class PromptBuildRequest
 	{
-		public PromptScope Scope { get; init; }
-		public string ConvKey { get; init; }
-		public System.Collections.Generic.IReadOnlyList<string> ParticipantIds { get; init; }
-		public int? PawnLoadId { get; init; }
-		public bool IsCommand { get; init; }
-		public string Locale { get; init; }
-		public string UserInput { get; init; }
+		public PromptScope Scope { get; set; }
+		public string ConvKey { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> ParticipantIds { get; set; }
+		public int? PawnLoadId { get; set; }
+		public bool IsCommand { get; set; }
+		public string Locale { get; set; }
+		public string UserInput { get; set; }
 	}
 
 	internal sealed class ContextBlock
 	{
-		public string Title { get; init; }
-		public string Text { get; init; }
+		public string Title { get; set; }
+		public string Text { get; set; }
 	}
 
 	internal sealed class PromptBuildResult
 	{
-		public string SystemPrompt { get; init; }
-		public System.Collections.Generic.IReadOnlyList<ContextBlock> ContextBlocks { get; init; }
-		public string UserPrefixedInput { get; init; }
+		public string SystemPrompt { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ContextBlock> ContextBlocks { get; set; }
+		public string UserPrefixedInput { get; set; }
 	}
 
 	internal sealed class PromptBuildContext
 	{
-		public PromptBuildRequest Request { get; init; }
-		public string Locale { get; init; }
-		public string EntityId { get; init; }
-		public RimAI.Core.Source.Modules.World.PawnPromptSnapshot PawnPrompt { get; init; }
-		public RimAI.Core.Source.Modules.World.PawnSocialSnapshot PawnSocial { get; init; }
-		public RimAI.Core.Source.Modules.Persona.PersonaRecordSnapshot Persona { get; init; }
-		public System.Collections.Generic.IReadOnlyList<RimAI.Core.Source.Modules.History.Recap.RecapItem> Recaps { get; init; }
-		public System.Func<string, string, string> L { get; init; } // (key,fallback) -> localized
-		public System.Func<string, System.Collections.Generic.IDictionary<string,string>, string, string> F { get; init; } // (key,args,fallback) -> formatted localized
+		public PromptBuildRequest Request { get; set; }
+		public string Locale { get; set; }
+		public string EntityId { get; set; }
+		public RimAI.Core.Source.Modules.World.PawnPromptSnapshot PawnPrompt { get; set; }
+		public RimAI.Core.Source.Modules.World.PawnSocialSnapshot PawnSocial { get; set; }
+		public RimAI.Core.Source.Modules.Persona.PersonaRecordSnapshot Persona { get; set; }
+		public System.Collections.Generic.IReadOnlyList<RimAI.Core.Source.Modules.History.Models.RecapItem> Recaps { get; set; }
+		public System.Func<string, string, string> L { get; set; } // (key,fallback) -> localized
+		public System.Func<string, System.Collections.Generic.IDictionary<string,string>, string, string> F { get; set; } // (key,args,fallback) -> formatted localized
 	}
 
 	internal sealed class ComposerOutput
 	{
-		public System.Collections.Generic.IReadOnlyList<string> SystemLines { get; init; }
-		public System.Collections.Generic.IReadOnlyList<ContextBlock> ContextBlocks { get; init; }
+		public System.Collections.Generic.IReadOnlyList<string> SystemLines { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ContextBlock> ContextBlocks { get; set; }
 	}
 }
 

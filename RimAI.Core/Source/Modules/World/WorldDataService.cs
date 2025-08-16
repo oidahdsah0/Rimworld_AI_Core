@@ -131,19 +131,19 @@ namespace RimAI.Core.Source.Modules.World
 					{
 						Name = pawn.Name?.ToStringShort ?? pawn.LabelCap ?? "Pawn",
 						Gender = pawn.gender.ToString(),
-						Age = (int)pawn.ageTracker?.AgesBiologicalYears ?? 0,
+						Age = pawn.ageTracker != null ? (int)UnityEngine.Mathf.Floor(pawn.ageTracker.AgeBiologicalYearsFloat) : 0,
 						Race = pawn.def?.label ?? string.Empty,
 						Belief = null
 					},
 					Story = new Backstory
 					{
-						Childhood = pawn.story?.childhood?.titleShortCap ?? string.Empty,
-						Adulthood = pawn.story?.adulthood?.titleShortCap ?? string.Empty
+						Childhood = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetBackstoryTitle(pawn, true) ?? string.Empty,
+						Adulthood = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetBackstoryTitle(pawn, false) ?? string.Empty
 					},
 					Traits = new TraitsAndWork
 					{
 						Traits = (pawn.story?.traits?.allTraits ?? new System.Collections.Generic.List<Trait>()).Select(t => t.LabelCap ?? t.Label).ToList(),
-						WorkDisables = pawn.story?.CombinedDisabledWorkTags?.ToString()?.Split(new[] { ',', ';' }, System.StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList() ?? new System.Collections.Generic.List<string>()
+						WorkDisables = (RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetCombinedDisabledWorkTagsCsv(pawn) ?? string.Empty).Split(new[] { ',', ';' }, System.StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList()
 					},
 					Skills = new Skills
 					{
@@ -210,30 +210,15 @@ namespace RimAI.Core.Source.Modules.World
 				var eventsList = new System.Collections.Generic.List<SocialEventItem>();
 				try
 				{
-					var logs = Find.PlayLog?.AllEntries ?? new System.Collections.Generic.List<LogEntry>();
-					for (int i = logs.Count - 1; i >= 0 && eventsList.Count < recentSocialEvents; i--)
-					{
-						var e = logs[i];
-						if (e is InteractionLogEntry intx)
-						{
-							var initiator = intx.initiator as Pawn;
-							var recipient = intx.recipient as Pawn;
-							if (initiator == null && recipient == null) continue;
-							bool related = (initiator?.thingIDNumber == pawnLoadId) || (recipient?.thingIDNumber == pawnLoadId);
-							if (!related) continue;
-							var who = initiator?.thingIDNumber == pawnLoadId ? recipient : initiator;
-							var withName = who?.Name?.ToStringShort ?? who?.LabelCap ?? "Pawn";
-							var withId = who == null ? null : $"pawn:{who.thingIDNumber}";
-							var kind = intx.def?.label ?? intx.def?.defName ?? "Social";
-							var when = new System.DateTime(Verse.Find.TickManager.TicksGame * 60L * 10000L / 60, System.DateTimeKind.Utc); // 近似：按 Ticks 推断
-							eventsList.Add(new SocialEventItem { TimestampUtc = when, WithName = withName, WithEntityId = withId, InteractionKind = kind, Outcome = null });
-						}
-					}
+					var events = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetRecentSocialEvents(pawn, recentSocialEvents) ?? new System.Collections.Generic.List<SocialEventItem>();
+					eventsList.AddRange(events);
 				}
 				catch { }
 				return new PawnSocialSnapshot { Relations = ordered, RecentEvents = eventsList };
 			}, name: "GetPawnSocialSnapshot", ct: cts.Token);
 		}
+
+
 	}
 
 	internal sealed class WorldDataException : Exception

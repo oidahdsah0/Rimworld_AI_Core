@@ -1,0 +1,30 @@
+{
+  "ui.chat.system.base": "You are a new colonist on RimWorld's frontier. The governor is contacting you via a handheld terminal.",
+  "ui.chat.user_prefix": "Message from the governor:",
+
+  "prompt.section.identity": "[Identity]",
+  "prompt.section.backstory": "[Backstory]",
+  "prompt.section.traits": "[Traits]",
+  "prompt.section.work_disables": "[Work Disables]",
+  "prompt.section.skills": "[Skills]",
+  "prompt.section.job": "[Job]",
+  "prompt.section.biography": "[Biography]",
+  "prompt.section.ideology": "[Ideology]",
+  "prompt.section.fixed_prompts": "[Fixed Prompts]",
+  "prompt.section.social_relations": "[Social Relations]",
+  "prompt.section.social_history": "[Social History]",
+  "prompt.section.recap": "[Recap]",
+  "prompt.section.related_conversations": "[Related Conversations]",
+
+  "prompt.format.skill": "{name}: Lv{level}{passion}",
+  "prompt.format.relation": "{rel}: {name} (opinion {opinion})",
+  "prompt.format.social_event": "[{time}] {who}: {kind}{outcome}",
+  "prompt.format.backstory": "Childhood: {child}; Adulthood: {adult}",
+  "prompt.format.traits_line": "Traits: {traits}",
+  "prompt.format.work_disables_line": "Cannot: {list}",
+  "prompt.format.ideology_worldview": "Worldview: {text}",
+  "prompt.format.ideology_values": "Values: {text}",
+  "prompt.format.ideology_code": "Code of Conduct: {text}",
+  "prompt.format.ideology_traits": "Traits: {text}"
+}
+

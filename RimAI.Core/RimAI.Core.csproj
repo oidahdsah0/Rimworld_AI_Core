@@ -23,6 +23,15 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Source\Localization\Locales\zh-Hans.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Source\Localization\Locales\en.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <!-- Reference to RimAI Framework -->
   <ItemGroup>
     <!-- Use ProjectReference when both projects are in the same solution -->
@@ -102,6 +111,12 @@
       <DependencyDlls Include="$(ProjectDir)$(OutDir)*.dll" Exclude="$(TargetPath)" />
     </ItemGroup>
     <Copy SourceFiles="@(DependencyDlls)" DestinationFolder="$(ModDir)\\1.6\\Assemblies" SkipUnchangedFiles="true" />
+
+    <!-- Step 4: Copy localization files to Mod config root to ensure runtime availability -->
+    <ItemGroup>
+      <LocaleFiles Include="Source\\Localization\\Locales\\*.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LocaleFiles)" DestinationFolder="$(ModDir)\\Config\\RimAI\\Localization\\Locales\\" SkipUnchangedFiles="true" />
 
     <Message Text="RimAI Core successfully deployed!" Importance="high" />
   </Target>

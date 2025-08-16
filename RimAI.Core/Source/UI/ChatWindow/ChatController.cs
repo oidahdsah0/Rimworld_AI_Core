@@ -8,8 +8,8 @@ using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
-using RimAI.Core.Source.Services.Prompting;
-using RimAI.Core.Source.Services.Prompting.Models;
+using RimAI.Core.Source.Modules.Prompting;
+using RimAI.Core.Source.Modules.Prompting.Models;
 
 namespace RimAI.Core.Source.UI.ChatWindow
 {

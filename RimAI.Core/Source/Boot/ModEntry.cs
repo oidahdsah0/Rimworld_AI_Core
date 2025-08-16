@@ -23,8 +23,8 @@ using RimAI.Core.Source.Modules.Stage.Diagnostics;
 using RimAI.Core.Source.Modules.Stage.History;
 using RimAI.Core.Source.Modules.Stage.Kernel;
 using RimAI.Core.Source.Modules.Stage.Triggers;
-using RimAI.Core.Source.Services.Prompting;
-using RimAI.Core.Source.Services.Prompting.Composers.ChatUI;
+using RimAI.Core.Source.Modules.Prompting;
+using RimAI.Core.Source.Modules.Prompting.Composers.ChatUI;
 using RimAI.Core.Source.Infrastructure.Localization;
 using Verse;
 

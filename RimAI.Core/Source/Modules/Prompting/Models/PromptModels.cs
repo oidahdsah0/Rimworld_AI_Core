@@ -1,4 +1,4 @@
-namespace RimAI.Core.Source.Services.Prompting.Models
+namespace RimAI.Core.Source.Modules.Prompting.Models
 {
 	internal enum PromptScope
 	{

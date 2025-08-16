@@ -9,11 +9,11 @@ using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Recap;
 using RimAI.Core.Source.Modules.Persona;
 using RimAI.Core.Source.Modules.World;
-using RimAI.Core.Source.Services.Prompting.Models;
+using RimAI.Core.Source.Modules.Prompting.Models;
 using RimAI.Core.Source.Modules.History.Relations;
 using RimAI.Core.Source.Infrastructure.Localization;
 
-namespace RimAI.Core.Source.Services.Prompting
+namespace RimAI.Core.Source.Modules.Prompting
 {
 	internal sealed class PromptService : IPromptService
 	{

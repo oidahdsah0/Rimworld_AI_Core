@@ -12,7 +12,7 @@ using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.UI.ChatWindow.Parts;
-using RimAI.Core.Source.Services.Prompting;
+using RimAI.Core.Source.Modules.Prompting;
 
 namespace RimAI.Core.Source.UI.ChatWindow
 {

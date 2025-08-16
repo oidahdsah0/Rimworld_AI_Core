@@ -1,8 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
-using RimAI.Core.Source.Services.Prompting.Models;
+using RimAI.Core.Source.Modules.Prompting.Models;
 
-namespace RimAI.Core.Source.Services.Prompting
+namespace RimAI.Core.Source.Modules.Prompting
 {
 	internal interface IPromptComposer
 	{

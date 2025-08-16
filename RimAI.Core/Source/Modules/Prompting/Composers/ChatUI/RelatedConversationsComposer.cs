@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
 using RimAI.Core.Source.Modules.History.Relations;
-using RimAI.Core.Source.Services.Prompting.Models;
+using RimAI.Core.Source.Modules.Prompting.Models;
 
-namespace RimAI.Core.Source.Services.Prompting.Composers.ChatUI
+namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 {
 	internal sealed class RelatedConversationsComposer : IPromptComposer
 	{

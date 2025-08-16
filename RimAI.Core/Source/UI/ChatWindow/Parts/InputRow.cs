@@ -43,6 +43,26 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			var r2 = new Rect(r1.xMax + spacing, rect.y, buttonW, rowH);
 			var r3 = new Rect(r2.xMax + spacing, rect.y, buttonW, rowH);
 
+			// 先处理快捷键：在 TextArea 消费键盘事件之前拦截 Shift+Enter / Ctrl+Enter
+			var evt = Event.current;
+			if (evt != null && evt.type == EventType.KeyDown)
+			{
+				bool focusedNow = GUI.GetNameOfFocusedControl() == InputControlName;
+				if (focusedNow)
+				{
+					if (evt.shift && (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter) && !isStreaming)
+					{
+						evt.Use();
+						onSmalltalk?.Invoke();
+					}
+					else if (evt.control && (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter) && !isStreaming)
+					{
+						evt.Use();
+						onCommand?.Invoke();
+					}
+				}
+			}
+
 			// 文本区域：移除外框，仅保留原生多行输入，Enter 默认换行
 			var innerRect = inputRect;
 			Text.Font = GameFont.Small;
@@ -61,26 +81,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			GUI.enabled = true;
 			if (Widgets.ButtonText(r3, "中断传输")) onCancel?.Invoke();
 
-			// 快捷键：仅在输入框聚焦时生效
-			var evt = Event.current;
-			if (evt != null && evt.type == EventType.KeyDown)
-			{
-				bool focused = GUI.GetNameOfFocusedControl() == InputControlName;
-				if (focused)
-				{
-					// 常规 Enter：由 Widgets.TextArea 自行处理为换行，不拦截
-					if (evt.shift && (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter) && !isStreaming)
-					{
-						evt.Use();
-						onSmalltalk?.Invoke();
-					}
-					else if (evt.control && (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter) && !isStreaming)
-					{
-						evt.Use();
-						onCommand?.Invoke();
-					}
-				}
-			}
+			// 常规 Enter：由 Widgets.TextArea 自行处理为换行，不在此处拦截
 		}
 	}
 }

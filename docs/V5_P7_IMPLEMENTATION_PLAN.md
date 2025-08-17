@@ -118,7 +118,7 @@ internal interface IPersonaJobService {
   PersonaJobSnapshot Get(string entityId);
   void Set(string entityId, string name, string description);
   // 非流式：从职务名生成描述（可选）
-  Task<string> GenerateDescriptionFromNameAsync(string entityId, string jobName, CancellationToken ct = default);
+  // 生成“从职务名推导描述”的接口已取消；仅保留 Get/Set 与其它生成功能
 }
 
 internal interface IBiographyService {
@@ -283,7 +283,7 @@ RimAI.Core/
   - 解析并缓存模板；缺失时退回内置母版。
 
 - S5：生成流程（非流式）
-  - 职务描述：`GenerateDescriptionFromNameAsync(jobName, worldFacts)` → 裁剪至预算；不命中则返回空字符串。
+  - 职务描述：不再提供“从名称生成描述”的自动接口；建议由玩家手工填写或通过其它管道导入草案。
   - 传记草案：`GenerateDraftAsync(entityId)` → 3–5 条条目（≤ `BiographyPerItem`）；去重/去空。
   - 意识形态：`GenerateAsync(entityId)` → 四段（≤ `IdeologySegment`）；空段跳过。
   - 所有流程：支持取消；失败以 `Result.Error` 映射统一异常并在 UI 提示。

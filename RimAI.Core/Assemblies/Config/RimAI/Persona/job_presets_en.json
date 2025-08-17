@@ -1,0 +1,26 @@
+[
+  { "name": "Centurion", "description": "Leads tactical defense and patrols, maintains perimeters, and orchestrates rapid response to threats." },
+  { "name": "Civil Director", "description": "Coordinates daily production and logistics to keep the colony running efficiently." },
+  { "name": "Chief of Cabinet", "description": "Oversees policy and execution, balances risks and resources, and drives long-term initiatives." },
+  { "name": "Chief Inspector", "description": "Oversees law and order strategy, coordinates security deployments, and ensures readiness drills are routine." },
+  { "name": "Tax Commissioner", "description": "Designs and enforces tax policies, supervises declarations and collection, ensuring fiscal transparency." },
+  { "name": "Treasury Officer", "description": "Drafts budgets and monitors expenditure, supports funding plans for major projects and civil programs." },
+  { "name": "Home Affairs Officer", "description": "Maintains administrative order and internal rules, chairs periodic reviews and cross-unit coordination." },
+  { "name": "Auditor General", "description": "Conducts audits on critical processes, issues remediation plans and tracks accountability closure." },
+  { "name": "Foreign Affairs Liaison", "description": "Manages external relations and agreements, keeps contact logs, and upholds protocol and etiquette." },
+  { "name": "Communications Director", "description": "Plans public messaging and brand posture, unifies voice in crises, sustains morale and sentiment." },
+  { "name": "Intelligence Director", "description": "Builds early-warning and analysis processes, consolidates signals, and publishes security advisories." },
+  { "name": "Garrison Commander", "description": "Coordinates garrison posture and readiness, maintains watch rotations and fortification priorities." },
+  { "name": "Chief Legal Counsel", "description": "Provides compliance and contract review, mediates disputes, and preserves uniform rule application." },
+  { "name": "Logistics Director", "description": "Oversees stockpiles, distribution, and supply routes, ensuring resilience during peak demand." },
+  { "name": "Planning Director", "description": "Leads long-term development plans and layout reviews, with milestones and acceptance criteria." },
+  { "name": "Inspectorate Officer", "description": "Handles complaints and disciplinary leads, issues corrective notices, and verifies compliance." },
+  { "name": "Master of Ceremonies", "description": "Standardizes rites and receptions, preserves symbols and rituals, reinforcing shared identity." },
+  { "name": "Archives Director", "description": "Builds unified archiving and retrieval systems, ensuring data safety and traceability." },
+  { "name": "Public Safety Officer", "description": "Owns safety norms and accident prevention, runs drills and postmortems to reduce systemic risk." },
+  { "name": "Resource Allocations Chief", "description": "Balances manpower and materials across domains, easing bottlenecks via dynamic prioritization." },
+  { "name": "Crisis Response Officer", "description": "Maintains tiered response playbooks and command structure, ensuring unified dispatch and comms." },
+  { "name": "External Relations Director", "description": "Maintains external-facing channels and visits, enabling exchanges and cooperative networks." },
+  { "name": "Strategic Planning Director", "description": "Performs trend analysis and roadmap design, informing decisions with scenarios and hedges." }
+]
+

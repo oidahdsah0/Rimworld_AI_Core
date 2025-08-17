@@ -52,22 +52,7 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 				persona.Upsert(_entityId, e => e.SetJob(_jobName, _jobDesc));
 				Log.Message(Keys.P7 + " Saved Job");
 			}
-			if (listing.ButtonText("Generate Description from Name (non-stream)"))
-			{
-				CancelIfRunning();
-				_cts = new CancellationTokenSource();
-				_ = Task.Run(async () =>
-				{
-					try
-					{
-						var text = await job.GenerateDescriptionFromNameAsync(_entityId, _jobName, _cts.Token);
-						_jobDesc = text;
-						Log.Message(Keys.P7 + " job.desc.generated");
-					}
-					catch (OperationCanceledException) { Log.Message(Keys.P7 + " job.gen.cancelled"); }
-					catch (Exception ex) { Log.Warning(Keys.P7 + " job.gen.failed: " + ex.Message); }
-				});
-			}
+			// 生成描述按钮已移除
 
 			listing.GapLine();
 			Text.Font = GameFont.Medium;

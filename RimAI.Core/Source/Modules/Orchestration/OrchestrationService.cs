@@ -7,6 +7,8 @@ using Newtonsoft.Json.Linq;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.Orchestration.Modes;
 using RimAI.Core.Source.Modules.Tooling;
+using RimAI.Core.Source.Modules.History;
+using RimAI.Core.Source.Modules.History.Models;
 
 namespace RimAI.Core.Source.Modules.Orchestration
 {
@@ -16,13 +18,15 @@ namespace RimAI.Core.Source.Modules.Orchestration
 		private readonly IToolRegistryService _tooling;
 		private readonly IToolMatchMode _classic;
 		private readonly IToolMatchMode _narrow;
+		private readonly IHistoryService _history;
 
-		public OrchestrationService(ILLMService llm, IToolRegistryService tooling)
+		public OrchestrationService(ILLMService llm, IToolRegistryService tooling, IHistoryService history)
 		{
 			_llm = llm;
 			_tooling = tooling;
 			_classic = new ClassicMode(tooling);
 			_narrow = new NarrowTopKMode(tooling);
+			_history = history;
 		}
 
 		public async Task<ToolCallsResult> ExecuteAsync(string userInput, IReadOnlyList<string> participantIds, ToolOrchestrationOptions options, CancellationToken ct = default)
@@ -44,13 +48,34 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				return new ToolCallsResult { Mode = mode, Profile = profile, IsSuccess = false, Error = toolsTuple.error ?? "no_candidates", ExposedTools = Array.Empty<string>(), DecidedCalls = Array.Empty<ToolCallRecord>(), Executions = Array.Empty<ToolExecutionRecord>(), TotalLatencyMs = (int)(DateTime.UtcNow - start).TotalMilliseconds };
 			}
 
-			// 构造一次非流式请求：system 限制仅 function_call；user 使用输入；tools 传入 Tool JSON 列表
+			// 构造一次非流式请求：System+Messages（对齐 API），并附工具列表
 			var convId = BuildConvKey(participantIds);
 			var systemPrompt = "You are a function-calling planner. Decide the best tool to satisfy the user's request. Return exactly one tool call via tool_calls and nothing else. Do not output natural language.";
 			// 先尝试失效会话缓存，避免命中无工具版本的缓存回复
 			try { await _llm.InvalidateConversationCacheAsync(convId, ct).ConfigureAwait(false); } catch { }
 			// 注意：为确保模型通过 function calling 返回 tool_calls，这里禁用 JSON 强制模式
-			var resp = await _llm.GetResponseAsync(convId, systemPrompt, userInput ?? string.Empty, toolsTuple.toolsJson, jsonMode: false, cancellationToken: ct).ConfigureAwait(false);
+			var messages = new List<RimAI.Framework.Contracts.ChatMessage>
+			{
+				new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemPrompt }
+			};
+			try
+			{
+				var historyEntries = await _history.GetAllEntriesAsync(convId, ct).ConfigureAwait(false);
+				if (historyEntries != null)
+				{
+					foreach (var e in historyEntries)
+					{
+						var role = e.Role == EntryRole.User ? "user" : "assistant";
+						var content = e.Content ?? string.Empty;
+						if (string.IsNullOrWhiteSpace(content)) continue;
+						messages.Add(new RimAI.Framework.Contracts.ChatMessage { Role = role, Content = content });
+					}
+				}
+			}
+			catch { }
+			messages.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "user", Content = userInput ?? string.Empty });
+			var req = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = convId, Messages = messages, Stream = false };
+			var resp = await _llm.GetResponseAsync(req, toolsTuple.toolsJson, jsonMode: false, cancellationToken: ct).ConfigureAwait(false);
 			if (!resp.IsSuccess || resp.Value?.Message == null || resp.Value.Message.ToolCalls == null || resp.Value.Message.ToolCalls.Count == 0)
 			{
 				return new ToolCallsResult

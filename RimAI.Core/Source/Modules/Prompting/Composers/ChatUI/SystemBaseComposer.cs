@@ -15,8 +15,10 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
         {
             var lines = new List<string>();
             var l = ctx?.L;
+            var f = ctx?.F;
             var name = l?.Invoke("ui.chat.system.base.name", string.Empty) ?? string.Empty;
-            var value = l?.Invoke("ui.chat.system.base.value", string.Empty) ?? string.Empty;
+            var playerTitle = ctx?.PlayerTitle ?? (l?.Invoke("ui.chat.player_title.value", "总督") ?? "总督");
+            var value = f?.Invoke("ui.chat.system.base.value", new Dictionary<string, string> { { "player_title", playerTitle } }, string.Empty) ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(value))
             {
                 lines.Add(name + value);

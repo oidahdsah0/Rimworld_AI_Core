@@ -20,7 +20,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			Text.Anchor = TextAnchor.MiddleLeft;
 			Text.Font = GameFont.Medium;
 			var labelRect = new Rect(x, y, rect.width - x - 10f, h);
-			var label = string.IsNullOrEmpty(jobTitle) || jobTitle == "无职务" ? (name ?? "Pawn") : $"{name ?? "Pawn"} — {jobTitle}";
+			var label = string.IsNullOrEmpty(jobTitle) || jobTitle == "无职务" ? (name ?? "Pawn") : $"{name ?? "Pawn"} , {jobTitle}";
 			var prevWrap = Text.WordWrap;
 			Text.WordWrap = false; // 与其他内容同行，禁止换行
 			Widgets.Label(labelRect, label);

@@ -1,7 +1,9 @@
 {
   "ui.chat.system.base.name": "[系统基底]",
-  "ui.chat.system.base.value": "注意，你正在扮演Rimworld中的角色，请严格遵循提示词中列出的角色相关信息，严格推敲角色性格和发言方式，不要超出角色设定，不要出现任何与角色设定不符的言行，不要凭空产生剧情。你是一个Rimworld边缘世界的新领地殖民者，你的总督正在通过随身通信终端与你取得联系，你的回答应当符合角色设定。任何数据不可以原样照读，至少应当有些口语化的表达和修饰。",
-  "ui.chat.user_prefix": "总督传来的信息如下：",
+  "ui.chat.system.base.value": "注意，你正在扮演Rimworld中的角色，请严格遵循提示词中列出的角色相关信息，严格推敲角色性格和发言方式，不要超出角色设定，不要出现任何与角色设定不符的言行，不要凭空产生剧情。你是一个Rimworld边缘世界的新领地殖民者，{player_title}正在通过随身通信终端与你取得联系，你的回答应当符合角色设定。任何数据不可以原样照读，至少应当有些口语化的表达和修饰。",
+  "ui.chat.user_prefix": "{player_title}传来的信息如下：",
+  "ui.chat.player_title.name": "[你应该称呼玩家为]",
+  "ui.chat.player_title.value": "总督",
 
   "prompt.section.identity": "[个体]",
   "prompt.section.backstory": "[身份]",

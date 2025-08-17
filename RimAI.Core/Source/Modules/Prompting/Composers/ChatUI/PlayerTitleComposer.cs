@@ -5,32 +5,27 @@ using RimAI.Core.Source.Modules.Prompting.Models;
 
 namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 {
-	internal sealed class PersonaJobComposer : IPromptComposer
+	internal sealed class PlayerTitleComposer : IPromptComposer
 	{
 		public PromptScope Scope => PromptScope.ChatUI;
-		public int Order => 40;
-		public string Id => "persona_job";
+		public int Order => 1; // 紧随系统基底之后
+		public string Id => "player_title";
 
 		public Task<ComposerOutput> ComposeAsync(PromptBuildContext ctx, CancellationToken ct)
 		{
 			var lines = new List<string>();
-			var rec = ctx?.Persona;
-			if (rec?.Job != null)
+			var l = ctx?.L;
+			var name = l?.Invoke("ui.chat.player_title.name", "[你应该称呼玩家为]") ?? "[你应该称呼玩家为]";
+			var title = ctx?.PlayerTitle ?? (l?.Invoke("ui.chat.player_title.value", "总督") ?? "总督");
+			if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(title))
 			{
-				var name = rec.Job.Name ?? string.Empty;
-				var desc = rec.Job.Description ?? string.Empty;
-				if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(desc))
-				{
-					lines.Add("[职务]未任命");
-				}
-				else
-				{
-					lines.Add("[职务]" + ($"{name}：{desc}".Trim('：')));
-				}
+				lines.Add(name + title);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}
 	}
 }
+
+
 
 

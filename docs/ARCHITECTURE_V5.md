@@ -316,7 +316,7 @@ V5 对外最小面仅限配置：
   - 要求：文件 IO 使用异步 API；`GameComponent.ExposeData()` 的 Scribe 调用受 RimWorld 约束为同步，但应保持最小工作量；Debug 面板的导入/导出走后台任务。
 
 - P7 Persona（必须异步）
-  - 典型点：`GenerateDescriptionFromNameAsync`、`GenerateDraftAsync`、`GenerateAsync`、模板热重载（文件 IO 经 Persistence）。
+  - 典型点：`GenerateDraftAsync`、`GenerateAsync`、模板热重载（文件 IO 经 Persistence）。
   - 要求：所有生成均为非流式异步；必要的世界采样经 P3 主线程化；模板文件读取使用异步文件 API。
 
 - P8 History（必须异步）

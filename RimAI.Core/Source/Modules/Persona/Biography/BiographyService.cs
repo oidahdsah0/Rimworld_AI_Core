@@ -8,6 +8,7 @@ using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Persona.Templates;
+using RimAI.Framework.Contracts;
 
 namespace RimAI.Core.Source.Modules.Persona.Biography
 {
@@ -68,6 +69,22 @@ namespace RimAI.Core.Source.Modules.Persona.Biography
 				}
 				return list;
 			}
+		}
+
+		public async Task<string> GenerateAsync(string conv, string sys, string user, CancellationToken ct)
+		{
+			var req = new RimAI.Framework.Contracts.UnifiedChatRequest
+			{
+				ConversationId = conv,
+				Messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>
+				{
+					new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys },
+					new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user }
+				},
+				Stream = false
+			};
+			var r = await _llm.GetResponseAsync(req, ct).ConfigureAwait(false);
+			return r.IsSuccess ? (r.Value?.Message?.Content ?? string.Empty) : string.Empty;
 		}
 	}
 }

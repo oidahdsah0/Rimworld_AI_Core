@@ -42,6 +42,8 @@ namespace RimAI.Core.Source.Modules.Prompting.Models
 		public RimAI.Core.Source.Modules.Persona.PersonaRecordSnapshot Persona { get; set; }
 		public System.Collections.Generic.IReadOnlyList<RimAI.Core.Source.Modules.History.Models.RecapItem> Recaps { get; set; }
 		public RimAI.Core.Source.Modules.World.EnvironmentMatrixSnapshot EnvMatrix { get; set; }
+		public string PlayerTitle { get; set; }
+		public System.Collections.Generic.IReadOnlyList<RimAI.Core.Source.Modules.History.Models.HistoryEntry> RecentThread { get; set; }
 		public System.Func<string, string, string> L { get; set; } // (key,fallback) -> localized
 		public System.Func<string, System.Collections.Generic.IDictionary<string,string>, string, string> F { get; set; } // (key,args,fallback) -> formatted localized
 	}

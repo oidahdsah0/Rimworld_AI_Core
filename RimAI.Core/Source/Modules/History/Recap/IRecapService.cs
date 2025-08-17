@@ -11,6 +11,7 @@ namespace RimAI.Core.Source.Modules.History.Recap
 		Task EnqueueGenerateIfDueAsync(string convKey, CancellationToken ct = default);
 		Task ForceRebuildAsync(string convKey, CancellationToken ct = default);
 		Task RebuildStaleAsync(string convKey, CancellationToken ct = default);
+		Task GenerateManualAsync(string convKey, CancellationToken ct = default);
 
 		IReadOnlyList<RecapItem> GetRecaps(string convKey);
 		bool UpdateRecap(string convKey, string recapId, string newText);

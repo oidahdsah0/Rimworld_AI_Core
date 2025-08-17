@@ -76,6 +76,17 @@ namespace RimAI.Core.Source.Modules.LLM
 			return GetResponseAsync(req, cancellationToken);
 		}
 
+		public Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken cancellationToken = default)
+		{
+			if (request == null || string.IsNullOrWhiteSpace(request.ConversationId) || request.Messages == null || request.Messages.Count == 0)
+			{
+				return Task.FromResult(Result<UnifiedChatResponse>.Failure("Invalid request: ConversationId/Messages required."));
+			}
+			// 明确后台非流式
+			request.Stream = false;
+			return CallWithRetryAsync(request.ConversationId, ct => RimAIApi.GetCompletionAsync(request, ct), cancellationToken);
+		}
+
 		public Task<Result<UnifiedChatResponse>> GetResponseAsync(string conversationId, string systemPrompt, string userText, IReadOnlyList<string> toolsJson, bool jsonMode, CancellationToken cancellationToken = default)
 		{
 			// 优先路径：使用 Framework 的便捷方法，显式传入 ToolDefinition 列表，提升兼容性
@@ -142,6 +153,88 @@ namespace RimAI.Core.Source.Modules.LLM
 			return GetResponseAsync(req, cancellationToken);
 		}
 
+		public Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, System.Collections.Generic.IReadOnlyList<string> toolsJson, bool jsonMode, CancellationToken cancellationToken = default)
+		{
+			if (request == null)
+			{
+				return Task.FromResult(Result<UnifiedChatResponse>.Failure("Invalid request"));
+			}
+			// 确保非流式与 JSON 模式按需开启
+			request.Stream = false;
+			request.ForceJsonOutput = jsonMode;
+
+			var toolList = new List<RimAI.Framework.Contracts.ToolDefinition>();
+			try
+			{
+				if (toolsJson != null)
+				{
+					foreach (var s in toolsJson)
+					{
+						try
+						{
+							var tool = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(s);
+							if (tool != null) { toolList.Add(tool); continue; }
+							var jo = Newtonsoft.Json.Linq.JObject.Parse(s);
+							var func = jo["function"] as Newtonsoft.Json.Linq.JObject;
+							var fname = func?[(object)"name"]?.ToString();
+							if (!string.IsNullOrWhiteSpace(fname))
+							{
+								var fdesc = func[(object)"description"]?.ToString();
+								var fparams = func[(object)"parameters"];
+								var shaped = new Newtonsoft.Json.Linq.JObject
+								{
+									["Name"] = fname,
+									["Description"] = fdesc != null ? new Newtonsoft.Json.Linq.JValue(fdesc) : null,
+									["Parameters"] = fparams ?? new Newtonsoft.Json.Linq.JObject()
+								};
+								var shapedStr = shaped.ToString(Newtonsoft.Json.Formatting.None);
+								var tool2 = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(shapedStr);
+								if (tool2 != null) toolList.Add(tool2);
+							}
+						}
+						catch { }
+					}
+				}
+			}
+			catch { }
+
+			if (toolList.Count > 0 && request.Messages != null)
+			{
+				System.Diagnostics.Debug.WriteLine($"[RimAI.Core][P2.LLM] Using GetCompletionWithToolsAsync tools={toolList.Count}");
+				return CallWithRetryAsync(request.ConversationId, ct => RimAIApi.GetCompletionWithToolsAsync(request.Messages, toolList, request.ConversationId, ct), cancellationToken);
+			}
+
+			return GetResponseAsync(request, cancellationToken);
+		}
+
+		public Task<Result<UnifiedEmbeddingResponse>> GetEmbeddingsAsync(string input, CancellationToken cancellationToken = default)
+		{
+			if (string.IsNullOrWhiteSpace(input))
+			{
+				return Task.FromResult(Result<UnifiedEmbeddingResponse>.Failure("Input required"));
+			}
+			var req = new UnifiedEmbeddingRequest { Inputs = new List<string> { input } };
+			return GetEmbeddingsAsync(req, cancellationToken);
+		}
+
+		public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(string conversationId, string systemPrompt, string userText, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+		{
+			var req = new UnifiedChatRequest
+			{
+				ConversationId = conversationId,
+				Messages = new List<ChatMessage>
+				{
+					new ChatMessage { Role = "system", Content = systemPrompt ?? string.Empty },
+					new ChatMessage { Role = "user", Content = userText ?? string.Empty }
+				},
+				Stream = true
+			};
+			await foreach (var r in StreamResponseAsync(req, cancellationToken).ConfigureAwait(false))
+			{
+				yield return r;
+			}
+		}
+
 		private Task<Result<UnifiedChatResponse>> CallWithRetryAsync(string circuitKeySuffix, Func<CancellationToken, Task<Result<UnifiedChatResponse>>> action, CancellationToken cancellationToken)
 		{
 			using var cts = CreateLinkedCtsWithDefaultTimeout(cancellationToken, _defaultTimeoutMs);
@@ -158,64 +251,6 @@ namespace RimAI.Core.Source.Modules.LLM
 			}, maxAttempts: _retryMaxAttempts, baseDelayMs: _retryBaseDelayMs, isTransientFailure: r => r.IsFailure, cancellationToken: cts.Token);
 		}
 
-
-		public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(string conversationId, string systemPrompt, string userText, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-		{
-			var req = new UnifiedChatRequest
-			{
-				ConversationId = conversationId,
-				Messages = new List<ChatMessage>
-				{
-					new ChatMessage { Role = "system", Content = systemPrompt ?? string.Empty },
-					new ChatMessage { Role = "user", Content = userText ?? string.Empty }
-				}
-				, Stream = true
-			};
-			await foreach (var r in StreamResponseAsync(req, cancellationToken).ConfigureAwait(false))
-			{
-				yield return r;
-			}
-		}
-
-        public Task<Result<UnifiedEmbeddingResponse>> GetEmbeddingsAsync(string input, CancellationToken cancellationToken = default)
-		{
-            var req = new UnifiedEmbeddingRequest { Inputs = new List<string> { input } };
-			return GetEmbeddingsAsync(req, cancellationToken);
-		}
-
-		public async Task<Result<UnifiedChatResponse>> GetResponseAsync(UnifiedChatRequest request, CancellationToken cancellationToken = default)
-		{
-            if (request == null || string.IsNullOrWhiteSpace(request.ConversationId) || request.Messages == null || request.Messages.Count == 0)
-			{
-                return Result<UnifiedChatResponse>.Failure("Invalid request: ConversationId/Messages required.");
-			}
-			using var cts = CreateLinkedCtsWithDefaultTimeout(cancellationToken, _defaultTimeoutMs);
-			var circuitKey = "chat:" + (request.ConversationId ?? "-");
-			if (!LlmPolicies.IsAllowedByCircuit(circuitKey, _circuitWindowMs, _circuitCooldownMs, _circuitErrorThreshold))
-			{
-                return Result<UnifiedChatResponse>.Failure("CircuitOpen");
-			}
-			try
-			{
-				var result = await LlmPolicies.ExecuteWithRetryAsync<Result<UnifiedChatResponse>>(async ct =>
-				{
-					return await RimAIApi.GetCompletionAsync(request, ct).ConfigureAwait(false);
-				}, maxAttempts: _retryMaxAttempts, baseDelayMs: _retryBaseDelayMs, isTransientFailure: r => r.IsFailure, cancellationToken: cts.Token).ConfigureAwait(false);
-				LlmPolicies.RecordResult(circuitKey, result.IsSuccess);
-				return result;
-			}
-			catch (OperationCanceledException)
-			{
-				// 用户主动取消或超时不应惩罚电路
-                return Result<UnifiedChatResponse>.Failure("TimeoutOrCancelled");
-			}
-			catch (Exception ex)
-			{
-				LlmPolicies.RecordResult(circuitKey, false);
-				System.Diagnostics.Debug.WriteLine($"[RimAI.Core][P2.LLM] GetResponseAsync failed: {ex.Message}");
-                return Result<UnifiedChatResponse>.Failure(ex.Message);
-			}
-		}
 
 		public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(UnifiedChatRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
 		{
@@ -323,6 +358,28 @@ namespace RimAI.Core.Source.Modules.LLM
 				}
 
 				break; // 正常结束流
+			}
+		}
+
+		public async IAsyncEnumerable<Result<UnifiedChatChunk>> StreamResponseAsync(string conversationId, string systemPrompt, System.Collections.Generic.IReadOnlyList<(string role, string content)> messages, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+		{
+			var req = new UnifiedChatRequest
+			{
+				ConversationId = conversationId,
+				Messages = new List<ChatMessage>()
+			};
+			if (!string.IsNullOrEmpty(systemPrompt)) req.Messages.Add(new ChatMessage { Role = "system", Content = systemPrompt });
+			if (messages != null)
+			{
+				foreach (var (role, content) in messages)
+				{
+					req.Messages.Add(new ChatMessage { Role = role, Content = content ?? string.Empty });
+				}
+			}
+			req.Stream = true;
+			await foreach (var r in StreamResponseAsync(req, cancellationToken).ConfigureAwait(false))
+			{
+				yield return r;
 			}
 		}
 

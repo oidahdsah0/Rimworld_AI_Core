@@ -15,37 +15,69 @@ namespace RimAI.Core.Source.Versioned._1_6.World
 			try
 			{
 				if (pawn?.story == null) return null;
-				var bs = childhood ? pawn.story.Childhood : pawn.story.Adulthood;
+				BackstoryDef bs = childhood ? pawn.story.Childhood : pawn.story.Adulthood;
 				if (bs == null) return null;
-				// 通过反射安全获取多版本名称
-				var type = bs.GetType();
-				// 方法优先：TitleShortCapFor(pawn) / TitleCap(pawn)
-				foreach (var mname in new[] { "TitleShortCapFor", "TitleCapFor", "TitleCap" })
+				// 1) 反射优先调用 TitleShortCapFor/TitleCapFor（兼容不同版本与参数签名）
+				try
 				{
-					var mi = type.GetMethod(mname, BindingFlags.Public | BindingFlags.Instance);
-					if (mi != null)
+					var t = bs.GetType();
+					foreach (var name in new[] { "TitleShortCapFor", "TitleCapFor" })
 					{
-						var p = mi.GetParameters().Length == 1 ? new object[] { pawn } : System.Array.Empty<object>();
-						var val = mi.Invoke(bs, p) as string;
-						if (!string.IsNullOrWhiteSpace(val)) return val;
+						var mi = t.GetMethod(name, BindingFlags.Public | BindingFlags.Instance);
+						if (mi == null) continue;
+						var pars = mi.GetParameters();
+						if (pars.Length == 1)
+						{
+							object arg = null;
+							if (pars[0].ParameterType == typeof(Pawn)) arg = pawn;
+							else if (pars[0].ParameterType == typeof(Gender)) arg = pawn?.gender ?? Gender.None;
+							if (arg != null)
+							{
+								var s = mi.Invoke(bs, new object[] { arg }) as string;
+								if (!string.IsNullOrWhiteSpace(s)) return s;
+							}
+						}
 					}
 				}
-				// 字段/属性候选：titleShortCap, titleShort, title, label
-				foreach (var pname in new[] { "titleShortCap", "TitleShortCap", "titleShort", "TitleShort", "title", "Title", "label", "Label" })
+				catch { }
+				// 2) 回退到字段/属性（带性别优先）
+				try
 				{
-					var pi = type.GetProperty(pname, BindingFlags.Public | BindingFlags.Instance);
-					if (pi != null)
+					string TryGet(string[] propOrFieldNames)
 					{
-						var val = pi.GetValue(bs) as string;
-						if (!string.IsNullOrWhiteSpace(val)) return val;
+						var tt = bs.GetType();
+						foreach (var n in propOrFieldNames)
+						{
+							var pi = tt.GetProperty(n, BindingFlags.Public | BindingFlags.Instance);
+							if (pi != null)
+							{
+								var v = pi.GetValue(bs) as string;
+								if (!string.IsNullOrWhiteSpace(v)) return v;
+							}
+							var fi = tt.GetField(n, BindingFlags.Public | BindingFlags.Instance);
+							if (fi != null)
+							{
+								var v = fi.GetValue(bs) as string;
+								if (!string.IsNullOrWhiteSpace(v)) return v;
+							}
+						}
+						return null;
 					}
-					var fi = type.GetField(pname, BindingFlags.Public | BindingFlags.Instance);
-					if (fi != null)
+					// 性别敏感的短标题
+					if (pawn?.gender == Gender.Female)
 					{
-						var val = fi.GetValue(bs) as string;
-						if (!string.IsNullOrWhiteSpace(val)) return val;
+						var s = TryGet(new[] { "titleShortFemale", "TitleShortFemale" }) ?? TryGet(new[] { "titleFemale", "TitleFemale" });
+						if (!string.IsNullOrWhiteSpace(s)) return s.CapitalizeFirst();
+					}
+					// 常规短标题/标题
+					{
+						var s = TryGet(new[] { "titleShortCap", "TitleShortCap", "titleShort", "TitleShort" })
+							?? TryGet(new[] { "titleCap", "TitleCap", "title", "Title", "label", "Label" });
+						if (!string.IsNullOrWhiteSpace(s)) return s.CapitalizeFirst();
 					}
 				}
+				catch { }
+				// 3) 兜底：defName
 				return bs.defName;
 			}
 			catch { return null; }

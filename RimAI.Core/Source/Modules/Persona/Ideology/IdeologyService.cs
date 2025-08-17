@@ -6,6 +6,7 @@ using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Persona.Templates;
+using RimAI.Framework.Contracts;
 
 namespace RimAI.Core.Source.Modules.Persona.Ideology
 {

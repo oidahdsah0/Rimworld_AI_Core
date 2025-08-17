@@ -93,6 +93,20 @@ namespace RimAI.Core.Source.Modules.History.Recap
 			});
 		}
 
+		public async Task GenerateManualAsync(string convKey, CancellationToken ct = default)
+		{
+			var n = Math.Max(1, _cfg.GetInternal()?.History?.SummaryEveryNRounds ?? 5);
+			var mode = (_cfg.GetInternal()?.History?.Recap?.Mode ?? "Append").Equals("Replace", StringComparison.OrdinalIgnoreCase) ? RecapMode.Replace : RecapMode.Append;
+			var maxChars = Math.Max(1, _cfg.GetInternal()?.History?.Recap?.MaxChars ?? 1200);
+			var budgetMs = Math.Max(1, _cfg.GetInternal()?.History?.Budget?.MaxLatencyMs ?? 5000);
+			var all = await _history.GetAllEntriesAsync(convKey, ct).ConfigureAwait(false);
+			var maxTurn = all.Where(e => e.Role == EntryRole.Ai && e.TurnOrdinal.HasValue).Select(e => e.TurnOrdinal.Value).DefaultIfEmpty(0).Max();
+			if (maxTurn <= 0) return;
+			var fromExclusive = Math.Max(0, maxTurn - n);
+			var toInclusive = maxTurn;
+			await GenerateWindowAsync(convKey, all, mode, maxChars, fromExclusive, toInclusive, budgetMs, ct).ConfigureAwait(false);
+		}
+
 		private async Task GenerateWindowAsync(string convKey, IReadOnlyList<HistoryEntry> all, RecapMode mode, int maxChars, long fromExclusive, long toInclusive, int budgetMs, CancellationToken ct)
 		{
 			var idemp = ComputeIdempotencyKey(convKey, mode, fromExclusive, toInclusive, 1);
@@ -131,7 +145,17 @@ namespace RimAI.Core.Source.Modules.History.Recap
 			{
 				cts.CancelAfter(budgetMs);
 				var convId = $"recap:{convKey}:{fromExclusive}-{toInclusive}";
-				var r = await _llm.GetResponseAsync(convId, sys, user, cts.Token).ConfigureAwait(false);
+				var req = new RimAI.Framework.Contracts.UnifiedChatRequest
+				{
+					ConversationId = convId,
+					Messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>
+					{
+						new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys },
+						new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user }
+					},
+					Stream = false
+				};
+				var r = await _llm.GetResponseAsync(req, cts.Token).ConfigureAwait(false);
 				var text = string.Empty;
 				if (r != null && r.IsSuccess && r.Value != null)
 				{

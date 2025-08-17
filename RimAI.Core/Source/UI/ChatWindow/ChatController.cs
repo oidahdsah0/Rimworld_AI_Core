@@ -66,7 +66,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						{
 							Id = e.Id ?? Guid.NewGuid().ToString("N"),
 							Sender = e.Role == EntryRole.User ? MessageSender.User : MessageSender.Ai,
-							DisplayName = e.Role == EntryRole.User ? playerName : "Pawn",
+							DisplayName = e.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "Pawn",
 							TimestampUtc = e.Timestamp,
 							Text = e.Content ?? string.Empty,
 							IsCommand = false
@@ -95,7 +95,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.User,
-				DisplayName = await _world.GetPlayerNameAsync(linked) ?? "Player",
+				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "Player"),
 				TimestampUtc = DateTime.UtcNow,
 				Text = userText,
 				IsCommand = false
@@ -106,7 +106,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.Ai,
-				DisplayName = "Pawn",
+				DisplayName = await GetPawnDisplayNameAsync(linked),
 				TimestampUtc = DateTime.UtcNow,
 				Text = string.Empty,
 				IsCommand = false
@@ -120,12 +120,13 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				{
 					var req = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = false, Locale = null, UserInput = userText };
 					var prompt = await _prompting.BuildAsync(req, linked).ConfigureAwait(false);
-					var systemPrompt = prompt.SystemPrompt;
-					var finalUserText = ComposeUserMessage(prompt);
-					await foreach (var r in _llm.StreamResponseAsync(State.ConvKey,
-						systemPrompt,
-						finalUserText,
-						linked))
+					SplitSpecialFromSystem(prompt.SystemPrompt, out var systemFiltered, out var specialLines);
+					var systemPayload = BuildSystemPayload(systemFiltered, prompt.ContextBlocks);
+					var messages = BuildMessagesArray(systemPayload, State.Messages);
+					// 新版日志：仅输出 Messages 列表（system+历史+本次用户输入），遵循 UI 允许日志
+					LogMessagesList(State.ConvKey, messages);
+					var uiReq = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = State.ConvKey, Messages = messages, Stream = true };
+					await foreach (var r in _llm.StreamResponseAsync(uiReq, linked))
 					{
 						if (!r.IsSuccess)
 						{
@@ -185,7 +186,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.User,
-				DisplayName = await _world.GetPlayerNameAsync(linked) ?? "Player",
+				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "Player"),
 				TimestampUtc = DateTime.UtcNow,
 				Text = userText,
 				IsCommand = true
@@ -209,7 +210,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				{
 					var req = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = true, Locale = null, UserInput = userText };
 					var prompt = await _prompting.BuildAsync(req, linked).ConfigureAwait(false);
-					var finalUserText = ComposeUserMessage(prompt);
+					SplitSpecialFromSystem(prompt.SystemPrompt, out var systemFiltered2, out var specialLines2);
+					var finalUserText = ComposeUserMessage(prompt, specialLines2);
+					LogBuiltPrompt(State.ConvKey, systemFiltered2, specialLines2, prompt, "Command");
+					LogOutboundRequest(State.ConvKey, userMsg, aiMsg, prompt, finalUserText, mode: "Command");
 					var result = await _orchestration.ExecuteAsync(finalUserText, State.ParticipantIds, new RimAI.Core.Source.Modules.Orchestration.ToolOrchestrationOptions
 					{
 						Mode = RimAI.Core.Source.Modules.Orchestration.OrchestrationMode.Classic,
@@ -358,10 +362,155 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			return null;
 		}
 
-		private static string ComposeUserMessage(PromptBuildResult prompt)
+		private async Task<string> GetPawnDisplayNameAsync(CancellationToken ct)
+		{
+			try
+			{
+				var id = TryGetPawnLoadId();
+				if (id.HasValue)
+				{
+					var snap = await _world.GetPawnPromptSnapshotAsync(id.Value, ct).ConfigureAwait(false);
+					var name = snap?.Id?.Name;
+					if (!string.IsNullOrWhiteSpace(name)) return name;
+				}
+			}
+			catch { }
+			return "Pawn";
+		}
+
+		private static void SplitSpecialFromSystem(string systemPrompt, out string filtered, out System.Collections.Generic.List<string> special)
+		{
+			if (string.IsNullOrEmpty(systemPrompt)) { filtered = string.Empty; special = new System.Collections.Generic.List<string>(); return; }
+			var lines = systemPrompt.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+			special = new System.Collections.Generic.List<string>();
+			var filteredBuilder = new System.Text.StringBuilder();
+			foreach (var line in lines)
+			{
+				if (!string.IsNullOrWhiteSpace(line) && (line.StartsWith("[职务]") || line.StartsWith("[Job]")))
+				{
+					special.Add(line);
+				}
+				else
+				{
+					if (filteredBuilder.Length > 0) filteredBuilder.AppendLine();
+					filteredBuilder.Append(line);
+				}
+			}
+			filtered = filteredBuilder.ToString();
+		}
+
+		private static string BuildSystemPayload(string systemFiltered, System.Collections.Generic.IReadOnlyList<RimAI.Core.Source.Modules.Prompting.Models.ContextBlock> blocks)
+		{
+			var sb = new System.Text.StringBuilder();
+			if (!string.IsNullOrEmpty(systemFiltered)) sb.AppendLine(systemFiltered);
+			// 仅拼接 SystemPrompt，不拼接 Activities 到系统段；遵循新 API：系统段包含各项系统提示行
+			return sb.ToString().TrimEnd();
+		}
+
+		private static System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage> BuildMessagesArray(string systemPayload, System.Collections.Generic.IReadOnlyList<ChatMessage> visibleMessages)
+		{
+			var list = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>();
+			if (!string.IsNullOrWhiteSpace(systemPayload)) list.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemPayload });
+			if (visibleMessages != null)
+			{
+				foreach (var m in visibleMessages)
+				{
+					var role = m.Sender == MessageSender.User ? "user" : "assistant";
+					var content = m.Text ?? string.Empty;
+					if (string.IsNullOrWhiteSpace(content)) continue; // 跳过空占位
+					list.Add(new RimAI.Framework.Contracts.ChatMessage { Role = role, Content = content });
+				}
+			}
+			return list;
+		}
+
+		private static void LogMessagesList(string convKey, System.Collections.Generic.IReadOnlyList<RimAI.Framework.Contracts.ChatMessage> messages)
+		{
+			try
+			{
+				var sb = new System.Text.StringBuilder();
+				sb.AppendLine("[RimAI.Core][P10] ChatUI Outbound Messages");
+				sb.AppendLine("conv=" + convKey);
+				if (messages != null)
+				{
+					for (int i = 0; i < messages.Count; i++)
+					{
+						var m = messages[i];
+						sb.AppendLine($"[{i}] {m?.Role}: {m?.Content}");
+					}
+				}
+				Verse.Log.Message(sb.ToString());
+			}
+			catch { }
+		}
+
+		private static void LogBuiltPrompt(string convKey, string systemFiltered, System.Collections.Generic.IReadOnlyList<string> special, PromptBuildResult prompt, string mode)
+		{
+			try
+			{
+				var sb = new System.Text.StringBuilder();
+				sb.AppendLine($"[RimAI.Core][P10] ChatUI Prompt ({mode})");
+				sb.AppendLine($"conv={convKey}");
+				sb.AppendLine("--- SystemPrompt ---");
+				sb.AppendLine(systemFiltered ?? string.Empty);
+				if (special != null && special.Count > 0)
+				{
+					sb.AppendLine("--- Special Info ---");
+					for (int i = 0; i < special.Count; i++) sb.AppendLine(special[i]);
+					sb.AppendLine();
+				}
+				sb.AppendLine("--- Activities ---");
+				if (prompt?.ContextBlocks != null)
+				{
+					foreach (var b in prompt.ContextBlocks)
+					{
+						var title = b?.Title;
+						var text = b?.Text;
+						bool textIsSingleLine = !string.IsNullOrWhiteSpace(text) && text.IndexOf('\n') < 0 && text.IndexOf('\r') < 0;
+						if (!string.IsNullOrWhiteSpace(title) && textIsSingleLine)
+						{
+							sb.AppendLine(title + " " + text);
+						}
+						else
+						{
+							if (!string.IsNullOrWhiteSpace(title)) sb.AppendLine(title);
+							if (!string.IsNullOrWhiteSpace(text)) sb.AppendLine(text);
+						}
+						sb.AppendLine();
+					}
+				}
+				sb.AppendLine("--- UserPrefixedInput ---");
+				sb.AppendLine(prompt?.UserPrefixedInput ?? string.Empty);
+				Verse.Log.Message(sb.ToString());
+			}
+			catch { }
+		}
+
+		private static void LogOutboundRequest(string convKey, ChatMessage userMsg, ChatMessage aiMsg, PromptBuildResult prompt, string finalUserText, string mode)
+		{
+			try
+			{
+				var header = $"[RimAI.Core][P10] Outbound ({mode})";
+				var title = userMsg?.DisplayName ?? "Player";
+				var ts = (userMsg?.TimestampUtc ?? DateTime.UtcNow).ToLocalTime().ToString("HH:mm:ss");
+				var content = userMsg?.Text ?? string.Empty;
+				var line1 = $"{title} {ts}: {content}";
+				var line2 = $"“{title}”发来的最新内容：{content}";
+				Verse.Log.Message(header + "\n" + line1 + "\n\n" + line2);
+			}
+			catch { }
+		}
+
+		private static string ComposeUserMessage(PromptBuildResult prompt, System.Collections.Generic.IReadOnlyList<string> special)
 		{
 			if (prompt == null) return string.Empty;
 			var sb = new System.Text.StringBuilder();
+			if (special != null && special.Count > 0)
+			{
+				sb.AppendLine("--- Special Info ---");
+				foreach (var s in special) sb.AppendLine(s);
+				sb.AppendLine();
+			}
 			if (prompt.ContextBlocks != null)
 			{
 				if (prompt.ContextBlocks.Count > 0)
@@ -399,6 +548,12 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				if (e.ResultObject != null) sb.AppendLine(e.ResultObject.ToString());
 			}
 			return sb.ToString().Trim();
+		}
+
+		private static string FormatLatestLine(string displayName, DateTime timestamp, string text)
+		{
+			var ts = timestamp.ToLocalTime().ToString("HH:mm:ss");
+			return $"{displayName} {ts}: {text}";
 		}
 	}
 }

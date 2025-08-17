@@ -19,7 +19,9 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
         public string GetUserPrefix(PromptBuildContext ctx)
         {
             var l = ctx?.L;
-            var pfx = l?.Invoke("ui.chat.user_prefix", string.Empty) ?? string.Empty;
+            var f = ctx?.F;
+            var playerTitle = ctx?.PlayerTitle ?? (l?.Invoke("ui.chat.player_title.value", "总督") ?? "总督");
+            var pfx = f?.Invoke("ui.chat.user_prefix", new System.Collections.Generic.Dictionary<string, string> { { "player_title", playerTitle } }, string.Empty) ?? string.Empty;
             return pfx;
         }
     }

@@ -44,6 +44,25 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var text = string.Join("\n", ai.Select(e => e.Content ?? string.Empty));
 				blocks.Add(new ContextBlock { Title = $"[关联对话@{ck}]", Text = text });
 			}
+
+			// 同时附加当前会话最近若干条消息（用户+AI），提升多轮对话可见性
+			try
+			{
+				var recent = ctx.RecentThread;
+				if (recent != null && recent.Count > 0)
+				{
+					int take = System.Math.Min(6, recent.Count);
+					var last = recent.Skip(System.Math.Max(0, recent.Count - take)).ToList();
+					var sb = new System.Text.StringBuilder();
+					foreach (var e in last)
+					{
+						var role = e.Role == EntryRole.User ? "User" : "AI";
+						sb.AppendLine($"[{role}] {e.Content}");
+					}
+					blocks.Add(new ContextBlock { Title = ctx?.L?.Invoke("prompt.section.related_conversations", "[Related Conversations]") ?? "[Related Conversations]", Text = sb.ToString().TrimEnd() });
+				}
+			}
+			catch { }
 			return new ComposerOutput { SystemLines = System.Array.Empty<string>(), ContextBlocks = blocks };
 		}
 	}

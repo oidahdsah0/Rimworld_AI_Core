@@ -47,6 +47,20 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
             );
         }
 
+        // Helper: get current player title for UI (internal consumers may cast and read directly)
+        public string GetPlayerTitleOrDefault() => _current?.UI?.ChatWindow?.PlayerTitle ?? "总督";
+
+        // Helper: set and broadcast change (persisting via ModSettings deferred; P6 config file persistence via IPersistenceService)
+        public void SetPlayerTitle(string title)
+        {
+            var t = string.IsNullOrWhiteSpace(title) ? "总督" : title.Trim();
+            if (_current?.UI?.ChatWindow != null)
+            {
+                _current.UI.ChatWindow.PlayerTitle = t;
+                var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+            }
+        }
+
         public string GetSnapshotJsonPretty()
         {
             return JsonConvert.SerializeObject(Current, Formatting.Indented);

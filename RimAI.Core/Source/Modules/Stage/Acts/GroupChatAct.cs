@@ -7,53 +7,46 @@ using RimAI.Core.Source.Modules.Stage.Models;
 
 namespace RimAI.Core.Source.Modules.Stage.Acts
 {
-	internal sealed class GroupChatAct : IStageAct
-	{
-		private readonly ILLMService _llm;
+    internal sealed class GroupChatAct : IStageAct
+    {
+        private readonly ILLMService _llm;
+        public GroupChatAct(ILLMService llm) { _llm = llm; }
 
-		public GroupChatAct(ILLMService llm)
-		{
-			_llm = llm;
-		}
+        public string Name => "GroupChat";
 
-		public string Name => "GroupChat";
+        public Task OnEnableAsync(CancellationToken ct) => Task.CompletedTask;
+        public Task OnDisableAsync(CancellationToken ct) => Task.CompletedTask;
 
-		public bool IsEligible(StageExecutionRequest req)
-		{
-			var n = req?.Ticket?.ParticipantIds?.Count ?? 0;
-			return n >= 2;
-		}
+        public bool IsEligible(StageExecutionRequest req)
+        {
+            return req?.Ticket != null && !string.IsNullOrWhiteSpace(req.Ticket.ConvKey);
+        }
 
-		public async Task<ActResult> ExecuteAsync(StageExecutionRequest req, CancellationToken ct)
-		{
-			try
-			{
-				var conv = "stage-" + (req?.Ticket?.ConvKey ?? Guid.NewGuid().ToString("N"));
-				var participants = string.Join(", ", req?.Ticket?.ParticipantIds ?? Array.Empty<string>());
-				var system = "你是 RimAI 的系统级总结器。";
-				var user = $"请用{(req?.Locale ?? "zh-Hans")}写一段150-300字的群聊总结。参与者：{participants}。场景：{(req?.ScenarioText ?? "(无)")}";
-				var r = await _llm.GetResponseAsync(conv, system, user, ct);
-				if (!r.IsSuccess)
-				{
-					return new ActResult { Completed = false, Reason = "LLMError", FinalText = "（本轮对话失败或超时，已跳过）" };
-				}
-				var text = r.Value?.Message?.Content ?? string.Empty;
-				if (string.IsNullOrWhiteSpace(text)) text = "（本轮对话失败或超时，已跳过）";
-				return new ActResult { Completed = true, Reason = "Completed", FinalText = text, Rounds = 1 };
-			}
-			catch (OperationCanceledException)
-			{
-				return new ActResult { Completed = false, Reason = "Timeout", FinalText = "（本轮对话失败或超时，已跳过）" };
-			}
-			catch (Exception)
-			{
-				return new ActResult { Completed = false, Reason = "Exception", FinalText = "（本轮对话失败或超时，已跳过）" };
-			}
-		}
+        public async Task<ActResult> ExecuteAsync(StageExecutionRequest req, CancellationToken ct)
+        {
+            var conv = req?.Ticket?.ConvKey ?? ("agent:stage|" + (DateTime.UtcNow.Ticks));
+            var system = "你是 RimWorld 殖民地中的友好助手，进行简短的群聊回复。";
+            var user = string.IsNullOrWhiteSpace(req?.ScenarioText) ? "开始一次简短的寒暄。" : req.ScenarioText;
 
-		public Task OnEnableAsync(CancellationToken ct) => Task.CompletedTask;
-		public Task OnDisableAsync(CancellationToken ct) => Task.CompletedTask;
-	}
+            var chatReq = new RimAI.Framework.Contracts.UnifiedChatRequest
+            {
+                ConversationId = conv,
+                Messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>
+                {
+                    new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=system },
+                    new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user }
+                },
+                Stream = false
+            };
+            var resp = await _llm.GetResponseAsync(chatReq, ct).ConfigureAwait(false);
+            if (!resp.IsSuccess)
+            {
+                return new ActResult { Completed = false, Reason = resp.Error ?? "Error", FinalText = "（群聊失败或超时）" };
+            }
+            var text = resp.Value?.Message?.Content ?? string.Empty;
+            return new ActResult { Completed = true, Reason = "Completed", FinalText = text, Rounds = 1 };
+        }
+    }
 }
 
 

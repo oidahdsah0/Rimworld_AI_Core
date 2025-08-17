@@ -30,6 +30,12 @@
     <None Include="Source\Localization\Locales\en.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="Config\RimAI\Persona\job_presets_zh-Hans.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Config\RimAI\Persona\job_presets_en.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <!-- Reference to RimAI Framework -->
@@ -112,11 +118,13 @@
     </ItemGroup>
     <Copy SourceFiles="@(DependencyDlls)" DestinationFolder="$(ModDir)\\1.6\\Assemblies" SkipUnchangedFiles="true" />
 
-    <!-- Step 4: Copy localization files to Mod config root to ensure runtime availability -->
+    <!-- Step 4: Copy localization files & presets to Mod config root to ensure runtime availability -->
     <ItemGroup>
       <LocaleFiles Include="Source\\Localization\\Locales\\*.json" />
+      <JobPresetFiles Include="Config\\RimAI\\Persona\\job_presets_*.json" />
     </ItemGroup>
     <Copy SourceFiles="@(LocaleFiles)" DestinationFolder="$(ModDir)\\Config\\RimAI\\Localization\\Locales\\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(JobPresetFiles)" DestinationFolder="$(ModDir)\\Config\\RimAI\\Persona\\" SkipUnchangedFiles="true" />
 
     <Message Text="RimAI Core successfully deployed!" Importance="high" />
   </Target>

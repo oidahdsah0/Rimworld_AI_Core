@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using RimAI.Core.Source.Infrastructure.Configuration;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Modules.Stage.Diagnostics;
+using RimAI.Core.Source.Modules.Stage.Acts;
 using RimAI.Core.Source.Modules.Stage.History;
 using RimAI.Core.Source.Modules.Stage.Kernel;
 using RimAI.Core.Source.Modules.Stage.Models;

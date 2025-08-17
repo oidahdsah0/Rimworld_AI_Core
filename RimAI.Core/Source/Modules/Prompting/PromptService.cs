@@ -50,6 +50,7 @@ namespace RimAI.Core.Source.Modules.Prompting
             _composers = new List<IPromptComposer>();
             // 内置 ChatUI 作曲器（最小集），可后续按配置裁剪与扩展
             _composers.Add(new Composers.ChatUI.SystemBaseComposer());
+            _composers.Add(new Composers.ChatUI.PlayerTitleComposer());
             _composers.Add(new Composers.ChatUI.PawnIdentityComposer());
             _composers.Add(new Composers.ChatUI.PawnBackstoryComposer());
             _composers.Add(new Composers.ChatUI.PawnBeliefComposer());
@@ -87,9 +88,10 @@ namespace RimAI.Core.Source.Modules.Prompting
 			var pawnHealthTask = request.PawnLoadId.HasValue ? _world.GetPawnHealthSnapshotAsync(request.PawnLoadId.Value, ct) : Task.FromResult<RimAI.Core.Source.Modules.World.PawnHealthSnapshot>(null);
 			var pawnSocialTask = request.PawnLoadId.HasValue ? _world.GetPawnSocialSnapshotAsync(request.PawnLoadId.Value, GetTopRelations(), GetRecentEvents(), ct) : Task.FromResult<RimAI.Core.Source.Modules.World.PawnSocialSnapshot>(null);
 			var recapsTask = string.IsNullOrEmpty(request.ConvKey) ? Task.FromResult((IReadOnlyList<RecapItem>)Array.Empty<RecapItem>()) : Task.Run(() => (IReadOnlyList<RecapItem>)_recap.GetRecaps(request.ConvKey), ct);
+			var threadTask = string.IsNullOrEmpty(request.ConvKey) ? Task.FromResult((IReadOnlyList<HistoryEntry>)Array.Empty<HistoryEntry>()) : _history.GetAllEntriesAsync(request.ConvKey, ct);
 			var personaSnap = entityId == null ? null : _persona.Get(entityId);
 
-			await Task.WhenAll(pawnPromptTask, pawnSocialTask, pawnHealthTask, recapsTask).ConfigureAwait(false);
+			await Task.WhenAll(pawnPromptTask, pawnSocialTask, pawnHealthTask, recapsTask, threadTask).ConfigureAwait(false);
 
 			var ctx = new PromptBuildContext
 			{
@@ -101,7 +103,11 @@ namespace RimAI.Core.Source.Modules.Prompting
 				Persona = personaSnap,
 				PawnHealth = pawnHealthTask.Result,
 				Recaps = recapsTask.Result,
+				RecentThread = threadTask.Result,
 				EnvMatrix = null,
+				PlayerTitle = string.IsNullOrWhiteSpace(_cfg?.GetPlayerTitleOrDefault()) 
+					? (_loc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督")
+					: _cfg.GetPlayerTitleOrDefault(),
 				L = (key, fb) => GetString(locale, key, fb),
 				F = (key, args, fb) => { try { return _loc?.Format(locale, key, args, fb) ?? fb; } catch { return fb; } }
 			};
@@ -145,7 +151,9 @@ namespace RimAI.Core.Source.Modules.Prompting
 			}
 			if (string.IsNullOrWhiteSpace(userPrefix))
 			{
-				userPrefix = GetString(locale, "ui.chat.user_prefix", string.Empty);
+				var playerTitle = _cfg?.GetPlayerTitleOrDefault() ?? "总督";
+				try { userPrefix = _loc?.Format(locale, "ui.chat.user_prefix", new Dictionary<string, string> { { "player_title", playerTitle } }, string.Empty) ?? string.Empty; }
+				catch { userPrefix = GetString(locale, "ui.chat.user_prefix", string.Empty); }
 			}
 			var result = new PromptBuildResult
 			{

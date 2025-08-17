@@ -103,6 +103,30 @@ RimAI.Core.Contracts/
 
 ---
 
+## 9. API 调用规范（统一 System+Messages）
+
+- 统一请求形态（Chat/Tool/Debug/Stage 全面适用）：
+  - 使用 `UnifiedChatRequest { ConversationId, Messages[], Stream? }` 作为唯一入口；禁止使用旧式 `(conversationId, systemPrompt, userText, ...)` 重载。
+  - `Messages` 必须包含一条 `role=system` 的系统提示，其内容由各 Composer 动态组装；随后追加“历史多轮”（`role=user|assistant`）与“本次用户输入”（`role=user`）。
+  - 禁止将 Activities/社交历史/环境块等上下文直接拼入 `user` 文本；此类上下文仅用于构建 `system` 内容或由上层 UI 展示，不进入 `user` 消息体。
+  - UI/Debug 路径允许 `Stream=true`；后台/服务路径一律 `Stream=false`。
+
+- ChatUI（闲聊）：
+  - `Messages = [ system(系统提示行集合), 历史多轮..., 当前用户输入 ]`；空内容与占位消息必须跳过。
+  - 对话 ID 仍为 `ConversationId=convKey`。
+
+- Tool Calls（编排决策）：
+  - 使用与 ChatUI 相同的 `Messages` 组织（system+历史多轮+当前用户输入）。
+  - 工具通过 LLM 网关的“带工具”重载传入；禁止旧式工具调用入口与 JSON 强制输出。
+
+- 历史记录（P8）：
+  - 仅保存“最终输出”与必要元信息；多轮历史用于构建 `Messages`，不得混入系统提示或上下文块到 `user` 文本。
+
+- Gate（强制）：
+  - 检查=0：`GetResponseAsync\([^U]`（禁用所有非 `UnifiedChatRequest` 重载）。
+  - 检查=0：`StreamResponseAsync\([^U]`（禁用旧式流式重载）。
+  - 检查=0：后台代码中 `Stream\s*=\s*true`（仅 `Source/UI/**` 与 `Source/UI/DebugPanel/**` 允许）。
+
 ## 8. 新工具添加规范（Tool Authoring Conventions）
 
 - 基本目标：保持“单一事实源、最小访问面、可索引可执行”。工具的 Tool JSON 由 `IToolRegistryService` 统一产出；执行统一经 `IToolRegistryService.ExecuteToolAsync` 入口。

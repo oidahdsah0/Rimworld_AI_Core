@@ -9,7 +9,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		History,
 		Persona,
 		Job,
-		FixedPrompt
+		FixedPrompt,
+		HistoryAdmin,
+		Title
 	}
 
 	internal enum MessageSender
@@ -48,6 +50,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		public bool IsStreaming { get; set; }
 		public string LastUserInputStash { get; set; }
 		public int ActiveStreamId { get; set; }
+		public string PlayerTitle { get; set; }
 	}
 
 	internal sealed class LcdMarqueeState

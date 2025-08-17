@@ -8,12 +8,17 @@ using RimWorld;
 using RimAI.Core.Source.Boot;
 using RimAI.Core.Source.Infrastructure;
 using RimAI.Core.Source.Modules.History;
+using RimAI.Core.Source.Modules.History.Models;
+using RimAI.Core.Source.Modules.History.Recap;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.UI.ChatWindow.Parts;
 using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.Persona;
+using RimAI.Core.Source.Infrastructure.Localization;
+using RimAI.Core.Source.Modules.Persistence;
+using RimAI.Core.Contracts.Config;
 
 namespace RimAI.Core.Source.UI.ChatWindow
 {
@@ -26,13 +31,17 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private readonly IOrchestrationService _orchestration;
 		private readonly IPromptService _prompting;
 		private readonly IPersonaService _persona;
+		private readonly IRecapService _recap;
 
-		private readonly Pawn _pawn;
+		private Pawn _pawn;
 		private ChatController _controller;
 		private ChatTab _activeTab = ChatTab.History;
 		private string _inputText = string.Empty;
+		private string _titleInputText = string.Empty;
+		private bool _titleInputInitialized;
 		private Vector2 _scrollTranscript = Vector2.zero;
 		private Vector2 _scrollRight = Vector2.zero;
+		private Vector2 _scrollRoster = Vector2.zero;
         private bool _historyWritten;
 		private static string _cachedPlayerId;
 		private float _lastTranscriptContentHeight;
@@ -45,7 +54,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private System.Random _lcdRng;
 		private double _lcdNextShuffleRealtime;
 
-		public override Vector2 InitialSize => new Vector2(900f, 600f);
+		public override Vector2 InitialSize => new Vector2(960f, 600f);
 
 		public ChatWindow(Pawn pawn)
 		{
@@ -53,11 +62,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			doCloseX = true;
 			draggable = true;
 			preventCameraMotion = false;
-			absorbInputAroundWindow = true;
+			absorbInputAroundWindow = false; // 允许点击窗体外的游戏控件
 			closeOnClickedOutside = false;
 			// 确保 Enter/Escape 不会触发默认 Close 行为，由我们自行处理
 			closeOnAccept = false;
-			closeOnCancel = false;
+			closeOnCancel = true; // 允许 ESC 关闭 ChatUI
 
 			_container = RimAICoreMod.Container;
 			_llm = _container.Resolve<ILLMService>();
@@ -66,12 +75,47 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_orchestration = _container.Resolve<IOrchestrationService>();
 			_prompting = _container.Resolve<IPromptService>();
 			_persona = _container.Resolve<IPersonaService>();
+			_recap = _container.Resolve<IRecapService>();
 
 			var participantIds = BuildParticipantIds(pawn);
 			var convKey = BuildConvKey(participantIds);
 			// 若已存在与该 pawn 相关的历史会话，优先复用其 convKey（避免因 playerId 不稳定导致历史无法匹配）
-			TryBindExistingConversation(_history, ref participantIds, ref convKey);
+			convKey = Parts.ConversationSwitching.TryReuseExistingConvKey(_history, participantIds, convKey);
 			_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, participantIds);
+			// 初始化时加载玩家称谓：优先设置值，其次按当前语言的本地化默认值
+			try 
+			{ 
+				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; 
+				var loc = _container.Resolve<ILocalizationService>();
+				var locale = cfg?.GetInternal()?.General?.Locale ?? "zh-Hans";
+				var title = cfg?.GetPlayerTitleOrDefault() ?? string.Empty;
+				if (string.IsNullOrWhiteSpace(title) || (title == "总督" && !locale.StartsWith("zh", StringComparison.OrdinalIgnoreCase)))
+				{
+					title = loc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督";
+				}
+				_controller.State.PlayerTitle = title;
+			} catch { }
+			// 异步从持久化文件加载覆盖值，然后更新配置与当前会话显示名
+			_ = System.Threading.Tasks.Task.Run(async () =>
+			{
+				try
+				{
+					var persistence = _container.Resolve<IPersistenceService>();
+					var json = await persistence.ReadTextUnderConfigOrNullAsync("UI/ChatWindow/player_title.json");
+					if (!string.IsNullOrWhiteSpace(json))
+					{
+						var obj = Newtonsoft.Json.JsonConvert.DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json) 
+							?? new System.Collections.Generic.Dictionary<string, string>();
+						if (obj.TryGetValue("player_title", out var persisted) && !string.IsNullOrWhiteSpace(persisted))
+						{
+							var cfg2 = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+							cfg2.SetPlayerTitle(persisted.Trim());
+							_controller.State.PlayerTitle = cfg2.GetPlayerTitleOrDefault();
+						}
+					}
+				}
+				catch { }
+			});
 			_lcdRng = new System.Random(convKey.GetHashCode());
 			_lcdNextShuffleRealtime = 0.0;
 			// 启动健康轮询
@@ -83,17 +127,20 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		public override void DoWindowContents(Rect inRect)
 		{
+			// 若当前不在称谓设置页，允许下次进入时重新初始化输入框
+			if (_activeTab != ChatTab.Title) _titleInputInitialized = false;
 			if (_activeTab == ChatTab.FixedPrompt)
 			{
 				DrawFixedPromptTab(inRect);
 				return;
 			}
+			// 历史页绘制延后到布局计算之后
 			// 将后台初始化加载的历史消息在主线程合并到可见消息列表
 			while (_controller.State.PendingInitMessages.TryDequeue(out var initMsg))
 			{
 				_controller.State.Messages.Add(initMsg);
 			}
-			var leftW = inRect.width * (1f / 6f);
+			var leftW = inRect.width * (1f / 6f) + 45f; // 人员名单放宽 30px
 			var rightW = inRect.width - leftW - 8f;
 			var leftRect = new Rect(inRect.x, inRect.y, leftW, inRect.height);
 			var rightRectOuter = new Rect(leftRect.xMax + 8f, inRect.y, rightW, inRect.height);
@@ -107,27 +154,48 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 			// 左列
 			EnsurePawnPortrait(96f);
-			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
+			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => BackToChatAndRefresh(), onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName);
+			// 若切换到历史页或聊天主界面，也刷新一次称谓，确保前缀/抬头正确
+			if (_activeTab == ChatTab.History)
+			{
+				try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
+			}
 			if (_activeTab == ChatTab.FixedPrompt)
 			{
 				DrawFixedPromptTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
 				return;
 			}
+			if (_activeTab == ChatTab.Title)
+			{
+				// 进入称谓设置页时刷新一次 PlayerTitle；输入框仅在首次进入时初始化，编辑期间不被覆盖
+				try 
+				{ 
+					var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; 
+					_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault();
+					if (!_titleInputInitialized)
+					{
+						_titleInputText = _controller.State.PlayerTitle ?? "总督";
+						_titleInputInitialized = true;
+					}
+				} catch { }
+				DrawTitleSettingsTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
+				return;
+			}
+			if (_activeTab == ChatTab.HistoryAdmin)
+			{
+				DrawHistoryManagerTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
+				return;
+			}
+			if (_activeTab == ChatTab.Job)
+			{
+				Parts.JobManagerTab.Draw(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f), ref _scrollRight, p => OpenJobAssignDialog(p));
+				return;
+			}
 
-			// 右列：标题 + 生命体征标题 + 脉冲窗口
-			var pulseW = 200f;
-			var pulseLabelW = 72f;
-			var pulseSpacing = 6f;
-			var rightReserveW = pulseLabelW + pulseSpacing + pulseW;
-			var titleLabelRect = new Rect(titleRect.x, titleRect.y, Mathf.Max(0f, titleRect.width - rightReserveW), titleRect.height);
-			TitleBar.Draw(titleLabelRect, _pawnPortrait, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
-			var pulseRect = new Rect(titleRect.xMax - pulseW, titleRect.y + 12f, pulseW - 6f, titleRect.height - 18f);
-			var pulseTitleRect = new Rect(pulseRect.x - pulseSpacing - pulseLabelW - 10f, pulseRect.y, pulseLabelW, pulseRect.height);
-			Text.Anchor = TextAnchor.MiddleRight;
-			Text.Font = GameFont.Small;
-			Widgets.Label(pulseTitleRect, "生命体征：");
-			Text.Anchor = TextAnchor.UpperLeft;
-			HealthPulse.Draw(pulseRect, _healthPulse, _healthPercent, _pawnDead);
+			// 右列：标题 + 生命体征
+			// 在绘制标题前刷新称谓（避免 UI 切页未触发时的滞后）
+			try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
+			Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "Pawn", GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
 
 			// 在绘制前计算内容高度并判断是否需要自动吸底
 			var prevViewH = _lastTranscriptContentHeight;
@@ -160,6 +228,12 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				onCommand: () => _ = OnSendCommandAsync(),
 				onCancel: () => OnCancelStreaming(),
 				isStreaming: _controller.State.IsStreaming || _pawnDead);
+
+			// 若用户刚刚发送了消息，切换到历史页时应立即看到更新：当活跃页为 HistoryAdmin 时强制刷新
+			if (_activeTab == ChatTab.HistoryAdmin && _historyView != null)
+			{
+				try { _historyView.ForceReloadHistory(_history, _controller.State.ConvKey); _historyView.ForceReloadRecaps(_recap, _controller.State.ConvKey); } catch { }
+			}
 
 			// 消费流式 chunk：将其累加到最后一条 AI 文本
 			if (_controller.TryDequeueChunk(out var chunk))
@@ -227,6 +301,132 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			await _controller.SendCommandAsync(text);
 		}
 
+		// DrawJobManagerTab 已移动到 Parts.JobManagerTab
+
+		// 历史子页内部状态已迁移至 Parts.HistoryManagerTabView
+
+		private void DrawHistoryManagerTab(Rect inRect)
+		{
+			// 重定向到 Parts.HistoryManagerTabView，保持主类精简
+			if (_historyView == null) _historyView = new Parts.HistoryManagerTabView();
+			_historyView.Draw(inRect, _controller.State, _history, _recap, convKey =>
+			{
+				try
+				{
+					var parts = _history.GetParticipantsOrEmpty(convKey) ?? new System.Collections.Generic.List<string>();
+					var ids = new System.Collections.Generic.List<string>(parts); ids.Sort(System.StringComparer.Ordinal);
+					_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, ids);
+					_controller.State.Messages.Clear(); _historyWritten = false; _ = _controller.StartAsync();
+					BackToChatAndRefresh();
+				}
+				catch { }
+			});
+		}
+
+		private Parts.HistoryManagerTabView _historyView;
+
+		private void OpenJobAssignDialog(Verse.Pawn pawn)
+		{
+			var entityId = pawn != null ? ($"pawn:{pawn.thingIDNumber}") : null;
+			var current = _persona.Get(entityId)?.Job;
+			string name = current?.Name ?? string.Empty;
+			string desc = current?.Description ?? string.Empty;
+			Parts.JobManagerTab.OpenAssignDialog(entityId, name, desc, (n, d) => SetJob(pawn, n, d));
+		}
+
+		// JobAssignDialog 已移动到 Parts.JobManagerTab
+
+		private string GetJobName(Verse.Pawn pawn)
+		{
+			try { var s = _persona.Get($"pawn:{pawn.thingIDNumber}")?.Job?.Name; return s ?? string.Empty; } catch { return string.Empty; }
+		}
+		private void SetJob(Verse.Pawn pawn, string name, string desc)
+		{
+			try
+			{
+				var entityId = $"pawn:{pawn.thingIDNumber}";
+				var prev = _persona.Get(entityId)?.Job;
+				var prevHas = prev != null && (!string.IsNullOrWhiteSpace(prev.Name) || !string.IsNullOrWhiteSpace(prev.Description));
+				_persona.Upsert(entityId, e => e.SetJob(name, desc));
+				// 写入历史（仅“最终输出”域，按规则写用户消息）
+				string userText;
+				if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(desc)) userText = "你已被撤职";
+				else if (prevHas) userText = $"你已被调任为{name}";
+				else userText = $"你已被任命为{name}";
+				// 历史键应基于被任命小人，而非当前窗体会话
+				string playerId = null;
+				try
+				{
+					if (_controller?.State?.ParticipantIds != null)
+					{
+						foreach (var id in _controller.State.ParticipantIds)
+						{
+							if (id != null && id.StartsWith("player:")) { playerId = id; break; }
+						}
+					}
+				}
+				catch { }
+				if (string.IsNullOrEmpty(playerId)) playerId = GetOrCreatePlayerSessionId();
+				var pids = new System.Collections.Generic.List<string> { entityId, playerId };
+				var convKey = BuildConvKey(pids);
+				convKey = Parts.ConversationSwitching.TryReuseExistingConvKey(_history, pids, convKey);
+				_ = _history.AppendUserAsync(convKey, userText);
+			}
+			catch { }
+		}
+
+		private void BackToChatAndRefresh()
+		{
+			_activeTab = ChatTab.History;
+			// 重置视图高度与滚动，使下一帧自动吸底并触发布局刷新
+			_lastTranscriptContentHeight = 0f;
+			_scrollTranscript = new Vector2(0f, float.MaxValue);
+			// 清理历史页缓存，确保下次进入立即刷新
+			try { _historyView?.ClearCache(); } catch { }
+		}
+
+		private void SwitchConversationToPawn(Verse.Pawn pawn)
+		{
+			if (pawn == null) return;
+			try
+			{
+				// 切换当前小人并重置相关缓存
+				_pawn = pawn;
+				_pawnPortrait = null;
+				_healthPercent = null;
+				_pawnDead = false;
+
+				// 重建 participantIds：目标 pawn + 已有 playerId（若无则现取）
+				var participantIds = new System.Collections.Generic.List<string>();
+				participantIds.Add($"pawn:{pawn.thingIDNumber}");
+				string playerId = null;
+				try
+				{
+					if (_controller?.State?.ParticipantIds != null)
+					{
+						foreach (var id in _controller.State.ParticipantIds)
+						{
+							if (id != null && id.StartsWith("player:")) { playerId = id; break; }
+						}
+					}
+				}
+				catch { }
+				if (string.IsNullOrEmpty(playerId)) playerId = GetOrCreatePlayerSessionId();
+				participantIds.Add(playerId);
+				participantIds.Sort(System.StringComparer.Ordinal);
+				var convKey = BuildConvKey(participantIds);
+				convKey = Parts.ConversationSwitching.TryReuseExistingConvKey(_history, participantIds, convKey);
+				_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, participantIds);
+				// 清空并重新加载该对话的历史
+				_controller.State.Messages.Clear();
+				_historyWritten = false;
+				_ = _controller.StartAsync();
+				// 切回聊天并刷新
+				BackToChatAndRefresh();
+			}
+			catch { }
+		}
+
 		private void DrawFixedPromptTab(Rect inRect)
 		{
 			// 直接弹出编辑窗口，避免在主窗内嵌长输入控件；保持简单
@@ -234,12 +434,35 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
 			if (string.IsNullOrEmpty(entityId))
 			{
-				Widgets.Label(inRect, "未选择有效小人");
+				Widgets.Label(inRect, "未选择有效殖民者");
 				return;
 			}
 			Find.WindowStack.Add(new Parts.FixedPromptEditor(entityId, _persona));
 			// 回到历史页
 			_activeTab = ChatTab.History;
+		}
+
+		private void DrawTitleSettingsTab(Rect inRect)
+		{
+			var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+			string current = null; try { current = cfg?.GetPlayerTitleOrDefault() ?? "总督"; } catch { current = "总督"; }
+			// 文本框 + 保存/重置（不在此处覆盖 _titleInputText，避免用户清空时被重置）
+			Text.Font = GameFont.Medium; Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "您希望殖民者们如何称呼您？"); Text.Font = GameFont.Small;
+			var box = new Rect(inRect.x, inRect.y + 36f, Mathf.Min(260f, inRect.width - 20f), 28f);
+			// 独立的称谓单行输入框，不与聊天输入共享
+			_titleInputText = Widgets.TextField(box, _titleInputText ?? string.Empty);
+			var btnY = box.yMax + 8f;
+			if (Widgets.ButtonText(new Rect(inRect.x, btnY, 90f, 26f), "保存")) 
+			{ 
+				try 
+				{ 
+					var toSave = string.IsNullOrWhiteSpace(_titleInputText) ? (current ?? "总督") : _titleInputText.Trim();
+					cfg?.SetPlayerTitle(toSave); 
+					_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault() ?? "总督"; 
+				} 
+				catch { } 
+			}
+			if (Widgets.ButtonText(new Rect(inRect.x + 100f, btnY, 90f, 26f), "重置")) { try { cfg?.SetPlayerTitle("总督"); _titleInputText = cfg?.GetPlayerTitleOrDefault() ?? "总督"; _controller.State.PlayerTitle = _titleInputText; } catch { } }
 		}
 
 		private void AppendToLastAiMessage(string delta)
@@ -278,36 +501,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			return string.Join("|", participantIds);
 		}
 
-		private static void TryBindExistingConversation(IHistoryService history, ref List<string> participantIds, ref string convKey)
-		{
-			try
-			{
-				if (history == null || participantIds == null || participantIds.Count == 0) return;
-				// 历史使用 convKey 作为会话键：尝试以 pawn:<id> 为主键定位旧会话
-				string pawnId = null;
-				foreach (var id in participantIds)
-				{
-					if (id != null && id.StartsWith("pawn:")) { pawnId = id; break; }
-				}
-				if (string.IsNullOrEmpty(pawnId)) return;
-				var all = history.GetAllConvKeys();
-				if (all == null || all.Count == 0) return;
-				foreach (var ck in all)
-				{
-					var parts = history.GetParticipantsOrEmpty(ck);
-					if (parts == null || parts.Count == 0) continue;
-					bool hasPawn = false;
-					foreach (var p in parts) { if (string.Equals(p, pawnId, StringComparison.Ordinal)) { hasPawn = true; break; } }
-					if (!hasPawn) continue;
-					// 复用旧 convKey，并以旧参会者列表为准（保持稳定性）
-					convKey = ck;
-					participantIds = new List<string>(parts);
-					participantIds.Sort(StringComparer.Ordinal);
-					return;
-				}
-			}
-			catch { }
-		}
+		// TryBindExistingConversation 已移动到 Parts.ConversationSwitching
 
 		private static string GetJobTitleOrNone(Pawn pawn)
 		{

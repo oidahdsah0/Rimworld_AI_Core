@@ -8,6 +8,8 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 	{
 		public static void Draw(Rect rect, RimAI.Core.Source.UI.ChatWindow.ChatConversationState state, Vector2 scrollPos, out Vector2 newScrollPos)
 		{
+			var prevFont = Text.Font;
+			Text.Font = GameFont.Tiny; // 对话主体字体稍微调小
 			// 阴影与边框背景
 			Widgets.DrawShadowAround(rect);
 			Widgets.DrawBoxSolid(rect, new Color(0f, 0f, 0f, 0.20f));
@@ -58,6 +60,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			Widgets.EndScrollView();
 			// 保留用户滚动位置（不再强制置底）
 			newScrollPos = scrollPos;
+			Text.Font = prevFont;
 		}
 
 		private static string FormatMessage(RimAI.Core.Source.UI.ChatWindow.ChatMessage m)

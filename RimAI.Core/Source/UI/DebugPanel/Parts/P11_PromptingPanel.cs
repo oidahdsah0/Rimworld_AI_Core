@@ -52,7 +52,36 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 						sb.AppendLine("[RimAI.Core][P11] Prompt Result (Smalltalk)");
 						sb.AppendLine($"conv={convKey} elapsed={sw.ElapsedMilliseconds} ms");
 						sb.AppendLine("--- SystemPrompt ---");
-						sb.AppendLine(result?.SystemPrompt ?? string.Empty);
+						var sys = result?.SystemPrompt ?? string.Empty;
+						if (!string.IsNullOrEmpty(sys))
+						{
+							var lines = sys.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+							var special = new System.Collections.Generic.List<string>();
+							var filtered = new System.Text.StringBuilder();
+							foreach (var line in lines)
+							{
+								if (!string.IsNullOrWhiteSpace(line) && (line.StartsWith("[职务]") || line.StartsWith("[Job]")))
+								{
+									special.Add(line);
+								}
+								else
+								{
+									if (filtered.Length > 0) filtered.AppendLine();
+									filtered.Append(line);
+								}
+							}
+							sb.AppendLine(filtered.ToString());
+							if (special.Count > 0)
+							{
+								sb.AppendLine("--- Special Info ---");
+								foreach (var sline in special) sb.AppendLine(sline);
+								sb.AppendLine();
+							}
+						}
+						else
+						{
+							sb.AppendLine(string.Empty);
+						}
 						sb.AppendLine("--- Activities ---");
 						if (result?.ContextBlocks != null)
 						{
@@ -119,7 +148,36 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 						sb.AppendLine("[RimAI.Core][P11] Prompt Result (Command)");
 						sb.AppendLine($"conv={convKey} elapsed={sw.ElapsedMilliseconds} ms");
 						sb.AppendLine("--- SystemPrompt ---");
-						sb.AppendLine(result?.SystemPrompt ?? string.Empty);
+						var sys = result?.SystemPrompt ?? string.Empty;
+						if (!string.IsNullOrEmpty(sys))
+						{
+							var lines = sys.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+							var special = new System.Collections.Generic.List<string>();
+							var filtered = new System.Text.StringBuilder();
+							foreach (var line in lines)
+							{
+								if (!string.IsNullOrWhiteSpace(line) && (line.StartsWith("[职务]") || line.StartsWith("[Job]")))
+								{
+									special.Add(line);
+								}
+								else
+								{
+									if (filtered.Length > 0) filtered.AppendLine();
+									filtered.Append(line);
+								}
+							}
+							sb.AppendLine(filtered.ToString());
+							if (special.Count > 0)
+							{
+								sb.AppendLine("--- Special Info ---");
+								foreach (var sline in special) sb.AppendLine(sline);
+								sb.AppendLine();
+							}
+						}
+						else
+						{
+							sb.AppendLine(string.Empty);
+						}
 						sb.AppendLine("--- Activities ---");
 						if (result?.ContextBlocks != null)
 						{

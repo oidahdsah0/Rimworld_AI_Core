@@ -14,6 +14,7 @@ using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Prompting.Models;
 using RimAI.Core.Source.Modules.History.Relations;
 using RimAI.Core.Source.Infrastructure.Localization;
+using RimAI.Core.Source.Modules.Prompting.Composers.Adapters;
 
 namespace RimAI.Core.Source.Modules.Prompting
 {
@@ -72,9 +73,22 @@ namespace RimAI.Core.Source.Modules.Prompting
             _composers.Add(new Composers.ChatUI.HistoryRecapComposer());
             _composers.Add(new Composers.ChatUI.RelatedConversationsComposer(_relations, _history));
             _composers.Add(new Composers.ChatUI.PawnSocialHistoryComposer());
+            _composers.Add(new Composers.Common.GameLogComposer(PromptScope.ChatUI, 30));
             _composers.Add(new Composers.ChatUI.EnvBeautyComposer());
             _composers.Add(new Composers.ChatUI.EnvTerrainComposer());
             _composers.Add(new Composers.ChatUI.UserPrefixComposer());
+
+            // PersonaBiography Scope：仅系统提示 + 单段User
+            var scopeBio = PromptScope.PersonaBiography;
+            _composers.Add(new Composers.Persona.PersonaBiographySystemComposer());
+            _composers.Add(new Composers.Persona.PersonaUserPayloadComposer(scopeBio));
+            _composers.Add(new Composers.Common.GameLogComposer(PromptScope.PersonaBiography, 30));
+
+            // PersonaIdeology Scope：仅系统提示 + 单段User
+            var scopeIdeo = PromptScope.PersonaIdeology;
+            _composers.Add(new Composers.Persona.PersonaIdeologySystemComposer());
+            _composers.Add(new Composers.Persona.PersonaUserPayloadComposer(scopeIdeo));
+            _composers.Add(new Composers.Common.GameLogComposer(PromptScope.PersonaIdeology, 30));
 		}
 
 		public async Task<PromptBuildResult> BuildAsync(PromptBuildRequest request, CancellationToken ct = default)
@@ -135,6 +149,26 @@ namespace RimAI.Core.Source.Modules.Prompting
 			}
 
 			var sb = new StringBuilder();
+			if (request.Scope == PromptScope.ChatUI && blocks != null && blocks.Count > 0)
+			{
+				// 将 Activities（ContextBlocks）也并入 System 段，满足“ChatUI 下必须进入 System Prompt”的要求
+				foreach (var b in blocks)
+				{
+					var title = b?.Title ?? string.Empty;
+					var text = b?.Text ?? string.Empty;
+					if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(text)) continue;
+					bool textIsSingleLine = !string.IsNullOrWhiteSpace(text) && text.IndexOf('\n') < 0 && text.IndexOf('\r') < 0;
+					if (textIsSingleLine)
+					{
+						sysLines.Add(string.IsNullOrWhiteSpace(title) ? text : (title + " " + text));
+					}
+					else
+					{
+						if (!string.IsNullOrWhiteSpace(title)) sysLines.Add(title);
+						if (!string.IsNullOrWhiteSpace(text)) sysLines.Add(text);
+					}
+				}
+			}
 			if (sysLines.Count > 0)
 			{
 				sb.Append(string.Join(Environment.NewLine, sysLines));
@@ -155,13 +189,31 @@ namespace RimAI.Core.Source.Modules.Prompting
 				try { userPrefix = _loc?.Format(locale, "ui.chat.user_prefix", new Dictionary<string, string> { { "player_title", playerTitle } }, string.Empty) ?? string.Empty; }
 				catch { userPrefix = GetString(locale, "ui.chat.user_prefix", string.Empty); }
 			}
+
+			// Persona Scope：覆盖为单段 User 文本
+			string personaUser = null;
+			if (request.Scope == PromptScope.PersonaBiography || request.Scope == PromptScope.PersonaIdeology)
+			{
+				foreach (var comp in ordered)
+				{
+					if (comp is IProvidesUserPayload up2 && up2.Scope == request.Scope)
+					{
+						try { personaUser = await up2.BuildUserPayloadAsync(ctx, ct).ConfigureAwait(false); }
+						catch { personaUser = null; }
+						if (!string.IsNullOrWhiteSpace(personaUser)) break;
+					}
+				}
+			}
+
 			var result = new PromptBuildResult
 			{
 				SystemPrompt = TrimToBudget(sb.ToString(), GetMaxSystemPromptChars()),
 				ContextBlocks = TrimBlocks(blocks, GetBlocksBudgetChars()),
-				UserPrefixedInput = string.IsNullOrWhiteSpace(request.UserInput)
-					? string.Empty
-					: (string.IsNullOrWhiteSpace(userPrefix) ? request.UserInput : (userPrefix + " " + request.UserInput))
+				UserPrefixedInput = (request.Scope == PromptScope.PersonaBiography || request.Scope == PromptScope.PersonaIdeology)
+					? (personaUser ?? string.Empty)
+					: (string.IsNullOrWhiteSpace(request.UserInput)
+						? string.Empty
+						: (string.IsNullOrWhiteSpace(userPrefix) ? request.UserInput : (userPrefix + " " + request.UserInput)))
 			};
 			return result;
 		}
@@ -172,7 +224,7 @@ namespace RimAI.Core.Source.Modules.Prompting
 		private int GetRecentEvents() => Math.Max(0, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Social?.RecentEvents ?? 5);
 		private int GetEnvRadius() => Math.Max(1, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Env?.Radius ?? 9);
 
-/* removed EnvMatrix enrichment */
+		/* removed EnvMatrix enrichment */
 		private HashSet<string> GetEnabledComposerIds(PromptScope scope)
 		{
 			try

@@ -178,6 +178,13 @@ namespace RimAI.Core.Source.Modules.World
 		public float OutdoorTempC { get; set; }
 		public float Glow { get; set; }
 	}
+
+	// 游戏日志项（PlayLog 简化快照）
+	internal sealed class GameLogItem
+	{
+		public string GameTime { get; set; }
+		public string Text { get; set; }
+	}
 }
 
 

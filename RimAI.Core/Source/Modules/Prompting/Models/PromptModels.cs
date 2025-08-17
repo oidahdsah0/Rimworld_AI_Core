@@ -4,7 +4,9 @@ namespace RimAI.Core.Source.Modules.Prompting.Models
 	{
 		ChatUI,
 		Stage,
-		Tool
+		Tool,
+		PersonaBiography,
+		PersonaIdeology
 	}
 
 	internal sealed class PromptBuildRequest

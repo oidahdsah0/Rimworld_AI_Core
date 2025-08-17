@@ -380,23 +380,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		private static void SplitSpecialFromSystem(string systemPrompt, out string filtered, out System.Collections.Generic.List<string> special)
 		{
-			if (string.IsNullOrEmpty(systemPrompt)) { filtered = string.Empty; special = new System.Collections.Generic.List<string>(); return; }
-			var lines = systemPrompt.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+			// 不再过滤“职务”等行，直接保留原样
+			filtered = systemPrompt ?? string.Empty;
 			special = new System.Collections.Generic.List<string>();
-			var filteredBuilder = new System.Text.StringBuilder();
-			foreach (var line in lines)
-			{
-				if (!string.IsNullOrWhiteSpace(line) && (line.StartsWith("[职务]") || line.StartsWith("[Job]")))
-				{
-					special.Add(line);
-				}
-				else
-				{
-					if (filteredBuilder.Length > 0) filteredBuilder.AppendLine();
-					filteredBuilder.Append(line);
-				}
-			}
-			filtered = filteredBuilder.ToString();
 		}
 
 		private static string BuildSystemPayload(string systemFiltered, System.Collections.Generic.IReadOnlyList<RimAI.Core.Source.Modules.Prompting.Models.ContextBlock> blocks)

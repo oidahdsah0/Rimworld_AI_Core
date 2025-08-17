@@ -17,6 +17,12 @@ namespace RimAI.Core.Source.Modules.Prompting
 		PromptScope Scope { get; }
 		string GetUserPrefix(PromptBuildContext ctx);
 	}
+
+	internal interface IProvidesUserPayload
+	{
+		PromptScope Scope { get; }
+		System.Threading.Tasks.Task<string> BuildUserPayloadAsync(PromptBuildContext ctx, System.Threading.CancellationToken ct);
+	}
 }
 
 

@@ -210,7 +210,10 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					try
 					{
 						var s = await ideology.GenerateAsync(entityId);
-						_ideologyText = ComposeIdeologyText(s ?? new RimAI.Core.Source.Modules.Persona.IdeologySnapshot());
+						s = s ?? new RimAI.Core.Source.Modules.Persona.IdeologySnapshot();
+						// 生成后自动保存
+						try { ideology.Set(entityId, s); } catch { }
+						_ideologyText = ComposeIdeologyText(s);
 					}
 					catch (Exception ex) { try { Verse.Log.Warning($"[RimAI.Core][P10] Ideology.Generate failed entity={entityId}: {ex.Message}"); } catch { } }
 					finally { _ideoBusy = false; }

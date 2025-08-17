@@ -33,16 +33,23 @@ namespace RimAI.Core.Source.Modules.Persona.Ideology
 			using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct))
 			{
 				cts.CancelAfter(timeoutMs);
-				string playerName = string.Empty;
-				try { playerName = await _world.GetPlayerNameAsync(cts.Token); } catch { playerName = string.Empty; }
-				var locale = _cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans";
+				// 使用 PromptService 统一组装（Scope=PersonaIdeology）
 				var seg = _cfg?.GetInternal()?.Persona?.Budget?.IdeologySegment ?? 600;
-				var tpls = await _templates.GetTemplatesAsync(locale, cts.Token);
-				var prompt = tpls?.Prompts?.ideology ?? (locale.StartsWith("zh") ? "你是设定编辑。为角色生成四段文本：世界观/价值观/行为准则/性格特质（各≤{maxSeg}字），语言紧凑一致。信息: {facts}" : "Generate four segments: worldview/values/code-of-conduct/traits (<= {maxSeg} chars). Facts: {facts}");
-				var sys = locale.StartsWith("zh") ? "你是设定编辑。" : "You are a setting editor.";
-				var user = prompt.Replace("{maxSeg}", seg.ToString()).Replace("{facts}", "player=" + playerName);
-				var conv = $"persona-ideology-{entityId}";
-				var r = await _llm.GetResponseAsync(conv, sys, user, cts.Token);
+				var prompting = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>();
+				var req = new RimAI.Core.Source.Modules.Prompting.Models.PromptBuildRequest
+				{
+					Scope = RimAI.Core.Source.Modules.Prompting.Models.PromptScope.PersonaIdeology,
+					ConvKey = $"persona-ideology-{entityId}",
+					ParticipantIds = new System.Collections.Generic.List<string> { entityId, "player:persona" },
+					PawnLoadId = TryParsePawnId(entityId),
+					IsCommand = false,
+					Locale = _cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans",
+					UserInput = string.Empty
+				};
+				var prompt = await prompting.BuildAsync(req, cts.Token).ConfigureAwait(false);
+				try { Verse.Log.Message("[RimAI.Core][P7] Persona Ideology Payload\nconv=" + req.ConvKey + "\n--- System ---\n" + (prompt?.SystemPrompt ?? string.Empty) + "\n--- User ---\n" + (prompt?.UserPrefixedInput ?? string.Empty)); } catch { }
+				var ureq = new UnifiedChatRequest { ConversationId = req.ConvKey, Messages = new System.Collections.Generic.List<ChatMessage> { new ChatMessage{ Role="system", Content = prompt?.SystemPrompt ?? string.Empty }, new ChatMessage{ Role="user", Content = prompt?.UserPrefixedInput ?? string.Empty } }, Stream = false };
+				var r = await _llm.GetResponseAsync(ureq, cts.Token).ConfigureAwait(false);
 				if (!r.IsSuccess)
 				{
 					Verse.Log.Warning($"[RimAI.Core][P7.Persona] ideo.gen failed entity={entityId} err={r.Error}");
@@ -60,6 +67,20 @@ namespace RimAI.Core.Source.Modules.Persona.Ideology
 				return snapshot;
 			}
 		}
+
+		private static int? TryParsePawnId(string entityId)
+			{
+				try
+				{
+					if (string.IsNullOrWhiteSpace(entityId)) return null;
+					if (entityId.StartsWith("pawn:"))
+					{
+						if (int.TryParse(entityId.Substring(5), out var id)) return id;
+					}
+					return null;
+				}
+				catch { return null; }
+			}
 
 		private static string SafeCap(string text, int cap)
 		{

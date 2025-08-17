@@ -234,6 +234,23 @@ namespace RimAI.Core.Source.Modules.Tooling
 					return Task.FromResult(res);
 				}).Unwrap();
 			}
+			if (string.Equals(toolName, "get_game_logs", StringComparison.OrdinalIgnoreCase))
+			{
+				int count = 30;
+				if (args != null && args.TryGetValue("count", out var vc) && vc != null)
+				{
+					try { count = Convert.ToInt32(vc, CultureInfo.InvariantCulture); } catch { count = 30; }
+				}
+				IWorldDataService world = null;
+				try { world = (IWorldDataService)RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve(typeof(IWorldDataService)); } catch { }
+				if (world == null) return Task.FromResult<object>(new { ok = false });
+				return world.GetRecentGameLogsAsync(count, ct).ContinueWith<Task<object>>(t =>
+				{
+					if (t.IsFaulted || t.IsCanceled) return Task.FromResult<object>(new { ok = false });
+					object res = new { ok = true, items = t.Result };
+					return Task.FromResult(res);
+				}).Unwrap();
+			}
 			throw new NotImplementedException(toolName);
 		}
 

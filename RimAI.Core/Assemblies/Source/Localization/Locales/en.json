@@ -5,6 +5,9 @@
   "ui.chat.player_title.name": "[You should address the player as]",
   "ui.chat.player_title.value": "governor",
 
+  "ui.persona.biography.system": "Generate a 'Biography' draft for the given colonist: leverage identity, traits, skills, social ties, and history; write in third person, bullet-like concise prose with in-world tone; do not break character, do not fabricate, do not copy verbatim; highlight personality and life arc rather than listing facts; keep it tight (~200 chars), use cautious vagueness when data is missing.",
+  "ui.persona.ideology.system": "Generate an 'Ideology/Worldview' draft: summarize as bullet-like lines for Worldview/Values/Code of Conduct/Personality tendencies, grounded in known context; no OOC, no fabrication; each line <= one sentence, total ~= 200 chars; allow omissions and prudent ambiguity.",
+
   "prompt.section.identity": "[Identity]",
   "prompt.section.backstory": "[Backstory]",
   "prompt.section.traits": "[Traits]",
@@ -31,6 +34,7 @@
   "prompt.section.apparel": "[Apparel]",
   "prompt.section.needs": "[Needs]",
   "prompt.section.need_states": "[Need States]",
+  "prompt.section.activities": "[Activities]",
 
   "prompt.format.skill": "{name}: Lv{level}{passion}",
   "prompt.format.relation": "{rel}: {name} (opinion {opinion})",

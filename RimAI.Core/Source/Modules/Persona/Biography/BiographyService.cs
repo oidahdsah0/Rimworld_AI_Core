@@ -38,16 +38,22 @@ namespace RimAI.Core.Source.Modules.Persona.Biography
 			using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct))
 			{
 				cts.CancelAfter(timeoutMs);
-				string playerName = string.Empty;
-				try { playerName = await _world.GetPlayerNameAsync(cts.Token); } catch { playerName = string.Empty; }
-				var locale = _cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans";
-				var maxPer = _cfg?.GetInternal()?.Persona?.Budget?.BiographyPerItem ?? 400;
-				var tpls = await _templates.GetTemplatesAsync(locale, cts.Token);
-				var prompt = tpls?.Prompts?.biographyDraft ?? (locale.StartsWith("zh") ? "你是传记撰写助手。基于信息为角色生成3-5条不超过{maxPerItem}字的传记段落，每条独立成段，避免重复与无证据推断。信息: {facts}" : "Create 3-5 biography bullets (<= {maxPerItem} chars). Facts: {facts}");
-				var sys = locale.StartsWith("zh") ? "你是传记撰写助手。" : "You are a biography writing assistant.";
-				var user = prompt.Replace("{maxPerItem}", maxPer.ToString()).Replace("{facts}", "player=" + playerName);
-				var conv = "persona-bio-" + entityId;
-				var r = await _llm.GetResponseAsync(conv, sys, user, cts.Token);
+				// 使用 PromptService 统一组装（Scope=PersonaBiography）
+				var prompting = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>();
+				var req = new RimAI.Core.Source.Modules.Prompting.Models.PromptBuildRequest
+				{
+					Scope = RimAI.Core.Source.Modules.Prompting.Models.PromptScope.PersonaBiography,
+					ConvKey = "persona-bio-" + entityId,
+					ParticipantIds = new System.Collections.Generic.List<string> { entityId, "player:persona" },
+					PawnLoadId = TryParsePawnId(entityId),
+					IsCommand = false,
+					Locale = _cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans",
+					UserInput = string.Empty
+				};
+				var prompt = await prompting.BuildAsync(req, cts.Token).ConfigureAwait(false);
+				try { Verse.Log.Message("[RimAI.Core][P7] Persona Biography Payload\nconv=" + req.ConvKey + "\n--- System ---\n" + (prompt?.SystemPrompt ?? string.Empty) + "\n--- User ---\n" + (prompt?.UserPrefixedInput ?? string.Empty)); } catch { }
+				var ureq = new UnifiedChatRequest { ConversationId = req.ConvKey, Messages = new System.Collections.Generic.List<ChatMessage> { new ChatMessage{ Role="system", Content = prompt?.SystemPrompt ?? string.Empty }, new ChatMessage{ Role="user", Content = prompt?.UserPrefixedInput ?? string.Empty } }, Stream = false };
+				var r = await _llm.GetResponseAsync(ureq, cts.Token).ConfigureAwait(false);
 				if (!r.IsSuccess)
 				{
 					Verse.Log.Warning("[RimAI.Core][P7.Persona] bio.gen failed entity=" + entityId + " err=" + r.Error);
@@ -55,6 +61,7 @@ namespace RimAI.Core.Source.Modules.Persona.Biography
 				}
 				var text = r.Value?.Message?.Content ?? string.Empty;
 				var normalized = (text ?? string.Empty).Replace("\r", string.Empty);
+				var maxPer = _cfg?.GetInternal()?.Persona?.Budget?.BiographyPerItem ?? 400;
 				var lines = normalized.Split('\n')
 					.Select(x => x.Trim().TrimStart('-', '•', ' '))
 					.Where(x => !string.IsNullOrWhiteSpace(x))
@@ -73,18 +80,23 @@ namespace RimAI.Core.Source.Modules.Persona.Biography
 
 		public async Task<string> GenerateAsync(string conv, string sys, string user, CancellationToken ct)
 		{
-			var req = new RimAI.Framework.Contracts.UnifiedChatRequest
-			{
-				ConversationId = conv,
-				Messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>
-				{
-					new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys },
-					new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user }
-				},
-				Stream = false
-			};
-			var r = await _llm.GetResponseAsync(req, ct).ConfigureAwait(false);
+			var ureq = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = conv, Messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage> { new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys }, new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user } }, Stream = false };
+			var r = await _llm.GetResponseAsync(ureq, ct).ConfigureAwait(false);
 			return r.IsSuccess ? (r.Value?.Message?.Content ?? string.Empty) : string.Empty;
+		}
+
+		private static int? TryParsePawnId(string entityId)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(entityId)) return null;
+				if (entityId.StartsWith("pawn:"))
+				{
+					if (int.TryParse(entityId.Substring(5), out var id)) return id;
+				}
+				return null;
+			}
+			catch { return null; }
 		}
 	}
 }

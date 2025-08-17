@@ -58,19 +58,7 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 							var lines = sys.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 							var special = new System.Collections.Generic.List<string>();
 							var filtered = new System.Text.StringBuilder();
-							foreach (var line in lines)
-							{
-								if (!string.IsNullOrWhiteSpace(line) && (line.StartsWith("[职务]") || line.StartsWith("[Job]")))
-								{
-									special.Add(line);
-								}
-								else
-								{
-									if (filtered.Length > 0) filtered.AppendLine();
-									filtered.Append(line);
-								}
-							}
-							sb.AppendLine(filtered.ToString());
+							sb.AppendLine(sys);
 							if (special.Count > 0)
 							{
 								sb.AppendLine("--- Special Info ---");
@@ -154,19 +142,7 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 							var lines = sys.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 							var special = new System.Collections.Generic.List<string>();
 							var filtered = new System.Text.StringBuilder();
-							foreach (var line in lines)
-							{
-								if (!string.IsNullOrWhiteSpace(line) && (line.StartsWith("[职务]") || line.StartsWith("[Job]")))
-								{
-									special.Add(line);
-								}
-								else
-								{
-									if (filtered.Length > 0) filtered.AppendLine();
-									filtered.Append(line);
-								}
-							}
-							sb.AppendLine(filtered.ToString());
+							sb.AppendLine(sys);
 							if (special.Count > 0)
 							{
 								sb.AppendLine("--- Special Info ---");

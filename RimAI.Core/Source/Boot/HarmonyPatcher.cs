@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
-using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Infrastructure;
-using RimAI.Core.Source.UI.DebugPanel;
+using RimAI.Core.Source.UI.ChatWindow;
+using UnityEngine;
 using RimWorld;
 using Verse;
 
@@ -42,22 +42,22 @@ namespace RimAI.Core.Source.Boot
             {
                 var list = __result?.ToList() ?? new List<Gizmo>();
 
-                // Debug 按钮（保留原逻辑：仅 Dev 模式 + DebugPanel 开启）
-                if (Prefs.DevMode)
-                {
-                    var cfgService = RimAICoreMod.Container.Resolve<IConfigurationService>();
-                    if (cfgService?.Current?.DebugPanelEnabled == true)
-                    {
-                        list.Add(DebugGizmoFactory.CreateOpenDebugWindowGizmo());
-                    }
-                }
-
                 // 常规入口：信息传输（仅我方殖民地居民拥有）
                 try
                 {
                     if (__instance != null && __instance.Faction == Faction.OfPlayer && __instance.IsColonist)
                     {
-                        list.Add(DebugGizmoFactory.CreateOpenChatWindowGizmo(__instance));
+                        var cmd = new Command_Action
+                        {
+                            defaultLabel = RimAI.Core.Source.UI.ChatWindow.Strings.Keys.OpenChatWindow,
+                            defaultDesc = "Open RimAI Core chat window.",
+                            icon = ContentFinder<Texture2D>.Get("RimAI/Chat/InfoSend", true),
+                            action = () =>
+                            {
+                                try { if (__instance != null) Find.WindowStack.Add(new ChatWindow(__instance)); } catch { }
+                            }
+                        };
+                        list.Add(cmd);
                     }
                 }
                 catch { }

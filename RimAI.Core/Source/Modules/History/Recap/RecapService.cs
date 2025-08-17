@@ -95,21 +95,50 @@ namespace RimAI.Core.Source.Modules.History.Recap
 
 		public async Task GenerateManualAsync(string convKey, CancellationToken ct = default)
 		{
-			var n = Math.Max(1, _cfg.GetInternal()?.History?.SummaryEveryNRounds ?? 5);
+			// 取消无关 OK/Request 日志；如需，可在 UI 侧点击时记录
 			var mode = (_cfg.GetInternal()?.History?.Recap?.Mode ?? "Append").Equals("Replace", StringComparison.OrdinalIgnoreCase) ? RecapMode.Replace : RecapMode.Append;
 			var maxChars = Math.Max(1, _cfg.GetInternal()?.History?.Recap?.MaxChars ?? 1200);
 			var budgetMs = Math.Max(1, _cfg.GetInternal()?.History?.Budget?.MaxLatencyMs ?? 5000);
 			var all = await _history.GetAllEntriesAsync(convKey, ct).ConfigureAwait(false);
-			var maxTurn = all.Where(e => e.Role == EntryRole.Ai && e.TurnOrdinal.HasValue).Select(e => e.TurnOrdinal.Value).DefaultIfEmpty(0).Max();
-			if (maxTurn <= 0) return;
-			var fromExclusive = Math.Max(0, maxTurn - n);
-			var toInclusive = maxTurn;
-			await GenerateWindowAsync(convKey, all, mode, maxChars, fromExclusive, toInclusive, budgetMs, ct).ConfigureAwait(false);
+			// 带上最近一次的前情提要文本
+			var existingRecapsText = ComposeExistingRecapsText(convKey, maxBudget: 2000);
+			int manualStrategyVersion = unchecked((int)(DateTime.UtcNow.Ticks & 0x7FFFFFFF));
+			int lastEntries = GetManualLastEntriesCount();
+			await GenerateFromLastEntriesAsync(convKey, all, mode, maxChars, lastEntries, budgetMs, ct, existingRecapsText, manualStrategyVersion).ConfigureAwait(false);
+			// 不再打印 OK 确认日志
+		}
+
+		private int GetManualLastEntriesCount()
+		{
+			try { return Math.Max(1, _cfg.GetInternal()?.History?.Recap?.ManualLastEntries ?? 12); } catch { return 12; }
 		}
 
 		private async Task GenerateWindowAsync(string convKey, IReadOnlyList<HistoryEntry> all, RecapMode mode, int maxChars, long fromExclusive, long toInclusive, int budgetMs, CancellationToken ct)
 		{
-			var idemp = ComputeIdempotencyKey(convKey, mode, fromExclusive, toInclusive, 1);
+			// 自动生成也带上最近一次非空前情提要文本，供合并到首条 user 内容
+			var existingRecapsText = ComposeExistingRecapsText(convKey, maxBudget: 2000);
+			await GenerateWindowAsync(convKey, all, mode, maxChars, fromExclusive, toInclusive, budgetMs, ct, existingRecapsText, strategyVersion: 1).ConfigureAwait(false);
+		}
+
+		private async Task GenerateFromLastEntriesAsync(string convKey, IReadOnlyList<HistoryEntry> all, RecapMode mode, int maxChars, int lastEntries, int budgetMs, CancellationToken ct, string existingRecapsText, int strategyVersion)
+		{
+			if (all == null || all.Count == 0) return;
+			var ordered = all.Where(x => !x.Deleted).OrderBy(x => x.Timestamp).ToList();
+			var tail = ordered.Skip(Math.Max(0, ordered.Count - lastEntries)).ToList();
+			long fromExclusive = 0;
+			long toInclusive = 0;
+			// 取尾部中最大的 AI 回合作为 toInclusive，fromExclusive = minTurn-1（若无 AI，直接返回空）
+			var aiTurns = tail.Where(e => e.Role == EntryRole.Ai && e.TurnOrdinal.HasValue).Select(e => e.TurnOrdinal.Value).ToList();
+			if (aiTurns.Count == 0) return;
+			toInclusive = aiTurns.Max();
+			var minTurnInTail = aiTurns.Min();
+			fromExclusive = Math.Max(0, minTurnInTail - 1);
+			await GenerateWindowAsync(convKey, all, mode, maxChars, fromExclusive, toInclusive, budgetMs, ct, existingRecapsText, strategyVersion).ConfigureAwait(false);
+		}
+
+		private async Task GenerateWindowAsync(string convKey, IReadOnlyList<HistoryEntry> all, RecapMode mode, int maxChars, long fromExclusive, long toInclusive, int budgetMs, CancellationToken ct, string existingRecapsText, int strategyVersion)
+		{
+			var idemp = ComputeIdempotencyKey(convKey, mode, fromExclusive, toInclusive, strategyVersion);
 			var windowItems = all.Where(e => e.Role == EntryRole.Ai && e.TurnOrdinal.HasValue && e.TurnOrdinal.Value > fromExclusive && e.TurnOrdinal.Value <= toInclusive).ToList();
 			if (windowItems.Count == 0)
 			{
@@ -130,16 +159,65 @@ namespace RimAI.Core.Source.Modules.History.Recap
 				return;
 			}
 
-			var sb = new StringBuilder();
-			foreach (var e in windowItems)
+			// 构建 Messages List：system + 历史多轮（user/assistant 成对，基于窗口内 AI 回合，配最近一条用户发言）
+			var sys = BuildRecapSystemPrompt(maxChars, existingRecapsText);
+			var messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>();
+			if (!string.IsNullOrWhiteSpace(sys))
 			{
-				sb.AppendLine($"[AI@{e.TurnOrdinal}] {TrimTo(e.Content, 300)}");
+				messages.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = sys });
 			}
-			var input = sb.ToString();
-			if (input.Length > 4000) input = input.Substring(0, 4000);
-
-			var sys = "你是对话总结助手。";
-			var user = $"请在 {maxChars} 字以内，用要点式总结以下对话关键事实与进展，避免复述无关闲聊：\n{input}\n输出要求：1) 精炼、客观；2) 保留具体数值/事实；3) 删去口头禅；4) 使用简短段落或条目。";
+			// 以时间顺序整合窗口内消息为一条 User 文本（U:/A:），不再逐条 list 传递
+			windowItems = windowItems.OrderBy(e => e.Timestamp).ToList();
+			DateTime? prevAiTime = null;
+			int userLines = 0, aiLines = 0;
+			var convSb = new StringBuilder();
+			foreach (var ai in windowItems)
+			{
+				var usersBetween = all
+					.Where(x => x.Role == EntryRole.User && x.Timestamp <= ai.Timestamp && (!prevAiTime.HasValue || x.Timestamp > prevAiTime.Value))
+					.OrderBy(x => x.Timestamp)
+					.ToList();
+				foreach (var u in usersBetween)
+				{
+					if (!string.IsNullOrWhiteSpace(u.Content))
+					{
+						if (convSb.Length > 0) convSb.AppendLine();
+						convSb.Append("U: ").Append(u.Content);
+						userLines++;
+					}
+				}
+				if (!string.IsNullOrWhiteSpace(ai.Content))
+				{
+					if (convSb.Length > 0) convSb.AppendLine();
+					convSb.Append("A: ").Append(ai.Content);
+					aiLines++;
+				}
+				prevAiTime = ai.Timestamp;
+			}
+			// 将“上一条提要”置于用户内容开头并标注
+			var mergedSb = new StringBuilder();
+			if (!string.IsNullOrWhiteSpace(existingRecapsText))
+			{
+				mergedSb.AppendLine("[上次前情提要]");
+				mergedSb.AppendLine(existingRecapsText.Trim());
+				mergedSb.AppendLine();
+			}
+			mergedSb.Append(convSb.ToString());
+			messages.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "user", Content = mergedSb.ToString() });
+			try { Verse.Log.Message($"[RimAI.Core][Recap] Build payload conv={convKey} windowAI={windowItems.Count} usersAdded={userLines} aiAdded={aiLines}"); } catch { }
+			// 固定打印 Payload 详情，便于对齐 LLM 输入
+			try
+			{
+				var logSb = new StringBuilder();
+				logSb.AppendLine($"[RimAI.Core][Recap] Payload conv={convKey} range={fromExclusive + 1}..{toInclusive} total={messages.Count}");
+				for (int i = 0; i < messages.Count; i++)
+				{
+					var m = messages[i];
+					logSb.AppendLine($"[{i}] {m?.Role}: {m?.Content}");
+				}
+				Verse.Log.Message(logSb.ToString());
+			}
+			catch { }
 
 			using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct))
 			{
@@ -148,19 +226,17 @@ namespace RimAI.Core.Source.Modules.History.Recap
 				var req = new RimAI.Framework.Contracts.UnifiedChatRequest
 				{
 					ConversationId = convId,
-					Messages = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>
-					{
-						new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys },
-						new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user }
-					},
+					Messages = messages,
 					Stream = false
 				};
 				var r = await _llm.GetResponseAsync(req, cts.Token).ConfigureAwait(false);
 				var text = string.Empty;
-				if (r != null && r.IsSuccess && r.Value != null)
+				bool success = r != null && r.IsSuccess && r.Value != null;
+				if (success)
 				{
 					try { text = r.Value.Message?.Content ?? string.Empty; } catch { text = string.Empty; }
 				}
+				// 删除兜底：若为空则保留为空，不再贴原始记录
 				if (text.Length > maxChars) text = text.Substring(0, maxChars);
 				UpsertRecap(convKey, new RecapItem
 				{
@@ -179,7 +255,9 @@ namespace RimAI.Core.Source.Modules.History.Recap
 			}
 		}
 
-		private static string TrimTo(string s, int n) => string.IsNullOrEmpty(s) ? string.Empty : (s.Length <= n ? s : s.Substring(0, n));
+        // 回退策略已移除：若 LLM 返回空，则保持空文本，避免贴原始对话
+
+//		private static string TrimTo(string s, int n) => string.IsNullOrEmpty(s) ? string.Empty : (s.Length <= n ? s : s.Substring(0, n)); // no longer used
 
 		private static string ComputeIdempotencyKey(string convKey, RecapMode mode, long fromExclusive, long toInclusive, int strategyVersion)
 		{
@@ -204,17 +282,54 @@ namespace RimAI.Core.Source.Modules.History.Recap
 		private void UpsertRecap(string convKey, RecapItem item)
 		{
 			var list = _recaps.GetOrAdd(convKey, _ => new List<RecapItem>());
-			var existing = list.FirstOrDefault(x => x.IdempotencyKey == item.IdempotencyKey);
-			if (existing == null)
+			string notifyId = null;
+			lock (list)
 			{
-				list.Add(item);
+				var existing = list.FirstOrDefault(x => x.IdempotencyKey == item.IdempotencyKey);
+				if (existing == null)
+				{
+					list.Add(item);
+					notifyId = item.Id;
+				}
+				else
+				{
+					existing.Text = item.Text;
+					existing.UpdatedAt = DateTime.UtcNow;
+					existing.Stale = false;
+					notifyId = existing.Id;
+				}
 			}
-			else
+			try { OnRecapUpdated?.Invoke(convKey, notifyId); } catch { }
+		}
+
+		private static string BuildRecapSystemPrompt(int maxChars, string existingRecaps)
+		{
+			var sb = new StringBuilder();
+			sb.Append($"你是Rimworld游戏对话总结助手AI。你的任务：在 {maxChars} 字以内，用要点式总结对话关键事实与进展；保留具体数值/事实；删去口头禅；使用简短段落或条目；其中U是用户发言，A是NPC发言，提要中不要出现U/A字眼。以下是该次对话之前的提要，以及本次对话内容：\n");
+			if (!string.IsNullOrWhiteSpace(existingRecaps))
 			{
-				existing.Text = item.Text;
-				existing.UpdatedAt = DateTime.UtcNow;
-				existing.Stale = false;
+				sb.AppendLine("以下是最近一次的历史前情提要（可能为空或已被用户编辑/删除），可作为参考：");
+				sb.AppendLine(existingRecaps);
 			}
+			return sb.ToString();
+		}
+
+		private string ComposeExistingRecapsText(string convKey, int maxBudget)
+		{
+			if (!_recaps.TryGetValue(convKey, out var list) || list == null || list.Count == 0) return null;
+			RecapItem last;
+			lock (list)
+			{
+				last = list
+					.OrderBy(x => x.FromTurnExclusive)
+					.ThenBy(x => x.ToTurnInclusive)
+					.LastOrDefault(x => !string.IsNullOrWhiteSpace(x.Text));
+			}
+			if (last == null) return null;
+			var s = last.Text?.Trim();
+			if (string.IsNullOrEmpty(s)) return null;
+			if (s.Length > maxBudget) s = s.Substring(0, maxBudget);
+			return s;
 		}
 
 		public Task ForceRebuildAsync(string convKey, CancellationToken ct = default)
@@ -227,28 +342,51 @@ namespace RimAI.Core.Source.Modules.History.Recap
 
 		public IReadOnlyList<RecapItem> GetRecaps(string convKey)
 		{
-			return _recaps.TryGetValue(convKey, out var list) ? (IReadOnlyList<RecapItem>)list.OrderBy(x => x.FromTurnExclusive).ThenBy(x => x.ToTurnInclusive).ToList() : Array.Empty<RecapItem>();
+			if (!_recaps.TryGetValue(convKey, out var list) || list == null) return Array.Empty<RecapItem>();
+			lock (list)
+			{
+				return (IReadOnlyList<RecapItem>)list
+					.OrderBy(x => x.FromTurnExclusive)
+					.ThenBy(x => x.ToTurnInclusive)
+					.ToList();
+			}
 		}
 
 		public bool UpdateRecap(string convKey, string recapId, string newText)
 		{
-			if (!_recaps.TryGetValue(convKey, out var list)) return false;
-			var r = list.FirstOrDefault(x => x.Id == recapId);
-			if (r == null) return false;
-			r.Text = newText ?? string.Empty;
-			r.UpdatedAt = DateTime.UtcNow;
-			OnRecapUpdated?.Invoke(convKey, recapId);
-			return true;
+			if (!_recaps.TryGetValue(convKey, out var list) || list == null) return false;
+			bool updated = false;
+			lock (list)
+			{
+				var r = list.FirstOrDefault(x => x.Id == recapId);
+				if (r == null) return false;
+				r.Text = newText ?? string.Empty;
+				r.UpdatedAt = DateTime.UtcNow;
+				updated = true;
+			}
+			if (updated)
+			{
+				try { OnRecapUpdated?.Invoke(convKey, recapId); } catch { }
+			}
+			return updated;
 		}
 
 		public bool DeleteRecap(string convKey, string recapId)
 		{
-			if (!_recaps.TryGetValue(convKey, out var list)) return false;
-			var idx = list.FindIndex(x => x.Id == recapId);
-			if (idx < 0) return false;
-			list.RemoveAt(idx);
-			OnRecapUpdated?.Invoke(convKey, recapId);
-			return true;
+			if (!_recaps.TryGetValue(convKey, out var list) || list == null) return false;
+			bool removed = false;
+			lock (list)
+			{
+				var idx = list.FindIndex(x => x.Id == recapId);
+				if (idx < 0) return false;
+				list.RemoveAt(idx);
+				removed = true;
+			}
+			if (removed)
+			{
+				try { OnRecapUpdated?.Invoke(convKey, recapId); } catch { }
+			}
+			return removed;
 		}
 
 		public RecapSnapshot ExportSnapshot()
@@ -282,16 +420,20 @@ namespace RimAI.Core.Source.Modules.History.Recap
 
 		public void MarkStale(string convKey, long? affectedTurnOrdinal = null)
 		{
-			if (!_recaps.TryGetValue(convKey, out var list)) return;
-			foreach (var r in list)
+			if (!_recaps.TryGetValue(convKey, out var list) || list == null) return;
+			lock (list)
 			{
-				if (affectedTurnOrdinal == null || (r.FromTurnExclusive < affectedTurnOrdinal && affectedTurnOrdinal <= r.ToTurnInclusive))
+				foreach (var r in list)
 				{
-					r.Stale = true;
+					if (affectedTurnOrdinal == null || (r.FromTurnExclusive < affectedTurnOrdinal && affectedTurnOrdinal <= r.ToTurnInclusive))
+					{
+						r.Stale = true;
+					}
 				}
 			}
 		}
 	}
 }
+
 
 

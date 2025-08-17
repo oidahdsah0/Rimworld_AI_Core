@@ -214,6 +214,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
             public string Mode { get; set; } = "Append"; // Replace | Append
             public int MaxChars { get; set; } = 1200;
             public bool AutoRebuildOnEdit { get; set; } = false;
+            public int ManualLastEntries { get; set; } = 12; // 手动生成窗口：最近 N 条历史（user/ai 混合计数）
         }
 
         public sealed class HistoryBudgetSection

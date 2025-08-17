@@ -16,6 +16,8 @@ using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.UI.ChatWindow.Parts;
 using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.Persona;
+using RimAI.Core.Source.Modules.Persona.Biography;
+using RimAI.Core.Source.Modules.Persona.Ideology;
 using RimAI.Core.Source.Infrastructure.Localization;
 using RimAI.Core.Source.Modules.Persistence;
 using RimAI.Core.Contracts.Config;
@@ -31,6 +33,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private readonly IOrchestrationService _orchestration;
 		private readonly IPromptService _prompting;
 		private readonly IPersonaService _persona;
+		private readonly IBiographyService _biography;
+		private readonly IIdeologyService _ideology;
 		private readonly IRecapService _recap;
 
 		private Pawn _pawn;
@@ -75,6 +79,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_orchestration = _container.Resolve<IOrchestrationService>();
 			_prompting = _container.Resolve<IPromptService>();
 			_persona = _container.Resolve<IPersonaService>();
+			_biography = _container.Resolve<IBiographyService>();
+			_ideology = _container.Resolve<IIdeologyService>();
 			_recap = _container.Resolve<IRecapService>();
 
 			var participantIds = BuildParticipantIds(pawn);
@@ -154,7 +160,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 			// 左列
 			EnsurePawnPortrait(96f);
-			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => BackToChatAndRefresh(), onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName);
+			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => { try { if (_pawn != null) SwitchConversationToPawn(_pawn); } catch { } BackToChatAndRefresh(); }, onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName);
 			// 若切换到历史页或聊天主界面，也刷新一次称谓，确保前缀/抬头正确
 			if (_activeTab == ChatTab.History)
 			{
@@ -189,6 +195,18 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			if (_activeTab == ChatTab.Job)
 			{
 				Parts.JobManagerTab.Draw(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f), ref _scrollRight, p => OpenJobAssignDialog(p));
+				return;
+			}
+			if (_activeTab == ChatTab.Persona)
+			{
+				// 标题栏（同聊天主界面）
+				try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
+				Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "Pawn", GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
+				// 内容区域：人格信息子Tab（带 Biography/Ideology 两个子页）
+				if (_personaView == null) _personaView = new Parts.PersonaTabView();
+				string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
+				var bodyRect = new Rect(rightRectOuter.x, titleRect.yMax + 4f, rightRectOuter.width, rightRectOuter.height - titleH - 8f);
+				_personaView.Draw(bodyRect, entityId, _controller.State.ConvKey, _persona, _biography, _ideology);
 				return;
 			}
 
@@ -324,6 +342,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		}
 
 		private Parts.HistoryManagerTabView _historyView;
+		private Parts.PersonaTabView _personaView;
 
 		private void OpenJobAssignDialog(Verse.Pawn pawn)
 		{
@@ -383,6 +402,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_scrollTranscript = new Vector2(0f, float.MaxValue);
 			// 清理历史页缓存，确保下次进入立即刷新
 			try { _historyView?.ClearCache(); } catch { }
+			try { _personaView?.ClearCache(); } catch { }
 		}
 
 		private void SwitchConversationToPawn(Verse.Pawn pawn)

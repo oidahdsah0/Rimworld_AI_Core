@@ -60,6 +60,9 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<IIdeologyService, IdeologyService>();
                 Container.Register<IFixedPromptService, FixedPromptService>();
                 Container.Register<IPersonaTemplateManager, PersonaTemplateManager>();
+                Container.Register<IPersonaAutoSettingsService, PersonaAutoSettingsService>();
+                // 自动生成后台任务（P7）：每 15 天为殖民者尝试生成传记与世界观（顺序执行，1分钟间隔）
+                try { Container.RegisterInstance(new PersonaAutoGenerator(Container.Resolve<RimAI.Core.Source.Infrastructure.Scheduler.ISchedulerService>(), Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>(), Container.Resolve<RimAI.Core.Source.Modules.Persona.Biography.IBiographyService>(), Container.Resolve<RimAI.Core.Source.Modules.Persona.Ideology.IIdeologyService>(), Container.Resolve<IPersonaAutoSettingsService>())); } catch { }
 
                 // Register P8 History services (Recap depends on History, so register History first, but Recap requires history in ctor and history no longer depends on recap)
                 Container.Register<IHistoryService, HistoryService>();

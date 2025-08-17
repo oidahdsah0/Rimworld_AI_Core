@@ -35,6 +35,46 @@ namespace RimAI.Core.Source.Modules.World
 			}, name: "GetPlayerName", ct: cts.Token);
 		}
 
+		public Task<int> GetCurrentDayNumberAsync(CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				// 使用绝对 Tick 计算累计天数，避免跨年回绕
+				var abs = Find.TickManager?.TicksAbs ?? 0;
+				int days = abs / 60000; // 60k tick/day
+				return days;
+			}, name: "GetCurrentDayNumber", ct: cts.Token);
+		}
+
+		public Task<System.Collections.Generic.IReadOnlyList<int>> GetAllColonistLoadIdsAsync(CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				var list = new System.Collections.Generic.List<int>();
+				try
+				{
+					foreach (var map in Find.Maps)
+					{
+						var pawns = map?.mapPawns?.FreeColonists; if (pawns == null) continue;
+						foreach (var p in pawns)
+						{
+							if (p != null && !p.Dead) list.Add(p.thingIDNumber);
+						}
+					}
+				}
+				catch { }
+				return (System.Collections.Generic.IReadOnlyList<int>)list;
+			}, name: "GetAllColonistLoadIds", ct: cts.Token);
+		}
+
 		public Task<System.Collections.Generic.IReadOnlyList<(string serverAId, string serverBId)>> GetAlphaFiberLinksAsync(CancellationToken ct = default)
 		{
 			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;

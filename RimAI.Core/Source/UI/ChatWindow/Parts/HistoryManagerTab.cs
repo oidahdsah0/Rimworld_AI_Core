@@ -20,10 +20,19 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 		private sealed class HistoryEntryVM { public string Id; public EntryRole Role; public string Content; public DateTime TimestampUtc; public bool IsEditing; public string EditText; }
 		private List<HistoryEntryVM> _entries;
-		private sealed class RecapVM { public string Id; public string Text; public bool IsEditing; public string EditText; }
+		private sealed class RecapVM { public string Id; public string Text; public bool IsEditing; public string EditText; public string Range; public DateTime UpdatedAtUtc; }
 		private List<RecapVM> _recaps;
 		private List<string> _relatedConvs;
 		private int _relatedSelectedIdx = -1;
+		// Recap 实时刷新订阅
+		private IRecapService _recapHooked;
+		private string _recapHookedConvKey;
+		private bool _recapDirty;
+		private Action<string, string> _recapHandler;
+		// 显示名缓存：convKey → (playerTitle, pawnName)
+		private readonly System.Collections.Generic.Dictionary<string, string> _convUserName = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+		private readonly System.Collections.Generic.Dictionary<string, string> _convPawnName = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+		private readonly System.Collections.Generic.HashSet<string> _nameResolving = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
 
 		public void Draw(Rect inRect, RimAI.Core.Source.UI.ChatWindow.ChatConversationState state, IHistoryService history, IRecapService recap, Action<string> switchToConvKey)
 		{
@@ -86,13 +95,15 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			float totalH = 4f;
 			float actionsWForMeasure = 200f;
 			float contentWForMeasure = (rect.width - 16f) - actionsWForMeasure - 16f;
+			var names = GetOrBeginResolveNames(history, convKey);
 			if (_entries != null)
 			{
 				for (int i = 0; i < _entries.Count; i++)
 				{
 					var it = _entries[i];
 					var measureRect = new Rect(0f, 0f, contentWForMeasure, 99999f);
-					string labelForMeasure = (it.Role == EntryRole.User ? "[User] " : "[AI] ") + (it.Content ?? string.Empty);
+					string senderNameMeasure = it.Role == EntryRole.User ? names.userName : names.pawnName;
+					string labelForMeasure = (senderNameMeasure ?? string.Empty) + "：" + (it.Content ?? string.Empty);
 					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, measureRect.width)) : Mathf.Max(24f, Text.CalcHeight(labelForMeasure, measureRect.width));
 					float rowH = contentH + 12f;
 					totalH += rowH + 6f;
@@ -109,14 +120,15 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					float actionsW = 200f;
 					float contentW = viewRect.width - actionsW - 16f;
 					var contentMeasureRect = new Rect(0f, 0f, contentW, 99999f);
-					string label = (it.Role == EntryRole.User ? "[User] " : "[AI] ") + (it.Content ?? string.Empty);
+					string senderName = it.Role == EntryRole.User ? names.userName : names.pawnName;
+					string label = (senderName ?? string.Empty) + "：" + (it.Content ?? string.Empty);
 					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, contentMeasureRect.width)) : Mathf.Max(24f, Text.CalcHeight(label, contentMeasureRect.width));
 					float rowH = contentH + 12f;
 					var row = new Rect(0f, y, viewRect.width, rowH);
 					Widgets.DrawHighlightIfMouseover(row);
 					var contentRect = new Rect(row.x + 6f, row.y + 6f, contentW, contentH);
 					var actionsRect = new Rect(row.xMax - (actionsW + 10f), row.y + 8f, actionsW, 28f);
-					label = (it.Role == EntryRole.User ? "[User] " : "[AI] ") + (it.Content ?? string.Empty);
+					label = (senderName ?? string.Empty) + "：" + (it.Content ?? string.Empty);
 					if (!it.IsEditing)
 					{
 						Widgets.Label(contentRect, label);
@@ -154,11 +166,13 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			if (_recaps != null) return;
 			try
 			{
+				EnsureRecapEventHooked(recap, convKey);
 				var items = recap.GetRecaps(convKey) ?? Array.Empty<RecapItem>();
 				_recaps = new List<RecapVM>();
 				foreach (var r in items)
 				{
-					_recaps.Add(new RecapVM { Id = r.Id, Text = r.Text, IsEditing = false, EditText = r.Text });
+					string range = $"{r.FromTurnExclusive + 1}..{r.ToTurnInclusive}";
+					_recaps.Add(new RecapVM { Id = r.Id, Text = r.Text, IsEditing = false, EditText = r.Text, Range = range, UpdatedAtUtc = r.UpdatedAt });
 				}
 			}
 			catch { _recaps = new List<RecapVM>(); }
@@ -176,8 +190,33 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 		private void DrawRecaps(Rect rect, IRecapService recap, string convKey)
 		{
-			float rowH = 64f;
-			var viewRect = new Rect(0f, 0f, rect.width - 16f, Math.Max(rect.height, (_recaps?.Count ?? 0) * (rowH + 6f) + 8f));
+			// 监听服务端更新事件，并在下一帧刷新
+			EnsureRecapEventHooked(recap, convKey);
+			if (_recapDirty)
+			{
+				ReloadRecaps(recap, convKey);
+				_recapDirty = false;
+			}
+			// 动态高度（富文本跟随高度）
+			float totalH = 4f;
+			float actionsW = 200f;
+			float contentW = (rect.width - 16f) - actionsW - 16f;
+			if (_recaps != null)
+			{
+				// 生成按钮行
+				totalH += 34f;
+				for (int i = 0; i < _recaps.Count; i++)
+				{
+					var it = _recaps[i];
+					var measureRect = new Rect(0f, 0f, contentW, 99999f);
+					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, measureRect.width)) : Mathf.Max(24f, Text.CalcHeight(it.Text ?? string.Empty, measureRect.width));
+					float headerH = 28f;
+					float headerPad = 2f;
+					float rowH = headerH + headerPad + contentH + 12f;
+					totalH += rowH + 6f;
+				}
+			}
+			var viewRect = new Rect(0f, 0f, rect.width - 16f, Math.Max(rect.height, totalH));
 			Widgets.BeginScrollView(rect, ref _scrollRecaps, viewRect);
 			float y = 4f;
 			if (_recaps != null)
@@ -189,7 +228,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					_ = System.Threading.Tasks.Task.Run(async () =>
 					{
 						try { await recap.GenerateManualAsync(convKey); }
-						catch { }
+						catch (Exception ex) { try { Verse.Log.Warning($"[RimAI.Core][UI] Manual recap failed conv={convKey}: {ex.Message}"); } catch { } }
 						finally { _recapGenerating = false; ReloadRecaps(recap, convKey); }
 					});
 				}
@@ -201,13 +240,22 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				for (int i = 0; i < _recaps.Count; i++)
 				{
 					var it = _recaps[i];
+					var measureRect = new Rect(0f, 0f, contentW, 99999f);
+					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, measureRect.width)) : Mathf.Max(24f, Text.CalcHeight(it.Text ?? string.Empty, measureRect.width));
+					float headerH = 28f;
+					float headerPad = 2f;
+					float rowH = headerH + headerPad + contentH + 12f;
 					var row = new Rect(0f, y, viewRect.width, rowH);
 					Widgets.DrawHighlightIfMouseover(row);
-					var contentRect = new Rect(row.x + 6f, row.y + 4f, row.width - 220f, row.height - 8f);
+					var headerRect = new Rect(row.x + 6f, row.y + 6f, contentW, headerH);
+					var contentRect = new Rect(row.x + 6f, headerRect.yMax + headerPad, contentW, contentH);
 					var actionsRect = new Rect(row.xMax - 210f, row.y + 8f, 200f, row.height - 16f);
+					// 标题行（范围+时间）
+					Widgets.Label(headerRect, $"[{it.Range}] {it.UpdatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm}");
 					if (!it.IsEditing)
 					{
-						Widgets.Label(contentRect, it.Text ?? string.Empty);
+						var body = string.IsNullOrWhiteSpace(it.Text) ? "（空）" : it.Text;
+						Widgets.Label(contentRect, body);
 						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "修改")) { it.IsEditing = true; it.EditText = it.Text; }
 						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "删除")) { if (!recap.DeleteRecap(convKey, it.Id)) Verse.Log.Warning("[RimAI.Core][P10] DeleteRecap failed"); else ReloadRecaps(recap, convKey); }
 					}
@@ -221,6 +269,40 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				}
 			}
 			Widgets.EndScrollView();
+		}
+
+		private void EnsureRecapEventHooked(IRecapService recap, string convKey)
+		{
+			try
+			{
+				if (recap == null || string.IsNullOrWhiteSpace(convKey)) return;
+				if (ReferenceEquals(_recapHooked, recap) && string.Equals(_recapHookedConvKey, convKey, StringComparison.Ordinal)) return;
+				TryUnhookRecapEvent();
+				_recapHooked = recap;
+				_recapHookedConvKey = convKey;
+				_recapHandler = (ck, id) => { if (string.Equals(ck, _recapHookedConvKey, StringComparison.Ordinal)) _recapDirty = true; };
+				_recapHooked.OnRecapUpdated += _recapHandler;
+			}
+			catch { }
+		}
+
+		private void TryUnhookRecapEvent()
+		{
+			try
+			{
+				if (_recapHooked != null && _recapHandler != null)
+				{
+					_recapHooked.OnRecapUpdated -= _recapHandler;
+				}
+			}
+			catch { }
+			finally
+			{
+				_recapHooked = null;
+				_recapHandler = null;
+				_recapHookedConvKey = null;
+				_recapDirty = false;
+			}
 		}
 
 		private List<string> _relatedConvLabels;
@@ -345,9 +427,55 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			catch { }
 		}
 
+		private (string userName, string pawnName) GetOrBeginResolveNames(IHistoryService history, string convKey)
+		{
+			if (string.IsNullOrWhiteSpace(convKey)) return ("玩家", "Pawn");
+			if (!_convUserName.TryGetValue(convKey, out var user)) user = null;
+			if (!_convPawnName.TryGetValue(convKey, out var pawn)) pawn = null;
+			if ((user == null || pawn == null) && !_nameResolving.Contains(convKey))
+			{
+				_nameResolving.Add(convKey);
+				_ = System.Threading.Tasks.Task.Run(async () =>
+				{
+					try
+					{
+						var cfg = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Contracts.Config.IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+						var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
+						string playerTitle = cfg?.GetPlayerTitleOrDefault() ?? "玩家";
+						string pawnName = "Pawn";
+						try
+						{
+							var parts = history.GetParticipantsOrEmpty(convKey) ?? new System.Collections.Generic.List<string>();
+							foreach (var p in parts)
+							{
+								if (p != null && p.StartsWith("pawn:"))
+								{
+									var s = p.Substring("pawn:".Length);
+									if (int.TryParse(s, out var id))
+									{
+										try { var snap = await world.GetPawnPromptSnapshotAsync(id); var nm = snap?.Id?.Name; if (!string.IsNullOrWhiteSpace(nm)) pawnName = nm; }
+										catch { }
+									}
+									break;
+								}
+							}
+						}
+						catch { }
+						lock (_convUserName)
+						{
+							_convUserName[convKey] = playerTitle;
+							_convPawnName[convKey] = pawnName;
+						}
+					}
+					finally { _nameResolving.Remove(convKey); }
+				});
+			}
+			return (user ?? "玩家", pawn ?? "Pawn");
+		}
+
 		public void ClearCache()
 		{
-			_entries = null; _recaps = null; _relatedConvs = null; _relatedSelectedIdx = -1;
+			_entries = null; _recaps = null; _relatedConvs = null; _relatedSelectedIdx = -1; TryUnhookRecapEvent();
 		}
 	}
 }

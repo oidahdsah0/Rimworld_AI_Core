@@ -26,7 +26,7 @@ namespace RimAI.Core.Source.UI.DebugPanel
 			{
 				defaultLabel = Keys.OpenChatWindow,
 				defaultDesc = "打开信息传输窗口（玩家与小人对话）",
-				icon = ContentFinder<Texture2D>.Get("UI/Commands/DesirePower", true),
+				icon = ContentFinder<Texture2D>.Get("RimAI/Chat/InfoSend", true),
 				action = () =>
 				{
 					if (pawn == null) return;

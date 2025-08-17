@@ -83,6 +83,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			CancelStreaming();
 			_streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 			var linked = _streamCts.Token;
+			// 预先清空上一次会话可能遗留的电路状态
+			try { RimAI.Core.Source.Modules.LLM.LlmPolicies.ResetCircuit("stream:" + (State.ConvKey ?? "-")); } catch { }
 			State.IsStreaming = true;
             // 新会话开始：复位 Finish 指示灯，并推进流式会话编号，屏蔽旧流的延迟包
             State.Indicators.FinishOn = false;
@@ -171,6 +173,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			CancelStreaming();
 			_streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 			var linked = _streamCts.Token;
+			// 预先清空上一次会话可能遗留的电路状态（编排路径不走流式，但保持一致性）
+			try { RimAI.Core.Source.Modules.LLM.LlmPolicies.ResetCircuit("chat:" + (State.ConvKey ?? "-")); } catch { }
 			State.IsStreaming = true;
             // 新会话开始：复位 Finish 指示灯，并推进流式会话编号，屏蔽旧流的延迟包
             State.Indicators.FinishOn = false;
@@ -245,14 +249,15 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			}, linked);
 		}
 
-		public async void CancelStreaming()
+		public void CancelStreaming()
 		{
+			// 标记会话为新流并先取消旧 CTS，然后短延迟，避免尾包竞争
+			unchecked { State.ActiveStreamId++; }
 			try { _streamCts?.Cancel(); } catch { }
 			// 若仍在流式，删除最后一次用户发言及半生成的 AI，并把文本归还输入框；清空剩余 chunk
 			if (State.IsStreaming)
 			{
-				// 1) 使旧流失效
-				unchecked { State.ActiveStreamId++; }
+				// 1) 使旧流失效（已在方法开头推进 ActiveStreamId）
 				// 2) 删除最后一条 AI 消息（半生成）
 				for (int i = State.Messages.Count - 1; i >= 0; i--)
 				{
@@ -282,8 +287,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				State.Indicators.DataOn = false;
 				State.Indicators.FinishOn = false;
 				State.IsStreaming = false;
-				// 5) 失效 Framework 会话缓存（防止上游缓存导致下一次响应延迟）
-				try { await _llm.InvalidateConversationCacheAsync(State.ConvKey); } catch { }
+				// 5) 失效 Framework 会话缓存（防止上游缓存导致下一次响应延迟）；避免在 UI 线程阻塞
+				_ = Task.Run(async () => { try { await _llm.InvalidateConversationCacheAsync(State.ConvKey); } catch { } });
 			}
 		}
 
@@ -365,8 +370,18 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				}
 				foreach (var b in prompt.ContextBlocks)
 				{
-					if (!string.IsNullOrWhiteSpace(b.Title)) sb.AppendLine(b.Title);
-					if (!string.IsNullOrWhiteSpace(b.Text)) sb.AppendLine(b.Text);
+					var title = b?.Title;
+					var text = b?.Text;
+					bool textIsSingleLine = !string.IsNullOrWhiteSpace(text) && text.IndexOf('\n') < 0 && text.IndexOf('\r') < 0;
+					if (!string.IsNullOrWhiteSpace(title) && textIsSingleLine)
+					{
+						sb.AppendLine(title + " " + text);
+					}
+					else
+					{
+						if (!string.IsNullOrWhiteSpace(title)) sb.AppendLine(title);
+						if (!string.IsNullOrWhiteSpace(text)) sb.AppendLine(text);
+					}
 					if (sb.Length > 0) sb.AppendLine();
 				}
 			}

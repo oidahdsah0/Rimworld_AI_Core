@@ -31,13 +31,20 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			Widgets.Label(jobRect, jobTitle ?? "无职务");
 			y = jobRect.yMax + 8f;
 
-			// Tabs
+			// Tabs（靠底部排列）
 			float buttonH = 28f;
+			float spacing = 4f;
+			int buttonCount = 4;
+			float totalButtonsH = buttonCount * buttonH + (buttonCount - 1) * spacing;
+			float buttonsStartY = rect.yMax - 8f - totalButtonsH; // 与上方 padding 对齐
+			y = buttonsStartY;
 			if (Widgets.ButtonText(new Rect(x, y, w, buttonH), "历史记录")) activeTab = ChatTab.History;
-			y += buttonH + 4f;
+			y += buttonH + spacing;
 			if (Widgets.ButtonText(new Rect(x, y, w, buttonH), "人格信息")) activeTab = ChatTab.Persona;
-			y += buttonH + 4f;
+			y += buttonH + spacing;
 			if (Widgets.ButtonText(new Rect(x, y, w, buttonH), "职务管理")) activeTab = ChatTab.Job;
+			y += buttonH + spacing;
+			if (Widgets.ButtonText(new Rect(x, y, w, buttonH), "固定提示词")) activeTab = ChatTab.FixedPrompt;
 		}
 	}
 }

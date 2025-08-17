@@ -206,7 +206,7 @@ namespace RimAI.Core.Source.Modules.LLM
 			}
 			catch (OperationCanceledException)
 			{
-				LlmPolicies.RecordResult(circuitKey, false);
+				// 用户主动取消或超时不应惩罚电路
                 return Result<UnifiedChatResponse>.Failure("TimeoutOrCancelled");
 			}
 			catch (Exception ex)
@@ -303,7 +303,7 @@ namespace RimAI.Core.Source.Modules.LLM
 				// 统一在循环外根据状态做 yield/重试/退出，避免在 catch 中 yield
 				if (wasCancelled)
 				{
-					LlmPolicies.RecordResult(circuitKey, false);
+					// 用户主动取消：不计为失败，直接返回取消信号
 					yield return Result<UnifiedChatChunk>.Failure("TimeoutOrCancelled");
 					yield break;
 				}

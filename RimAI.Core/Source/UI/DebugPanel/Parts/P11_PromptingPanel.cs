@@ -58,8 +58,18 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 						{
 							foreach (var b in result.ContextBlocks)
 							{
-								sb.AppendLine(b?.Title);
-								sb.AppendLine(b?.Text);
+								var title = b?.Title;
+								var text = b?.Text;
+								bool textIsSingleLine = !string.IsNullOrWhiteSpace(text) && text.IndexOf('\n') < 0 && text.IndexOf('\r') < 0;
+								if (!string.IsNullOrWhiteSpace(title) && textIsSingleLine)
+								{
+									sb.AppendLine(title + " " + text);
+								}
+								else
+								{
+									if (!string.IsNullOrWhiteSpace(title)) sb.AppendLine(title);
+									if (!string.IsNullOrWhiteSpace(text)) sb.AppendLine(text);
+								}
 								sb.AppendLine();
 							}
 						}
@@ -110,13 +120,23 @@ namespace RimAI.Core.Source.UI.DebugPanel.Parts
 						sb.AppendLine($"conv={convKey} elapsed={sw.ElapsedMilliseconds} ms");
 						sb.AppendLine("--- SystemPrompt ---");
 						sb.AppendLine(result?.SystemPrompt ?? string.Empty);
-						sb.AppendLine("--- ContextBlocks ---");
+						sb.AppendLine("--- Activities ---");
 						if (result?.ContextBlocks != null)
 						{
 							foreach (var b in result.ContextBlocks)
 							{
-								sb.AppendLine(b?.Title);
-								sb.AppendLine(b?.Text);
+								var title = b?.Title;
+								var text = b?.Text;
+								bool textIsSingleLine = !string.IsNullOrWhiteSpace(text) && text.IndexOf('\n') < 0 && text.IndexOf('\r') < 0;
+								if (!string.IsNullOrWhiteSpace(title) && textIsSingleLine)
+								{
+									sb.AppendLine(title + " " + text);
+								}
+								else
+								{
+									if (!string.IsNullOrWhiteSpace(title)) sb.AppendLine(title);
+									if (!string.IsNullOrWhiteSpace(text)) sb.AppendLine(text);
+								}
 								sb.AppendLine();
 							}
 						}

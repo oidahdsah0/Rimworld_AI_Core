@@ -24,6 +24,11 @@
   "prompt.section.colony": "[Colony]",
   "prompt.section.colonists": "[Our Colonists]",
   "prompt.section.hediffs": "[Health Status]",
+  "prompt.section.weather": "[Weather]",
+  "prompt.section.current_job": "[Current Job]",
+  "prompt.section.apparel": "[Apparel]",
+  "prompt.section.needs": "[Needs]",
+  "prompt.section.need_states": "[Need States]",
 
   "prompt.format.skill": "{name}: Lv{level}{passion}",
   "prompt.format.relation": "{rel}: {name} (opinion {opinion})",

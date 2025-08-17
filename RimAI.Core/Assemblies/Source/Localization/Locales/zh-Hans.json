@@ -24,6 +24,11 @@
   "prompt.section.colony": "[领地]",
   "prompt.section.colonists": "[我方人员列表]",
   "prompt.section.hediffs": "[健康状况]",
+  "prompt.section.weather": "[天气]",
+  "prompt.section.current_job": "[当前任务]",
+  "prompt.section.apparel": "[衣着]",
+  "prompt.section.needs": "[需求]",
+  "prompt.section.need_states": "[需求状态]",
 
   "prompt.format.skill": "{name}: Lv{level}{passion}",
   "prompt.format.relation": "{rel}: {name}（好感{opinion}）",

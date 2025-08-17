@@ -8,7 +8,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 	{
 		History,
 		Persona,
-		Job
+		Job,
+		FixedPrompt
 	}
 
 	internal enum MessageSender

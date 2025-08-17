@@ -55,6 +55,11 @@ namespace RimAI.Core.Source.Modules.Prompting
             _composers.Add(new Composers.ChatUI.PawnBeliefComposer());
             _composers.Add(new Composers.ChatUI.PawnTraitsComposer());
             _composers.Add(new Composers.ChatUI.PawnSkillsComposer());
+            _composers.Add(new Composers.ChatUI.WeatherComposer());
+            _composers.Add(new Composers.ChatUI.CurrentJobComposer());
+            _composers.Add(new Composers.ChatUI.ApparelComposer());
+            _composers.Add(new Composers.ChatUI.NeedsComposer());
+            _composers.Add(new Composers.ChatUI.NeedStatesComposer());
             _composers.Add(new Composers.ChatUI.ColonyStatusComposer());
             _composers.Add(new Composers.ChatUI.HealthAverageComposer());
             _composers.Add(new Composers.ChatUI.HediffComposer());
@@ -66,7 +71,8 @@ namespace RimAI.Core.Source.Modules.Prompting
             _composers.Add(new Composers.ChatUI.HistoryRecapComposer());
             _composers.Add(new Composers.ChatUI.RelatedConversationsComposer(_relations, _history));
             _composers.Add(new Composers.ChatUI.PawnSocialHistoryComposer());
-            _composers.Add(new Composers.ChatUI.EnvironmentMatrixComposer());
+            _composers.Add(new Composers.ChatUI.EnvBeautyComposer());
+            _composers.Add(new Composers.ChatUI.EnvTerrainComposer());
             _composers.Add(new Composers.ChatUI.UserPrefixComposer());
 		}
 
@@ -80,11 +86,10 @@ namespace RimAI.Core.Source.Modules.Prompting
 			var pawnPromptTask = request.PawnLoadId.HasValue ? _world.GetPawnPromptSnapshotAsync(request.PawnLoadId.Value, ct) : Task.FromResult<RimAI.Core.Source.Modules.World.PawnPromptSnapshot>(null);
 			var pawnHealthTask = request.PawnLoadId.HasValue ? _world.GetPawnHealthSnapshotAsync(request.PawnLoadId.Value, ct) : Task.FromResult<RimAI.Core.Source.Modules.World.PawnHealthSnapshot>(null);
 			var pawnSocialTask = request.PawnLoadId.HasValue ? _world.GetPawnSocialSnapshotAsync(request.PawnLoadId.Value, GetTopRelations(), GetRecentEvents(), ct) : Task.FromResult<RimAI.Core.Source.Modules.World.PawnSocialSnapshot>(null);
-			var envMatrixTask = request.PawnLoadId.HasValue ? _world.GetPawnEnvironmentMatrixAsync(request.PawnLoadId.Value, GetEnvRadius(), ct) : Task.FromResult<RimAI.Core.Source.Modules.World.EnvironmentMatrixSnapshot>(null);
 			var recapsTask = string.IsNullOrEmpty(request.ConvKey) ? Task.FromResult((IReadOnlyList<RecapItem>)Array.Empty<RecapItem>()) : Task.Run(() => (IReadOnlyList<RecapItem>)_recap.GetRecaps(request.ConvKey), ct);
 			var personaSnap = entityId == null ? null : _persona.Get(entityId);
 
-			await Task.WhenAll(pawnPromptTask, pawnSocialTask, pawnHealthTask, envMatrixTask, recapsTask).ConfigureAwait(false);
+			await Task.WhenAll(pawnPromptTask, pawnSocialTask, pawnHealthTask, recapsTask).ConfigureAwait(false);
 
 			var ctx = new PromptBuildContext
 			{
@@ -96,7 +101,7 @@ namespace RimAI.Core.Source.Modules.Prompting
 				Persona = personaSnap,
 				PawnHealth = pawnHealthTask.Result,
 				Recaps = recapsTask.Result,
-				EnvMatrix = await EnrichEnvMatrixAsync(envMatrixTask.Result, ct).ConfigureAwait(false),
+				EnvMatrix = null,
 				L = (key, fb) => GetString(locale, key, fb),
 				F = (key, args, fb) => { try { return _loc?.Format(locale, key, args, fb) ?? fb; } catch { return fb; } }
 			};
@@ -159,25 +164,7 @@ namespace RimAI.Core.Source.Modules.Prompting
 		private int GetRecentEvents() => Math.Max(0, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Social?.RecentEvents ?? 5);
 		private int GetEnvRadius() => Math.Max(1, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Env?.Radius ?? 9);
 
-		private Task<RimAI.Core.Source.Modules.World.EnvironmentMatrixSnapshot> EnrichEnvMatrixAsync(RimAI.Core.Source.Modules.World.EnvironmentMatrixSnapshot env, CancellationToken ct)
-		{
-			if (env == null) return Task.FromResult<RimAI.Core.Source.Modules.World.EnvironmentMatrixSnapshot>(null);
-			try
-			{
-				// 估算中心坐标：从矩阵来源不可得时，跳过增强
-				// 这里不直接访问 Verse；复用 WorldDataService 的异步 API
-				var r = env.Radius;
-				// 无法从快照直接得知 (x,z)，因此仅在可获取 pawnId 时增强
-				if (env.PawnLoadId > 0)
-				{
-					// 为简化：通过世界服务重新定位 pawn 并计算两项指标
-					// 由于 WorldDataService 的新 API 需要 (x,z)，此处暂不调用，改为将 Beauty/Terrain 注入在 WorldDataService 侧生成矩阵时完成
-					// 保持占位，避免后续调用方依赖空引用
-				}
-			}
-			catch { }
-			return Task.FromResult(env);
-		}
+/* removed EnvMatrix enrichment */
 		private HashSet<string> GetEnabledComposerIds(PromptScope scope)
 		{
 			try

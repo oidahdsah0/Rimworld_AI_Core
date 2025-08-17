@@ -108,6 +108,12 @@ namespace RimAI.Core.Source.Modules.LLM
 				state.LastTransitionUtc = now;
 			}
 		}
+
+		public static void ResetCircuit(string key)
+		{
+			if (string.IsNullOrWhiteSpace(key)) return;
+			_circuits.TryRemove(key, out _);
+		}
 	}
 }
 

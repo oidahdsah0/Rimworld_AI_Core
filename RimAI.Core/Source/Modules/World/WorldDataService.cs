@@ -244,7 +244,9 @@ namespace RimAI.Core.Source.Modules.World
 			}, name: "GetPawnSocialSnapshot", ct: cts.Token);
 		}
 
-		public Task<EnvironmentMatrixSnapshot> GetPawnEnvironmentMatrixAsync(int pawnLoadId, int radius, CancellationToken ct = default)
+		// removed GetPawnEnvironmentMatrixAsync: replaced by split APIs below
+
+		public Task<float> GetPawnBeautyAverageAsync(int pawnLoadId, int radius, CancellationToken ct = default)
 		{
 			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
 			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -252,68 +254,56 @@ namespace RimAI.Core.Source.Modules.World
 			return _scheduler.ScheduleOnMainThreadAsync(() =>
 			{
 				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null;
-				foreach (var map in Find.Maps)
-				{
-					foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
-					{
-						if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; }
-					}
-					if (pawn != null) break;
-				}
+				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
 				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var mapRef = pawn.Map;
-				if (mapRef == null) throw new WorldDataException("Pawn map missing");
+				var mapRef1 = pawn.Map; if (mapRef1 == null) throw new WorldDataException("Map missing");
 				var center = pawn.Position;
-				int r = Math.Max(1, radius);
-				int size = r * 2 + 1;
-				var rows = new System.Collections.Generic.List<string>(size);
-				float beautySum = 0f; long beautyN = 0;
-				var terrainCounts = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
-				for (int dy = r; dy >= -r; dy--)
+				int r = System.Math.Max(0, radius);
+				long n = 0; double sum = 0.0;
+				for (int dz = -r; dz <= r; dz++)
 				{
-					var sb = new System.Text.StringBuilder(size);
 					for (int dx = -r; dx <= r; dx++)
 					{
-						var cell = center + new IntVec3(dx, 0, dy);
-						char ch = '?';
-						if (!cell.InBounds(mapRef))
-						{
-							ch = '#'; // 越界
-						}
-						else if (cell == center)
-						{
-							ch = 'P'; // Pawn 本人
-						}
-						else
-						{
-							var thing = cell.GetFirstPawn(mapRef);
-							if (thing != null) ch = 'p';
-							else if (cell.GetFirstItem(mapRef) != null) ch = 'i';
-							else if (cell.GetEdifice(mapRef) != null) ch = 'B';
-							else if (cell.GetTerrain(mapRef)?.affordances?.Count > 0) ch = '.'; // 地形可站立
-							else ch = '~'; // 其他/液体/不可站立
-							try
-							{
-								float b = BeautyUtility.CellBeauty(cell, mapRef);
-								beautySum += b; beautyN++;
-								var terr = cell.GetTerrain(mapRef);
-								var key = terr?.label ?? terr?.defName ?? "(unknown)";
-								if (!terrainCounts.TryGetValue(key, out var cnt)) cnt = 0;
-								terrainCounts[key] = cnt + 1;
-							}
-							catch { }
-						}
-						sb.Append(ch);
+						var cell = center + new IntVec3(dx, 0, dz);
+						if (!cell.InBounds(mapRef1)) continue;
+						float beauty = 0f; try { beauty = BeautyUtility.CellBeauty(cell, mapRef1); } catch { beauty = 0f; }
+						sum += beauty; n++;
 					}
-					rows.Add(sb.ToString());
 				}
-				var legend = "P=自我 p=其他小人 i=物品 B=建筑 .=地形可站立 ~=不可站立 #=越界";
-				var terrainList = new System.Collections.Generic.List<TerrainCountItem>(terrainCounts.Count);
-				foreach (var kv in terrainCounts) terrainList.Add(new TerrainCountItem { Terrain = kv.Key, Count = kv.Value });
-				terrainList.Sort((a, b) => b.Count.CompareTo(a.Count));
-				return new EnvironmentMatrixSnapshot { PawnLoadId = pawnLoadId, Radius = r, Rows = rows, Legend = legend, BeautyAverage = (beautyN > 0 ? (beautySum / beautyN) : 0f), TerrainCounts = terrainList };
-			}, name: "GetPawnEnvironmentMatrix", ct: cts.Token);
+				return (float)(n > 0 ? (sum / n) : 0.0);
+			}, name: "GetPawnBeautyAverage", ct: cts.Token);
+		}
+
+		public Task<System.Collections.Generic.IReadOnlyList<TerrainCountItem>> GetPawnTerrainCountsAsync(int pawnLoadId, int radius, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				var mapRef2 = pawn.Map; if (mapRef2 == null) throw new WorldDataException("Map missing");
+				var center = pawn.Position;
+				int r = System.Math.Max(0, radius);
+				var counting = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+				for (int dz = -r; dz <= r; dz++)
+				{
+					for (int dx = -r; dx <= r; dx++)
+					{
+						var cell = center + new IntVec3(dx, 0, dz);
+						if (!cell.InBounds(mapRef2)) continue;
+						var terr = cell.GetTerrain(mapRef2);
+						var key = terr?.label ?? terr?.defName ?? "(unknown)";
+						if (!counting.TryGetValue(key, out var c)) c = 0;
+						counting[key] = c + 1;
+					}
+				}
+				var list = new System.Collections.Generic.List<TerrainCountItem>(counting.Count);
+				foreach (var kv in counting) list.Add(new TerrainCountItem { Terrain = kv.Key, Count = kv.Value });
+				return (System.Collections.Generic.IReadOnlyList<TerrainCountItem>)list;
+			}, name: "GetPawnTerrainCounts", ct: cts.Token);
 		}
 
 		public Task<float> GetBeautyAverageAsync(int centerX, int centerZ, int radius, CancellationToken ct = default)
@@ -413,6 +403,123 @@ namespace RimAI.Core.Source.Modules.World
 				}
 				return new ColonySnapshot { ColonyName = colonyName, ColonistCount = count, ColonistNames = names, Colonists = records };
 			}, name: "GetColonySnapshot", ct: cts.Token);
+		}
+
+
+		public Task<WeatherStatus> GetWeatherStatusAsync(int pawnLoadId, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				var mapRef = pawn.Map ?? Find.CurrentMap;
+				string weather = string.Empty; try { weather = mapRef?.weatherManager?.curWeather?.label ?? mapRef?.weatherManager?.curWeather?.defName ?? string.Empty; } catch { }
+				float temp = 0f; try { temp = pawn.AmbientTemperature; } catch { }
+				float glow = 0f; try { var pg = mapRef?.glowGrid?.PsychGlowAt(pawn.Position) ?? PsychGlow.Lit; glow = pg == PsychGlow.Dark ? 0f : (pg == PsychGlow.Lit ? 1f : 0.5f); } catch { }
+				return new WeatherStatus { Weather = weather, OutdoorTempC = temp, Glow = glow };
+			}, name: "GetWeatherStatus", ct: cts.Token);
+		}
+
+		public Task<string> GetCurrentJobLabelAsync(int pawnLoadId, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				try
+				{
+					// 优先使用 UI 显示的报告文本（已本地化），例如“闲逛中”
+					var report = pawn.jobs?.curDriver?.GetReport();
+					if (!string.IsNullOrWhiteSpace(report)) return report;
+					// 回退：JobDef 的 label/defName
+					return pawn.CurJobDef != null ? (pawn.CurJobDef.label ?? pawn.CurJobDef.defName) : string.Empty;
+				}
+				catch { return string.Empty; }
+			}, name: "GetCurrentJobLabel", ct: cts.Token);
+		}
+
+		public Task<System.Collections.Generic.IReadOnlyList<ApparelItem>> GetApparelAsync(int pawnLoadId, int maxApparel, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				var result = new System.Collections.Generic.List<ApparelItem>();
+				try
+				{
+					var list = pawn.apparel?.WornApparel ?? new System.Collections.Generic.List<Apparel>();
+					foreach (var a in list.Take(System.Math.Max(1, maxApparel)))
+					{
+						int maxHp = a.MaxHitPoints > 0 ? a.MaxHitPoints : 0;
+						int curHp = a.HitPoints;
+						int dp = maxHp > 0 ? UnityEngine.Mathf.Clamp(UnityEngine.Mathf.RoundToInt(curHp * 100f / maxHp), 0, 100) : 100;
+						string qual = string.Empty; try { if (QualityUtility.TryGetQuality(a, out var q)) qual = q.ToString(); } catch { }
+						result.Add(new ApparelItem { Label = a.LabelCap ?? a.Label, Quality = qual, DurabilityPercent = dp });
+					}
+				}
+				catch { }
+				return (System.Collections.Generic.IReadOnlyList<ApparelItem>)result;
+			}, name: "GetApparel", ct: cts.Token);
+		}
+
+		public Task<NeedsSnapshot> GetNeedsAsync(int pawnLoadId, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				var needs = new NeedsSnapshot();
+				try { needs.Food = pawn.needs?.food?.CurLevelPercentage ?? 0f; } catch { }
+				try { needs.Rest = pawn.needs?.rest?.CurLevelPercentage ?? 0f; } catch { }
+				try { needs.Recreation = pawn.needs?.joy?.CurLevelPercentage ?? 0f; } catch { }
+				try { needs.Beauty = pawn.needs?.beauty?.CurLevelPercentage ?? 0f; } catch { }
+				try { needs.Indoors = pawn.needs?.roomsize?.CurLevelPercentage ?? 0f; } catch { }
+				try { needs.Mood = pawn.needs?.mood?.CurLevelPercentage ?? 0f; } catch { }
+				return needs;
+			}, name: "GetNeeds", ct: cts.Token);
+		}
+
+		public Task<System.Collections.Generic.IReadOnlyList<ThoughtItem>> GetMoodThoughtOffsetsAsync(int pawnLoadId, int maxThoughts, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
+				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
+				var thoughts = new System.Collections.Generic.List<ThoughtItem>();
+				try
+				{
+					var mem = pawn.needs?.mood?.thoughts?.memories?.Memories ?? new System.Collections.Generic.List<Thought_Memory>();
+					var top = mem
+						.Select(t => new ThoughtItem { Label = t?.LabelCap ?? t?.def?.label ?? t?.def?.defName ?? string.Empty, MoodOffset = UnityEngine.Mathf.RoundToInt((t?.MoodOffset() ?? 0f)) })
+						.Where(x => !string.IsNullOrWhiteSpace(x.Label) && x.MoodOffset != 0)
+						.OrderBy(x => x.MoodOffset)
+						.Take(System.Math.Max(1, maxThoughts))
+						.ToList();
+					thoughts.AddRange(top);
+				}
+				catch { }
+				return (System.Collections.Generic.IReadOnlyList<ThoughtItem>)thoughts;
+			}, name: "GetMoodThoughtOffsets", ct: cts.Token);
 		}
 
 	}

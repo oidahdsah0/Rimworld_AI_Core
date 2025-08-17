@@ -13,6 +13,7 @@ using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.UI.ChatWindow.Parts;
 using RimAI.Core.Source.Modules.Prompting;
+using RimAI.Core.Source.Modules.Persona;
 
 namespace RimAI.Core.Source.UI.ChatWindow
 {
@@ -24,6 +25,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private readonly IWorldDataService _world;
 		private readonly IOrchestrationService _orchestration;
 		private readonly IPromptService _prompting;
+		private readonly IPersonaService _persona;
 
 		private readonly Pawn _pawn;
 		private ChatController _controller;
@@ -63,6 +65,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_world = _container.Resolve<IWorldDataService>();
 			_orchestration = _container.Resolve<IOrchestrationService>();
 			_prompting = _container.Resolve<IPromptService>();
+			_persona = _container.Resolve<IPersonaService>();
 
 			var participantIds = BuildParticipantIds(pawn);
 			var convKey = BuildConvKey(participantIds);
@@ -80,6 +83,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		public override void DoWindowContents(Rect inRect)
 		{
+			if (_activeTab == ChatTab.FixedPrompt)
+			{
+				DrawFixedPromptTab(inRect);
+				return;
+			}
 			// 将后台初始化加载的历史消息在主线程合并到可见消息列表
 			while (_controller.State.PendingInitMessages.TryDequeue(out var initMsg))
 			{
@@ -100,6 +108,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			// 左列
 			EnsurePawnPortrait(96f);
 			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn));
+			if (_activeTab == ChatTab.FixedPrompt)
+			{
+				DrawFixedPromptTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
+				return;
+			}
 
 			// 右列：标题 + 生命体征标题 + 脉冲窗口
 			var pulseW = 200f;
@@ -212,6 +225,21 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_inputText = string.Empty;
 			_historyWritten = false;
 			await _controller.SendCommandAsync(text);
+		}
+
+		private void DrawFixedPromptTab(Rect inRect)
+		{
+			// 直接弹出编辑窗口，避免在主窗内嵌长输入控件；保持简单
+			// 根据 pawn id 生成 entityId
+			string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
+			if (string.IsNullOrEmpty(entityId))
+			{
+				Widgets.Label(inRect, "未选择有效小人");
+				return;
+			}
+			Find.WindowStack.Add(new Parts.FixedPromptEditor(entityId, _persona));
+			// 回到历史页
+			_activeTab = ChatTab.History;
 		}
 
 		private void AppendToLastAiMessage(string delta)

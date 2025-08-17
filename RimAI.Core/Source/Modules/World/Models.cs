@@ -137,6 +137,47 @@ namespace RimAI.Core.Source.Modules.World
 		public bool Permanent { get; set; }
 		public string Category { get; set; } // Injury | Disease | Implant | MissingPart | Other
 	}
+
+	internal sealed class PawnUiStatusSnapshot
+	{
+		public string Weather { get; set; }
+		public float OutdoorTempC { get; set; }
+		public float Glow { get; set; }
+		public string CurrentJob { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ApparelItem> Apparel { get; set; }
+		public NeedsSnapshot Needs { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ThoughtItem> ThoughtMoodOffsets { get; set; }
+	}
+
+	internal sealed class ApparelItem
+	{
+		public string Label { get; set; }
+		public string Quality { get; set; }
+		public int DurabilityPercent { get; set; }
+	}
+
+	internal sealed class NeedsSnapshot
+	{
+		public float Food { get; set; }
+		public float Rest { get; set; }
+		public float Recreation { get; set; }
+		public float Beauty { get; set; }
+		public float Indoors { get; set; }
+		public float Mood { get; set; }
+	}
+
+	internal sealed class ThoughtItem
+	{
+		public string Label { get; set; }
+		public int MoodOffset { get; set; }
+	}
+
+	internal sealed class WeatherStatus
+	{
+		public string Weather { get; set; }
+		public float OutdoorTempC { get; set; }
+		public float Glow { get; set; }
+	}
 }
 
 

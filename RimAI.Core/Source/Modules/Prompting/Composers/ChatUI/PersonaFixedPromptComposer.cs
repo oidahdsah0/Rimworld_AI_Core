@@ -8,7 +8,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 	internal sealed class PersonaFixedPromptComposer : IPromptComposer
 	{
 		public PromptScope Scope => PromptScope.ChatUI;
-		public int Order => 55;
+		public int Order => 1; // 紧随系统基底之后
 		public string Id => "persona_fixed";
 
 		public Task<ComposerOutput> ComposeAsync(PromptBuildContext ctx, CancellationToken ct)
@@ -18,7 +18,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			if (fp != null && !string.IsNullOrWhiteSpace(fp.Text))
 			{
 				var title = ctx?.L?.Invoke("prompt.section.fixed_prompts", "[固定提示词]") ?? "[固定提示词]";
-				lines.Add(title + fp.Text);
+				lines.Add(title + " " + fp.Text);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

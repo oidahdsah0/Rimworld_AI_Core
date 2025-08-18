@@ -91,7 +91,13 @@ namespace RimAI.Core.Source.Boot
                     var stage = Container.Resolve<IStageService>() as StageService;
                     if (stage != null)
                     {
-                        stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.GroupChatAct(Container.Resolve<ILLMService>(), Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>()));
+                        stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.GroupChatAct(
+                            Container.Resolve<ILLMService>(),
+                            Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>(),
+                            Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
+                            Container.Resolve<IConfigurationService>(),
+                            Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()
+                        ));
                         stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.AlphaFiberInterServerChatAct(Container.Resolve<ILLMService>(), Container.Resolve<IWorldDataService>()));
                         stage.RegisterTrigger(new ProximityGroupChatTrigger());
                         stage.RegisterTrigger(new AlphaFiberLinkTrigger());

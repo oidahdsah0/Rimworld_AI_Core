@@ -9,6 +9,8 @@ using RimAI.Core.Source.Infrastructure.Scheduler;
 using UnityEngine;
 using Verse;
 using RimWorld;
+using System.Collections.Concurrent;
+using Verse.AI;
 
 namespace RimAI.Core.Source.Modules.World
 {
@@ -16,6 +18,20 @@ namespace RimAI.Core.Source.Modules.World
 	{
 		private readonly ISchedulerService _scheduler;
 		private readonly ConfigurationService _cfg;
+		private sealed class SessionState
+		{
+			public string Id;
+			public int InitiatorLoadId;
+			public System.Collections.Generic.List<int> ParticipantLoadIds;
+			public int Radius;
+			public System.TimeSpan MaxDuration;
+			public System.DateTime StartedUtc;
+			public bool Aborted;
+			public bool Completed;
+			public System.IDisposable Periodic;
+		}
+
+		private readonly ConcurrentDictionary<string, SessionState> _sessions = new ConcurrentDictionary<string, SessionState>();
 
 		public WorldActionService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -192,6 +208,227 @@ namespace RimAI.Core.Source.Modules.World
 				}
 				catch { return Task.CompletedTask; }
 			}, name: "World.ShowSpeechText", ct: cts.Token);
+		}
+
+		public Task<GroupChatSessionHandle> StartGroupChatDutyAsync(int initiatorPawnLoadId, System.Collections.Generic.IReadOnlyList<int> participantLoadIds, int radius, System.TimeSpan maxDuration, CancellationToken ct = default)
+		{
+			if (participantLoadIds == null || participantLoadIds.Count == 0) return Task.FromResult<GroupChatSessionHandle>(null);
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			// 守护周期：每 120 tick（约 2 秒真实时间的 1/??，仅作巡检）
+			const int guardEveryTicks = 120;
+			var handle = new GroupChatSessionHandle { Id = System.Guid.NewGuid().ToString("N") };
+			var state = new SessionState
+			{
+				Id = handle.Id,
+				InitiatorLoadId = initiatorPawnLoadId,
+				ParticipantLoadIds = participantLoadIds.Where(x => x != initiatorPawnLoadId).Distinct().ToList(),
+				Radius = Mathf.Max(1, radius),
+				MaxDuration = maxDuration,
+				StartedUtc = System.DateTime.UtcNow,
+				Aborted = false,
+				Completed = false,
+				Periodic = null
+			};
+			_sessions[state.Id] = state;
+
+			// 将参与者移动至发起者周围并下发 Wait 任务
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			cts.CancelAfter(Math.Max(timeoutMs, 3000));
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				try
+				{
+					if (Current.Game == null) return (GroupChatSessionHandle)null;
+					Pawn initiator = null; Map map = null;
+					foreach (var m in Find.Maps)
+					{
+						foreach (var p in m.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
+						{
+							if (p?.thingIDNumber == initiatorPawnLoadId) { initiator = p; map = m; break; }
+						}
+						if (initiator != null) break;
+					}
+					if (initiator == null || map == null) return (GroupChatSessionHandle)null;
+
+					foreach (var pid in state.ParticipantLoadIds)
+					{
+						try
+						{
+							Pawn pawn = null;
+							foreach (var m in Find.Maps)
+							{
+								foreach (var p in m.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
+								{
+									if (p?.thingIDNumber == pid) { pawn = p; break; }
+								}
+								if (pawn != null) break;
+							}
+							if (pawn == null) continue;
+							var dest = CellFinder.RandomClosewalkCellNear(initiator.Position, initiator.Map, state.Radius);
+							try
+							{
+								try { if (pawn.drafter != null) pawn.drafter.Drafted = false; } catch { }
+								pawn.jobs?.StartJob(new Job(JobDefOf.Goto, dest), JobCondition.InterruptForced, null, resumeCurJobAfterwards: false);
+								pawn.jobs?.jobQueue?.EnqueueLast(new Job(JobDefOf.Wait));
+							}
+							catch { }
+						}
+						catch { }
+					}
+
+					// 启动守护：中断条件/再下发 Wait
+					state.Periodic = _scheduler.SchedulePeriodic("World.GroupChatGuard." + state.Id, guardEveryTicks, async token =>
+					{
+						bool abort = false;
+						try
+						{
+							if ((System.DateTime.UtcNow - state.StartedUtc) > state.MaxDuration) abort = true;
+							// 检查所有参与者
+							var ids = new System.Collections.Generic.List<int>();
+							ids.Add(state.InitiatorLoadId);
+							ids.AddRange(state.ParticipantLoadIds);
+							foreach (var id in ids)
+							{
+								Pawn pawn = null;
+								foreach (var m in Find.Maps)
+								{
+									foreach (var p in m.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
+									{
+										if (p?.thingIDNumber == id) { pawn = p; break; }
+									}
+									if (pawn != null) break;
+								}
+								if (pawn == null) { abort = true; break; }
+								// 中断条件：征召/倒地/极端精神状态/饥饿或极低休息
+								bool drafted = false, downed = false, mental = false, hunger = false, rest = false;
+								try { drafted = pawn.Drafted; } catch { }
+								try { downed = pawn.Downed; } catch { }
+								try { mental = pawn.mindState?.mentalStateHandler?.InMentalState ?? false; } catch { }
+								try { var cat = pawn.needs?.food?.CurCategory; hunger = (cat == HungerCategory.UrgentlyHungry || cat == HungerCategory.Starving); } catch { }
+								try { var rc = pawn.needs?.rest?.CurCategory; rest = (rc == RestCategory.VeryTired || rc == RestCategory.Exhausted); } catch { }
+								if (drafted || downed || mental || hunger || rest) { abort = true; break; }
+								// 额外：尝试通过反射检测“近期受击”字段（不同版本字段名可能不同）
+								try
+								{
+									var ms = pawn.mindState;
+									if (ms != null)
+									{
+										var tp = ms.GetType();
+										var fields = tp.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+										int ticksNow = Find.TickManager.TicksGame;
+										foreach (var f in fields)
+										{
+											if (f.FieldType == typeof(int))
+											{
+												var name = f.Name?.ToLowerInvariant() ?? string.Empty;
+												if (name.Contains("damag") || name.Contains("harm"))
+												{
+													try
+													{
+														int v = (int)f.GetValue(ms);
+														if (v > 0 && ticksNow - v <= 120) { abort = true; break; }
+													}
+													catch { }
+												}
+											}
+										}
+									}
+								}
+								catch { }
+								if (abort) break;
+							}
+
+							// 维持 Wait：对非发起者保证处于 Wait 或 Goto→Wait 流程
+							if (!abort)
+							{
+								foreach (var pid in state.ParticipantLoadIds)
+								{
+									Pawn pawn = null;
+									foreach (var m in Find.Maps)
+									{
+										foreach (var p in m.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
+										{
+											if (p?.thingIDNumber == pid) { pawn = p; break; }
+										}
+										if (pawn != null) break;
+									}
+									if (pawn == null) continue;
+									try
+									{
+										if (pawn.CurJobDef != JobDefOf.Wait && pawn.CurJobDef != JobDefOf.Goto)
+										{
+											var dest = CellFinder.RandomClosewalkCellNear(initiator.Position, initiator.Map, state.Radius);
+											pawn.jobs?.StartJob(new Job(JobDefOf.Goto, dest), JobCondition.InterruptForced, null, resumeCurJobAfterwards: false);
+											pawn.jobs?.jobQueue?.EnqueueLast(new Job(JobDefOf.Wait));
+										}
+									}
+									catch { }
+								}
+							}
+						}
+						catch { abort = true; }
+						if (abort)
+						{
+							try { await EndGroupChatDutyAsync(handle, "Aborted", CancellationToken.None).ConfigureAwait(false); } catch { }
+						}
+					}, CancellationToken.None);
+
+					return handle;
+				}
+				catch { return (GroupChatSessionHandle)null; }
+			}, name: "World.StartGroupChatDuty", ct: cts.Token);
+		}
+
+		public Task<bool> EndGroupChatDutyAsync(GroupChatSessionHandle handle, string reason, CancellationToken ct = default)
+		{
+			if (handle == null || string.IsNullOrWhiteSpace(handle.Id)) return Task.FromResult(false);
+			if (!_sessions.TryRemove(handle.Id, out var state)) return Task.FromResult(false);
+			state.Aborted = string.Equals(reason, "Aborted", System.StringComparison.OrdinalIgnoreCase);
+			state.Completed = !state.Aborted;
+			try { state.Periodic?.Dispose(); } catch { }
+			// 清理参与者 Job
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(Math.Max(timeoutMs, 2000));
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				try
+				{
+					var ids = new System.Collections.Generic.List<int>();
+					ids.Add(state.InitiatorLoadId);
+					ids.AddRange(state.ParticipantLoadIds);
+					foreach (var id in ids)
+					{
+						try
+						{
+							Pawn pawn = null;
+							foreach (var m in Find.Maps)
+							{
+								foreach (var p in m.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
+								{
+									if (p?.thingIDNumber == id) { pawn = p; break; }
+								}
+								if (pawn != null) break;
+							}
+							if (pawn == null) continue;
+							try { pawn.jobs?.EndCurrentJob(JobCondition.InterruptForced, true); } catch { }
+						}
+						catch { }
+					}
+					return true;
+				}
+				catch { return true; }
+			}, name: "World.EndGroupChatDuty", ct: cts.Token);
+		}
+
+		public bool IsGroupChatSessionAlive(GroupChatSessionHandle handle)
+		{
+			if (handle == null || string.IsNullOrWhiteSpace(handle.Id)) return false;
+			if (!_sessions.TryGetValue(handle.Id, out var state)) return false;
+			if (state == null) return false;
+			if (state.Aborted) return false;
+			if ((System.DateTime.UtcNow - state.StartedUtc) > state.MaxDuration) return false;
+			return true;
 		}
 	}
 }

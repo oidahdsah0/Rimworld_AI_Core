@@ -226,7 +226,12 @@ namespace RimAI.Core.Source.Modules.Stage
 				_ticketToActName[ticket.Id] = intent.ActName ?? string.Empty;
 				var req = new StageExecutionRequest { Ticket = ticket, ScenarioText = intent.ScenarioText, Origin = intent.Origin, Locale = intent.Locale, Seed = intent.Seed };
 				var result = await StartAsync(intent.ActName, req, outerCt);
-				_history.TryWrite(result, intent.ActName, convKey);
+				// 仅当 GroupChat 成功完成时写入；其他 Act 按原逻辑全部写入
+				bool isGroupChat = string.Equals(intent.ActName, "GroupChat", StringComparison.OrdinalIgnoreCase);
+				if (!isGroupChat || (result?.Completed ?? false))
+				{
+					_history.TryWrite(result, intent.ActName, convKey);
+				}
 				// 幂等缓存
 				var idemKey = Kernel.StageKernel.ComputeIdempotencyKey(intent.ActName ?? string.Empty, convKey, intent.ScenarioText ?? string.Empty, intent.Seed ?? string.Empty);
 				var idemTtl = TimeSpan.FromMilliseconds(_cfg.GetInternal().Stage?.IdempotencyTtlMs ?? 60000);

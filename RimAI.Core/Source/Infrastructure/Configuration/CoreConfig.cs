@@ -262,6 +262,11 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 			public int Rounds { get; set; } = 1;
 			public int MaxLatencyMsPerTurn { get; set; } = 8000;
 			public string SeedPolicy { get; set; } = "ConvKeyWithTick";
+			public int GatherRadius { get; set; } = 3; // 将非发起者移动至发起者周围的半径（格）
+			public int BubbleDelayMs { get; set; } = 1000; // 每条气泡之间的固定延迟（真实毫秒）
+			public int RoundIntervalMinMs { get; set; } = 0; // 轮次间最小间隔（真实毫秒）
+			public int RoundIntervalMaxMs { get; set; } = 1000; // 轮次间最大间隔（真实毫秒）
+			public int MaxSessionDurationMs { get; set; } = 60000; // 会话最长持续时间（真实毫秒）
 		}
 
 		public sealed class AlphaFiberActSection

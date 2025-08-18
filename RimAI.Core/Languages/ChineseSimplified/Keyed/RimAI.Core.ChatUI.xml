@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Gizmo -->
+  <RimAI.ChatUI.Gizmo.Open>信息传输</RimAI.ChatUI.Gizmo.Open>
+  <RimAI.ChatUI.Gizmo.OpenDesc>打开 RimAI Core 聊天窗口。</RimAI.ChatUI.Gizmo.OpenDesc>
+
+  <!-- Common -->
+  <RimAI.Common.Save>保存</RimAI.Common.Save>
+  <RimAI.Common.Reset>重置</RimAI.Common.Reset>
+  <RimAI.Common.Edit>修改</RimAI.Common.Edit>
+  <RimAI.Common.Delete>删除</RimAI.Common.Delete>
+  <RimAI.Common.Cancel>取消</RimAI.Common.Cancel>
+  <RimAI.Common.Clear>清空</RimAI.Common.Clear>
+  <RimAI.Common.Exit>退出</RimAI.Common.Exit>
+  <RimAI.Common.Empty>（空）</RimAI.Common.Empty>
+  <RimAI.Common.Player>玩家</RimAI.Common.Player>
+  <RimAI.Common.Pawn>殖民者</RimAI.Common.Pawn>
+  <RimAI.Common.AutoUpdate>自动更新</RimAI.Common.AutoUpdate>
+  <RimAI.Common.Processing>处理中...</RimAI.Common.Processing>
+  <RimAI.Common.Colon>：</RimAI.Common.Colon>
+  <RimAI.Common.Male>Male</RimAI.Common.Male>
+  <RimAI.Common.Female>Female</RimAI.Common.Female>
+  <RimAI.Common.AgeSuffix>岁</RimAI.Common.AgeSuffix>
+
+  <!-- Left sidebar / Tabs -->
+  <RimAI.ChatUI.Left.Header>人员名单</RimAI.ChatUI.Left.Header>
+  <RimAI.ChatUI.Left.Unassigned>未任命</RimAI.ChatUI.Left.Unassigned>
+  <RimAI.ChatUI.Tabs.Chat>对话</RimAI.ChatUI.Tabs.Chat>
+  <RimAI.ChatUI.Tabs.Title>称谓设置</RimAI.ChatUI.Tabs.Title>
+  <RimAI.ChatUI.Tabs.History>历史记录</RimAI.ChatUI.Tabs.History>
+  <RimAI.ChatUI.Tabs.Persona>人格信息</RimAI.ChatUI.Tabs.Persona>
+  <RimAI.ChatUI.Tabs.Job>职务管理</RimAI.ChatUI.Tabs.Job>
+  <RimAI.ChatUI.Tabs.FixedPrompt>固定提示词</RimAI.ChatUI.Tabs.FixedPrompt>
+
+  <!-- Header / vitals -->
+  <RimAI.ChatUI.Header.Vitals>生命体征：</RimAI.ChatUI.Header.Vitals>
+
+  <!-- Input row -->
+  <RimAI.ChatUI.Input.Smalltalk>闲聊发送 (Shift+Enter)</RimAI.ChatUI.Input.Smalltalk>
+  <RimAI.ChatUI.Input.Command>命令发送 (Ctrl+Enter)</RimAI.ChatUI.Input.Command>
+  <RimAI.ChatUI.Input.Cancel>中断传输</RimAI.ChatUI.Input.Cancel>
+
+  <!-- Indicator lights -->
+  <RimAI.ChatUI.Indicator.Data>数据</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>忙碌</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>完成</RimAI.ChatUI.Indicator.Finish>
+
+  <!-- Common messages -->
+  <RimAI.ChatUI.Common.NoPawnSelected>未选择有效殖民者</RimAI.ChatUI.Common.NoPawnSelected>
+
+  <!-- Tool results -->
+  <RimAI.ChatUI.Tools.ResultTitle>工具结果</RimAI.ChatUI.Tools.ResultTitle>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>工具结果 · {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+
+  <!-- Title settings -->
+  <RimAI.ChatUI.TitleSettings.Question>您希望殖民者们如何称呼您？</RimAI.ChatUI.TitleSettings.Question>
+  <RimAI.ChatUI.PlayerTitle.Default>总督</RimAI.ChatUI.PlayerTitle.Default>
+
+  <!-- History -->
+  <RimAI.ChatUI.History.Tab.Thread>历史记录</RimAI.ChatUI.History.Tab.Thread>
+  <RimAI.ChatUI.History.Tab.Recaps>前情提要</RimAI.ChatUI.History.Tab.Recaps>
+  <RimAI.ChatUI.History.Tab.Related>关联对话</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.Recap.Generate>生成前情提要</RimAI.ChatUI.Recap.Generate>
+  <RimAI.ChatUI.Recap.Generating>生成中...</RimAI.ChatUI.Recap.Generating>
+  <RimAI.ChatUI.Related.Select>选择关联对话</RimAI.ChatUI.Related.Select>
+
+  <!-- Persona -->
+  <RimAI.ChatUI.Persona.Tab.Bio>个人传记</RimAI.ChatUI.Persona.Tab.Bio>
+  <RimAI.ChatUI.Persona.Tab.Ideo>世界观</RimAI.ChatUI.Persona.Tab.Ideo>
+  <RimAI.ChatUI.Persona.GenerateDraft>生成传记草案</RimAI.ChatUI.Persona.GenerateDraft>
+
+  <!-- Ideology Compose labels -->
+  <RimAI.ChatUI.Ideo.WorldviewLabel>世界观：</RimAI.ChatUI.Ideo.WorldviewLabel>
+  <RimAI.ChatUI.Ideo.ValuesLabel>价值观：</RimAI.ChatUI.Ideo.ValuesLabel>
+  <RimAI.ChatUI.Ideo.CodeLabel>行为准则：</RimAI.ChatUI.Ideo.CodeLabel>
+  <RimAI.ChatUI.Ideo.TraitsLabel>性格特质：</RimAI.ChatUI.Ideo.TraitsLabel>
+
+  <!-- Job -->
+  <RimAI.ChatUI.Job.AssignTitle>职务任命</RimAI.ChatUI.Job.AssignTitle>
+  <RimAI.ChatUI.Job.Label>职务：</RimAI.ChatUI.Job.Label>
+  <RimAI.ChatUI.Job.Presets>预设：</RimAI.ChatUI.Job.Presets>
+  <RimAI.ChatUI.Job.AssignAction>任命...</RimAI.ChatUI.Job.AssignAction>
+  <RimAI.ChatUI.Job.Unassigned>未任命</RimAI.ChatUI.Job.Unassigned>
+  <RimAI.ChatUI.Presets.Select>(选择预设)</RimAI.ChatUI.Presets.Select>
+
+  <!-- Job history messages -->
+  <RimAI.ChatUI.Job.History.Removed>你已被撤职</RimAI.ChatUI.Job.History.Removed>
+  <RimAI.ChatUI.Job.History.Transferred>你已被调任为{0}</RimAI.ChatUI.Job.History.Transferred>
+  <RimAI.ChatUI.Job.History.Assigned>你已被任命为{0}</RimAI.ChatUI.Job.History.Assigned>
+</LanguageData>
+
+

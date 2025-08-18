@@ -160,7 +160,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 			// 左列
 			EnsurePawnPortrait(96f);
-			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "Pawn", GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => { try { if (_pawn != null) SwitchConversationToPawn(_pawn); } catch { } BackToChatAndRefresh(); }, onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName);
+			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => { try { if (_pawn != null) SwitchConversationToPawn(_pawn); } catch { } BackToChatAndRefresh(); }, onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName);
 			// 若切换到历史页或聊天主界面，也刷新一次称谓，确保前缀/抬头正确
 			if (_activeTab == ChatTab.History)
 			{
@@ -201,7 +201,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				// 标题栏（同聊天主界面）
 				try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
-				Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "Pawn", GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
+				Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
 				// 内容区域：人格信息子Tab（带 Biography/Ideology 两个子页）
 				if (_personaView == null) _personaView = new Parts.PersonaTabView();
 				string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
@@ -213,7 +213,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			// 右列：标题 + 生命体征
 			// 在绘制标题前刷新称谓（避免 UI 切页未触发时的滞后）
 			try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
-			Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "Pawn", GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
+			Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
 
 			// 在绘制前计算内容高度并判断是否需要自动吸底
 			var prevViewH = _lastTranscriptContentHeight;
@@ -369,9 +369,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				_persona.Upsert(entityId, e => e.SetJob(name, desc));
 				// 写入历史（仅“最终输出”域，按规则写用户消息）
 				string userText;
-				if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(desc)) userText = "你已被撤职";
-				else if (prevHas) userText = $"你已被调任为{name}";
-				else userText = $"你已被任命为{name}";
+				if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(desc)) userText = "RimAI.ChatUI.Job.History.Removed".Translate();
+				else if (prevHas) userText = "RimAI.ChatUI.Job.History.Transferred".Translate(name);
+				else userText = "RimAI.ChatUI.Job.History.Assigned".Translate(name);
 				// 历史键应基于被任命小人，而非当前窗体会话
 				string playerId = null;
 				try
@@ -454,7 +454,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
 			if (string.IsNullOrEmpty(entityId))
 			{
-				Widgets.Label(inRect, "未选择有效殖民者");
+				Widgets.Label(inRect, "RimAI.ChatUI.Common.NoPawnSelected".Translate());
 				return;
 			}
 			Find.WindowStack.Add(new Parts.FixedPromptEditor(entityId, _persona));
@@ -465,24 +465,24 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private void DrawTitleSettingsTab(Rect inRect)
 		{
 			var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
-			string current = null; try { current = cfg?.GetPlayerTitleOrDefault() ?? "总督"; } catch { current = "总督"; }
+			string current = null; try { current = cfg?.GetPlayerTitleOrDefault() ?? "RimAI.ChatUI.PlayerTitle.Default".Translate(); } catch { current = "RimAI.ChatUI.PlayerTitle.Default".Translate(); }
 			// 文本框 + 保存/重置（不在此处覆盖 _titleInputText，避免用户清空时被重置）
-			Text.Font = GameFont.Medium; Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "您希望殖民者们如何称呼您？"); Text.Font = GameFont.Small;
+			Text.Font = GameFont.Medium; Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "RimAI.ChatUI.TitleSettings.Question".Translate()); Text.Font = GameFont.Small;
 			var box = new Rect(inRect.x, inRect.y + 36f, Mathf.Min(260f, inRect.width - 20f), 28f);
 			// 独立的称谓单行输入框，不与聊天输入共享
 			_titleInputText = Widgets.TextField(box, _titleInputText ?? string.Empty);
 			var btnY = box.yMax + 8f;
-			if (Widgets.ButtonText(new Rect(inRect.x, btnY, 90f, 26f), "保存")) 
+			if (Widgets.ButtonText(new Rect(inRect.x, btnY, 90f, 26f), "RimAI.Common.Save".Translate())) 
 			{ 
 				try 
 				{ 
-					var toSave = string.IsNullOrWhiteSpace(_titleInputText) ? (current ?? "总督") : _titleInputText.Trim();
+					var toSave = string.IsNullOrWhiteSpace(_titleInputText) ? (current ?? "RimAI.ChatUI.PlayerTitle.Default".Translate()) : _titleInputText.Trim();
 					cfg?.SetPlayerTitle(toSave); 
-					_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault() ?? "总督"; 
+					_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault() ?? "RimAI.ChatUI.PlayerTitle.Default".Translate(); 
 				} 
 				catch { } 
 			}
-			if (Widgets.ButtonText(new Rect(inRect.x + 100f, btnY, 90f, 26f), "重置")) { try { cfg?.SetPlayerTitle("总督"); _titleInputText = cfg?.GetPlayerTitleOrDefault() ?? "总督"; _controller.State.PlayerTitle = _titleInputText; } catch { } }
+			if (Widgets.ButtonText(new Rect(inRect.x + 100f, btnY, 90f, 26f), "RimAI.Common.Reset".Translate())) { try { cfg?.SetPlayerTitle("RimAI.ChatUI.PlayerTitle.Default".Translate()); _titleInputText = cfg?.GetPlayerTitleOrDefault() ?? "RimAI.ChatUI.PlayerTitle.Default".Translate(); _controller.State.PlayerTitle = _titleInputText; } catch { } }
 		}
 
 		private void AppendToLastAiMessage(string delta)

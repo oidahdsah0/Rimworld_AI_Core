@@ -56,8 +56,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				// 记录参与者（若无则创建），并加载现有历史（若无则为空列表）
 				await _history.UpsertParticipantsAsync(State.ConvKey, State.ParticipantIds).ConfigureAwait(false);
 				var thread = await _history.GetThreadAsync(State.ConvKey, page: 1, pageSize: 200).ConfigureAwait(false);
-				string playerName = "Player";
-				try { playerName = await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "Player"; } catch { }
+				string playerName = "RimAI.Common.Player".Translate();
+				try { playerName = await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "RimAI.Common.Player".Translate(); } catch { }
 				if (thread?.Entries != null)
 				{
 					foreach (var e in thread.Entries)
@@ -67,7 +67,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						{
 							Id = e.Id ?? Guid.NewGuid().ToString("N"),
 							Sender = e.Role == EntryRole.User ? MessageSender.User : MessageSender.Ai,
-							DisplayName = e.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "Pawn",
+							DisplayName = e.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "RimAI.Common.Pawn".Translate(),
 							TimestampUtc = e.Timestamp,
 							Text = e.Content ?? string.Empty,
 							IsCommand = false
@@ -96,7 +96,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.User,
-				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "Player"),
+				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "RimAI.Common.Player".Translate()),
 				TimestampUtc = DateTime.UtcNow,
 				Text = userText,
 				IsCommand = false
@@ -187,7 +187,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.User,
-				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "Player"),
+				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "RimAI.Common.Player".Translate()),
 				TimestampUtc = DateTime.UtcNow,
 				Text = userText,
 				IsCommand = true
@@ -198,7 +198,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.Ai,
-				DisplayName = "Pawn",
+				DisplayName = "RimAI.Common.Pawn".Translate(),
 				TimestampUtc = DateTime.UtcNow,
 				Text = string.Empty,
 				IsCommand = true
@@ -233,7 +233,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					{
 						try
 						{
-							var title = string.IsNullOrWhiteSpace(result.HitDisplayName) ? "工具结果" : ("工具结果 · " + result.HitDisplayName);
+							var title = string.IsNullOrWhiteSpace(result.HitDisplayName) ? "RimAI.ChatUI.Tools.ResultTitle".Translate() : ("RimAI.ChatUI.Tools.ResultTitleWithName".Translate(result.HitDisplayName));
 							var compact = new List<object>();
 							foreach (var e in result.Executions)
 							{
@@ -414,7 +414,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				}
 			}
 			catch { }
-			return "Pawn";
+			return "RimAI.Common.Pawn".Translate();
 		}
 
 		private static void SplitSpecialFromSystem(string systemPrompt, out string filtered, out System.Collections.Generic.List<string> special)
@@ -516,7 +516,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			try
 			{
 				var header = $"[RimAI.Core][P10] Outbound ({mode})";
-				var title = userMsg?.DisplayName ?? "Player";
+				var title = userMsg?.DisplayName ?? "RimAI.Common.Player".Translate();
 				var ts = (userMsg?.TimestampUtc ?? DateTime.UtcNow).ToLocalTime().ToString("HH:mm:ss");
 				var content = userMsg?.Text ?? string.Empty;
 				var line1 = $"{title} {ts}: {content}";

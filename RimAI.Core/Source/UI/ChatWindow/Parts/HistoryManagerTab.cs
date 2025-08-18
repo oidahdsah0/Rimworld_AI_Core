@@ -38,9 +38,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		{
 			float tabsH = 28f; float sp = 6f; float btnW = 110f;
 			var rTabs = new Rect(inRect.x, inRect.y, inRect.width, tabsH);
-			if (Widgets.ButtonText(new Rect(rTabs.x, rTabs.y, btnW, tabsH), "历史记录")) _subTab = HistorySubTab.Thread;
-			if (Widgets.ButtonText(new Rect(rTabs.x + btnW + sp, rTabs.y, btnW, tabsH), "前情提要")) _subTab = HistorySubTab.Recaps;
-			if (Widgets.ButtonText(new Rect(rTabs.x + (btnW + sp) * 2, rTabs.y, btnW, tabsH), "关联对话")) _subTab = HistorySubTab.Related;
+			if (Widgets.ButtonText(new Rect(rTabs.x, rTabs.y, btnW, tabsH), "RimAI.ChatUI.History.Tab.Thread".Translate())) _subTab = HistorySubTab.Thread;
+			if (Widgets.ButtonText(new Rect(rTabs.x + btnW + sp, rTabs.y, btnW, tabsH), "RimAI.ChatUI.History.Tab.Recaps".Translate())) _subTab = HistorySubTab.Recaps;
+			if (Widgets.ButtonText(new Rect(rTabs.x + (btnW + sp) * 2, rTabs.y, btnW, tabsH), "RimAI.ChatUI.History.Tab.Related".Translate())) _subTab = HistorySubTab.Related;
 			var contentRect = new Rect(inRect.x, rTabs.yMax + 8f, inRect.width, inRect.height - tabsH - 12f);
 
 			switch (_subTab)
@@ -132,14 +132,14 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					if (!it.IsEditing)
 					{
 						Widgets.Label(contentRect, label);
-						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "修改")) { it.IsEditing = true; it.EditText = it.Content; }
-						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "删除")) { _ = DeleteEntryAsync(history, convKey, it.Id); }
+						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Edit".Translate())) { it.IsEditing = true; it.EditText = it.Content; }
+						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Delete".Translate())) { _ = DeleteEntryAsync(history, convKey, it.Id); }
 					}
 					else
 					{
 						it.EditText = Widgets.TextArea(contentRect, it.EditText ?? string.Empty);
-						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "保存")) { _ = SaveEntryAsync(history, convKey, it.Id, it.EditText); }
-						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "取消")) { it.IsEditing = false; it.EditText = it.Content; }
+						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Save".Translate())) { _ = SaveEntryAsync(history, convKey, it.Id, it.EditText); }
+						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Cancel".Translate())) { it.IsEditing = false; it.EditText = it.Content; }
 					}
 					y += rowH + 6f;
 				}
@@ -222,7 +222,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			if (_recaps != null)
 			{
 				// 手动触发前情提要按钮
-				if (!_recapGenerating && Widgets.ButtonText(new Rect(viewRect.x, y, 160f, 28f), "生成前情提要"))
+				if (!_recapGenerating && Widgets.ButtonText(new Rect(viewRect.x, y, 160f, 28f), "RimAI.ChatUI.Recap.Generate".Translate()))
 				{
 					_recapGenerating = true;
 					_ = System.Threading.Tasks.Task.Run(async () =>
@@ -234,7 +234,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				}
 				if (_recapGenerating)
 				{
-					Widgets.Label(new Rect(viewRect.x + 170f, y + 4f, 200f, 22f), "生成中...");
+					Widgets.Label(new Rect(viewRect.x + 170f, y + 4f, 200f, 22f), "RimAI.ChatUI.Recap.Generating".Translate());
 				}
 				y += 34f;
 				for (int i = 0; i < _recaps.Count; i++)
@@ -254,16 +254,16 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					Widgets.Label(headerRect, $"[{it.Range}] {it.UpdatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm}");
 					if (!it.IsEditing)
 					{
-						var body = string.IsNullOrWhiteSpace(it.Text) ? "（空）" : it.Text;
+						var body = string.IsNullOrWhiteSpace(it.Text) ? "RimAI.Common.Empty".Translate() : it.Text;
 						Widgets.Label(contentRect, body);
-						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "修改")) { it.IsEditing = true; it.EditText = it.Text; }
-						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "删除")) { if (!recap.DeleteRecap(convKey, it.Id)) Verse.Log.Warning("[RimAI.Core][P10] DeleteRecap failed"); else ReloadRecaps(recap, convKey); }
+						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Edit".Translate())) { it.IsEditing = true; it.EditText = it.Text; }
+						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Delete".Translate())) { if (!recap.DeleteRecap(convKey, it.Id)) Verse.Log.Warning("[RimAI.Core][P10] DeleteRecap failed"); else ReloadRecaps(recap, convKey); }
 					}
 					else
 					{
 						it.EditText = Widgets.TextArea(contentRect, it.EditText ?? string.Empty);
-						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "保存")) { if (!recap.UpdateRecap(convKey, it.Id, it.EditText ?? string.Empty)) Verse.Log.Warning("[RimAI.Core][P10] UpdateRecap failed"); else { it.Text = it.EditText; it.IsEditing = false; } }
-						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "取消")) { it.IsEditing = false; it.EditText = it.Text; }
+						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Save".Translate())) { if (!recap.UpdateRecap(convKey, it.Id, it.EditText ?? string.Empty)) Verse.Log.Warning("[RimAI.Core][P10] UpdateRecap failed"); else { it.Text = it.EditText; it.IsEditing = false; } }
+						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Cancel".Translate())) { it.IsEditing = false; it.EditText = it.Text; }
 					}
 					y += rowH + 6f;
 				}
@@ -377,7 +377,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			// 选择按钮
 			string currentLabel = (_relatedSelectedIdx >= 0 && _relatedSelectedIdx < (_relatedConvs?.Count ?? 0))
 				? ((_relatedConvLabels != null && _relatedConvLabels.Count == _relatedConvs.Count) ? _relatedConvLabels[_relatedSelectedIdx] : _relatedConvs[_relatedSelectedIdx])
-				: "选择关联对话";
+				: "RimAI.ChatUI.Related.Select".Translate();
 			if (Widgets.ButtonText(new Rect(rect.x, y, 240f, 28f), currentLabel))
 			{
 				var menu = new List<FloatMenuOption>();
@@ -470,7 +470,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					finally { _nameResolving.Remove(convKey); }
 				});
 			}
-			return (user ?? "玩家", pawn ?? "Pawn");
+			return (user ?? "RimAI.Common.Player".Translate(), pawn ?? "RimAI.Common.Pawn".Translate());
 		}
 
 		public void ClearCache()

@@ -47,15 +47,15 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				var prevAnchor = Text.Anchor; Text.Anchor = TextAnchor.MiddleLeft; Text.Font = GameFont.Small;
 				var nameX = avatarRect.xMax + 8f;
 				var nameRect = new Rect(nameX, row.y, Mathf.Max(0f, appointRect.x - 8f - nameX), rowH);
-				string genderTxt = string.Empty; try { genderTxt = p?.gender == Gender.Female ? "Female" : (p?.gender == Gender.Male ? "Male" : string.Empty); } catch { genderTxt = string.Empty; }
+				string genderTxt = string.Empty; try { genderTxt = p?.gender == Gender.Female ? "RimAI.Common.Female".Translate() : (p?.gender == Gender.Male ? "RimAI.Common.Male".Translate() : string.Empty); } catch { genderTxt = string.Empty; }
 				int ageVal = 0; try { ageVal = p?.ageTracker?.AgeBiologicalYears ?? 0; } catch { ageVal = 0; }
-				var partsInfo = new List<string>(); if (!string.IsNullOrWhiteSpace(genderTxt)) partsInfo.Add(genderTxt); if (ageVal > 0) partsInfo.Add(ageVal + "岁");
-				var nameBase = (p?.LabelCap ?? "Pawn").ToString(); var extra = partsInfo.Count > 0 ? (" (" + string.Join(", ", partsInfo) + ")") : string.Empty;
+				var partsInfo = new List<string>(); if (!string.IsNullOrWhiteSpace(genderTxt)) partsInfo.Add(genderTxt); if (ageVal > 0) partsInfo.Add(ageVal + "RimAI.Common.AgeSuffix".Translate());
+				var nameBase = (p?.LabelCap ?? "RimAI.Common.Pawn".Translate()).ToString(); var extra = partsInfo.Count > 0 ? (" (" + string.Join(", ", partsInfo) + ")") : string.Empty;
 				var jobTitle = GetJobName(p);
-				var jobPart = " - " + (string.IsNullOrWhiteSpace(jobTitle) ? "未任命" : jobTitle);
+				var jobPart = " - " + (string.IsNullOrWhiteSpace(jobTitle) ? "RimAI.ChatUI.Job.Unassigned".Translate() : jobTitle);
 				Widgets.Label(nameRect, nameBase + extra + jobPart);
 				Text.Anchor = prevAnchor;
-				if (Widgets.ButtonText(appointRect, "任命...")) onOpenAssignDialog?.Invoke(p);
+				if (Widgets.ButtonText(appointRect, "RimAI.ChatUI.Job.AssignAction".Translate())) onOpenAssignDialog?.Invoke(p);
 				y += rowH + 6f;
 			}
 			Widgets.EndScrollView();
@@ -89,13 +89,13 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 			public override void DoWindowContents(Rect inRect)
 			{
-				Text.Font = GameFont.Medium; Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "职务任命"); Text.Font = GameFont.Small;
+				Text.Font = GameFont.Medium; Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "RimAI.ChatUI.Job.AssignTitle".Translate()); Text.Font = GameFont.Small;
 				var nameLabel = new Rect(inRect.x, inRect.y + 34f, 60f, 28f);
-				Widgets.Label(nameLabel, "职务：");
+				Widgets.Label(nameLabel, "RimAI.ChatUI.Job.Label".Translate());
 				var nameRect = new Rect(nameLabel.xMax + 6f, nameLabel.y, inRect.width - nameLabel.width - 30f, 28f);
 				_name = Widgets.TextField(nameRect, _name ?? string.Empty);
 				var presetLabel = new Rect(inRect.x, nameRect.yMax + 6f, 60f, 28f);
-				Widgets.Label(presetLabel, "预设：");
+				Widgets.Label(presetLabel, "RimAI.ChatUI.Job.Presets".Translate());
 				var presetRect = new Rect(presetLabel.xMax + 6f, presetLabel.y, inRect.width - presetLabel.width - 30f, 28f);
 				DrawPresetsDropdown(presetRect);
 				var descRectOuter = new Rect(inRect.x, presetRect.yMax + 6f, inRect.width, inRect.height - (presetRect.yMax + 6f) - 46f);
@@ -109,9 +109,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				var rSave = new Rect(startX, br.y, bw, br.height);
 				var rClear = new Rect(rSave.xMax + sp, br.y, bw, br.height);
 				var rExit = new Rect(rClear.xMax + sp, br.y, bw, br.height);
-				if (Widgets.ButtonText(rSave, "保存")) { _onSave?.Invoke(_name?.Trim() ?? string.Empty, _desc ?? string.Empty); Close(); }
-				if (Widgets.ButtonText(rClear, "清空")) { _name = string.Empty; _desc = string.Empty; }
-				if (Widgets.ButtonText(rExit, "退出")) { Close(); }
+				if (Widgets.ButtonText(rSave, "RimAI.Common.Save".Translate())) { _onSave?.Invoke(_name?.Trim() ?? string.Empty, _desc ?? string.Empty); Close(); }
+				if (Widgets.ButtonText(rClear, "RimAI.Common.Clear".Translate())) { _name = string.Empty; _desc = string.Empty; }
+				if (Widgets.ButtonText(rExit, "RimAI.Common.Exit".Translate())) { Close(); }
 				Text.Anchor = TextAnchor.UpperLeft;
 			}
 
@@ -157,7 +157,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 							var idxName = n;
 							floatMenu.Add(new FloatMenuOption(idxName, () => { _name = n; _desc = d; }));
 						}
-						if (Widgets.ButtonText(rect, "(选择预设)")) { if (floatMenu.Count > 0) Find.WindowStack.Add(new FloatMenu(floatMenu)); }
+						if (Widgets.ButtonText(rect, "RimAI.ChatUI.Presets.Select".Translate())) { if (floatMenu.Count > 0) Find.WindowStack.Add(new FloatMenu(floatMenu)); }
 					}
 				}
 				catch { }

@@ -22,9 +22,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 			// 计算标签尺寸（右侧文字）
 			Text.Font = GameFont.Tiny;
-			Vector2 dataSize = Text.CalcSize("Data");
-			Vector2 busySize = Text.CalcSize("Busy");
-			Vector2 finishSize = Text.CalcSize("Fin");
+			Vector2 dataSize = Text.CalcSize("RimAI.ChatUI.Indicator.Data".Translate());
+			Vector2 busySize = Text.CalcSize("RimAI.ChatUI.Indicator.Busy".Translate());
+			Vector2 finishSize = Text.CalcSize("RimAI.ChatUI.Indicator.Finish".Translate());
 
 			// 三个指示灯均靠左排列：Data → Busy → Fin
 			var dataLamp = new Rect(inner.x, y, lampW, lampH);
@@ -51,9 +51,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 			// 绘制标签（在灯体右侧）
 			Text.Anchor = TextAnchor.MiddleLeft;
-			Widgets.Label(dataLabel, "Data");
-			Widgets.Label(busyLabel, "Busy");
-			Widgets.Label(finishLabel, "Fin");
+			Widgets.Label(dataLabel, "RimAI.ChatUI.Indicator.Data".Translate());
+			Widgets.Label(busyLabel, "RimAI.ChatUI.Indicator.Busy".Translate());
+			Widgets.Label(finishLabel, "RimAI.ChatUI.Indicator.Finish".Translate());
 			Text.Anchor = TextAnchor.UpperLeft;
 		}
 	}

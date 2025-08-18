@@ -76,10 +76,10 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			// 三按钮（流式传输中禁用两个发送，只保留“中断传输”）
 			bool enableSends = !isStreaming;
 			GUI.enabled = enableSends;
-			if (Widgets.ButtonText(r1, "闲聊发送 (Shift+Enter)") && enableSends) onSmalltalk?.Invoke();
-			if (Widgets.ButtonText(r2, "命令发送 (Ctrl+Enter)") && enableSends) onCommand?.Invoke();
+			if (Widgets.ButtonText(r1, "RimAI.ChatUI.Input.Smalltalk".Translate()) && enableSends) onSmalltalk?.Invoke();
+			if (Widgets.ButtonText(r2, "RimAI.ChatUI.Input.Command".Translate()) && enableSends) onCommand?.Invoke();
 			GUI.enabled = true;
-			if (Widgets.ButtonText(r3, "中断传输")) onCancel?.Invoke();
+			if (Widgets.ButtonText(r3, "RimAI.ChatUI.Input.Cancel".Translate())) onCancel?.Invoke();
 
 			// 常规 Enter：由 Widgets.TextArea 自行处理为换行，不在此处拦截
 		}

@@ -37,7 +37,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			float headerH = 28f;
 			float listTop = rect.y + 8f;
 			Text.Font = GameFont.Medium;
-			Widgets.Label(new Rect(x, listTop, w, headerH), "人员名单");
+			Widgets.Label(new Rect(x, listTop, w, headerH), "RimAI.ChatUI.Left.Header".Translate());
 			Text.Font = GameFont.Small;
 			float listY = listTop + headerH + 2f;
 			var listRect = new Rect(x, listY, w, Mathf.Max(0f, buttonsStartY - listY - 8f));
@@ -79,8 +79,8 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				var textX = avatarRect.xMax + 6f;
 				var textRect = new Rect(textX, row.y + 4f, Mathf.Max(0f, row.width - textX - 6f), rowH - 8f);
 				string job = null; try { job = getJobTitle?.Invoke(p); } catch { job = null; }
-				var line1 = (p?.LabelCap ?? "Pawn").ToString();
-				var line2 = string.IsNullOrWhiteSpace(job) ? "无职务" : job;
+				var line1 = (p?.LabelCap ?? "RimAI.Common.Pawn".Translate()).ToString();
+				var line2 = string.IsNullOrWhiteSpace(job) ? "RimAI.ChatUI.Left.Unassigned".Translate() : job;
 				var prevAnchor = Text.Anchor;
 				Text.Anchor = TextAnchor.UpperLeft; Text.Font = GameFont.Small;
 				Widgets.Label(textRect, line1 + "\n" + line2);
@@ -104,22 +104,22 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					switch (idx)
 					{
 						case 0:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "对话")) { onBackToChat?.Invoke(); activeTab = ChatTab.History; }
+							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Chat".Translate())) { onBackToChat?.Invoke(); activeTab = ChatTab.History; }
 							break;
 						case 1:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "称谓设置")) activeTab = ChatTab.Title;
+							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Title".Translate())) activeTab = ChatTab.Title;
 							break;
 						case 2:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "历史记录")) activeTab = ChatTab.HistoryAdmin;
+							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.History".Translate())) activeTab = ChatTab.HistoryAdmin;
 							break;
 						case 3:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "人格信息")) activeTab = ChatTab.Persona;
+							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Persona".Translate())) activeTab = ChatTab.Persona;
 							break;
 						case 4:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "职务管理")) activeTab = ChatTab.Job;
+							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Job".Translate())) activeTab = ChatTab.Job;
 							break;
 						case 5:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "固定提示词")) activeTab = ChatTab.FixedPrompt;
+							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.FixedPrompt".Translate())) activeTab = ChatTab.FixedPrompt;
 							break;
 					}
 				}

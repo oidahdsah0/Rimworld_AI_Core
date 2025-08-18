@@ -39,13 +39,13 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				// 顶部页签
 				float tabsH = 28f; float sp = 6f; float btnW = 110f;
 				var rTabs = new Rect(inRect.x, inRect.y, inRect.width, tabsH);
-				if (Widgets.ButtonText(new Rect(rTabs.x, rTabs.y, btnW, tabsH), "个人传记")) _subTab = PersonaSubTab.Biography;
-				if (Widgets.ButtonText(new Rect(rTabs.x + btnW + sp, rTabs.y, btnW, tabsH), "世界观")) _subTab = PersonaSubTab.Ideology;
+				if (Widgets.ButtonText(new Rect(rTabs.x, rTabs.y, btnW, tabsH), "RimAI.ChatUI.Persona.Tab.Bio".Translate())) _subTab = PersonaSubTab.Biography;
+				if (Widgets.ButtonText(new Rect(rTabs.x + btnW + sp, rTabs.y, btnW, tabsH), "RimAI.ChatUI.Persona.Tab.Ideo".Translate())) _subTab = PersonaSubTab.Ideology;
 				var contentRect = new Rect(inRect.x, rTabs.yMax + 8f, inRect.width, inRect.height - tabsH - 12f);
 
 				if (string.IsNullOrWhiteSpace(entityId))
 				{
-					Widgets.Label(contentRect, "未选择有效殖民者");
+					Widgets.Label(contentRect, "RimAI.ChatUI.Common.NoPawnSelected".Translate());
 					return;
 				}
 
@@ -113,7 +113,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			if (_bioItems != null)
 			{
 				// 生成草案按钮
-				if (!_bioGenerating && Widgets.ButtonText(new Rect(viewRect.x, y, 160f, 28f), "生成传记草案"))
+				if (!_bioGenerating && Widgets.ButtonText(new Rect(viewRect.x, y, 160f, 28f), "RimAI.ChatUI.Persona.GenerateDraft".Translate()))
 				{
 					_bioGenerating = true;
 					_ = Task.Run(async () =>
@@ -135,7 +135,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				}
 				if (_bioGenerating)
 				{
-					Widgets.Label(new Rect(viewRect.x + 170f, y + 4f, 200f, 22f), "生成中...");
+					Widgets.Label(new Rect(viewRect.x + 170f, y + 4f, 200f, 22f), "RimAI.ChatUI.Recap.Generating".Translate());
 				}
 				// 自动更新勾选
 				try
@@ -148,7 +148,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 						_autoEnabled = eb || ei;
 					}
 					bool val = _autoEnabled ?? false;
-					Widgets.CheckboxLabeled(new Rect(viewRect.x + 240f, y, 140f, 28f), "自动更新", ref val);
+					Widgets.CheckboxLabeled(new Rect(viewRect.x + 240f, y, 140f, 28f), "RimAI.Common.AutoUpdate".Translate(), ref val);
 					if (val != (_autoEnabled ?? false)) { settings?.SetAutoBio(entityId, val); settings?.SetAutoIdeo(entityId, val); _autoEnabled = val; }
 				}
 				catch { }
@@ -170,16 +170,16 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					Widgets.Label(headerRect, $"[{(string.IsNullOrWhiteSpace(it.Source) ? "-" : it.Source)}] {it.UpdatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm}");
 					if (!it.IsEditing)
 					{
-						var body = string.IsNullOrWhiteSpace(it.Text) ? "（空）" : it.Text;
+						var body = string.IsNullOrWhiteSpace(it.Text) ? "RimAI.Common.Empty".Translate() : it.Text;
 						Widgets.Label(contentRect, body);
-						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "修改")) { it.IsEditing = true; it.EditText = it.Text; }
-						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "删除")) { try { biography.Remove(entityId, it.Id); } catch { } ReloadBiography(biography, entityId); }
+						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Edit".Translate())) { it.IsEditing = true; it.EditText = it.Text; }
+						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Delete".Translate())) { try { biography.Remove(entityId, it.Id); } catch { } ReloadBiography(biography, entityId); }
 					}
 					else
 					{
 						it.EditText = Widgets.TextArea(contentRect, it.EditText ?? string.Empty);
-						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "保存")) { try { biography.Upsert(entityId, new RimAI.Core.Source.Modules.Persona.BiographyItem { Id = it.Id, Text = it.EditText ?? string.Empty, Source = string.IsNullOrWhiteSpace(it.Source) ? "user" : it.Source }); } catch { } it.Text = it.EditText; it.IsEditing = false; ReloadBiography(biography, entityId); }
-						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "取消")) { it.IsEditing = false; it.EditText = it.Text; }
+						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Save".Translate())) { try { biography.Upsert(entityId, new RimAI.Core.Source.Modules.Persona.BiographyItem { Id = it.Id, Text = it.EditText ?? string.Empty, Source = string.IsNullOrWhiteSpace(it.Source) ? "user" : it.Source }); } catch { } it.Text = it.EditText; it.IsEditing = false; ReloadBiography(biography, entityId); }
+						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Cancel".Translate())) { it.IsEditing = false; it.EditText = it.Text; }
 					}
 					y += rowH + 6f;
 				}
@@ -202,7 +202,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		{
 			// 顶部操作按钮：生成/保存
 			float y = rect.y;
-			if (!_ideoBusy && Widgets.ButtonText(new Rect(rect.x, y, 90f, 28f), "生成"))
+			if (!_ideoBusy && Widgets.ButtonText(new Rect(rect.x, y, 90f, 28f), "RimAI.ChatUI.Recap.Generate".Translate()))
 			{
 				_ideoBusy = true;
 				_ = Task.Run(async () =>
@@ -219,7 +219,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					finally { _ideoBusy = false; }
 				});
 			}
-			if (!_ideoBusy && Widgets.ButtonText(new Rect(rect.x + 100f, y, 90f, 28f), "保存"))
+			if (!_ideoBusy && Widgets.ButtonText(new Rect(rect.x + 100f, y, 90f, 28f), "RimAI.Common.Save".Translate()))
 			{
 				_ideoBusy = true;
 				_ = Task.Run(() =>
@@ -236,7 +236,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			}
 			if (_ideoBusy)
 			{
-				Widgets.Label(new Rect(rect.x + 200f, y + 4f, 200f, 22f), "处理中...");
+				Widgets.Label(new Rect(rect.x + 200f, y + 4f, 200f, 22f), "RimAI.Common.Processing".Translate());
 			}
 			// 自动更新勾选
 			try
@@ -249,7 +249,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					_autoEnabled = eb || ei;
 				}
 				bool val = _autoEnabled ?? false;
-				Widgets.CheckboxLabeled(new Rect(rect.x + 300f, y, 140f, 28f), "自动更新", ref val);
+				Widgets.CheckboxLabeled(new Rect(rect.x + 300f, y, 140f, 28f), "RimAI.Common.AutoUpdate".Translate(), ref val);
 				if (val != (_autoEnabled ?? false)) { settings?.SetAutoBio(entityId, val); settings?.SetAutoIdeo(entityId, val); _autoEnabled = val; }
 			}
 			catch { }
@@ -268,10 +268,10 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		private static string ComposeIdeologyText(RimAI.Core.Source.Modules.Persona.IdeologySnapshot s)
 		{
 			var sb = new StringBuilder();
-			sb.AppendLine("世界观："); sb.AppendLine(s?.Worldview ?? string.Empty); sb.AppendLine();
-			sb.AppendLine("价值观："); sb.AppendLine(s?.Values ?? string.Empty); sb.AppendLine();
-			sb.AppendLine("行为准则："); sb.AppendLine(s?.CodeOfConduct ?? string.Empty); sb.AppendLine();
-			sb.AppendLine("性格特质："); sb.AppendLine(s?.TraitsText ?? string.Empty);
+			sb.AppendLine("RimAI.ChatUI.Ideo.WorldviewLabel".Translate()); sb.AppendLine(s?.Worldview ?? string.Empty); sb.AppendLine();
+			sb.AppendLine("RimAI.ChatUI.Ideo.ValuesLabel".Translate()); sb.AppendLine(s?.Values ?? string.Empty); sb.AppendLine();
+			sb.AppendLine("RimAI.ChatUI.Ideo.CodeLabel".Translate()); sb.AppendLine(s?.CodeOfConduct ?? string.Empty); sb.AppendLine();
+			sb.AppendLine("RimAI.ChatUI.Ideo.TraitsLabel".Translate()); sb.AppendLine(s?.TraitsText ?? string.Empty);
 			return sb.ToString().TrimEnd();
 		}
 

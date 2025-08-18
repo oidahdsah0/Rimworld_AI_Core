@@ -49,8 +49,8 @@ namespace RimAI.Core.Source.Boot
                     {
                         var cmd = new Command_Action
                         {
-                            defaultLabel = RimAI.Core.Source.UI.ChatWindow.Strings.Keys.OpenChatWindow,
-                            defaultDesc = "Open RimAI Core chat window.",
+                            defaultLabel = "RimAI.ChatUI.Gizmo.Open".Translate(),
+                            defaultDesc = "RimAI.ChatUI.Gizmo.OpenDesc".Translate(),
                             icon = ContentFinder<Texture2D>.Get("RimAI/Chat/InfoSend", true),
                             action = () =>
                             {

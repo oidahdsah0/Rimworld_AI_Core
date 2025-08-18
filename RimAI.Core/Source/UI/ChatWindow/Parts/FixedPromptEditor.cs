@@ -29,7 +29,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		public override void DoWindowContents(Rect inRect)
 		{
 			Text.Font = GameFont.Medium;
-			Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "固定提示词");
+			Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "RimAI.ChatUI.Tabs.FixedPrompt".Translate());
 			Text.Font = GameFont.Small;
 			var contentRect = new Rect(inRect.x, inRect.y + 32f, inRect.width, inRect.height - 80f);
 			var buttonsRect = new Rect(inRect.x, inRect.yMax - 40f, inRect.width, 36f);
@@ -46,17 +46,17 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			var rClear = new Rect(rSave.xMax + sp, buttonsRect.y, bw, buttonsRect.height);
 			var rCancel = new Rect(rClear.xMax + sp, buttonsRect.y, bw, buttonsRect.height);
 
-			if (Widgets.ButtonText(rSave, "保存"))
+			if (Widgets.ButtonText(rSave, "RimAI.Common.Save".Translate()))
 			{
 				try { _persona?.Upsert(_entityId, e => e.SetFixedPrompt(_text ?? string.Empty)); }
 				catch { }
 				Close();
 			}
-			if (Widgets.ButtonText(rClear, "清空"))
+			if (Widgets.ButtonText(rClear, "RimAI.Common.Clear".Translate()))
 			{
 				_text = string.Empty;
 			}
-			if (Widgets.ButtonText(rCancel, "取消"))
+			if (Widgets.ButtonText(rCancel, "RimAI.Common.Cancel".Translate()))
 			{
 				Close();
 			}

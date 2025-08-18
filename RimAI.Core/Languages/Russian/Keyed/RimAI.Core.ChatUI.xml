@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Gizmo -->
+  <RimAI.ChatUI.Gizmo.Open>Открыть чат</RimAI.ChatUI.Gizmo.Open>
+  <RimAI.ChatUI.Gizmo.OpenDesc>Открыть окно чата RimAI Core.</RimAI.ChatUI.Gizmo.OpenDesc>
+
+  <!-- Common -->
+  <RimAI.Common.Save>Сохранить</RimAI.Common.Save>
+  <RimAI.Common.Reset>Сбросить</RimAI.Common.Reset>
+  <RimAI.Common.Edit>Изменить</RimAI.Common.Edit>
+  <RimAI.Common.Delete>Удалить</RimAI.Common.Delete>
+  <RimAI.Common.Cancel>Отмена</RimAI.Common.Cancel>
+  <RimAI.Common.Clear>Очистить</RimAI.Common.Clear>
+  <RimAI.Common.Exit>Выход</RimAI.Common.Exit>
+  <RimAI.Common.Empty>(пусто)</RimAI.Common.Empty>
+  <RimAI.Common.Player>Игрок</RimAI.Common.Player>
+  <RimAI.Common.Pawn>Колонист</RimAI.Common.Pawn>
+  <RimAI.Common.AutoUpdate>Автообновление</RimAI.Common.AutoUpdate>
+  <RimAI.Common.Processing>Обработка...</RimAI.Common.Processing>
+  <RimAI.Common.Colon>:</RimAI.Common.Colon>
+  <RimAI.Common.Male>Мужчина</RimAI.Common.Male>
+  <RimAI.Common.Female>Женщина</RimAI.Common.Female>
+  <RimAI.Common.AgeSuffix> лет</RimAI.Common.AgeSuffix>
+
+  <!-- Left sidebar / Tabs -->
+  <RimAI.ChatUI.Left.Header>Список персонала</RimAI.ChatUI.Left.Header>
+  <RimAI.ChatUI.Left.Unassigned>Не назначено</RimAI.ChatUI.Left.Unassigned>
+  <RimAI.ChatUI.Tabs.Chat>Чат</RimAI.ChatUI.Tabs.Chat>
+  <RimAI.ChatUI.Tabs.Title>Обращение</RimAI.ChatUI.Tabs.Title>
+  <RimAI.ChatUI.Tabs.History>История</RimAI.ChatUI.Tabs.History>
+  <RimAI.ChatUI.Tabs.Persona>Персона</RimAI.ChatUI.Tabs.Persona>
+  <RimAI.ChatUI.Tabs.Job>Должности</RimAI.ChatUI.Tabs.Job>
+  <RimAI.ChatUI.Tabs.FixedPrompt>Фиксированный промпт</RimAI.ChatUI.Tabs.FixedPrompt>
+
+  <!-- Header / vitals -->
+  <RimAI.ChatUI.Header.Vitals>Показатели:</RimAI.ChatUI.Header.Vitals>
+
+  <!-- Input row -->
+  <RimAI.ChatUI.Input.Smalltalk>Отправить чат (Shift+Enter)</RimAI.ChatUI.Input.Smalltalk>
+  <RimAI.ChatUI.Input.Command>Отправить команду (Ctrl+Enter)</RimAI.ChatUI.Input.Command>
+  <RimAI.ChatUI.Input.Cancel>Прервать передачу</RimAI.ChatUI.Input.Cancel>
+
+  <!-- Indicator lights -->
+  <RimAI.ChatUI.Indicator.Data>Данные</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>Занято</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>Готово</RimAI.ChatUI.Indicator.Finish>
+
+  <!-- Common messages -->
+  <RimAI.ChatUI.Common.NoPawnSelected>Не выбран действительный колонист</RimAI.ChatUI.Common.NoPawnSelected>
+
+  <!-- Tool results -->
+  <RimAI.ChatUI.Tools.ResultTitle>Результат инструмента</RimAI.ChatUI.Tools.ResultTitle>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>Результат инструмента · {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+
+  <!-- Title settings -->
+  <RimAI.ChatUI.TitleSettings.Question>Как колонисты должны к вам обращаться?</RimAI.ChatUI.TitleSettings.Question>
+  <RimAI.ChatUI.PlayerTitle.Default>Губернатор</RimAI.ChatUI.PlayerTitle.Default>
+
+  <!-- History -->
+  <RimAI.ChatUI.History.Tab.Thread>История</RimAI.ChatUI.History.Tab.Thread>
+  <RimAI.ChatUI.History.Tab.Recaps>Краткие итоги</RimAI.ChatUI.History.Tab.Recaps>
+  <RimAI.ChatUI.History.Tab.Related>Связанные темы</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.Recap.Generate>Сформировать краткий итог</RimAI.ChatUI.Recap.Generate>
+  <RimAI.ChatUI.Recap.Generating>Формирование...</RimAI.ChatUI.Recap.Generating>
+  <RimAI.ChatUI.Related.Select>Выбрать связанную тему</RimAI.ChatUI.Related.Select>
+
+  <!-- Persona -->
+  <RimAI.ChatUI.Persona.Tab.Bio>Биография</RimAI.ChatUI.Persona.Tab.Bio>
+  <RimAI.ChatUI.Persona.Tab.Ideo>Идеология</RimAI.ChatUI.Persona.Tab.Ideo>
+  <RimAI.ChatUI.Persona.GenerateDraft>Создать черновик биографии</RimAI.ChatUI.Persona.GenerateDraft>
+
+  <!-- Ideology Compose labels -->
+  <RimAI.ChatUI.Ideo.WorldviewLabel>Мировоззрение:</RimAI.ChatUI.Ideo.WorldviewLabel>
+  <RimAI.ChatUI.Ideo.ValuesLabel>Ценности:</RimAI.ChatUI.Ideo.ValuesLabel>
+  <RimAI.ChatUI.Ideo.CodeLabel>Кодекс поведения:</RimAI.ChatUI.Ideo.CodeLabel>
+  <RimAI.ChatUI.Ideo.TraitsLabel>Черты:</RimAI.ChatUI.Ideo.TraitsLabel>
+
+  <!-- Job -->
+  <RimAI.ChatUI.Job.AssignTitle>Назначение должности</RimAI.ChatUI.Job.AssignTitle>
+  <RimAI.ChatUI.Job.Label>Должность:</RimAI.ChatUI.Job.Label>
+  <RimAI.ChatUI.Job.Presets>Шаблоны:</RimAI.ChatUI.Job.Presets>
+  <RimAI.ChatUI.Job.AssignAction>Назначить...</RimAI.ChatUI.Job.AssignAction>
+  <RimAI.ChatUI.Job.Unassigned>Не назначено</RimAI.ChatUI.Job.Unassigned>
+  <RimAI.ChatUI.Presets.Select>(Выбрать шаблон)</RimAI.ChatUI.Presets.Select>
+
+  <!-- Job history messages -->
+  <RimAI.ChatUI.Job.History.Removed>Вы освобождены от должности</RimAI.ChatUI.Job.History.Removed>
+  <RimAI.ChatUI.Job.History.Transferred>Вас перевели на должность {0}</RimAI.ChatUI.Job.History.Transferred>
+  <RimAI.ChatUI.Job.History.Assigned>Вы назначены на должность {0}</RimAI.ChatUI.Job.History.Assigned>
+</LanguageData>
+

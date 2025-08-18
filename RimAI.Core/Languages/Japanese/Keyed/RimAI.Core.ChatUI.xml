@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Gizmo -->
+  <RimAI.ChatUI.Gizmo.Open>通信</RimAI.ChatUI.Gizmo.Open>
+  <RimAI.ChatUI.Gizmo.OpenDesc>RimAI Core のチャットウィンドウを開きます。</RimAI.ChatUI.Gizmo.OpenDesc>
+
+  <!-- Common -->
+  <RimAI.Common.Save>保存</RimAI.Common.Save>
+  <RimAI.Common.Reset>リセット</RimAI.Common.Reset>
+  <RimAI.Common.Edit>編集</RimAI.Common.Edit>
+  <RimAI.Common.Delete>削除</RimAI.Common.Delete>
+  <RimAI.Common.Cancel>キャンセル</RimAI.Common.Cancel>
+  <RimAI.Common.Clear>クリア</RimAI.Common.Clear>
+  <RimAI.Common.Exit>終了</RimAI.Common.Exit>
+  <RimAI.Common.Empty>（なし）</RimAI.Common.Empty>
+  <RimAI.Common.Player>プレイヤー</RimAI.Common.Player>
+  <RimAI.Common.Pawn>入植者</RimAI.Common.Pawn>
+  <RimAI.Common.AutoUpdate>自動更新</RimAI.Common.AutoUpdate>
+  <RimAI.Common.Processing>処理中...</RimAI.Common.Processing>
+  <RimAI.Common.Colon>：</RimAI.Common.Colon>
+  <RimAI.Common.Male>男性</RimAI.Common.Male>
+  <RimAI.Common.Female>女性</RimAI.Common.Female>
+  <RimAI.Common.AgeSuffix>歳</RimAI.Common.AgeSuffix>
+
+  <!-- Left sidebar / Tabs -->
+  <RimAI.ChatUI.Left.Header>名簿</RimAI.ChatUI.Left.Header>
+  <RimAI.ChatUI.Left.Unassigned>未割り当て</RimAI.ChatUI.Left.Unassigned>
+  <RimAI.ChatUI.Tabs.Chat>チャット</RimAI.ChatUI.Tabs.Chat>
+  <RimAI.ChatUI.Tabs.Title>呼称設定</RimAI.ChatUI.Tabs.Title>
+  <RimAI.ChatUI.Tabs.History>履歴</RimAI.ChatUI.Tabs.History>
+  <RimAI.ChatUI.Tabs.Persona>ペルソナ</RimAI.ChatUI.Tabs.Persona>
+  <RimAI.ChatUI.Tabs.Job>職務</RimAI.ChatUI.Tabs.Job>
+  <RimAI.ChatUI.Tabs.FixedPrompt>固定プロンプト</RimAI.ChatUI.Tabs.FixedPrompt>
+
+  <!-- Header / vitals -->
+  <RimAI.ChatUI.Header.Vitals>バイタル：</RimAI.ChatUI.Header.Vitals>
+
+  <!-- Input row -->
+  <RimAI.ChatUI.Input.Smalltalk>雑談を送信 (Shift+Enter)</RimAI.ChatUI.Input.Smalltalk>
+  <RimAI.ChatUI.Input.Command>コマンド送信 (Ctrl+Enter)</RimAI.ChatUI.Input.Command>
+  <RimAI.ChatUI.Input.Cancel>通信を中断</RimAI.ChatUI.Input.Cancel>
+
+  <!-- Indicator lights -->
+  <RimAI.ChatUI.Indicator.Data>データ</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>ビジー</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>完了</RimAI.ChatUI.Indicator.Finish>
+
+  <!-- Common messages -->
+  <RimAI.ChatUI.Common.NoPawnSelected>有効な入植者が選択されていません</RimAI.ChatUI.Common.NoPawnSelected>
+
+  <!-- Tool results -->
+  <RimAI.ChatUI.Tools.ResultTitle>ツール結果</RimAI.ChatUI.Tools.ResultTitle>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>ツール結果 · {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+
+  <!-- Title settings -->
+  <RimAI.ChatUI.TitleSettings.Question>入植者にどのように呼ばれたいですか？</RimAI.ChatUI.TitleSettings.Question>
+  <RimAI.ChatUI.PlayerTitle.Default>総督</RimAI.ChatUI.PlayerTitle.Default>
+
+  <!-- History -->
+  <RimAI.ChatUI.History.Tab.Thread>履歴</RimAI.ChatUI.History.Tab.Thread>
+  <RimAI.ChatUI.History.Tab.Recaps>要約</RimAI.ChatUI.History.Tab.Recaps>
+  <RimAI.ChatUI.History.Tab.Related>関連スレッド</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.Recap.Generate>要約を生成</RimAI.ChatUI.Recap.Generate>
+  <RimAI.ChatUI.Recap.Generating>生成中...</RimAI.ChatUI.Recap.Generating>
+  <RimAI.ChatUI.Related.Select>関連スレッドを選択</RimAI.ChatUI.Related.Select>
+
+  <!-- Persona -->
+  <RimAI.ChatUI.Persona.Tab.Bio>伝記</RimAI.ChatUI.Persona.Tab.Bio>
+  <RimAI.ChatUI.Persona.Tab.Ideo>イデオロギー</RimAI.ChatUI.Persona.Tab.Ideo>
+  <RimAI.ChatUI.Persona.GenerateDraft>伝記の草案を生成</RimAI.ChatUI.Persona.GenerateDraft>
+
+  <!-- Ideology Compose labels -->
+  <RimAI.ChatUI.Ideo.WorldviewLabel>世界観：</RimAI.ChatUI.Ideo.WorldviewLabel>
+  <RimAI.ChatUI.Ideo.ValuesLabel>価値観：</RimAI.ChatUI.Ideo.ValuesLabel>
+  <RimAI.ChatUI.Ideo.CodeLabel>行動規範：</RimAI.ChatUI.Ideo.CodeLabel>
+  <RimAI.ChatUI.Ideo.TraitsLabel>特性：</RimAI.ChatUI.Ideo.TraitsLabel>
+
+  <!-- Job -->
+  <RimAI.ChatUI.Job.AssignTitle>職務任命</RimAI.ChatUI.Job.AssignTitle>
+  <RimAI.ChatUI.Job.Label>職務：</RimAI.ChatUI.Job.Label>
+  <RimAI.ChatUI.Job.Presets>プリセット：</RimAI.ChatUI.Job.Presets>
+  <RimAI.ChatUI.Job.AssignAction>任命...</RimAI.ChatUI.Job.AssignAction>
+  <RimAI.ChatUI.Job.Unassigned>未割り当て</RimAI.ChatUI.Job.Unassigned>
+  <RimAI.ChatUI.Presets.Select>（プリセットを選択）</RimAI.ChatUI.Presets.Select>
+
+  <!-- Job history messages -->
+  <RimAI.ChatUI.Job.History.Removed>あなたは解任されました</RimAI.ChatUI.Job.History.Removed>
+  <RimAI.ChatUI.Job.History.Transferred>あなたは{0}に異動されました</RimAI.ChatUI.Job.History.Transferred>
+  <RimAI.ChatUI.Job.History.Assigned>あなたは{0}に任命されました</RimAI.ChatUI.Job.History.Assigned>
+</LanguageData>
+

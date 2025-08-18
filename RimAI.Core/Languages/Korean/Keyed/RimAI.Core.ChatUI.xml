@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Gizmo -->
+  <RimAI.ChatUI.Gizmo.Open>통신</RimAI.ChatUI.Gizmo.Open>
+  <RimAI.ChatUI.Gizmo.OpenDesc>RimAI Core 채팅 창을 엽니다.</RimAI.ChatUI.Gizmo.OpenDesc>
+
+  <!-- Common -->
+  <RimAI.Common.Save>저장</RimAI.Common.Save>
+  <RimAI.Common.Reset>초기화</RimAI.Common.Reset>
+  <RimAI.Common.Edit>편집</RimAI.Common.Edit>
+  <RimAI.Common.Delete>삭제</RimAI.Common.Delete>
+  <RimAI.Common.Cancel>취소</RimAI.Common.Cancel>
+  <RimAI.Common.Clear>지우기</RimAI.Common.Clear>
+  <RimAI.Common.Exit>종료</RimAI.Common.Exit>
+  <RimAI.Common.Empty>(비어 있음)</RimAI.Common.Empty>
+  <RimAI.Common.Player>플레이어</RimAI.Common.Player>
+  <RimAI.Common.Pawn>정착민</RimAI.Common.Pawn>
+  <RimAI.Common.AutoUpdate>자동 업데이트</RimAI.Common.AutoUpdate>
+  <RimAI.Common.Processing>처리 중...</RimAI.Common.Processing>
+  <RimAI.Common.Colon>:</RimAI.Common.Colon>
+  <RimAI.Common.Male>남성</RimAI.Common.Male>
+  <RimAI.Common.Female>여성</RimAI.Common.Female>
+  <RimAI.Common.AgeSuffix>세</RimAI.Common.AgeSuffix>
+
+  <!-- Left sidebar / Tabs -->
+  <RimAI.ChatUI.Left.Header>인원 명단</RimAI.ChatUI.Left.Header>
+  <RimAI.ChatUI.Left.Unassigned>미배정</RimAI.ChatUI.Left.Unassigned>
+  <RimAI.ChatUI.Tabs.Chat>채팅</RimAI.ChatUI.Tabs.Chat>
+  <RimAI.ChatUI.Tabs.Title>호칭</RimAI.ChatUI.Tabs.Title>
+  <RimAI.ChatUI.Tabs.History>기록</RimAI.ChatUI.Tabs.History>
+  <RimAI.ChatUI.Tabs.Persona>페르소나</RimAI.ChatUI.Tabs.Persona>
+  <RimAI.ChatUI.Tabs.Job>직무</RimAI.ChatUI.Tabs.Job>
+  <RimAI.ChatUI.Tabs.FixedPrompt>고정 프롬프트</RimAI.ChatUI.Tabs.FixedPrompt>
+
+  <!-- Header / vitals -->
+  <RimAI.ChatUI.Header.Vitals>생체 신호:</RimAI.ChatUI.Header.Vitals>
+
+  <!-- Input row -->
+  <RimAI.ChatUI.Input.Smalltalk>잡담 보내기 (Shift+Enter)</RimAI.ChatUI.Input.Smalltalk>
+  <RimAI.ChatUI.Input.Command>명령 보내기 (Ctrl+Enter)</RimAI.ChatUI.Input.Command>
+  <RimAI.ChatUI.Input.Cancel>통신 중단</RimAI.ChatUI.Input.Cancel>
+
+  <!-- Indicator lights -->
+  <RimAI.ChatUI.Indicator.Data>데이터</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>바쁨</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>완료</RimAI.ChatUI.Indicator.Finish>
+
+  <!-- Common messages -->
+  <RimAI.ChatUI.Common.NoPawnSelected>유효한 정착민이 선택되지 않았습니다</RimAI.ChatUI.Common.NoPawnSelected>
+
+  <!-- Tool results -->
+  <RimAI.ChatUI.Tools.ResultTitle>도구 결과</RimAI.ChatUI.Tools.ResultTitle>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>도구 결과 · {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+
+  <!-- Title settings -->
+  <RimAI.ChatUI.TitleSettings.Question>정착민들이 당신을 어떻게 호칭하길 원하나요?</RimAI.ChatUI.TitleSettings.Question>
+  <RimAI.ChatUI.PlayerTitle.Default>총독</RimAI.ChatUI.PlayerTitle.Default>
+
+  <!-- History -->
+  <RimAI.ChatUI.History.Tab.Thread>기록</RimAI.ChatUI.History.Tab.Thread>
+  <RimAI.ChatUI.History.Tab.Recaps>요약</RimAI.ChatUI.History.Tab.Recaps>
+  <RimAI.ChatUI.History.Tab.Related>관련 스레드</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.Recap.Generate>요약 생성</RimAI.ChatUI.Recap.Generate>
+  <RimAI.ChatUI.Recap.Generating>생성 중...</RimAI.ChatUI.Recap.Generating>
+  <RimAI.ChatUI.Related.Select>관련 스레드 선택</RimAI.ChatUI.Related.Select>
+
+  <!-- Persona -->
+  <RimAI.ChatUI.Persona.Tab.Bio>전기</RimAI.ChatUI.Persona.Tab.Bio>
+  <RimAI.ChatUI.Persona.Tab.Ideo>이데올로기</RimAI.ChatUI.Persona.Tab.Ideo>
+  <RimAI.ChatUI.Persona.GenerateDraft>전기 초안 생성</RimAI.ChatUI.Persona.GenerateDraft>
+
+  <!-- Ideology Compose labels -->
+  <RimAI.ChatUI.Ideo.WorldviewLabel>세계관:</RimAI.ChatUI.Ideo.WorldviewLabel>
+  <RimAI.ChatUI.Ideo.ValuesLabel>가치관:</RimAI.ChatUI.Ideo.ValuesLabel>
+  <RimAI.ChatUI.Ideo.CodeLabel>행동 강령:</RimAI.ChatUI.Ideo.CodeLabel>
+  <RimAI.ChatUI.Ideo.TraitsLabel>성격 특성:</RimAI.ChatUI.Ideo.TraitsLabel>
+
+  <!-- Job -->
+  <RimAI.ChatUI.Job.AssignTitle>직무 임명</RimAI.ChatUI.Job.AssignTitle>
+  <RimAI.ChatUI.Job.Label>직무:</RimAI.ChatUI.Job.Label>
+  <RimAI.ChatUI.Job.Presets>프리셋:</RimAI.ChatUI.Job.Presets>
+  <RimAI.ChatUI.Job.AssignAction>임명...</RimAI.ChatUI.Job.AssignAction>
+  <RimAI.ChatUI.Job.Unassigned>미배정</RimAI.ChatUI.Job.Unassigned>
+  <RimAI.ChatUI.Presets.Select>(프리셋 선택)</RimAI.ChatUI.Presets.Select>
+
+  <!-- Job history messages -->
+  <RimAI.ChatUI.Job.History.Removed>당신은 면직되었습니다</RimAI.ChatUI.Job.History.Removed>
+  <RimAI.ChatUI.Job.History.Transferred>당신은 {0}(으)로 전근되었습니다</RimAI.ChatUI.Job.History.Transferred>
+  <RimAI.ChatUI.Job.History.Assigned>당신은 {0}(으)로 임명되었습니다</RimAI.ChatUI.Job.History.Assigned>
+</LanguageData>
+

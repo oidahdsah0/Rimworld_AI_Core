@@ -1,3 +1,10 @@
+> 最新注意事项（Debug 页面移除）
+>
+> - Debug 页面（DebugPanel/Debug Window）已从项目中移除，后续不再需要。
+> - 本文中涉及 Debug 面板/按钮/日志/流式相关内容保留仅作历史参考，不再作为必须项或 Gate 依赖。
+> - 与流式相关的约束更新：仅 ChatWindow UI 允许流式展示；后台/服务路径一律非流式。原文中“UI/Debug”的表述请等价理解为“仅 ChatWindow UI”。
+> - Gate 更新：关于流式 API 的允许路径应视为仅 `Source/UI/ChatWindow/**`；`Source/UI/DebugPanel/**` 不再适用。
+
 # RimAI.Core V5 架构文档
 
 > 版本：v5.0.0-alpha  

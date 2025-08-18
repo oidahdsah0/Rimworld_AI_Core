@@ -54,6 +54,7 @@ internal sealed class ToolCallsResult
 	public string Error { get; set; }
 	public int TotalLatencyMs { get; set; }
 	public IReadOnlyList<string> PlanTrace { get; set; }
+	public string HitDisplayName { get; set; }
 }
 
 	internal interface IOrchestrationService

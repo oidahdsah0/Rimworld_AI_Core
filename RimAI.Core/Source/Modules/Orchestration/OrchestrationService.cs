@@ -9,6 +9,7 @@ using RimAI.Core.Source.Modules.Orchestration.Modes;
 using RimAI.Core.Source.Modules.Tooling;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.Modules.Orchestration
 {
@@ -19,14 +20,16 @@ namespace RimAI.Core.Source.Modules.Orchestration
 		private readonly IToolMatchMode _classic;
 		private readonly IToolMatchMode _narrow;
 		private readonly IHistoryService _history;
+		private readonly ILocalizationService _loc;
 
-		public OrchestrationService(ILLMService llm, IToolRegistryService tooling, IHistoryService history)
+		public OrchestrationService(ILLMService llm, IToolRegistryService tooling, IHistoryService history, ILocalizationService localization)
 		{
 			_llm = llm;
 			_tooling = tooling;
 			_classic = new ClassicMode(tooling);
 			_narrow = new NarrowTopKMode(tooling);
 			_history = history;
+			_loc = localization;
 		}
 
 		public async Task<ToolCallsResult> ExecuteAsync(string userInput, IReadOnlyList<string> participantIds, ToolOrchestrationOptions options, CancellationToken ct = default)
@@ -87,12 +90,15 @@ namespace RimAI.Core.Source.Modules.Orchestration
 					ExposedTools = ExtractToolNamesFromJson(toolsTuple.toolsJson),
 					DecidedCalls = Array.Empty<ToolCallRecord>(),
 					Executions = Array.Empty<ToolExecutionRecord>(),
+					PlanTrace = Array.Empty<string>(),
+					HitDisplayName = string.Empty,
 					TotalLatencyMs = (int)(DateTime.UtcNow - start).TotalMilliseconds
 				};
 			}
 
 			var decided = new List<ToolCallRecord>();
 			var execs = new List<ToolExecutionRecord>();
+			var plan = new List<string>();
 			var maxCalls = Math.Max(1, options?.MaxCalls ?? 1);
 			foreach (var call in resp.Value.Message.ToolCalls.Take(maxCalls))
 			{
@@ -110,6 +116,37 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				}
 
 				decided.Add(new ToolCallRecord { CallId = callId, ToolName = toolName, Args = args, GroupId = null, Order = decided.Count, DependsOn = Array.Empty<string>() });
+
+				// 命中显示名与过程文案（只针对首个命中生成一条）
+				if (decided.Count == 1)
+				{
+					var disp = _tooling.GetToolDisplayNameOrNull(toolName) ?? toolName;
+					try
+					{
+						var locale = options?.Locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans";
+						var key = "tool.display." + (toolName ?? string.Empty);
+						var localized = _loc?.Get(locale, key, disp) ?? disp;
+						disp = string.IsNullOrWhiteSpace(localized) ? disp : localized;
+					}
+					catch { }
+					var pawnName = "Pawn";
+					try
+					{
+						// 仅为叙述用途，从 participantIds 粗略解析 pawn:xxx
+						pawnName = "Pawn";
+					}
+					catch { }
+					var line = _loc?.Format(options?.Locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans", "orchestration.plantrace.hit_tool", new System.Collections.Generic.Dictionary<string, string>
+					{
+						{ "pawn", pawnName },
+						{ "displayName", disp }
+					}, $"{pawnName} used the handheld device to open an app: {disp}. The results are ready.") ?? $"{pawnName} used the handheld device to open an app: {disp}. The results are ready.";
+					if (!string.IsNullOrWhiteSpace(line))
+					{
+						plan.Add(line);
+						try { await _history.AppendAiNoteAsync(convId, line, ct).ConfigureAwait(false); } catch { }
+					}
+				}
 
 				var t0 = DateTime.UtcNow;
 				try
@@ -144,6 +181,22 @@ namespace RimAI.Core.Source.Modules.Orchestration
 			}
 
 			var total = (int)(DateTime.UtcNow - start).TotalMilliseconds;
+			// 计算命中工具的显示名（本地化后）
+			string hitName = string.Empty;
+			if (decided.Count > 0)
+			{
+				var nm = decided[0].ToolName ?? string.Empty;
+				var baseName = _tooling.GetToolDisplayNameOrNull(nm) ?? nm;
+				try
+				{
+					var locale = options?.Locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans";
+					var key = "tool.display." + nm;
+					var localized = _loc?.Get(locale, key, baseName) ?? baseName;
+					hitName = string.IsNullOrWhiteSpace(localized) ? baseName : localized;
+				}
+				catch { hitName = baseName; }
+			}
+
 			LogSuccess(mode, profile, toolsTuple, decided.Count, execs.Count, total, convId);
 			return new ToolCallsResult
 			{
@@ -154,6 +207,8 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				ExposedTools = ExtractToolNamesFromJson(toolsTuple.toolsJson),
 				DecidedCalls = decided,
 				Executions = execs,
+				PlanTrace = plan,
+				HitDisplayName = hitName,
 				TotalLatencyMs = total
 			};
 		}

@@ -62,27 +62,9 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 			}
 			try
 			{
-				// Prefer Mod directory (Config/RimAI/Localization/Locales/{locale}.json)
-				string json = null;
-				try
-				{
-					var modRoot = RimAI.Core.Source.Boot.RimAICoreMod.ModRootDir ?? string.Empty;
-					if (!string.IsNullOrEmpty(modRoot))
-					{
-						var abs = System.IO.Path.Combine(modRoot, "Config", "RimAI", "Localization", "Locales", locale + ".json");
-						if (System.IO.File.Exists(abs))
-						{
-							json = System.IO.File.ReadAllText(abs);
-						}
-					}
-				}
-				catch { }
-				// Fallback to user config directory under persistence root
-				if (string.IsNullOrWhiteSpace(json))
-				{
-					var path = $"Localization/Locales/{locale}.json";
-					json = _persistence.ReadTextUnderConfigOrNullAsync(path).GetAwaiter().GetResult();
-				}
+				// 统一入口：一律通过持久化服务从配置根目录读取
+				var path = $"Localization/Locales/{locale}.json";
+				var json = _persistence.ReadTextUnderConfigOrNullAsync(path).GetAwaiter().GetResult();
 				if (string.IsNullOrWhiteSpace(json))
 				{
 					lock (_gate) { _cache[locale] = new Dictionary<string, string>(); }

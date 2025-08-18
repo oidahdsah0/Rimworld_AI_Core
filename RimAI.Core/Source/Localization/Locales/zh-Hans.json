@@ -50,5 +50,13 @@
   "prompt.format.colony_count": "人口：{count}",
   "prompt.format.colonists_line": "名单：{list}",
   "prompt.format.colonist_item": "{name}({age}岁,{gender}{job,optional,leadingComma})"
+  ,
+  "tool.display.get_colony_status": "领地状况小助手",
+  "tool.display.get_pawn_health": "小人健康状况",
+  "tool.display.get_beauty_average": "美观平均",
+  "tool.display.get_terrain_group_counts": "地形统计",
+  "tool.display.get_game_logs": "游戏日志浏览器"
+  ,
+  "orchestration.plantrace.hit_tool": "{pawn}从随身设备中找到了合适的APP：{displayName}，软件已经显示结果。"
 }
 

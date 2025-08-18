@@ -42,6 +42,9 @@ namespace RimAI.Core.Source.Modules.History
 		public Task AppendAiFinalAsync(string convKey, string aiFinalText, CancellationToken ct = default)
 			=> AppendInternalAsync(convKey, EntryRole.Ai, aiFinalText, advanceTurn: true, ct);
 
+		public Task AppendAiNoteAsync(string convKey, string aiNoteText, CancellationToken ct = default)
+			=> AppendInternalAsync(convKey, EntryRole.Ai, aiNoteText, advanceTurn: false, ct);
+
 		private async Task AppendInternalAsync(string convKey, EntryRole role, string content, bool advanceTurn, CancellationToken ct)
 		{
 			if (string.IsNullOrWhiteSpace(convKey)) throw new ArgumentException("convKey is empty");

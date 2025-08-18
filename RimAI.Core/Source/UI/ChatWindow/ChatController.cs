@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
@@ -208,35 +209,73 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				try
 				{
-					var req = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = true, Locale = null, UserInput = userText };
-					var prompt = await _prompting.BuildAsync(req, linked).ConfigureAwait(false);
-					SplitSpecialFromSystem(prompt.SystemPrompt, out var systemFiltered2, out var specialLines2);
-					var finalUserText = ComposeUserMessage(prompt, specialLines2);
-					LogBuiltPrompt(State.ConvKey, systemFiltered2, specialLines2, prompt, "Command");
-					LogOutboundRequest(State.ConvKey, userMsg, aiMsg, prompt, finalUserText, mode: "Command");
-					var result = await _orchestration.ExecuteAsync(finalUserText, State.ParticipantIds, new RimAI.Core.Source.Modules.Orchestration.ToolOrchestrationOptions
+					// 段1：编排（非流式）——直接用原始用户输入参与工具决策
+					var result = await _orchestration.ExecuteAsync(userText, State.ParticipantIds, new RimAI.Core.Source.Modules.Orchestration.ToolOrchestrationOptions
 					{
 						Mode = RimAI.Core.Source.Modules.Orchestration.OrchestrationMode.Classic,
 						Profile = RimAI.Core.Source.Modules.Orchestration.ExecutionProfile.Fast,
 						MaxCalls = 1
 					}, linked);
-					var text = ExtractTextFromOrchestrationResult(result);
-					foreach (var piece in SliceForPseudoStream(text, 36))
+
+					// 显示一次过程说明（PlanTrace 首条）到 UI（历史写入已由编排完成）
+					if (result != null && result.PlanTrace != null && result.PlanTrace.Count > 0)
 					{
-						linked.ThrowIfCancellationRequested();
-						if (currentStreamId != State.ActiveStreamId) break;
-						State.StreamingChunks.Enqueue(piece);
-						var nowTick = DateTime.UtcNow;
-						if (nowTick >= State.Indicators.DataNextAllowedBlinkUtc)
+						try
 						{
-							State.Indicators.DataOn = true;
-							double factor = 0.7 + _rng.Value.NextDouble() * 0.6; // 0.7..1.3
-							State.Indicators.DataBlinkUntilUtc = nowTick.AddMilliseconds(120 * factor);
-							State.Indicators.DataNextAllowedBlinkUtc = nowTick.AddMilliseconds(160 * factor);
+							aiMsg.Text = result.PlanTrace[0] ?? string.Empty;
 						}
-						await Task.Delay(40, linked);
+						catch { }
 					}
-					State.Indicators.FinishOn = true;
+
+					// 构造 ExternalBlocks（RAG）注入工具结果概览
+					var blocks = new List<ContextBlock>();
+					if (result != null && result.Executions != null && result.Executions.Count > 0)
+					{
+						try
+						{
+							var title = string.IsNullOrWhiteSpace(result.HitDisplayName) ? "工具结果" : ("工具结果 · " + result.HitDisplayName);
+							var compact = new List<object>();
+							foreach (var e in result.Executions)
+							{
+								compact.Add(new { tool = e.ToolName, outcome = e.Outcome, result = e.ResultObject });
+							}
+							var text = JsonConvert.SerializeObject(compact);
+							blocks.Add(new ContextBlock { Title = title, Text = text });
+						}
+						catch { }
+					}
+
+					// 段2：RAG→LLM 真流式
+					var req2 = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = true, Locale = null, UserInput = userText, ExternalBlocks = blocks };
+					var prompt2 = await _prompting.BuildAsync(req2, linked).ConfigureAwait(false);
+					SplitSpecialFromSystem(prompt2.SystemPrompt, out var systemFiltered3, out var specialLines3);
+					var systemPayload2 = BuildSystemPayload(systemFiltered3, prompt2.ContextBlocks);
+					var messages2 = BuildMessagesArray(systemPayload2, State.Messages);
+					LogMessagesList(State.ConvKey, messages2);
+					var uiReq2 = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = State.ConvKey, Messages = messages2, Stream = true };
+					await foreach (var r in _llm.StreamResponseAsync(uiReq2, linked))
+					{
+						if (!r.IsSuccess) { break; }
+						if (currentStreamId != State.ActiveStreamId) break;
+						var chunk = r.Value;
+						if (!string.IsNullOrEmpty(chunk.ContentDelta))
+						{
+							State.StreamingChunks.Enqueue(chunk.ContentDelta);
+							var nowTick = DateTime.UtcNow;
+							if (nowTick >= State.Indicators.DataNextAllowedBlinkUtc)
+							{
+								State.Indicators.DataOn = true;
+								double factor = 0.7 + _rng.Value.NextDouble() * 0.6;
+								State.Indicators.DataBlinkUntilUtc = nowTick.AddMilliseconds(120 * factor);
+								State.Indicators.DataNextAllowedBlinkUtc = nowTick.AddMilliseconds(160 * factor);
+							}
+						}
+						if (!string.IsNullOrEmpty(chunk.FinishReason))
+						{
+							State.Indicators.FinishOn = true;
+							break;
+						}
+					}
 				}
 				catch (OperationCanceledException)
 				{

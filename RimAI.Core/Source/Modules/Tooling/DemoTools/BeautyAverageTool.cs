@@ -9,6 +9,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 	{
 		public string Name => "get_beauty_average";
 		public string Description => "Compute the average beauty value in a square area of radius N centered at (x,z).";
+		public string DisplayName => "美观平均";
 		public string ParametersJson => JsonConvert.SerializeObject(new
 		{
 			type = "object",

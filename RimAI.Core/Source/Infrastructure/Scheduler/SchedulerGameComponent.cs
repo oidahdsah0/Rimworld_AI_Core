@@ -3,6 +3,7 @@ using RimAI.Core.Source.Boot;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Infrastructure.Configuration;
 using Verse;
+using RimWorld;
 
 namespace RimAI.Core.Source.Infrastructure.Scheduler
 {
@@ -16,6 +17,7 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 		private bool _bound;
 		private bool _printedReady;
 		private bool _toolingEnsured;
+		private bool _toolingVerified; // 新增：索引校验标记
 
 		public SchedulerGameComponent(Game game) { }
 
@@ -43,6 +45,13 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				}
 				catch { }
 			}
+
+			// 新增：在小人落地后（第 2000 Tick）异步校验索引文件与工具列表是否匹配；若无文件或不匹配则自动重建
+			if (!_toolingVerified && tick >= 2000)
+			{
+				KickoffToolIndexVerifyAsync();
+			}
+
 			if (!_printedReady)
 			{
 				_printedReady = true;
@@ -66,6 +75,49 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 			{
 				Log.Error($"[RimAI.Core][P3] SchedulerGameComponent binding failed: {ex}");
 			}
+		}
+
+		public override void LoadedGame()
+		{
+			// 读档完成后再校验一次（与 Tick 触发逻辑合并使用同一方法，具备幂等）
+			KickoffToolIndexVerifyAsync();
+		}
+
+		public override void StartedNewGame()
+		{
+			// 新开局也触发一次校验（与 Tick 触发逻辑合并使用同一方法，具备幂等）
+			KickoffToolIndexVerifyAsync();
+		}
+
+		private void KickoffToolIndexVerifyAsync()
+		{
+			if (_toolingVerified) return;
+			_toolingVerified = true;
+			try
+			{
+				var tooling = RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
+				_ = System.Threading.Tasks.Task.Run(async () =>
+				{
+					try
+					{
+						bool ok = await tooling.CheckIndexMatchesToolsAsync();
+						if (!ok)
+						{
+							try { Messages.Message("[RimAI.Core] Tool index missing or out-of-date. Rebuilding...", MessageTypeDefOf.NeutralEvent, false); } catch { }
+							Log.Message("[RimAI.Core][P4] Tool index missing/mismatch, rebuilding...");
+							await tooling.RebuildIndexAsync();
+							try { Messages.Message("[RimAI.Core] Tool index rebuild completed.", MessageTypeDefOf.PositiveEvent, false); } catch { }
+							Log.Message("[RimAI.Core][P4] Tool index rebuild completed.");
+						}
+					}
+					catch (System.Exception ex)
+					{
+						try { Messages.Message("[RimAI.Core] Tool index verify/rebuild failed.", MessageTypeDefOf.NegativeEvent, false); } catch { }
+						Log.Error($"[RimAI.Core][P4] Tool index verify/rebuild failed: {ex.Message}");
+					}
+				});
+			}
+			catch { }
 		}
 
 		internal SchedulerSnapshot GetSnapshot() => _scheduler?.GetSnapshot();

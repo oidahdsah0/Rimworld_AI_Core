@@ -169,6 +169,19 @@ namespace RimAI.Core.Source.Modules.Prompting
 					}
 				}
 			}
+			// 合并外部传入的 RAG 块（如编排工具结果），并统一做预算裁剪
+			if (request.ExternalBlocks != null && request.ExternalBlocks.Count > 0)
+			{
+				foreach (var b in request.ExternalBlocks)
+				{
+					if (b == null) continue;
+					if (!string.IsNullOrWhiteSpace(b.Title) || !string.IsNullOrWhiteSpace(b.Text))
+					{
+						blocks.Add(b);
+					}
+				}
+			}
+
 			if (sysLines.Count > 0)
 			{
 				sb.Append(string.Join(Environment.NewLine, sysLines));

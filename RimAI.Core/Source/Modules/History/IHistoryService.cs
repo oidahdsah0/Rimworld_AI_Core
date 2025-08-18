@@ -13,6 +13,9 @@ namespace RimAI.Core.Source.Modules.History
 		Task AppendUserAsync(string convKey, string userText, CancellationToken ct = default);
 		Task AppendAiFinalAsync(string convKey, string aiFinalText, CancellationToken ct = default);
 
+		// 新增：写入 AI 过程说明（不推进回合，不参与 Recap 的 Turn 分桶）
+		Task AppendAiNoteAsync(string convKey, string aiNoteText, CancellationToken ct = default);
+
 		// 查询（分页）
 		Task<HistoryThread> GetThreadAsync(string convKey, int page = 1, int pageSize = 100, CancellationToken ct = default);
 

@@ -11,6 +11,7 @@ using RimAI.Core.Source.Modules.Tooling.Indexing;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Infrastructure.Configuration;
 using RimAI.Core.Contracts.Config;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.Modules.Tooling
 {
@@ -20,6 +21,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 		private readonly IPersistenceService _persistence;
 		private readonly ToolIndexManager _index;
 		private readonly ConfigurationService _cfgService;
+		private readonly ILocalizationService _loc;
 
 		// 简化：先用内存中的演示工具列表；后续可加 ToolDiscovery 反射扫描
 		private readonly List<IRimAITool> _allTools;
@@ -33,7 +35,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 		private readonly int _dimension;
 		private readonly string _instruction;
 
-		public ToolRegistryService(ILLMService llm, IPersistenceService persistence, IConfigurationService configurationService)
+		public ToolRegistryService(ILLMService llm, IPersistenceService persistence, IConfigurationService configurationService, ILocalizationService localization)
 		{
 			_llm = llm;
 			_persistence = persistence;
@@ -41,6 +43,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 			_allTools = ToolDiscovery.DiscoverTools();
 			// 读取内部配置（构造函数注入，禁止 Service Locator）
 			_cfgService = configurationService as ConfigurationService;
+			_loc = localization;
 			var tooling = _cfgService?.GetToolingConfig();
 			if (tooling == null) tooling = new CoreConfig.ToolingSection();
 			_indexBasePath = tooling.IndexFiles?.BasePath ?? "Config/RimAI/Indices";
@@ -254,6 +257,37 @@ namespace RimAI.Core.Source.Modules.Tooling
 			throw new NotImplementedException(toolName);
 		}
 
+		public string GetToolDisplayNameOrNull(string toolName)
+		{
+			try
+			{
+				var t = _allTools.FirstOrDefault(x => string.Equals(x?.Name, toolName, StringComparison.OrdinalIgnoreCase));
+				return t?.DisplayName;
+			}
+			catch { return null; }
+		}
+
+		public IReadOnlyList<string> GetRegisteredToolNames()
+		{
+			try { return _allTools.Select(t => t?.Name ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)).ToList(); }
+			catch { return new List<string>(); }
+		}
+
+		public async Task<bool> CheckIndexMatchesToolsAsync(CancellationToken ct = default)
+		{
+			try
+			{
+				var snapshot = _index.GetSnapshot();
+				if (snapshot == null || snapshot.Records == null || snapshot.Records.Count == 0) return false;
+				var toolSet = new HashSet<string>(_allTools.Select(t => t?.Name ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)), StringComparer.OrdinalIgnoreCase);
+				var indexed = new HashSet<string>(snapshot.Records.Select(r => r.ToolName ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)), StringComparer.OrdinalIgnoreCase);
+				// 至少应包含所有已注册工具（允许索引包含额外历史项，但通常不应）
+				bool ok = toolSet.SetEquals(indexed);
+				return await Task.FromResult(ok);
+			}
+			catch { return false; }
+		}
+
 		public bool IsIndexReady() => _index.IsReady();
 		public Indexing.ToolIndexFingerprint GetIndexFingerprint() => _index.GetFingerprint();
 		public Task EnsureIndexBuiltAsync(CancellationToken ct = default) => _index.EnsureBuiltAsync(_provider, _model, _dimension, _instruction, _weights, BuildRecordsAsync, _indexBasePath, _indexFileName, ct);
@@ -274,8 +308,10 @@ namespace RimAI.Core.Source.Modules.Tooling
 			{
 				var nameText = (t.Name ?? string.Empty).Trim();
 				var descText = (t.Description ?? string.Empty).Trim();
+				var displayText = (t.DisplayName ?? string.Empty).Trim();
 				var texts = new List<(string variant, string text)> { ("name", nameText) };
 				if (!string.IsNullOrEmpty(descText)) texts.Add(("description", descText));
+				if (!string.IsNullOrEmpty(displayText)) texts.Add(("display", displayText));
 
 				foreach (var p in texts)
 				{

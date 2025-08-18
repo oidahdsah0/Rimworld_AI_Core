@@ -18,6 +18,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Models
 		public bool IsCommand { get; set; }
 		public string Locale { get; set; }
 		public string UserInput { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ContextBlock> ExternalBlocks { get; set; } // 新增：由上游注入的额外上下文块（RAG）
 	}
 
 	internal sealed class ContextBlock

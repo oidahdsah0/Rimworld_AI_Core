@@ -43,6 +43,15 @@ internal interface IToolRegistryService
 	Task EnsureIndexBuiltAsync(CancellationToken ct = default);
 	Task RebuildIndexAsync(CancellationToken ct = default);
 	void MarkIndexStale();
+
+	// 新增：根据工具内部名获取显示名（未找到返回 null）
+	string GetToolDisplayNameOrNull(string toolName);
+
+	// 新增：获取当前已注册工具名列表
+	System.Collections.Generic.IReadOnlyList<string> GetRegisteredToolNames();
+
+	// 新增：检查索引中的工具名集合与当前注册工具列表是否一致
+	Task<bool> CheckIndexMatchesToolsAsync(CancellationToken ct = default);
 }
 }
 

@@ -48,14 +48,35 @@ namespace RimAI.Core.Source.Modules.Stage
 		public void RegisterTrigger(IStageTrigger trigger)
 		{
 			if (trigger == null || string.IsNullOrEmpty(trigger.Name)) throw new ArgumentException("invalid trigger");
-			_triggers[trigger.Name] = (trigger, true);
-			_ = trigger.OnEnableAsync(CancellationToken.None);
+			var disabled = _cfg.GetInternal().Stage?.DisabledTriggers ?? Array.Empty<string>();
+			bool enabled = !disabled.Contains(trigger.Name, StringComparer.OrdinalIgnoreCase);
+			_triggers[trigger.Name] = (trigger, enabled);
+			_ = (enabled ? trigger.OnEnableAsync(CancellationToken.None) : trigger.OnDisableAsync(CancellationToken.None));
 		}
 
 		public void UnregisterTrigger(string name) { if (!string.IsNullOrEmpty(name)) _triggers.TryRemove(name, out _); }
 		public void EnableTrigger(string name) { if (_triggers.TryGetValue(name, out var t)) { _triggers[name] = (t.trigger, true); _ = t.trigger.OnEnableAsync(CancellationToken.None); } }
 		public void DisableTrigger(string name) { if (_triggers.TryGetValue(name, out var t)) { _triggers[name] = (t.trigger, false); _ = t.trigger.OnDisableAsync(CancellationToken.None); } }
 		public IReadOnlyList<string> ListTriggers() => _triggers.Keys.OrderBy(x => x).ToList();
+
+		public bool ArmTrigger(string name)
+		{
+			if (string.IsNullOrWhiteSpace(name)) return false;
+			if (_triggers.TryGetValue(name, out var t))
+			{
+				try
+				{
+					// 仅对 ManualGroupChatTrigger 这类具备 ArmOnce 的触发器生效
+					if (t.trigger is RimAI.Core.Source.Modules.Stage.Triggers.ManualGroupChatTrigger mg)
+					{
+						mg.ArmOnce();
+						return true;
+					}
+				}
+				catch { }
+			}
+			return false;
+		}
 
 		public async Task<StageDecision> SubmitIntentAsync(StageIntent intent, CancellationToken ct)
 		{
@@ -178,8 +199,8 @@ namespace RimAI.Core.Source.Modules.Stage
 			foreach (var kv in _triggers.ToArray())
 			{
 				if (ct.IsCancellationRequested) break;
-				var trigger = kv.Value.trigger;
-				if (trigger == null) continue;
+				var (trigger, enabled) = kv.Value;
+				if (trigger == null || !enabled) continue;
 				try
 				{
 					await trigger.RunOnceAsync(intent => SubmitIntentAsync(intent, ct), ct);

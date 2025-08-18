@@ -47,6 +47,7 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<ILLMService, LLMService>();
                 Container.Register<ISchedulerService, SchedulerService>();
                 Container.Register<IWorldDataService, WorldDataService>();
+                Container.Register<RimAI.Core.Source.Modules.World.IWorldActionService, RimAI.Core.Source.Modules.World.WorldActionService>();
                 // P4 + P6 minimal services
                 Container.Register<RimAI.Core.Source.Modules.Persistence.IPersistenceService, RimAI.Core.Source.Modules.Persistence.PersistenceService>();
                 Container.Register<RimAI.Core.Source.Modules.Tooling.IToolRegistryService, RimAI.Core.Source.Modules.Tooling.ToolRegistryService>();
@@ -90,10 +91,12 @@ namespace RimAI.Core.Source.Boot
                     var stage = Container.Resolve<IStageService>() as StageService;
                     if (stage != null)
                     {
-                        stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.GroupChatAct(Container.Resolve<ILLMService>()));
+                        stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.GroupChatAct(Container.Resolve<ILLMService>(), Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>()));
                         stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.AlphaFiberInterServerChatAct(Container.Resolve<ILLMService>(), Container.Resolve<IWorldDataService>()));
                         stage.RegisterTrigger(new ProximityGroupChatTrigger());
                         stage.RegisterTrigger(new AlphaFiberLinkTrigger());
+                        stage.RegisterTrigger(new TimedGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
+                        stage.RegisterTrigger(new ManualGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
                     }
                 }
                 catch { }

@@ -80,7 +80,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				var textRect = new Rect(textX, row.y + 4f, Mathf.Max(0f, row.width - textX - 6f), rowH - 8f);
 				string job = null; try { job = getJobTitle?.Invoke(p); } catch { job = null; }
 				var line1 = (p?.LabelCap ?? "RimAI.Common.Pawn".Translate()).ToString();
-				var line2 = string.IsNullOrWhiteSpace(job) ? "RimAI.ChatUI.Left.Unassigned".Translate() : job;
+				var line2 = string.IsNullOrWhiteSpace(job) ? "RimAI.ChatUI.Left.Unassigned".Translate().ToString() : job;
 				var prevAnchor = Text.Anchor;
 				Text.Anchor = TextAnchor.UpperLeft; Text.Font = GameFont.Small;
 				Widgets.Label(textRect, line1 + "\n" + line2);

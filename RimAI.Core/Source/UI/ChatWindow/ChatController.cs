@@ -11,6 +11,7 @@ using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.Prompting.Models;
+using Verse;
 
 namespace RimAI.Core.Source.UI.ChatWindow
 {
@@ -56,8 +57,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				// 记录参与者（若无则创建），并加载现有历史（若无则为空列表）
 				await _history.UpsertParticipantsAsync(State.ConvKey, State.ParticipantIds).ConfigureAwait(false);
 				var thread = await _history.GetThreadAsync(State.ConvKey, page: 1, pageSize: 200).ConfigureAwait(false);
-				string playerName = "RimAI.Common.Player".Translate();
-				try { playerName = await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "RimAI.Common.Player".Translate(); } catch { }
+				string playerName = "RimAI.Common.Player".Translate().ToString();
+				try { playerName = await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "RimAI.Common.Player".Translate().ToString(); } catch { }
 				if (thread?.Entries != null)
 				{
 					foreach (var e in thread.Entries)
@@ -67,7 +68,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						{
 							Id = e.Id ?? Guid.NewGuid().ToString("N"),
 							Sender = e.Role == EntryRole.User ? MessageSender.User : MessageSender.Ai,
-							DisplayName = e.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "RimAI.Common.Pawn".Translate(),
+							DisplayName = e.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "RimAI.Common.Pawn".Translate().ToString(),
 							TimestampUtc = e.Timestamp,
 							Text = e.Content ?? string.Empty,
 							IsCommand = false
@@ -96,7 +97,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.User,
-				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "RimAI.Common.Player".Translate()),
+				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "RimAI.Common.Player".Translate().ToString()),
 				TimestampUtc = DateTime.UtcNow,
 				Text = userText,
 				IsCommand = false
@@ -187,7 +188,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.User,
-				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "RimAI.Common.Player".Translate()),
+				DisplayName = State.PlayerTitle ?? (await _world.GetPlayerNameAsync(linked) ?? "RimAI.Common.Player".Translate().ToString()),
 				TimestampUtc = DateTime.UtcNow,
 				Text = userText,
 				IsCommand = true
@@ -198,7 +199,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.Ai,
-				DisplayName = "RimAI.Common.Pawn".Translate(),
+				DisplayName = "RimAI.Common.Pawn".Translate().ToString(),
 				TimestampUtc = DateTime.UtcNow,
 				Text = string.Empty,
 				IsCommand = true
@@ -233,7 +234,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					{
 						try
 						{
-							var title = string.IsNullOrWhiteSpace(result.HitDisplayName) ? "RimAI.ChatUI.Tools.ResultTitle".Translate() : ("RimAI.ChatUI.Tools.ResultTitleWithName".Translate(result.HitDisplayName));
+							var title = string.IsNullOrWhiteSpace(result.HitDisplayName) ? "RimAI.ChatUI.Tools.ResultTitle".Translate().ToString() : ("RimAI.ChatUI.Tools.ResultTitleWithName".Translate(result.HitDisplayName).ToString());
 							var compact = new List<object>();
 							foreach (var e in result.Executions)
 							{
@@ -414,7 +415,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				}
 			}
 			catch { }
-			return "RimAI.Common.Pawn".Translate();
+			return "RimAI.Common.Pawn".Translate().ToString();
 		}
 
 		private static void SplitSpecialFromSystem(string systemPrompt, out string filtered, out System.Collections.Generic.List<string> special)
@@ -516,7 +517,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			try
 			{
 				var header = $"[RimAI.Core][P10] Outbound ({mode})";
-				var title = userMsg?.DisplayName ?? "RimAI.Common.Player".Translate();
+				var title = userMsg?.DisplayName ?? "RimAI.Common.Player".Translate().ToString();
 				var ts = (userMsg?.TimestampUtc ?? DateTime.UtcNow).ToLocalTime().ToString("HH:mm:ss");
 				var content = userMsg?.Text ?? string.Empty;
 				var line1 = $"{title} {ts}: {content}";

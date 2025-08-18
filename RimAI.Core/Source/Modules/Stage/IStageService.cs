@@ -19,6 +19,9 @@ namespace RimAI.Core.Source.Modules.Stage
 		void DisableTrigger(string name);
 		IReadOnlyList<string> ListTriggers();
 
+		// 触发器扩展：为支持主动触发（例如手动按钮），提供一次性武装接口
+		bool ArmTrigger(string name);
+
 		Task<StageDecision> SubmitIntentAsync(StageIntent intent, CancellationToken ct);
 		Task<ActResult> StartAsync(string actName, StageExecutionRequest req, CancellationToken ct);
 		IReadOnlyList<RunningActInfo> QueryRunning();

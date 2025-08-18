@@ -30,6 +30,17 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				warn => Log.Warning(warn),
 				err => Log.Error(err));
 
+			// 每小时间隔检查一次触发器（抽样在触发器内部处理）
+			try
+			{
+				if (tick % 2500 == 0)
+				{
+					var stage = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Stage.IStageService>();
+					_ = System.Threading.Tasks.Task.Run(async () => { try { await stage.RunActiveTriggersOnceAsync(System.Threading.CancellationToken.None); } catch { } });
+				}
+			}
+			catch { }
+
 			// P4: 在第 1000 Tick 后确保索引构建（后台非阻塞）
 			if (!_toolingEnsured && tick >= 1000)
 			{

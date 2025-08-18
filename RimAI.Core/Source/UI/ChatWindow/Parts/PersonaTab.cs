@@ -170,7 +170,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					Widgets.Label(headerRect, $"[{(string.IsNullOrWhiteSpace(it.Source) ? "-" : it.Source)}] {it.UpdatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm}");
 					if (!it.IsEditing)
 					{
-						var body = string.IsNullOrWhiteSpace(it.Text) ? "RimAI.Common.Empty".Translate() : it.Text;
+						var body = string.IsNullOrWhiteSpace(it.Text) ? "RimAI.Common.Empty".Translate().ToString() : it.Text;
 						Widgets.Label(contentRect, body);
 						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Edit".Translate())) { it.IsEditing = true; it.EditText = it.Text; }
 						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Delete".Translate())) { try { biography.Remove(entityId, it.Id); } catch { } ReloadBiography(biography, entityId); }

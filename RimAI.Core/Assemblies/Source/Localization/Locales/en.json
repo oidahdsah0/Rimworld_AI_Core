@@ -49,6 +49,12 @@
   "prompt.format.colony_name": "Name: {name}",
   "prompt.format.colony_count": "Population: {count}",
   "prompt.format.colonists_line": "Roster: {list}",
-  "prompt.format.colonist_item": "{name}({age}y,{gender}{job,optional,leadingComma})"
+  "prompt.format.colonist_item": "{name}({age}y,{gender}{job,optional,leadingComma})",
+  "tool.display.get_colony_status": "Colony Status Assistant",
+  "tool.display.get_pawn_health": "Pawn Health",
+  "tool.display.get_beauty_average": "Beauty Average",
+  "tool.display.get_terrain_group_counts": "Terrain Statistics",
+  "tool.display.get_game_logs": "Game Logs Browser",
+  "orchestration.plantrace.hit_tool": "{pawn} used the handheld device to open an app: {displayName}. The results are ready."
 }
 

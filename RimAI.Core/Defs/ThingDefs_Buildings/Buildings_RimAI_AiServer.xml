@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BuildingBase">
+    <defName>RimAI_AIServer_Lv1A</defName>
+    <label>AI 服务器（Lv1）</label>
+    <description>为殖民地提供基础 AI 服务的服务器。</description>
+    <category>Building</category>
+    <thingClass>Building</thingClass>
+    <rotatable>true</rotatable>
+    <size>(2,2)</size>
+    <altitudeLayer>Building</altitudeLayer>
+    <selectable>true</selectable>
+    <designationCategory>RimAI</designationCategory>
+    <researchPrerequisites>
+      <li>RimAI_AIServers</li>
+    </researchPrerequisites>
+    <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
+    <statBases>
+      <MaxHitPoints>450</MaxHitPoints>
+      <WorkToBuild>2200</WorkToBuild>
+      <Flammability>0.8</Flammability>
+      <Mass>45</Mass>
+      <Beauty>0</Beauty>
+    </statBases>
+    <costList>
+      <Steel>120</Steel>
+      <ComponentIndustrial>3</ComponentIndustrial>
+    </costList>
+    <graphicData>
+      <graphicClass>Graphic_Multi</graphicClass>
+      <texPath>Things/Building/RimAI/ai_server_lv1</texPath>
+      <drawSize>(2,2)</drawSize>
+      <shaderType>CutoutComplex</shaderType>
+    </graphicData>
+    <comps>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>600</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable">
+        <compClass>CompFlickable</compClass>
+      </li>
+      <li Class="CompProperties_Breakdownable">
+        <compClass>CompBreakdownable</compClass>
+      </li>
+      <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
+    </comps>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.7</fillPercent>
+  </ThingDef>
+</Defs>
+
+

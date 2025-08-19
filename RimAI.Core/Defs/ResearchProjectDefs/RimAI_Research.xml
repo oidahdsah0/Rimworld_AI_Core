@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ResearchProjectDef>
+    <defName>RimAI_AIServers</defName>
+    <label>RimAI 服务器</label>
+    <description>解锁 RimAI 基础 AI 服务器的建造。</description>
+    <baseCost>800</baseCost>
+    <techLevel>Spacer</techLevel>
+    <prerequisites>
+      <li>MicroelectronicsBasics</li>
+    </prerequisites>
+    <requiredResearchBuilding>HiTechResearchBench</requiredResearchBuilding>
+    <researchViewX>12</researchViewX>
+    <researchViewY>8</researchViewY>
+  </ResearchProjectDef>
+</Defs>
+
+

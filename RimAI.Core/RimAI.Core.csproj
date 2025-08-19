@@ -96,6 +96,12 @@
     </ItemGroup>
     <Copy SourceFiles="@(DefFiles)" DestinationFolder="$(ModDir)\Defs\%(RecursiveDir)" />
 
+    <!-- Copy the Languages folder (XML translation files) -->
+    <ItemGroup>
+      <LanguageFiles Include="Languages\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LanguageFiles)" DestinationFolder="$(ModDir)\Languages\%(RecursiveDir)" SkipUnchangedFiles="true" />
+
     <!-- Copy the Textures folder (icons, UI assets, etc.) -->
     <ItemGroup>
       <TextureFiles Include="Textures\**\*.*" />

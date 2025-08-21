@@ -13,7 +13,7 @@
 
 ## 0. 适用范围
 
-- 适用：`V5_P1..P9_IMPLEMENTATION_PLAN.md` 所述各子系统（DI/配置、LLM 网关、调度与世界数据、工具系统、仅编排、持久化、Persona、历史、Stage）。
+- 适用：`V5_P1..P13_IMPLEMENTATION_PLAN.md` 所述各子系统（DI/配置、LLM 网关、调度与世界数据、工具系统、仅编排、持久化、Persona、历史、Stage、ChatUI、Prompting、Server）。
 - 不适用：旧版 V4 文档与实验性模块（已废弃或另有说明者除外）。
 
 ---
@@ -55,7 +55,7 @@ RimAI.Core/
   Source/
     Infrastructure/                 # 容器/配置/调度等横切基础设施
     Modules/                        # 功能域（LLM/Tooling/Orchestration/Persistence/Persona/History/Stage/...）
-    UI/DebugPanel/Parts/            # 分阶段 Debug 面板子页签（Px_*）
+    UI/ChatWindow/                  # ChatWindow（仅此路径允许真流式）
 RimAI.Core.Contracts/
   Config/                           # 仅暴露对外的最小快照与只读接口
 ```
@@ -73,10 +73,10 @@ RimAI.Core.Contracts/
 
 - Verse/Scribe 面最小化：除 `Modules/World/**` 与 `Modules/Persistence/**` 外，检查：`\bScribe\.|using\s+Verse` → 0 次匹配。
 - Framework 面最小化：除 `Modules/LLM/**` 外，检查：`using\s+RimAI\.Framework` → 0 次匹配。
-- 非流式纪律：后台模块检查：`StreamResponseAsync\(` → 0 次匹配。
+- 非流式纪律：后台模块检查：`StreamResponseAsync\(` → 0 次匹配（仅 `Source/UI/ChatWindow/**` 允许）。
 - 注入纪律：检查属性注入与 Service Locator 关键字（项目内约定模式）→ 0 次匹配。
 - 文件 IO 集中：除 `Modules/Persistence/**` 外，检查：`using\s+System\.IO|\bFile\.|\bDirectory\.|\bFileStream\b|\bStreamReader\b|\bStreamWriter\b` → 0 次匹配（模块不得直接文件 IO）。
-- 日志前缀（建议性 Gate）：通过 Cursor 内置工具对 `Log\.(Message|Warning|Error)\(` 的调用进行抽样/审计，确保文本以 `[RimAI.Core]` 开头；必要时引入包装器统一打印。
+- 日志前缀（建议性 Gate）：通过 Cursor 内置工具对 `Log\.(Message|Warning|Error)\(` 的调用进行抽样/审计，确保文本以 `[RimAI.Core]` 开头；建议叠加阶段标识（含 P12/P13）；必要时引入包装器统一打印。
 
 ---
 
@@ -116,7 +116,7 @@ RimAI.Core.Contracts/
   - 使用 `UnifiedChatRequest { ConversationId, Messages[], Stream? }` 作为唯一入口；禁止使用旧式 `(conversationId, systemPrompt, userText, ...)` 重载。
   - `Messages` 必须包含一条 `role=system` 的系统提示，其内容由各 Composer 动态组装；随后追加“历史多轮”（`role=user|assistant`）与“本次用户输入”（`role=user`）。
   - 禁止将 Activities/社交历史/环境块等上下文直接拼入 `user` 文本；此类上下文仅用于构建 `system` 内容或由上层 UI 展示，不进入 `user` 消息体。
-  - UI/Debug 路径允许 `Stream=true`；后台/服务路径一律 `Stream=false`。
+  - 仅 ChatWindow UI 路径允许 `Stream=true`；后台/服务路径一律 `Stream=false`。
 
 - ChatUI（闲聊）：
   - `Messages = [ system(系统提示行集合), 历史多轮..., 当前用户输入 ]`；空内容与占位消息必须跳过。
@@ -143,7 +143,23 @@ RimAI.Core.Contracts/
 - Gate（强制）：
   - 检查=0：`GetResponseAsync\([^U]`（禁用所有非 `UnifiedChatRequest` 重载）。
   - 检查=0：`StreamResponseAsync\([^U]`（禁用旧式流式重载）。
-  - 检查=0：后台代码中 `Stream\s*=\s*true`（仅 `Source/UI/**` 与 `Source/UI/DebugPanel/**` 允许）。
+  - 检查=0：后台代码中 `Stream\s*=\s*true`（仅 `Source/UI/ChatWindow/**` 允许）。
+
+### 9.2 指令模式（P12）
+
+- 两段式：段1（后台非流式编排）→ 段2（ChatWindow 真流式）。
+- 段1产物：结构化工具结果 + `PlanTrace`；`PlanTrace` 必须写入历史为 AI Note（不推进回合）。
+- 段2构造：将工具结果以 `ExternalBlocks` 合入 Prompt，再发起流式；完成后仅写入“最终输出”。
+- Gate：
+  - 编排目录检查=0：`StreamResponseAsync\(`。
+  - 禁止旧式工具调用与 JSON 强制输出路径；仅使用统一 `UnifiedChatRequest` 带工具重载。
+
+### 9.3 Server 服务（P13）
+
+- 单一事实源：服务器基础信息/槽位/结果由 ServerService 维护。
+- 文件与存档：设置文件/模板读写仅经 P6；`Servers` 节点参与存读档/导入导出。
+- 调度：周期任务最小间隔 6 小时；读档/导入后重置 NextDue；错峰注册。
+- 工具等级：仅允许 `tool.Level <= server.Level`；Level=4 工具在游戏内不可见。
 
 ## 8. 新工具添加规范（Tool Authoring Conventions）
 

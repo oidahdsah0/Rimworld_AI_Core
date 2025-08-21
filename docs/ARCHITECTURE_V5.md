@@ -8,11 +8,11 @@
 # RimAI.Core V5 架构文档
 
 > 版本：v5.0.0-alpha  
-> 状态：Living Document – 每完成一个阶段（P1–P11）立即回填文档 & 图表
+> 状态：Living Document – 每完成一个阶段（P1–P13）立即回填文档 & 图表
 
 > 本文目标：
 > 1. 在 V4 实践基础上，确立 V5 的全局纪律、职责边界与分层设计，保持“访问面最小、职责单一、强可观测”。
-> 2. 指导 P1–P11 的施工推进，确保阶段实现不偏离整体架构，Gate 可录屏可复现。
+> 2. 指导 P1–P13 的施工推进，确保阶段实现不偏离整体架构，Gate 可录屏可复现。
 > 3. 与《V5 — 全局纪律与统一规范》（`docs/V5_GLOBAL_CONVENTIONS.md`）协同，冲突时以“全局规范”为准。
 
 ---
@@ -49,7 +49,7 @@
 
 ---
 
-## 3. 分阶段路线图（P1–P11）
+## 3. 分阶段路线图（P1–P13）
 
 > 细则与按钮清单见各 `V5_Px_IMPLEMENTATION_PLAN.md`。此处仅列阶段 Gate 摘要。
 
@@ -66,6 +66,8 @@
 | P9 – Stage | 仲裁（互斥/合流/冷却/幂等/lease）；Acts/Triggers 插件化；统一写 `agent:stage` |
 | P10 – ChatWindow UI | 闲聊真流式（仅 UI/Debug）；命令伪流式；仅“最终输出”写入历史；Gizmo 入口与快捷键 |
 | P11 – Prompting | 单入口 `IPromptService.BuildAsync`；12 项 ChatUI 作曲器；多语言 JSON；热插拔；全链非流式 |
+| P12 – ChatUI 指令模式 | 编排（非流式）→ RAG 合并 → UI 真流式；PlanTrace 写历史（AI Note, TurnOrdinal=null）；工具 DisplayName；Prompt 支持 ExternalBlocks |
+| P13 – Server 服务 | Server 基础信息/巡检/提示词；`Servers` 快照节点；槽位与定时执行；温度→采样温度映射；与 P11 外部块对接 |
 
 ---
 
@@ -85,6 +87,11 @@ graph TD
     Tooling --> World
     Stage --> World
     Persistence
+    Prompting --> Server["Server Service (P13)"]
+    Server --> World
+    Server --> Tooling
+    Server --> LLM
+    Server --> Persistence
     subgraph Infrastructure
         Scheduler
         Config[IConfigurationService & CoreConfigSnapshot (P1)]
@@ -98,6 +105,7 @@ graph TD
 > - Verse 读取仅在 `WorldDataService`（P3）与 `PersistenceService`（P6）。
 > - Tool JSON 的唯一产出方：`IToolRegistryService`（P4）。
 > - Prompting 单一入口：`IPromptService.BuildAsync`（P11）组织提示词与上下文；不触达 Framework；Verse/文件 IO 访问遵循 P3/P6。
+> - Server（P13）：不直接触达 Verse；工具执行经 `IToolRegistryService`；世界数据仅经 `IWorldDataService`；文件/预设读取仅经 `IPersistenceService`；如需 LLM，仅经 `ILLMService`（后台非流式）。
 
 ---
 
@@ -188,6 +196,22 @@ V5 对外最小面仅限配置：
 
 ---
 
+### 5.12 P12 – ChatUI 指令模式（编排→RAG→流式）
+
+职责：命令请求两段式闭环：段1 编排（非流式：获取工具 JSON→一次决策→串行执行→产出结构化结果与 PlanTrace）；段2 UI 真流式（将工具结果作为 RAG 上下文合入 Prompt 后发起流式回答）。
+边界：编排不触达 Framework/Verse，仅经 P2/P3 规定入口；PlanTrace 通过 `IHistoryService.AppendAiNoteAsync` 写入历史但不推进回合；Prompting 支持 `ExternalBlocks` 合并工具结果。
+纪律：后台非流式；仅 ChatWindow 真流式；`IRimAITool.DisplayName`（本地化短名）用于文案与 UI；日志前缀 `[RimAI.Core][P12]`。
+
+---
+
+### 5.13 P13 – Server 服务（基础信息/巡检/提示词）
+
+职责：维护服务器基础信息（Lv1–Lv3）、人格槽位与巡检槽位；按计划串行执行已分配工具并汇总摘要；依据机房温度映射采样温度与提示词变体；为 Act/Chat 提供 `ServerPromptPack`（SystemLines/ContextBlocks/Temperature）。
+边界：SSOT 在 ServerService；持久化通过 P6 的 `Servers` 节点；世界数据只读经 P3；工具执行经 P4；如需 LLM 经 P2（后台非流式）；提示词并入经 P11（`ExternalBlocks` 或 Composer）。
+纪律：文件 IO 仅经 P6；槽位/工具等级与最小间隔（≥6h）校验；读档后错峰与重置 NextDue；日志前缀 `[RimAI.Core][P13]`。
+
+---
+
 ## 6. 全局纪律（并入）
 
 > 完整版见 `docs/V5_GLOBAL_CONVENTIONS.md`。以下为关键不变式（Invariants）：
@@ -206,6 +230,7 @@ V5 对外最小面仅限配置：
 1) 启动：`ServiceContainer` 注册与预热 → 打印横幅与健康信息。  
 2) GameComponents：注册 `SchedulerGameComponent`（P3）与 `PersistenceManager`（P6）。  
 3) 自动动作：进入地图或第 N Tick 触发工具索引构建（按配置），索引文件读写通过 Persistence 统一 IO。  
+   - 同步：发现通电服务器并注册巡检周期任务（P13）：`IServerService.StartAllSchedulers(appRootCt)`；最小间隔 6 小时；读档/导入后重置 `NextDue` 以错峰。
 4) 运行期：配置热重载 → 事件广播；索引/模板变化 → 标记 Stale/重建。  
 5) 存读档：P6 负责 SaveAll/LoadAll；读档后重建历史索引与水位；可选恢复工具索引快照。
 
@@ -227,12 +252,13 @@ V5 对外最小面仅限配置：
   - P3 更新帧预算与最大任务数；
   - P4 Embedding 供应商变更 → 索引 Mark Stale + 后台重建；
   - P6 节点/策略；P7 模板热重载；P8 N 值/MaxChars；P9 合流/冷却/并发上限/TTL。
+  - P12 ExternalBlocks/模板变更生效；P13 Server 预设与模板热重载（经 Persistence 设置文件）。
 
 ---
 
 ## 10. 可观测性与日志
 
-- 统一日志前缀：V5 版本下，所有日志必须以 `[RimAI.Core]` 开头；建议叠加阶段标识形成层级前缀，如 `[RimAI.Core][P1]`、`[RimAI.Core][P4]`、`[RimAI.Core][P10]`、`[RimAI.Core][P11]`。关键字段包括 provider/model/convId-hash/latency/chunks/score 摘要等。  
+- 统一日志前缀：V5 版本下，所有日志必须以 `[RimAI.Core]` 开头；建议叠加阶段标识形成层级前缀，如 `[RimAI.Core][P1]`、`[RimAI.Core][P4]`、`[RimAI.Core][P10]`、`[RimAI.Core][P11]`、`[RimAI.Core][P12]`、`[RimAI.Core][P13]`。关键字段包括 provider/model/convId-hash/latency/chunks/score 摘要等。  
 - Debug 面板规范：每 P 至少包含 Ping/自检/示例/指标卡；日志按钮严格不落敏感正文。  
 - 审计字段：字符裁剪、窗口区间、索引指纹、命中率、慢执行告警、节点统计等。
 
@@ -260,10 +286,12 @@ V5 对外最小面仅限配置：
 
 - Verse/Scribe 面最小化：除 `Modules/World/**` 与 `Modules/Persistence/**` 外 检查=0：`\bScribe\.|using\s+Verse`。  
 - Framework 面最小化：除 `Modules/LLM/**` 外 检查=0：`using\s+RimAI\.Framework`。  
-- 后台非流式：相关目录 检查=0：`StreamResponseAsync\(`。例外：仅允许在 `Source/UI/ChatWindow/**` 与 `Source/UI/DebugPanel/**`（UI/Debug）中出现。  
+- 后台非流式：相关目录 检查=0：`StreamResponseAsync\(`。例外：仅 `Source/UI/ChatWindow/**` 允许。  
 - Tooling 不自动降级：索引/TopK 路径 检查=0：`\bAuto\b|degrad|fallback`（上下文限定）。  
 - 注入纪律：禁止属性注入；仅构造函数注入；Service Locator 禁用。  
 - 文件命名与工件：构建后应存在 `tools_index_{provider}_{model}.json`（仅设置文件）；存档节点按版本后缀；仓级 检查禁用除 Persistence 外的 `System.IO` 直接使用。
+  - 指令两段式（P12）：编排与历史写入均为非流式；ChatUI 真流式仅在第二段；Orchestration 目录检查=0：`StreamResponseAsync\(`。
+  - Server（P13）：所有文件 IO 经 Persistence；巡检最小间隔≥6h；工具分配强制 `tool.Level <= server.Level`（Level=4 工具在游戏内不可见）。
 
 > Gate 执行方式：统一由 Cursor 内置工具在提交前/PR 审阅时运行，不再依赖外部脚本。
 
@@ -341,6 +369,14 @@ V5 对外最小面仅限配置：
  - P11 Prompting（必须异步；非流式）
   - 典型点：`IPromptService.BuildAsync` 聚合世界/人格/历史快照与多语言资源；执行作曲器流水线并裁剪预算。
   - 要求：全链非流式；Verse 访问主线程化经 P3；本地化 JSON 读取经 P6 的统一文件 IO；避免大字符串频繁拼接（建议 `StringBuilder`）。
+
+ - P12 ChatUI 指令模式（两段式：后台非流式 + UI 真流式）
+  - 典型点：`IOrchestrationService.ExecuteAsync`（后台非流式）→ ChatUI 将工具结果注为 `ExternalBlocks` 后调用 `ILLMService.StreamResponseAsync(UnifiedChatRequest)`（仅 UI）。
+  - 要求：`AppendAiNoteAsync` 写入过程文案为异步且不推进回合；后台严禁使用流式；UI 流式期间支持取消与指示灯；禁止在主线程阻塞等待。
+
+ - P13 Server（必须异步 + 周期调度）
+  - 典型点：`StartAllSchedulers` 注册周期任务；`RunInspectionOnceAsync` 串行执行槽位工具；`BuildPromptAsync` 产出提示词块与采样温度。
+  - 要求：周期任务在后台执行；如需 Verse 只读数据经 P3 主线程化；文件/预设读取使用 P6 异步 API；避免频繁大文本拼接与长任务阻塞。
 
  主线程守则（通用）：
 - 在 `Update/Tick`/UI 线程严禁调用阻塞等待（`.Wait()`/`.Result`/长时间锁）。

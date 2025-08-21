@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Building.LimitReached.Format>At most {0} {1} can be built on this map (currently {2}).</RimAI.Building.LimitReached.Format>
+</LanguageData>
+
+

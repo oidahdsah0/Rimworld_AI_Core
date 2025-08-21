@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Building.LimitReached.Format>このマップでは最大 {0} 台の{1}を建設できます（現在 {2} 台）。</RimAI.Building.LimitReached.Format>
+</LanguageData>
+
+

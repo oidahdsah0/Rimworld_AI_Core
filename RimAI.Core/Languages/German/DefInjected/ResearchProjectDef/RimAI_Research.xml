@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AI_Level1.label>RimAI – Künstliche Intelligenz Stufe 1</RimAI_AI_Level1.label>
+  <RimAI_AI_Level1.description>Entwickelt die Basis der RimAI-Plattform. Schaltet Stufe-1-Server und KI-Terminals frei.</RimAI_AI_Level1.description>
+
+  <RimAI_AI_Level2.label>RimAI – Künstliche Intelligenz Stufe 2</RimAI_AI_Level2.label>
+  <RimAI_AI_Level2.description>Verbessertes Schlussfolgern und Fehlertoleranz. Schaltet Stufe-2-Server frei.</RimAI_AI_Level2.description>
+
+  <RimAI_AI_Level3.label>RimAI – Künstliche Intelligenz Stufe 3</RimAI_AI_Level3.label>
+  <RimAI_AI_Level3.description>Hochentwickelte Algorithmen und Hardware-Integration. Schaltet Stufe-3-Server frei.</RimAI_AI_Level3.description>
+</LanguageData>
+
+

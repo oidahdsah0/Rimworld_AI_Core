@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AIServer_Lv1A.label>KI-Server (Stufe 1)</RimAI_AIServer_Lv1A.label>
+  <RimAI_AIServer_Lv1A.description>Bietet grundlegende KI-Dienste für die Kolonie.</RimAI_AIServer_Lv1A.description>
+
+  <RimAI_AIServer_Lv2A.label>KI-Server (Stufe 2)</RimAI_AIServer_Lv2A.label>
+  <RimAI_AIServer_Lv2A.description>Bietet erweiterte KI-Dienste für die Kolonie.</RimAI_AIServer_Lv2A.description>
+
+  <RimAI_AIServer_Lv3A.label>KI-Server (Stufe 3)</RimAI_AIServer_Lv3A.label>
+  <RimAI_AIServer_Lv3A.description>Bietet hochleistungsfähige KI-Dienste für die Kolonie.</RimAI_AIServer_Lv3A.description>
+</LanguageData>
+
+

@@ -47,6 +47,10 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
         {
             var conv = req?.Ticket?.ConvKey ?? ("agent:stage|" + (DateTime.UtcNow.Ticks));
             var participants = (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).ToList();
+            if (participants.Count < 2)
+            {
+                return new ActResult { Completed = false, Reason = "TooFewParticipants", FinalText = "（参与者不足，跳过本次群聊）" };
+            }
             // 解析轮数（从 ScenarioText 提示里读不到就用配置默认的 1）
             int rounds = 1;
             try

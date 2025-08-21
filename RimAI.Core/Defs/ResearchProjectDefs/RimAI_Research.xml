@@ -1,16 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
+  <!-- RimAI - Level 1 AI -->
   <ResearchProjectDef>
-    <defName>RimAI_AIServers</defName>
-    <label>RimAI 服务器</label>
-    <description>解锁 RimAI 基础 AI 服务器的建造。</description>
-    <baseCost>800</baseCost>
+    <defName>RimAI_AI_Level1</defName>
+    <label>RimAI-1级人工智能</label>
+    <description>研发基础 RimAI 智能平台，解锁 Lv1 服务器与 AI 终端。</description>
+    <baseCost>3000</baseCost>
     <techLevel>Spacer</techLevel>
     <prerequisites>
       <li>MicroelectronicsBasics</li>
     </prerequisites>
     <requiredResearchBuilding>HiTechResearchBench</requiredResearchBuilding>
     <researchViewX>12</researchViewX>
+    <researchViewY>8</researchViewY>
+  </ResearchProjectDef>
+
+  <!-- RimAI - Level 2 AI -->
+  <ResearchProjectDef>
+    <defName>RimAI_AI_Level2</defName>
+    <label>RimAI-2级人工智能</label>
+    <description>在 1 级基础上增强推理与容错能力，解锁 Lv2 服务器。</description>
+    <baseCost>6000</baseCost>
+    <techLevel>Spacer</techLevel>
+    <prerequisites>
+      <li>RimAI_AI_Level1</li>
+    </prerequisites>
+    <requiredResearchBuilding>HiTechResearchBench</requiredResearchBuilding>
+    <requiredResearchFacilities>
+      <li>MultiAnalyzer</li>
+    </requiredResearchFacilities>
+    <researchViewX>13</researchViewX>
+    <researchViewY>8</researchViewY>
+  </ResearchProjectDef>
+
+  <!-- RimAI - Level 3 AI -->
+  <ResearchProjectDef>
+    <defName>RimAI_AI_Level3</defName>
+    <label>RimAI-3级人工智能</label>
+    <description>高阶算法与硬件整合，解锁 Lv3 服务器。</description>
+    <baseCost>9000</baseCost>
+    <techLevel>Spacer</techLevel>
+    <prerequisites>
+      <li>RimAI_AI_Level2</li>
+    </prerequisites>
+    <requiredResearchBuilding>HiTechResearchBench</requiredResearchBuilding>
+    <requiredResearchFacilities>
+      <li>MultiAnalyzer</li>
+    </requiredResearchFacilities>
+    <researchViewX>14</researchViewX>
     <researchViewY>8</researchViewY>
   </ResearchProjectDef>
 </Defs>

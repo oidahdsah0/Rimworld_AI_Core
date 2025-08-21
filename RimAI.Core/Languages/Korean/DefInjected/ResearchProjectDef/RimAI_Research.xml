@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AI_Level1.label>RimAI - 인공지능 레벨 1</RimAI_AI_Level1.label>
+  <RimAI_AI_Level1.description>RimAI 플랫폼의 기반을 개발합니다. Lv1 서버와 AI 터미널 해금.</RimAI_AI_Level1.description>
+
+  <RimAI_AI_Level2.label>RimAI - 인공지능 레벨 2</RimAI_AI_Level2.label>
+  <RimAI_AI_Level2.description>레벨 1 기반으로 추론 및 내결함성 강화. Lv2 서버 해금.</RimAI_AI_Level2.description>
+
+  <RimAI_AI_Level3.label>RimAI - 인공지능 레벨 3</RimAI_AI_Level3.label>
+  <RimAI_AI_Level3.description>고급 알고리즘과 하드웨어 통합. Lv3 서버 해금.</RimAI_AI_Level3.description>
+</LanguageData>
+
+

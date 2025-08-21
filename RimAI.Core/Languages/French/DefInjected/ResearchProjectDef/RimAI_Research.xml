@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AI_Level1.label>RimAI - Intelligence artificielle niveau 1</RimAI_AI_Level1.label>
+  <RimAI_AI_Level1.description>Développe la base de la plateforme RimAI. Débloque les serveurs Niv.1 et les terminaux IA.</RimAI_AI_Level1.description>
+
+  <RimAI_AI_Level2.label>RimAI - Intelligence artificielle niveau 2</RimAI_AI_Level2.label>
+  <RimAI_AI_Level2.description>Raisonnement et tolérance aux pannes améliorés. Débloque les serveurs Niv.2.</RimAI_AI_Level2.description>
+
+  <RimAI_AI_Level3.label>RimAI - Intelligence artificielle niveau 3</RimAI_AI_Level3.label>
+  <RimAI_AI_Level3.description>Algorithmes avancés et intégration matérielle. Débloque les serveurs Niv.3.</RimAI_AI_Level3.description>
+</LanguageData>
+
+

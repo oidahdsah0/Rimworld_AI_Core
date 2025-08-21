@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AIServer_Lv1A.label>Сервер ИИ (Ур.1)</RimAI_AIServer_Lv1A.label>
+  <RimAI_AIServer_Lv1A.description>Предоставляет базовые услуги ИИ для колонии.</RimAI_AIServer_Lv1A.description>
+
+  <RimAI_AIServer_Lv2A.label>Сервер ИИ (Ур.2)</RimAI_AIServer_Lv2A.label>
+  <RimAI_AIServer_Lv2A.description>Предоставляет расширенные услуги ИИ для колонии.</RimAI_AIServer_Lv2A.description>
+
+  <RimAI_AIServer_Lv3A.label>Сервер ИИ (Ур.3)</RimAI_AIServer_Lv3A.label>
+  <RimAI_AIServer_Lv3A.description>Предоставляет высокопроизводительные услуги ИИ для колонии.</RimAI_AIServer_Lv3A.description>
+</LanguageData>
+
+

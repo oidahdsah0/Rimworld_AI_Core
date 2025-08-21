@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AI_Level1.label>RimAI-1级人工智能</RimAI_AI_Level1.label>
+  <RimAI_AI_Level1.description>研发基础 RimAI 智能平台，解锁 Lv1 服务器与 AI 终端。</RimAI_AI_Level1.description>
+
+  <RimAI_AI_Level2.label>RimAI-2级人工智能</RimAI_AI_Level2.label>
+  <RimAI_AI_Level2.description>在 1 级基础上增强推理与容错能力，解锁 Lv2 服务器。</RimAI_AI_Level2.description>
+
+  <RimAI_AI_Level3.label>RimAI-3级人工智能</RimAI_AI_Level3.label>
+  <RimAI_AI_Level3.description>高阶算法与硬件整合，解锁 Lv3 服务器。</RimAI_AI_Level3.description>
+</LanguageData>
+
+

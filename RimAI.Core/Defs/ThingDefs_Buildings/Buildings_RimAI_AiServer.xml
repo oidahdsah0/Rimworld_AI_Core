@@ -12,7 +12,7 @@
     <selectable>true</selectable>
     <designationCategory>RimAI</designationCategory>
     <researchPrerequisites>
-      <li>RimAI_AIServers</li>
+      <li>RimAI_AI_Level1</li>
     </researchPrerequisites>
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
@@ -43,8 +43,16 @@
       <li Class="CompProperties_Breakdownable">
         <compClass>CompBreakdownable</compClass>
       </li>
+      <li Class="RimAI.Core.Source.Modules.World.Comps.CompProperties_AiServerBuffs">
+        <baseGlobalWorkSpeedPercent>15</baseGlobalWorkSpeedPercent>
+        <randomAttributeCount>0</randomAttributeCount>
+        <randomAttributePercent>0</randomAttributePercent>
+      </li>
       <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
     </comps>
+    <placeWorkers>
+      <li>RimAI.Core.Source.Modules.World.PlaceWorkers.PlaceWorker_AIServerLimit_Lv1</li>
+    </placeWorkers>
     <passability>PassThroughOnly</passability>
     <fillPercent>0.7</fillPercent>
   </ThingDef>
@@ -60,7 +68,7 @@
     <selectable>true</selectable>
     <designationCategory>RimAI</designationCategory>
     <researchPrerequisites>
-      <li>RimAI_AIServers</li>
+      <li>RimAI_AI_Level2</li>
     </researchPrerequisites>
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
@@ -71,8 +79,9 @@
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>120</Steel>
-      <ComponentIndustrial>3</ComponentIndustrial>
+      <Steel>180</Steel>
+      <ComponentIndustrial>6</ComponentIndustrial>
+      <Plasteel>50</Plasteel>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>
@@ -83,7 +92,7 @@
     <comps>
       <li Class="CompProperties_Power">
         <compClass>CompPowerTrader</compClass>
-        <basePowerConsumption>600</basePowerConsumption>
+        <basePowerConsumption>900</basePowerConsumption>
       </li>
       <li Class="CompProperties_Flickable">
         <compClass>CompFlickable</compClass>
@@ -91,8 +100,16 @@
       <li Class="CompProperties_Breakdownable">
         <compClass>CompBreakdownable</compClass>
       </li>
+      <li Class="RimAI.Core.Source.Modules.World.Comps.CompProperties_AiServerBuffs">
+        <baseGlobalWorkSpeedPercent>25</baseGlobalWorkSpeedPercent>
+        <randomAttributeCount>1</randomAttributeCount>
+        <randomAttributePercent>10</randomAttributePercent>
+      </li>
       <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
     </comps>
+    <placeWorkers>
+      <li>RimAI.Core.Source.Modules.World.PlaceWorkers.PlaceWorker_AIServerLimit_Lv2</li>
+    </placeWorkers>
     <passability>PassThroughOnly</passability>
     <fillPercent>0.7</fillPercent>
   </ThingDef>
@@ -109,7 +126,7 @@
     <selectable>true</selectable>
     <designationCategory>RimAI</designationCategory>
     <researchPrerequisites>
-      <li>RimAI_AIServers</li>
+      <li>RimAI_AI_Level3</li>
     </researchPrerequisites>
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
@@ -120,8 +137,10 @@
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>120</Steel>
-      <ComponentIndustrial>3</ComponentIndustrial>
+      <Steel>240</Steel>
+      <ComponentSpacer>6</ComponentSpacer>
+      <Plasteel>120</Plasteel>
+      <AdvancedComponent>2</AdvancedComponent>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>
@@ -132,7 +151,7 @@
     <comps>
       <li Class="CompProperties_Power">
         <compClass>CompPowerTrader</compClass>
-        <basePowerConsumption>600</basePowerConsumption>
+        <basePowerConsumption>1200</basePowerConsumption>
       </li>
       <li Class="CompProperties_Flickable">
         <compClass>CompFlickable</compClass>
@@ -140,8 +159,16 @@
       <li Class="CompProperties_Breakdownable">
         <compClass>CompBreakdownable</compClass>
       </li>
+      <li Class="RimAI.Core.Source.Modules.World.Comps.CompProperties_AiServerBuffs">
+        <baseGlobalWorkSpeedPercent>50</baseGlobalWorkSpeedPercent>
+        <randomAttributeCount>2</randomAttributeCount>
+        <randomAttributePercent>20</randomAttributePercent>
+      </li>
       <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
     </comps>
+    <placeWorkers>
+      <li>RimAI.Core.Source.Modules.World.PlaceWorkers.PlaceWorker_AIServerLimit_Lv3</li>
+    </placeWorkers>
     <passability>PassThroughOnly</passability>
     <fillPercent>0.7</fillPercent>
   </ThingDef>

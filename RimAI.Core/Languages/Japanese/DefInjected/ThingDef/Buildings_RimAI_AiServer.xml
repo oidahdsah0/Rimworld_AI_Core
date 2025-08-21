@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AIServer_Lv1A.label>AI サーバー（Lv1）</RimAI_AIServer_Lv1A.label>
+  <RimAI_AIServer_Lv1A.description>コロニーに基本的なAIサービスを提供するサーバーです。</RimAI_AIServer_Lv1A.description>
+
+  <RimAI_AIServer_Lv2A.label>AI サーバー（Lv2）</RimAI_AIServer_Lv2A.label>
+  <RimAI_AIServer_Lv2A.description>コロニーに強化されたAIサービスを提供するサーバーです。</RimAI_AIServer_Lv2A.description>
+
+  <RimAI_AIServer_Lv3A.label>AI サーバー（Lv3）</RimAI_AIServer_Lv3A.label>
+  <RimAI_AIServer_Lv3A.description>コロニーに高性能なAIサービスを提供するサーバーです。</RimAI_AIServer_Lv3A.description>
+</LanguageData>
+
+

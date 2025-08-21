@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AI_Level1.label>RimAI - Искусственный интеллект Уровень 1</RimAI_AI_Level1.label>
+  <RimAI_AI_Level1.description>Разработка основы платформы RimAI. Открывает серверы Ур.1 и терминалы ИИ.</RimAI_AI_Level1.description>
+
+  <RimAI_AI_Level2.label>RimAI - Искусственный интеллект Уровень 2</RimAI_AI_Level2.label>
+  <RimAI_AI_Level2.description>Улучшены выводы и отказоустойчивость. Открывает серверы Ур.2.</RimAI_AI_Level2.description>
+
+  <RimAI_AI_Level3.label>RimAI - Искусственный интеллект Уровень 3</RimAI_AI_Level3.label>
+  <RimAI_AI_Level3.description>Продвинутые алгоритмы и интеграция оборудования. Открывает серверы Ур.3.</RimAI_AI_Level3.description>
+</LanguageData>
+
+

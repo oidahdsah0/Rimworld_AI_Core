@@ -34,7 +34,9 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 
         public sealed class GeneralSection
         {
-            public string Locale { get; set; } = "zh-Hans";
+            public string Locale { get; set; } = "en";
+            // null 表示自动跟随游戏语言；非空则固定为该 locale
+            public string PromptLocaleOverride { get; set; } = null;
         }
 
         public sealed class DiagnosticsSection

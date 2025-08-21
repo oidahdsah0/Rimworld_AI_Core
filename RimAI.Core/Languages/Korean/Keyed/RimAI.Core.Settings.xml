@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Settings.Category>RimAI Core</RimAI.Settings.Category>
+  <RimAI.Settings.Section.Important>중요 설정</RimAI.Settings.Section.Important>
+  <RimAI.Settings.Important.Locale.Auto>프롬프트 언어(자동): {0}</RimAI.Settings.Important.Locale.Auto>
+  <RimAI.Settings.Important.Locale.Sync>게임 언어와 동기화</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.PlayerTitle>입식자들이 당신을 부르는 호칭</RimAI.Settings.Important.PlayerTitle>
+  <RimAI.Settings.Important.VerboseLogs>자세한 로그</RimAI.Settings.Important.VerboseLogs>
+  <RimAI.Settings.Important.ToolingEnabled>도구 시스템 활성화</RimAI.Settings.Important.ToolingEnabled>
+  <RimAI.Settings.Important.DangerousConfirm>위험 작업 확인</RimAI.Settings.Important.DangerousConfirm>
+  <RimAI.Settings.Important.LlmTimeout>LLM 기본 제한시간 (ms)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Actions.Apply>적용</RimAI.Settings.Actions.Apply>
+  <RimAI.Settings.Actions.Reset>재설정</RimAI.Settings.Actions.Reset>
+  <RimAI.Settings.Note.RestartMaybeRequired>일부 변경은 재시작이 필요할 수 있습니다.</RimAI.Settings.Note.RestartMaybeRequired>
+</LanguageData>
+
+

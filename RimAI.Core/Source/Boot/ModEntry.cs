@@ -28,6 +28,8 @@ using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Infrastructure.Localization;
 using RimAI.Core.Source.Modules.Server;
 using Verse;
+using RimAI.Core.Source.UI.Settings;
+using RimAI.Core.Source.UI.Settings.Sections;
 
 namespace RimAI.Core.Source.Boot
 {
@@ -35,6 +37,8 @@ namespace RimAI.Core.Source.Boot
     {
         public static ServiceContainer Container { get; private set; } = new();
         public static string ModRootDir { get; private set; } = string.Empty;
+        private SettingsWindow _settingsWindow;
+        private SettingsController _settingsController;
 
         public RimAICoreMod(ModContentPack content) : base(content)
         {
@@ -158,12 +162,72 @@ namespace RimAI.Core.Source.Boot
                 // P4: ensure tooling index attempt load (non-blocking)
                 try { _ = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>(); } catch { }
                 Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
+
+                // 初始化设置窗口（注册分区）
+                try
+                {
+                    _settingsController = new SettingsController();
+                    _settingsController.Register(new ImportantSettingsSection());
+                    _settingsWindow = new SettingsWindow(_settingsController);
+
+                    // 设置默认本地化语言：跟随游戏语言，回退 en
+                    try
+                    {
+                        var loc = Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+                        var cfg = Container.Resolve<IConfigurationService>() as ConfigurationService;
+                        var overrideLocale = cfg?.GetPromptLocaleOverrideOrNull();
+                        if (!string.IsNullOrWhiteSpace(overrideLocale))
+                        {
+                            loc?.SetDefaultLocale(overrideLocale);
+                        }
+                        else
+                        {
+                            var langFolder = LanguageDatabase.activeLanguage?.folderName ?? "English";
+                            var normalized = NormalizeLocaleFromRimworld(langFolder);
+                            loc?.SetDefaultLocale(normalized);
+                        }
+                        try { var _ = loc?.GetAvailableLocales(); } catch { }
+                    }
+                    catch { }
+                }
+                catch { }
             }
             catch (Exception ex)
             {
                 sw.Stop();
                 Log.Error($"[RimAI.Core][P1] Boot FAILED after {sw.ElapsedMilliseconds} ms: {ex}");
                 throw;
+            }
+        }
+
+        public override string SettingsCategory()
+        {
+            // XML 本地化键：RimAI.Settings.Category
+            try { return _settingsWindow?.GetCategory() ?? "RimAI.Core"; } catch { return "RimAI.Core"; }
+        }
+
+        public override void DoSettingsWindowContents(UnityEngine.Rect inRect)
+        {
+            try { _settingsWindow?.DoWindowContents(inRect); } catch { }
+        }
+
+        private static string NormalizeLocaleFromRimworld(string folderName)
+        {
+            if (string.IsNullOrWhiteSpace(folderName)) return "en";
+            switch (folderName)
+            {
+                case "English": return "en";
+                case "ChineseSimplified": return "zh-Hans";
+                case "ChineseTraditional": return "zh-Hant";
+                case "French": return "fr";
+                case "German": return "de";
+                case "Japanese": return "ja";
+                case "Korean": return "ko";
+                case "Russian": return "ru";
+                case "SpanishLatin":
+                case "Spanish": return "es";
+                case "PortugueseBrazilian": return "pt-BR";
+                default: return "en";
             }
         }
     }

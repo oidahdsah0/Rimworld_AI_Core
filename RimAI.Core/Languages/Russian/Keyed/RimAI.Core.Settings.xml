@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Settings.Category>RimAI Core</RimAI.Settings.Category>
+  <RimAI.Settings.Section.Important>Важные настройки</RimAI.Settings.Section.Important>
+  <RimAI.Settings.Important.Locale.Auto>Язык подсказок (авто): {0}</RimAI.Settings.Important.Locale.Auto>
+  <RimAI.Settings.Important.Locale.Sync>Синхронизировать с языком игры</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.PlayerTitle>Как поселенцы к вам обращаются</RimAI.Settings.Important.PlayerTitle>
+  <RimAI.Settings.Important.VerboseLogs>Подробные логи</RimAI.Settings.Important.VerboseLogs>
+  <RimAI.Settings.Important.ToolingEnabled>Включить систему инструментов</RimAI.Settings.Important.ToolingEnabled>
+  <RimAI.Settings.Important.DangerousConfirm>Подтверждать опасные действия</RimAI.Settings.Important.DangerousConfirm>
+  <RimAI.Settings.Important.LlmTimeout>Тайм-аут LLM по умолчанию (мс)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Actions.Apply>Применить</RimAI.Settings.Actions.Apply>
+  <RimAI.Settings.Actions.Reset>Сбросить</RimAI.Settings.Actions.Reset>
+  <RimAI.Settings.Note.RestartMaybeRequired>Некоторые изменения требуют перезапуска.</RimAI.Settings.Note.RestartMaybeRequired>
+</LanguageData>
+
+

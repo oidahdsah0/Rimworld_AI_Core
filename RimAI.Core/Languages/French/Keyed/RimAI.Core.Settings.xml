@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Settings.Category>RimAI Core</RimAI.Settings.Category>
+  <RimAI.Settings.Section.Important>Paramètres importants</RimAI.Settings.Section.Important>
+  <RimAI.Settings.Important.Locale.Auto>Langue des prompts (auto) : {0}</RimAI.Settings.Important.Locale.Auto>
+  <RimAI.Settings.Important.Locale.Sync>Synchroniser avec la langue du jeu</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.PlayerTitle>Comment les colons vous appellent</RimAI.Settings.Important.PlayerTitle>
+  <RimAI.Settings.Important.VerboseLogs>Journaux détaillés</RimAI.Settings.Important.VerboseLogs>
+  <RimAI.Settings.Important.ToolingEnabled>Activer le système d'outils</RimAI.Settings.Important.ToolingEnabled>
+  <RimAI.Settings.Important.DangerousConfirm>Confirmer les opérations dangereuses</RimAI.Settings.Important.DangerousConfirm>
+  <RimAI.Settings.Important.LlmTimeout>Délai par défaut LLM (ms)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Actions.Apply>Appliquer</RimAI.Settings.Actions.Apply>
+  <RimAI.Settings.Actions.Reset>Réinitialiser</RimAI.Settings.Actions.Reset>
+  <RimAI.Settings.Note.RestartMaybeRequired>Certains changements peuvent nécessiter un redémarrage.</RimAI.Settings.Note.RestartMaybeRequired>
+</LanguageData>
+
+

@@ -51,6 +51,30 @@ namespace RimAI.Core.Source.Modules.Persistence
 			return abs;
 		}
 
+		public System.Collections.Generic.IEnumerable<string> ListFilesUnderConfig(string relativeDir, string searchPattern)
+		{
+			try
+			{
+				var abs = EnsureDirectoryUnderConfig(relativeDir ?? string.Empty);
+				return Directory.EnumerateFiles(abs, searchPattern ?? "*").Select(Path.GetFileName).ToArray();
+			}
+			catch { return Array.Empty<string>(); }
+		}
+
+		public System.Collections.Generic.IEnumerable<string> ListFilesUnderModRoot(string relativeDir, string searchPattern)
+		{
+			try
+			{
+				var baseDir = RimAI.Core.Source.Boot.RimAICoreMod.ModRootDir ?? string.Empty;
+				if (string.IsNullOrWhiteSpace(baseDir)) return Array.Empty<string>();
+				var normalized = relativeDir?.Replace('/', Path.DirectorySeparatorChar).Replace("\\", Path.DirectorySeparatorChar.ToString()) ?? string.Empty;
+				var abs = Path.Combine(baseDir, normalized);
+				if (!Directory.Exists(abs)) return Array.Empty<string>();
+				return Directory.EnumerateFiles(abs, searchPattern ?? "*").Select(Path.GetFileName).ToArray();
+			}
+			catch { return Array.Empty<string>(); }
+		}
+
         public void SaveAll(PersistenceSnapshot snapshot)
         {
 			if (_importBuffer != null)

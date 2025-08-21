@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Settings.Category>RimAI Core</RimAI.Settings.Category>
+  <RimAI.Settings.Section.Important>Wichtige Einstellungen</RimAI.Settings.Section.Important>
+  <RimAI.Settings.Important.Locale.Auto>Prompt-Sprache (Auto): {0}</RimAI.Settings.Important.Locale.Auto>
+  <RimAI.Settings.Important.Locale.Sync>Mit Spielsprache synchronisieren</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.PlayerTitle>Wie Kolonisten Sie ansprechen</RimAI.Settings.Important.PlayerTitle>
+  <RimAI.Settings.Important.VerboseLogs>Ausführliche Protokolle</RimAI.Settings.Important.VerboseLogs>
+  <RimAI.Settings.Important.ToolingEnabled>Werkzeugsystem aktivieren</RimAI.Settings.Important.ToolingEnabled>
+  <RimAI.Settings.Important.DangerousConfirm>Gefährliche Aktionen bestätigen</RimAI.Settings.Important.DangerousConfirm>
+  <RimAI.Settings.Important.LlmTimeout>LLM-Standard-Timeout (ms)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Actions.Apply>Anwenden</RimAI.Settings.Actions.Apply>
+  <RimAI.Settings.Actions.Reset>Zurücksetzen</RimAI.Settings.Actions.Reset>
+  <RimAI.Settings.Note.RestartMaybeRequired>Einige Änderungen erfordern evtl. einen Neustart.</RimAI.Settings.Note.RestartMaybeRequired>
+</LanguageData>
+
+

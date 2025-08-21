@@ -61,6 +61,42 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
             }
         }
 
+		public void SetVerboseLogs(bool enabled)
+		{
+			if (_current?.Diagnostics != null)
+			{
+				_current.Diagnostics.VerboseLogs = enabled;
+				var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+			}
+		}
+
+		public void SetToolingEnabled(bool enabled)
+		{
+			if (_current?.Tooling != null)
+			{
+				_current.Tooling.Enabled = enabled;
+				var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+			}
+		}
+
+		public void SetToolingDangerousConfirm(bool enabled)
+		{
+			if (_current?.Tooling != null)
+			{
+				_current.Tooling.DangerousToolConfirmation = enabled;
+				var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+			}
+		}
+
+		public void SetLlmDefaultTimeoutMs(int ms)
+		{
+			if (_current?.LLM != null)
+			{
+				_current.LLM.DefaultTimeoutMs = ms;
+				var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+			}
+		}
+
         public string GetSnapshotJsonPretty()
         {
             return JsonConvert.SerializeObject(Current, Formatting.Indented);
@@ -76,6 +112,15 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public CoreConfig.WorldDataSection GetWorldDataConfig() => _current.WorldData;
 		public CoreConfig.ToolingSection GetToolingConfig() => _current.Tooling;
 		public CoreConfig GetInternal() => _current;
+
+		// Prompt locale override helpers
+		public string GetPromptLocaleOverrideOrNull() => _current?.General?.PromptLocaleOverride;
+		public void SetPromptLocaleOverride(string localeOrNull)
+		{
+			if (_current?.General == null) return;
+			_current.General.PromptLocaleOverride = string.IsNullOrWhiteSpace(localeOrNull) ? null : localeOrNull.Trim();
+			var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+		}
     }
 }
 

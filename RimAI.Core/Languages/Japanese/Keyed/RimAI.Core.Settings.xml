@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Settings.Category>RimAI Core</RimAI.Settings.Category>
+  <RimAI.Settings.Section.Important>重要設定</RimAI.Settings.Section.Important>
+  <RimAI.Settings.Important.Locale.Auto>プロンプト言語（自動）：{0}</RimAI.Settings.Important.Locale.Auto>
+  <RimAI.Settings.Important.Locale.Sync>ゲーム言語に同期</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.PlayerTitle>入植者があなたを呼ぶ称号</RimAI.Settings.Important.PlayerTitle>
+  <RimAI.Settings.Important.VerboseLogs>詳細ログ</RimAI.Settings.Important.VerboseLogs>
+  <RimAI.Settings.Important.ToolingEnabled>ツールシステムを有効化</RimAI.Settings.Important.ToolingEnabled>
+  <RimAI.Settings.Important.DangerousConfirm>危険な操作を確認</RimAI.Settings.Important.DangerousConfirm>
+  <RimAI.Settings.Important.LlmTimeout>LLM デフォルトタイムアウト (ms)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Actions.Apply>適用</RimAI.Settings.Actions.Apply>
+  <RimAI.Settings.Actions.Reset>リセット</RimAI.Settings.Actions.Reset>
+  <RimAI.Settings.Note.RestartMaybeRequired>一部の変更は再起動が必要な場合があります。</RimAI.Settings.Note.RestartMaybeRequired>
+</LanguageData>
+
+

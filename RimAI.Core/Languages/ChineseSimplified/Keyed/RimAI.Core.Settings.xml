@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Settings.Category>RimAI Core</RimAI.Settings.Category>
+  <RimAI.Settings.Section.Important>重要设置</RimAI.Settings.Section.Important>
+  <RimAI.Settings.Important.Locale.Auto>提示词语言（自动）：{0}</RimAI.Settings.Important.Locale.Auto>
+  <RimAI.Settings.Important.Locale.Sync>同步至游戏语言</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.PlayerTitle>玩家称谓</RimAI.Settings.Important.PlayerTitle>
+  <RimAI.Settings.Important.VerboseLogs>详细日志（Verbose）</RimAI.Settings.Important.VerboseLogs>
+  <RimAI.Settings.Important.ToolingEnabled>启用工具系统</RimAI.Settings.Important.ToolingEnabled>
+  <RimAI.Settings.Important.DangerousConfirm>危险操作二次确认</RimAI.Settings.Important.DangerousConfirm>
+  <RimAI.Settings.Important.LlmTimeout>LLM 默认超时（毫秒）</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Actions.Apply>应用</RimAI.Settings.Actions.Apply>
+  <RimAI.Settings.Actions.Reset>重置</RimAI.Settings.Actions.Reset>
+  <RimAI.Settings.Note.RestartMaybeRequired>部分设置可能需重启后完全生效。</RimAI.Settings.Note.RestartMaybeRequired>
+</LanguageData>
+
+

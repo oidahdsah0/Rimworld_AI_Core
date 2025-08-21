@@ -10,6 +10,7 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 		event Action<string> OnLocaleChanged;
 		string GetDefaultLocale();
 		void SetDefaultLocale(string locale);
+		IEnumerable<string> GetAvailableLocales();
 	}
 }
 

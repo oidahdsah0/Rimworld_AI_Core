@@ -39,6 +39,12 @@ namespace RimAI.Core.Source.Modules.Persistence
 
 		// 确保配置根目录下的相对子目录存在，返回目录的绝对路径
 		string EnsureDirectoryUnderConfig(string relativeDir);
+
+		// 列举配置根下相对子目录内的文件（返回文件名，不含路径）
+		System.Collections.Generic.IEnumerable<string> ListFilesUnderConfig(string relativeDir, string searchPattern);
+
+		// 列举 Mod 根下相对子目录内的文件（返回文件名，不含路径）
+		System.Collections.Generic.IEnumerable<string> ListFilesUnderModRoot(string relativeDir, string searchPattern);
 	}
 }
 

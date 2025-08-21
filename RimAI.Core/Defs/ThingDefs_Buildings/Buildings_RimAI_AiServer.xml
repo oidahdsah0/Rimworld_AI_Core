@@ -48,6 +48,152 @@
     <passability>PassThroughOnly</passability>
     <fillPercent>0.7</fillPercent>
   </ThingDef>
+  <ThingDef ParentName="BuildingBase">
+    <defName>RimAI_AIServer_Lv2A</defName>
+    <label>AI 服务器（Lv2）</label>
+    <description>为殖民地提供增强 AI 服务的服务器。</description>
+    <category>Building</category>
+    <thingClass>Building</thingClass>
+    <rotatable>true</rotatable>
+    <size>(3,3)</size>
+    <altitudeLayer>Building</altitudeLayer>
+    <selectable>true</selectable>
+    <designationCategory>RimAI</designationCategory>
+    <researchPrerequisites>
+      <li>RimAI_AIServers</li>
+    </researchPrerequisites>
+    <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
+    <statBases>
+      <MaxHitPoints>450</MaxHitPoints>
+      <WorkToBuild>2200</WorkToBuild>
+      <Flammability>0.8</Flammability>
+      <Mass>45</Mass>
+      <Beauty>0</Beauty>
+    </statBases>
+    <costList>
+      <Steel>120</Steel>
+      <ComponentIndustrial>3</ComponentIndustrial>
+    </costList>
+    <graphicData>
+      <graphicClass>Graphic_Multi</graphicClass>
+      <texPath>Things/Building/RimAI/ai_server_lv2</texPath>
+      <drawSize>(3,3)</drawSize>
+      <shaderType>CutoutComplex</shaderType>
+    </graphicData>
+    <comps>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>600</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable">
+        <compClass>CompFlickable</compClass>
+      </li>
+      <li Class="CompProperties_Breakdownable">
+        <compClass>CompBreakdownable</compClass>
+      </li>
+      <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
+    </comps>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.7</fillPercent>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>RimAI_AIServer_Lv3A</defName>
+    <label>AI 服务器（Lv3）</label>
+    <description>为殖民地提供高性能 AI 服务的服务器。</description>
+    <category>Building</category>
+    <thingClass>Building</thingClass>
+    <rotatable>true</rotatable>
+    <size>(4,4)</size>
+    <altitudeLayer>Building</altitudeLayer>
+    <selectable>true</selectable>
+    <designationCategory>RimAI</designationCategory>
+    <researchPrerequisites>
+      <li>RimAI_AIServers</li>
+    </researchPrerequisites>
+    <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
+    <statBases>
+      <MaxHitPoints>450</MaxHitPoints>
+      <WorkToBuild>2200</WorkToBuild>
+      <Flammability>0.8</Flammability>
+      <Mass>45</Mass>
+      <Beauty>0</Beauty>
+    </statBases>
+    <costList>
+      <Steel>120</Steel>
+      <ComponentIndustrial>3</ComponentIndustrial>
+    </costList>
+    <graphicData>
+      <graphicClass>Graphic_Multi</graphicClass>
+      <texPath>Things/Building/RimAI/ai_server_lv3</texPath>
+      <drawSize>(4,4)</drawSize>
+      <shaderType>CutoutComplex</shaderType>
+    </graphicData>
+    <comps>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>600</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable">
+        <compClass>CompFlickable</compClass>
+      </li>
+      <li Class="CompProperties_Breakdownable">
+        <compClass>CompBreakdownable</compClass>
+      </li>
+      <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
+    </comps>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.7</fillPercent>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>RimAI_AITerminalA</defName>
+    <label>AI 终端</label>
+    <description>用于信息交互的 AI 终端设备。</description>
+    <category>Building</category>
+    <thingClass>Building</thingClass>
+    <rotatable>true</rotatable>
+    <size>(2,2)</size>
+    <altitudeLayer>Building</altitudeLayer>
+    <selectable>true</selectable>
+    <designationCategory>RimAI</designationCategory>
+    <researchPrerequisites>
+      <li>RimAI_AIServers</li>
+    </researchPrerequisites>
+    <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
+    <statBases>
+      <MaxHitPoints>450</MaxHitPoints>
+      <WorkToBuild>2200</WorkToBuild>
+      <Flammability>0.8</Flammability>
+      <Mass>45</Mass>
+      <Beauty>0</Beauty>
+    </statBases>
+    <costList>
+      <Steel>120</Steel>
+      <ComponentIndustrial>3</ComponentIndustrial>
+    </costList>
+    <graphicData>
+      <graphicClass>Graphic_Multi</graphicClass>
+      <texPath>Things/Building/RimAI/ai_terminal</texPath>
+      <drawSize>(2,2)</drawSize>
+      <shaderType>CutoutComplex</shaderType>
+    </graphicData>
+    <comps>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>600</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable">
+        <compClass>CompFlickable</compClass>
+      </li>
+      <li Class="CompProperties_Breakdownable">
+        <compClass>CompBreakdownable</compClass>
+      </li>
+      <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
+    </comps>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.7</fillPercent>
+  </ThingDef>
 </Defs>
 
 

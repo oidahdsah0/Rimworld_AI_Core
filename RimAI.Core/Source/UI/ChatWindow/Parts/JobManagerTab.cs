@@ -126,26 +126,11 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					string json = null;
 					try
 					{
-						var modRoot = RimAICoreMod.ModRootDir ?? string.Empty;
-						if (!string.IsNullOrEmpty(modRoot))
-						{
-							var abs = System.IO.Path.Combine(modRoot, "Config", "RimAI", "Persona", $"job_presets_{locale}.json");
-							if (System.IO.File.Exists(abs)) { json = System.IO.File.ReadAllText(abs); }
-							else
-							{
-								var absZh = System.IO.Path.Combine(modRoot, "Config", "RimAI", "Persona", "job_presets_zh-Hans.json");
-								if (System.IO.File.Exists(absZh)) json = System.IO.File.ReadAllText(absZh);
-							}
-						}
+						var loc = container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+						json = loc?.Get(locale, "persona.job_presets.json", string.Empty);
+						if (string.IsNullOrWhiteSpace(json)) json = loc?.Get("zh-Hans", "persona.job_presets.json", string.Empty);
 					}
 					catch { }
-					if (string.IsNullOrWhiteSpace(json))
-					{
-						var persistence = container.Resolve<IPersistenceService>();
-						var rel = $"RimAI/Persona/job_presets_{locale}.json";
-						json = persistence.ReadTextUnderConfigOrNullAsync(rel).GetAwaiter().GetResult();
-						if (string.IsNullOrWhiteSpace(json)) { rel = "RimAI/Persona/job_presets_zh-Hans.json"; json = persistence.ReadTextUnderConfigOrNullAsync(rel).GetAwaiter().GetResult(); }
-					}
 					if (!string.IsNullOrWhiteSpace(json))
 					{
 						var arr = Newtonsoft.Json.Linq.JArray.Parse(json);

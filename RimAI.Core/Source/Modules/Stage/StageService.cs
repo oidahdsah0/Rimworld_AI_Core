@@ -66,12 +66,7 @@ namespace RimAI.Core.Source.Modules.Stage
 			{
 				try
 				{
-					// 仅对 ManualGroupChatTrigger 这类具备 ArmOnce 的触发器生效
-					if (t.trigger is RimAI.Core.Source.Modules.Stage.Triggers.ManualGroupChatTrigger mg)
-					{
-						mg.ArmOnce();
-						return true;
-					}
+					if (t.trigger is IManualStageTrigger m) { m.ArmOnce(); return true; }
 				}
 				catch { }
 			}
@@ -207,6 +202,16 @@ namespace RimAI.Core.Source.Modules.Stage
 				}
 				catch { }
 			}
+		}
+
+		public IAutoStageIntentProvider TryGetAutoProvider(string actName)
+		{
+			if (string.IsNullOrWhiteSpace(actName)) return null;
+			if (_acts.TryGetValue(actName, out var act))
+			{
+				return act as IAutoStageIntentProvider;
+			}
+			return null;
 		}
 
 		public void ForceRelease(string ticketId) => _kernel.ForceRelease(ticketId);

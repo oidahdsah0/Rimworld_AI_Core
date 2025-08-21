@@ -22,7 +22,8 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ServerStage
 				if (participants.Count > 0)
 				{
 					var whitelist = string.Join(", ", participants);
-					lines.Add($"仅输出 JSON 数组，每个元素形如 {\"speaker\":\"thing:<id>\",\"content\":\"...\"}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。");
+					var contract = "{\\\"speaker\\\":\\\"thing:<id>\\\",\\\"content\\\":\\\"...\\\"}";
+					lines.Add($"仅输出 JSON 数组，每个元素形如 {contract}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。");
 				}
 			}
 			catch { }

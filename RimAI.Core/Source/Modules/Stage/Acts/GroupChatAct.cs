@@ -16,7 +16,7 @@ using RimAI.Core.Contracts.Config;
 
 namespace RimAI.Core.Source.Modules.Stage.Acts
 {
-    internal sealed class GroupChatAct : IStageAct
+    internal sealed class GroupChatAct : IStageAct, IAutoStageIntentProvider
     {
         private readonly ILLMService _llm;
         private readonly IWorldActionService _worldAction;
@@ -247,6 +247,35 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             }
             finalTranscript = transcript.ToString().TrimEnd();
             return new ActResult { Completed = true, Reason = "Completed", FinalText = finalTranscript, Rounds = actualRounds };
+        }
+
+        public async Task<StageIntent> TryBuildAutoIntentAsync(CancellationToken ct)
+        {
+            try
+            {
+                var ids = await _worldData.GetAllColonistLoadIdsAsync(ct).ConfigureAwait(false);
+                var list = ids?.ToList() ?? new List<int>();
+                if (list.Count < 2) return null;
+                var rnd = new Random(unchecked(Environment.TickCount ^ (list.Count << 3)));
+                int centerIdx = rnd.Next(0, list.Count);
+                int center = list[centerIdx];
+                int count = Math.Max(2, Math.Min(5, 2 + rnd.Next(0, 4))); // 2..5
+                int rounds = Math.Max(1, Math.Min(3, 1 + rnd.Next(0, 3))); // 1..3
+                var pool = list.Where(x => x != center).OrderBy(_ => rnd.Next()).Take(Math.Max(1, count - 1)).ToList();
+                pool.Insert(0, center);
+                var participants = pool.Select(x => $"pawn:{x}").ToList();
+                var scenario = $"群聊触发：预期轮数={rounds}，参与者={string.Join(",", participants)}";
+                return new StageIntent
+                {
+                    ActName = Name,
+                    ParticipantIds = participants,
+                    Origin = "Global",
+                    ScenarioText = scenario,
+                    Locale = "zh-Hans",
+                    Seed = DateTime.UtcNow.Ticks.ToString()
+                };
+            }
+            catch { return null; }
         }
 
         private static string BuildUserPromptSimpleMap(List<string> participants, int round)

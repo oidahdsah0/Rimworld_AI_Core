@@ -17,7 +17,7 @@ using Newtonsoft.Json.Linq;
 
 namespace RimAI.Core.Source.Modules.Stage.Acts
 {
-	internal sealed class InterServerGroupChatAct : IStageAct
+	internal sealed class InterServerGroupChatAct : IStageAct, IAutoStageIntentProvider
 	{
 		private readonly ILLMService _llm;
 		private readonly IPromptService _prompt;
@@ -86,8 +86,8 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				var topicList = (topicsJoined ?? string.Empty).Split(new[] { '|', '\n', ';', '，', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
 				var topicPick = topicList.Count > 0 ? topicList[new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, topicList.Count)] : "机房散热";
 				var style = _loc?.Get(locale, "stage.serverchat.random_topic.instruction", "请以 RimWorld 的黑色幽默风格、口语化、简短地围绕该话题各说一句；不输出解释文本。");
-				var external = new List<ContextBlock> { new ContextBlock { Title = "议题：" + topicPick, Text = style } };
-				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = req?.Locale, ExternalBlocks = external }, ct).ConfigureAwait(false);
+				var extBlocksFb1 = new List<ContextBlock> { new ContextBlock { Title = "议题：" + topicPick, Text = style } };
+				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = req?.Locale, ExternalBlocks = extBlocksFb1 }, ct).ConfigureAwait(false);
 				var systemTextFb = builtPromptFallback?.SystemPrompt ?? string.Empty;
 				var userTextFb = "现在，生成第1轮服务器群聊。";
 				var chatReqFb = new RimAI.Framework.Contracts.UnifiedChatRequest
@@ -229,8 +229,8 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				var topicList = (topicsJoined ?? string.Empty).Split(new[] { '|', '\n', ';', '，', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
 				var topicPick = topicList.Count > 0 ? topicList[new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, topicList.Count)] : "机房散热";
 				var style = _loc?.Get(locale, "stage.serverchat.random_topic.instruction", "请以 RimWorld 的黑色幽默风格、口语化、简短地围绕该话题各说一句；不输出解释文本。");
-				var external = new List<ContextBlock> { new ContextBlock { Title = "议题：" + topicPick, Text = style } };
-				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = req?.Locale, ExternalBlocks = external }, ct).ConfigureAwait(false);
+				var extBlocksFb2 = new List<ContextBlock> { new ContextBlock { Title = "议题：" + topicPick, Text = style } };
+				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = req?.Locale, ExternalBlocks = extBlocksFb2 }, ct).ConfigureAwait(false);
 				var systemTextFb = builtPromptFallback?.SystemPrompt ?? string.Empty;
 				var userTextFb = "现在，生成第1轮服务器群聊。";
 				var chatReqFb = new RimAI.Framework.Contracts.UnifiedChatRequest
@@ -277,14 +277,14 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			}
 
 			// Step 3/4: 组装 Prompt（ServerStage），注入 ExternalBlocks
-			var external = new List<ContextBlock> { new ContextBlock { Title = string.IsNullOrWhiteSpace(topicTitle) ? "议题" : ("议题：" + topicTitle), Text = TrimToBudget(topicJson, 1600) } };
+			var extBlocks = new List<ContextBlock> { new ContextBlock { Title = string.IsNullOrWhiteSpace(topicTitle) ? "议题" : ("议题：" + topicTitle), Text = TrimToBudget(topicJson, 1600) } };
 			var builtPrompt = await _prompt.BuildAsync(new PromptBuildRequest
 			{
 				Scope = PromptScope.ServerStage,
 				ConvKey = conv,
 				ParticipantIds = servers,
 				Locale = req?.Locale,
-				ExternalBlocks = external
+				ExternalBlocks = extBlocks
 			}, ct).ConfigureAwait(false);
 
 			var systemText = builtPrompt?.SystemPrompt ?? string.Empty;
@@ -385,6 +385,37 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 		{
 			if (string.IsNullOrEmpty(s)) return string.Empty;
 			return s.Length <= max ? s : s.Substring(0, max);
+		}
+
+		public async Task<StageIntent> TryBuildAutoIntentAsync(CancellationToken ct)
+		{
+			try
+			{
+				var poweredIds = await _world.GetPoweredAiServerThingIdsAsync(ct).ConfigureAwait(false);
+				var count = poweredIds?.Count ?? 0;
+				if (count < 2) return null;
+				var rnd = new Random(unchecked(Environment.TickCount ^ count));
+				int kMax = Math.Min(5, count);
+				int k = Math.Max(2, Math.Min(kMax, 2 + rnd.Next(0, Math.Max(1, kMax - 2 + 1))));
+				var pick = poweredIds.ToList();
+				for (int i = pick.Count - 1; i > 0; i--)
+				{
+					int j = rnd.Next(0, i + 1);
+					var tmp = pick[i]; pick[i] = pick[j]; pick[j] = tmp;
+				}
+				var chosen = pick.Take(k).Select(id => $"thing:{id}").ToList();
+				var scenario = $"servers={string.Join(",", chosen)}";
+				return new StageIntent
+				{
+					ActName = Name,
+					ParticipantIds = new[] { "agent:server_hub", "player:servers" },
+					Origin = "Global",
+					ScenarioText = scenario,
+					Locale = "zh-Hans",
+					Seed = DateTime.UtcNow.Ticks.ToString()
+				};
+			}
+			catch { return null; }
 		}
 	}
 }

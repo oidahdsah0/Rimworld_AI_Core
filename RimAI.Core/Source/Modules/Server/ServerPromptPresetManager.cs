@@ -3,26 +3,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using RimAI.Core.Source.Modules.Persistence;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.Modules.Server
 {
 	internal sealed class ServerPromptPresetManager : IServerPromptPresetManager
 	{
 		private readonly IPersistenceService _persistence;
+		private readonly ILocalizationService _loc;
 
-		public ServerPromptPresetManager(IPersistenceService persistence)
+		public ServerPromptPresetManager(IPersistenceService persistence, ILocalizationService loc)
 		{
 			_persistence = persistence;
+			_loc = loc;
 		}
 
 		public async Task<ServerPromptPreset> GetAsync(string locale, CancellationToken ct = default)
 		{
 			var lc = string.IsNullOrWhiteSpace(locale) ? "zh-Hans" : locale;
-			var rel = $"RimAI/Persona/server_prompts_{lc}.json";
 			ServerPromptPreset preset = GetBuiltInDefault(lc);
 			try
 			{
-				var json = await _persistence.ReadTextUnderConfigOrNullAsync(rel, ct).ConfigureAwait(false);
+				// 先尝试从本地化表获取合并后的 JSON 文本
+				var json = _loc?.Get(lc, "server.prompts.json", string.Empty);
 				if (!string.IsNullOrWhiteSpace(json))
 				{
 					var user = JsonConvert.DeserializeObject<ServerPromptPreset>(json);
@@ -47,6 +50,7 @@ namespace RimAI.Core.Source.Modules.Server
 					// 回退读取 Mod 根目录随包内置的默认文件
 					try
 					{
+						var rel = $"RimAI/Persona/server_prompts_{lc}.json";
 						var json2 = await _persistence.ReadTextUnderModRootOrNullAsync("Config/" + rel, ct).ConfigureAwait(false);
 						if (!string.IsNullOrWhiteSpace(json2))
 						{

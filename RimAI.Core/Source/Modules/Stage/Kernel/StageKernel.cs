@@ -28,7 +28,7 @@ namespace RimAI.Core.Source.Modules.Stage.Kernel
 
 		public StageKernel()
 		{
-			_maxRunning = 4; // 默认值，可未来通过配置注入
+			_maxRunning = 1; // 全局唯一运行（可未来通过配置注入）
 			_sweeper = new Timer(SweepExpired, null, 1000, 1000);
 		}
 

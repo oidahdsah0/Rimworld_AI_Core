@@ -114,11 +114,7 @@ namespace RimAI.Core.Source.Boot
                             Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>()
                         ));
-                        stage.RegisterTrigger(new ProximityGroupChatTrigger());
-                        // 移除 AlphaFiberLinkTrigger，改用新的服务器定时触发器
-                        stage.RegisterTrigger(new TimedInterServerChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
-                        stage.RegisterTrigger(new TimedGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
-                        stage.RegisterTrigger(new ManualGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
+                        stage.RegisterTrigger(new GlobalTimedRandomActTrigger(stage, Container.Resolve<RimAI.Core.Source.Modules.Stage.Diagnostics.IStageLogging>()));
                     }
                 }
                 catch { }

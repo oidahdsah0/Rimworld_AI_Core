@@ -21,7 +21,18 @@ namespace RimAI.Core.Source.UI.Gizmos
                 defaultLabel = "RimAI.ChatUI.Gizmo.Open".Translate(),
                 defaultDesc = "RimAI.ChatUI.Gizmo.OpenDesc".Translate(),
                 icon = ContentFinder<Texture2D>.Get("RimAI/Chat/InfoSend", true),
-                action = () => { /* 暂不执行任何操作（机器有独立 UI，后续接入） */ }
+                action = () =>
+                {
+                    try
+                    {
+                        var id = parent?.thingIDNumber ?? 0;
+                        var entityId = $"thing:{id}";
+                        // 初始化服务器记录，以便周期任务与提示词使用
+                        try { var server = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>(); server?.GetOrCreate(entityId, 1); } catch { }
+                        // TODO: 后续与 P10 ChatWindow 对接，打开针对该服务器的会话
+                    }
+                    catch { }
+                }
             };
         }
     }

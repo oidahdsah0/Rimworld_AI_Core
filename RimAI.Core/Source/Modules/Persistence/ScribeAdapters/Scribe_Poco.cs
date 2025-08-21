@@ -42,6 +42,23 @@ namespace RimAI.Core.Source.Modules.Persistence.ScribeAdapters
 			}
 		}
 
+		// P13: 序列化/反序列化任意 POCO 为单 JSON 字符串节点
+		public static void LookJson<T>(ref T obj, string label)
+		{
+			if (Scribe.mode == LoadSaveMode.Saving)
+			{
+				string json = JsonConvert.SerializeObject(obj);
+				if (json != null && json.Length > 32760) json = json.Substring(0, 32760);
+				Scribe_Values.Look(ref json, label);
+			}
+			else
+			{
+				string json = null;
+				Scribe_Values.Look(ref json, label);
+				try { obj = JsonConvert.DeserializeObject<T>(json); } catch { obj = default(T); }
+			}
+		}
+
 		public static void LookJsonList<T>(ref List<T> list, string label)
 		{
 			if (Scribe.mode == LoadSaveMode.Saving)

@@ -126,6 +126,35 @@ namespace RimAI.Core.Source.Modules.World
 			}, name: "GetAiServerSnapshot", ct: cts.Token);
 		}
 
+		public Task<int> GetAiServerLevelAsync(int thingId, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				try
+				{
+					foreach (var map in Find.Maps)
+					{
+						var things = map?.listerThings?.AllThings; if (things == null) continue;
+						foreach (var t in things)
+						{
+							if (t == null || t.thingIDNumber != thingId) continue;
+							var def = t.def?.defName ?? string.Empty;
+							if (def.IndexOf("Lv1", StringComparison.OrdinalIgnoreCase) >= 0) return 1;
+							if (def.IndexOf("Lv2", StringComparison.OrdinalIgnoreCase) >= 0) return 2;
+							if (def.IndexOf("Lv3", StringComparison.OrdinalIgnoreCase) >= 0) return 3;
+							return 1;
+						}
+					}
+				}
+				catch { }
+				return 1;
+			}, name: "GetAiServerLevel", ct: cts.Token);
+		}
+
 		public Task<PawnHealthSnapshot> GetPawnHealthSnapshotAsync(int pawnLoadId, CancellationToken ct = default)
 		{
 			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;

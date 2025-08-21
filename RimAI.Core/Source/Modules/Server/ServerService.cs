@@ -1,0 +1,367 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using RimAI.Core.Source.Infrastructure.Scheduler;
+using RimAI.Core.Source.Modules.Persistence.Snapshots;
+using RimAI.Core.Source.Modules.Tooling;
+using RimAI.Core.Source.Modules.World;
+
+namespace RimAI.Core.Source.Modules.Server
+{
+	internal sealed class ServerService : IServerService
+	{
+		private readonly ISchedulerService _scheduler;
+		private readonly IWorldDataService _world;
+		private readonly IToolRegistryService _tooling;
+		private readonly IServerPromptPresetManager _presets;
+
+		private readonly ConcurrentDictionary<string, ServerRecord> _servers = new ConcurrentDictionary<string, ServerRecord>(StringComparer.OrdinalIgnoreCase);
+		private readonly ConcurrentDictionary<string, IDisposable> _periodics = new ConcurrentDictionary<string, IDisposable>(StringComparer.OrdinalIgnoreCase);
+
+		public ServerService(ISchedulerService scheduler, IWorldDataService world, IToolRegistryService tooling, IServerPromptPresetManager presets)
+		{
+			_scheduler = scheduler;
+			_world = world;
+			_tooling = tooling;
+			_presets = presets;
+		}
+
+		public ServerRecord GetOrCreate(string entityId, int level)
+		{
+			if (string.IsNullOrWhiteSpace(entityId)) throw new ArgumentNullException(nameof(entityId));
+			if (level < 1 || level > 3) throw new ArgumentOutOfRangeException(nameof(level));
+			return _servers.GetOrAdd(entityId, id => new ServerRecord
+			{
+				EntityId = id,
+				Level = level,
+				SerialHex12 = GenerateSerial(),
+				BuiltAtAbsTicks = GetTicks(),
+				InspectionIntervalHours = 24,
+				InspectionSlots = new List<InspectionSlot>(),
+				PersonaSlots = new List<PersonaSlot>()
+			});
+		}
+
+		public ServerRecord Get(string entityId)
+		{
+			if (string.IsNullOrWhiteSpace(entityId)) return null;
+			_servers.TryGetValue(entityId, out var s);
+			return s;
+		}
+
+		public IReadOnlyList<ServerRecord> List() => _servers.Values.OrderBy(s => s.EntityId).ToList();
+
+		public void SetBasePersonaPreset(string entityId, string presetKey)
+		{
+			var s = GetOrThrow(entityId);
+			s.BasePersonaPresetKey = presetKey;
+		}
+
+		public void SetBasePersonaOverride(string entityId, string overrideText)
+		{
+			var s = GetOrThrow(entityId);
+			s.BasePersonaOverride = overrideText;
+		}
+
+		public void SetPersonaSlot(string entityId, int slotIndex, string presetKey, string overrideText = null)
+		{
+			var s = GetOrThrow(entityId);
+			var cap = GetPersonaCapacity(s.Level);
+			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
+			EnsurePersonaSlots(s, cap);
+			s.PersonaSlots[slotIndex] = new PersonaSlot { Index = slotIndex, PresetKey = presetKey, OverrideText = overrideText, Enabled = true };
+		}
+
+		public void ClearPersonaSlot(string entityId, int slotIndex)
+		{
+			var s = GetOrThrow(entityId);
+			var cap = GetPersonaCapacity(s.Level);
+			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
+			EnsurePersonaSlots(s, cap);
+			s.PersonaSlots[slotIndex] = new PersonaSlot { Index = slotIndex, PresetKey = null, OverrideText = null, Enabled = false };
+		}
+
+		public IReadOnlyList<PersonaSlot> GetPersonaSlots(string entityId)
+		{
+			var s = GetOrThrow(entityId);
+			EnsurePersonaSlots(s, GetPersonaCapacity(s.Level));
+			return s.PersonaSlots.OrderBy(x => x.Index).ToList();
+		}
+
+		public void SetInspectionIntervalHours(string entityId, int hours)
+		{
+			var s = GetOrThrow(entityId);
+			s.InspectionIntervalHours = Math.Max(6, hours);
+			RestartScheduler(entityId);
+		}
+
+		public void AssignSlot(string entityId, int slotIndex, string toolName)
+		{
+			var s = GetOrThrow(entityId);
+			var cap = GetInspectionCapacity(s.Level);
+			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
+			EnsureInspectionSlots(s, cap);
+			// 等级过滤：工具等级必须 <= server.Level，且 Level>=4 工具不可见
+			var classic = _tooling.GetClassicToolCallSchema(new ToolQueryOptions { MaxToolLevel = s.Level });
+			bool allowed = (classic?.ToolsJson ?? new List<string>()).Any(j => j != null && j.IndexOf($"\"name\":\"{toolName}\"", StringComparison.OrdinalIgnoreCase) >= 0);
+			if (!allowed) throw new InvalidOperationException("tool not allowed for this server level");
+			s.InspectionSlots[slotIndex] = new InspectionSlot { Index = slotIndex, ToolName = toolName, Enabled = true };
+		}
+
+		public void RemoveSlot(string entityId, int slotIndex)
+		{
+			var s = GetOrThrow(entityId);
+			var cap = GetInspectionCapacity(s.Level);
+			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
+			EnsureInspectionSlots(s, cap);
+			s.InspectionSlots[slotIndex] = new InspectionSlot { Index = slotIndex, ToolName = null, Enabled = false };
+		}
+
+		public IReadOnlyList<InspectionSlot> GetSlots(string entityId)
+		{
+			var s = GetOrThrow(entityId);
+			EnsureInspectionSlots(s, GetInspectionCapacity(s.Level));
+			return s.InspectionSlots.OrderBy(x => x.Index).ToList();
+		}
+
+		public async Task RunInspectionOnceAsync(string entityId, CancellationToken ct = default)
+		{
+			var s = GetOrThrow(entityId);
+			var slots = (s.InspectionSlots ?? new List<InspectionSlot>()).Where(x => x != null && x.Enabled && !string.IsNullOrWhiteSpace(x.ToolName)).OrderBy(x => x.Index).ToList();
+			var sb = new StringBuilder();
+			sb.AppendLine($"[状态汇总] {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z");
+			foreach (var slot in slots)
+			{
+				try
+				{
+					var result = await _tooling.ExecuteToolAsync(slot.ToolName, new Dictionary<string, object>(), ct).ConfigureAwait(false);
+					sb.AppendLine($"- tool={slot.ToolName} ok=true");
+				}
+				catch (OperationCanceledException) { throw; }
+				catch (Exception ex)
+				{
+					sb.AppendLine($"- tool={slot.ToolName} ok=false err={ex.Message}");
+				}
+			}
+			s.LastSummaryText = TrimToBudget(sb.ToString(), 1600);
+			s.LastSummaryAtAbsTicks = GetTicks();
+			// 更新下一次到期时间
+			var next = GetTicks() + Math.Max(6, s.InspectionIntervalHours) * 2500;
+			foreach (var slot in s.InspectionSlots)
+			{
+				if (slot == null) continue;
+				slot.LastRunAbsTicks = GetTicks();
+				slot.NextDueAbsTicks = next;
+			}
+		}
+
+		public void StartAllSchedulers(CancellationToken appRootCt)
+		{
+			foreach (var s in _servers.Values.ToList())
+			{
+				StartOneScheduler(s.EntityId, s.InspectionIntervalHours, appRootCt);
+			}
+		}
+
+		public void RestartScheduler(string entityId)
+		{
+			if (string.IsNullOrWhiteSpace(entityId)) return;
+			if (_periodics.TryRemove(entityId, out var d)) { try { d.Dispose(); } catch { } }
+			StartOneScheduler(entityId, GetOrThrow(entityId).InspectionIntervalHours, CancellationToken.None);
+		}
+
+		public async Task<ServerPromptPack> BuildPromptAsync(string entityId, string locale, CancellationToken ct = default)
+		{
+			var s = GetOrThrow(entityId);
+			var preset = await _presets.GetAsync(locale, ct).ConfigureAwait(false);
+			var systemLines = new List<string>();
+			// 基础人格
+			var personaLines = BuildPersonaLines(s, preset);
+			if (personaLines.Count > 0) systemLines.AddRange(personaLines);
+			// 环境变体
+			var tempC = (await _world.GetAiServerSnapshotAsync(entityId, ct).ConfigureAwait(false))?.TemperatureC ?? 37;
+			if (tempC < 30) { if (!string.IsNullOrWhiteSpace(preset.Env?.temp_low)) systemLines.Add(preset.Env.temp_low); }
+			else if (tempC < 70) { if (!string.IsNullOrWhiteSpace(preset.Env?.temp_mid)) systemLines.Add(preset.Env.temp_mid); }
+			else { if (!string.IsNullOrWhiteSpace(preset.Env?.temp_high)) systemLines.Add(preset.Env.temp_high); }
+			// Server 基本属性
+			systemLines.Add($"Server Level={s.Level}, Serial={s.SerialHex12}, BuiltAt={FormatGameTime(s.BuiltAtAbsTicks)}, Interval={s.InspectionIntervalHours}h");
+			// ContextBlocks：最近一次汇总
+			var blocks = new List<RimAI.Core.Source.Modules.Prompting.Models.ContextBlock>();
+			if (!string.IsNullOrWhiteSpace(s.LastSummaryText))
+			{
+				blocks.Add(new RimAI.Core.Source.Modules.Prompting.Models.ContextBlock { Title = "最近一次巡检摘要", Text = s.LastSummaryText });
+			}
+			var temp = GetRecommendedSamplingTemperature(entityId);
+			return new ServerPromptPack { SystemLines = systemLines, ContextBlocks = blocks, SamplingTemperature = temp };
+		}
+
+		public float GetRecommendedSamplingTemperature(string entityId)
+		{
+			try
+			{
+				var s = _world.GetAiServerSnapshotAsync(entityId).GetAwaiter().GetResult();
+				int t = s?.TemperatureC ?? 37;
+				if (t < 30)
+				{
+					return RandRange(0.9f, 1.2f);
+				}
+				if (t < 70)
+				{
+					return RandRange(1.2f, 1.5f);
+				}
+				return 2.0f;
+			}
+			catch { return 1.2f; }
+		}
+
+		public ServerState ExportSnapshot()
+		{
+			var state = new ServerState();
+			foreach (var kv in _servers)
+			{
+				state.Items[kv.Key] = Clone(kv.Value);
+			}
+			return state;
+		}
+
+		public void ImportSnapshot(ServerState state)
+		{
+			_servers.Clear();
+			if (state?.Items == null) return;
+			foreach (var kv in state.Items)
+			{
+				var rec = kv.Value ?? new ServerRecord { EntityId = kv.Key, Level = 1 };
+				rec.InspectionIntervalHours = Math.Max(6, rec.InspectionIntervalHours <= 0 ? 24 : rec.InspectionIntervalHours);
+				_servers[kv.Key] = Clone(rec);
+			}
+		}
+
+		private void StartOneScheduler(string entityId, int hours, CancellationToken appRootCt)
+		{
+			if (string.IsNullOrWhiteSpace(entityId)) return;
+			if (_periodics.ContainsKey(entityId)) return; // 幂等保护：避免重复注册
+			int everyTicks = Math.Max(6, hours) * 2500;
+			var name = $"server:{entityId}:inspection";
+			try
+			{
+				var disp = _scheduler.SchedulePeriodic(name, everyTicks, async ct =>
+				{
+					try { await RunInspectionOnceAsync(entityId, ct).ConfigureAwait(false); }
+					catch (OperationCanceledException) { }
+					catch (Exception ex) { Verse.Log.Error($"[RimAI.Core][P13.Server] periodic failed: {ex.Message}"); }
+				}, appRootCt);
+				_periodics[entityId] = disp;
+			}
+			catch { }
+		}
+
+		private static int GetPersonaCapacity(int level) => level switch { 1 => 1, 2 => 2, _ => 3 };
+		private static int GetInspectionCapacity(int level) => level switch { 1 => 3, 2 => 5, _ => 10 };
+
+		private static void EnsurePersonaSlots(ServerRecord s, int cap)
+		{
+			if (s.PersonaSlots == null) s.PersonaSlots = new List<PersonaSlot>();
+			while (s.PersonaSlots.Count < cap) s.PersonaSlots.Add(new PersonaSlot { Index = s.PersonaSlots.Count, Enabled = false });
+			if (s.PersonaSlots.Count > cap) s.PersonaSlots = s.PersonaSlots.Take(cap).ToList();
+		}
+
+		private static void EnsureInspectionSlots(ServerRecord s, int cap)
+		{
+			if (s.InspectionSlots == null) s.InspectionSlots = new List<InspectionSlot>();
+			while (s.InspectionSlots.Count < cap) s.InspectionSlots.Add(new InspectionSlot { Index = s.InspectionSlots.Count, Enabled = false });
+			if (s.InspectionSlots.Count > cap) s.InspectionSlots = s.InspectionSlots.Take(cap).ToList();
+		}
+
+		private static string GenerateSerial()
+		{
+			var rnd = new Random();
+			var sb = new StringBuilder(12);
+			for (int i = 0; i < 12; i++) sb.Append("0123456789ABCDEF"[rnd.Next(16)]);
+			return sb.ToString();
+		}
+
+		private static int GetTicks()
+		{
+			try { return Verse.Find.TickManager.TicksGame; } catch { return 0; }
+		}
+
+		private static string FormatGameTime(int absTicks)
+		{
+			// 简化：直接返回绝对 Tick 数，避免对外部 API 的强依赖
+			try { return absTicks.ToString(CultureInfo.InvariantCulture); } catch { return absTicks.ToString(); }
+		}
+
+		private static float RandRange(float a, float b)
+		{
+			try { return (float)(a + (new Random().NextDouble()) * (b - a)); } catch { return (a + b) / 2f; }
+		}
+
+		private static ServerRecord Clone(ServerRecord s)
+		{
+			return new ServerRecord
+			{
+				EntityId = s.EntityId,
+				Level = s.Level,
+				SerialHex12 = s.SerialHex12,
+				BuiltAtAbsTicks = s.BuiltAtAbsTicks,
+				BasePersonaOverride = s.BasePersonaOverride,
+				BasePersonaPresetKey = s.BasePersonaPresetKey,
+				InspectionIntervalHours = s.InspectionIntervalHours,
+				InspectionSlots = (s.InspectionSlots ?? new List<InspectionSlot>()).Select(x => x == null ? null : new InspectionSlot { Index = x.Index, ToolName = x.ToolName, Enabled = x.Enabled, LastRunAbsTicks = x.LastRunAbsTicks, NextDueAbsTicks = x.NextDueAbsTicks }).ToList(),
+				PersonaSlots = (s.PersonaSlots ?? new List<PersonaSlot>()).Select(x => x == null ? null : new PersonaSlot { Index = x.Index, PresetKey = x.PresetKey, OverrideText = x.OverrideText, Enabled = x.Enabled }).ToList(),
+				LastSummaryText = s.LastSummaryText,
+				LastSummaryAtAbsTicks = s.LastSummaryAtAbsTicks
+			};
+		}
+
+		private static List<string> BuildPersonaLines(ServerRecord s, ServerPromptPreset preset)
+		{
+			var lines = new List<string>();
+			bool hasSlots = s.PersonaSlots != null && s.PersonaSlots.Any(x => x != null && x.Enabled && (!string.IsNullOrWhiteSpace(x.OverrideText) || !string.IsNullOrWhiteSpace(x.PresetKey)));
+			if (hasSlots)
+			{
+				foreach (var slot in s.PersonaSlots.OrderBy(x => x.Index))
+				{
+					if (slot == null || !slot.Enabled) continue;
+					if (!string.IsNullOrWhiteSpace(slot.OverrideText)) { lines.Add(slot.OverrideText); continue; }
+					if (!string.IsNullOrWhiteSpace(slot.PresetKey))
+					{
+						var opt = preset?.BaseOptions?.FirstOrDefault(o => string.Equals(o.key, slot.PresetKey, StringComparison.OrdinalIgnoreCase));
+						if (opt != null && !string.IsNullOrWhiteSpace(opt.text)) lines.Add(opt.text);
+					}
+				}
+			}
+			else
+			{
+				if (!string.IsNullOrWhiteSpace(s.BasePersonaOverride)) lines.Add(s.BasePersonaOverride);
+				else if (!string.IsNullOrWhiteSpace(s.BasePersonaPresetKey))
+				{
+					var opt = preset?.BaseOptions?.FirstOrDefault(o => string.Equals(o.key, s.BasePersonaPresetKey, StringComparison.OrdinalIgnoreCase));
+					if (opt != null && !string.IsNullOrWhiteSpace(opt.text)) lines.Add(opt.text);
+				}
+				else if (!string.IsNullOrWhiteSpace(preset?.Base)) lines.Add(preset.Base);
+			}
+			return lines;
+		}
+
+		private ServerRecord GetOrThrow(string entityId)
+		{
+			if (string.IsNullOrWhiteSpace(entityId)) throw new ArgumentNullException(nameof(entityId));
+			if (_servers.TryGetValue(entityId, out var s) && s != null) return s;
+			throw new KeyNotFoundException($"server not found: {entityId}");
+		}
+
+		private static string TrimToBudget(string s, int max)
+		{
+			if (string.IsNullOrEmpty(s)) return string.Empty;
+			return s.Length <= max ? s : s.Substring(0, max);
+		}
+	}
+}
+
+

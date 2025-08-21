@@ -57,6 +57,13 @@
   "tool.display.get_terrain_group_counts": "地形统计",
   "tool.display.get_game_logs": "游戏日志浏览器"
   ,
-  "orchestration.plantrace.hit_tool": "{pawn}从随身设备中找到了合适的APP：{displayName}，软件已经显示结果。"
+  "orchestration.plantrace.hit_tool": "{pawn}从随身设备中找到了合适的APP：{displayName}，软件已经显示结果。",
+  
+  "stage.groupchat.system": "你是殖民地的临时通讯协调员，负责促成参与者之间进行一轮简短群聊。保持口语化与简洁，不要输出解释文本。",
+  "stage.groupchat.user": "现在，生成第{round}轮对话。请严格输出 JSON，键为 1..{count}，值为对应角色的台词（简短口语化），不得包含解释文本：{template}",
+  "stage.serverchat.system": "你是服务器集群的运维协调助手，负责让服务器之间进行一轮简短群聊（状态同步/互相建议）。保持简洁、口语化，不要输出解释文本。",
+  "stage.serverchat.user": "现在，生成第{round}轮服务器群聊。请严格输出 JSON，键为 1..{count}，值为对应服务器的台词（简短口语化），不得包含解释文本：{template}",
+  "stage.groupchat.env.line": "天气{weather}，体感{temp}°C，光照{glow}；附近美观≈{beauty}；地貌要点：{terrains}；殖民地{colony}（{pop}人）",
+  "stage.groupchat.participant.line": "{index}）{name}{gender,optional,leadingComma}{age,optional,leadingComma}岁{job,optional,leadingComma}；特质：{traits}；不可：{disables}；技能：{skills}；需求：{needs}；健康：{health}；意识形态：{ideology}；固定提示词：{fixed}；社交：{social}"
 }
 

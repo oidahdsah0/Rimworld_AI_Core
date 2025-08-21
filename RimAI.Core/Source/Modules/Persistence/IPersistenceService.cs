@@ -31,6 +31,9 @@ namespace RimAI.Core.Source.Modules.Persistence
 		// 从配置根目录下读取文本（不存在则返回 null）
 		Task<string> ReadTextUnderConfigOrNullAsync(string relativePath, CancellationToken ct = default);
 
+		// 从 Mod 根目录下读取文本（不存在则返回 null），仅供读取内置默认配置/模板使用
+		Task<string> ReadTextUnderModRootOrNullAsync(string relativePath, CancellationToken ct = default);
+
 		// 配置根目录的绝对路径（只读）
 		string GetConfigRootDirectory();
 

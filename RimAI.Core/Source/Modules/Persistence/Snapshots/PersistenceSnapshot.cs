@@ -12,6 +12,8 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public PersonaBindingsSnapshot PersonaBindings { get; set; } = new PersonaBindingsSnapshot();
 		public PersonalBeliefsState PersonalBeliefs { get; set; } = new PersonalBeliefsState();
 		public StageRecapState StageRecap { get; set; } = new StageRecapState();
+		// P13: Servers state (AI 服务器建筑数据与巡检计划)
+		public ServerState Servers { get; set; } = new ServerState();
 	}
 
 	public sealed class HistoryState
@@ -116,6 +118,53 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public string MetadataJson { get; set; } = string.Empty;
 		public List<string> Tags { get; set; } = new List<string>();
 		public long CreatedAtTicksUtc { get; set; }
+	}
+
+	// P13: Servers snapshot models
+	public sealed class ServerState
+	{
+		public Dictionary<string, ServerRecord> Items { get; set; } = new Dictionary<string, ServerRecord>();
+	}
+
+	public sealed class ServerRecord
+	{
+		// 基础信息
+		public string EntityId { get; set; } = string.Empty; // thing:<loadId>
+		public int Level { get; set; } // 1..3
+		public string SerialHex12 { get; set; } = string.Empty; // 12位16进制，A..F 大写
+		public int BuiltAtAbsTicks { get; set; } // 建成绝对 Tick（60k=1天）
+
+		// 基础人格（兼容字段：若 PersonaSlots 为空，则回退使用 BasePersona*）
+		public string BasePersonaPresetKey { get; set; } // 可空
+		public string BasePersonaOverride { get; set; } // 可空
+
+		// 人格槽位（按等级容量：Lv1=1/Lv2=2/Lv3=3）
+		public List<PersonaSlot> PersonaSlots { get; set; } = new List<PersonaSlot>();
+
+		// 巡检计划
+		public int InspectionIntervalHours { get; set; } = 24; // 默认 24；最小 6
+		public List<InspectionSlot> InspectionSlots { get; set; } = new List<InspectionSlot>();
+
+		// 最近一次汇总
+		public string LastSummaryText { get; set; }
+		public int? LastSummaryAtAbsTicks { get; set; }
+	}
+
+	public sealed class InspectionSlot
+	{
+		public int Index { get; set; }
+		public string ToolName { get; set; }
+		public bool Enabled { get; set; } = true;
+		public int? LastRunAbsTicks { get; set; }
+		public int? NextDueAbsTicks { get; set; }
+	}
+
+	public sealed class PersonaSlot
+	{
+		public int Index { get; set; } // 0..(capacity-1)
+		public string PresetKey { get; set; } // 预设键，必须存在于 BaseOptions
+		public string OverrideText { get; set; } // 可选覆盖文本
+		public bool Enabled { get; set; } = true;
 	}
 }
 

@@ -63,6 +63,31 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				KickoffToolIndexVerifyAsync();
 			}
 
+			// P13：在第 2500 Tick 后尝试发现服务器并注册周期任务（幂等）
+			if (tick == 2500)
+			{
+				try
+				{
+					var world = RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
+					var server = RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>();
+					_ = System.Threading.Tasks.Task.Run(async () =>
+					{
+						try
+						{
+							var ids = await world.GetPoweredAiServerThingIdsAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+							foreach (var id in ids)
+							{
+								int level = 1; try { level = await world.GetAiServerLevelAsync(id).ConfigureAwait(false); } catch { level = 1; }
+								server.GetOrCreate($"thing:{id}", level);
+							}
+							server.StartAllSchedulers(System.Threading.CancellationToken.None);
+						}
+						catch { }
+					});
+				}
+				catch { }
+			}
+
 			if (!_printedReady)
 			{
 				_printedReady = true;

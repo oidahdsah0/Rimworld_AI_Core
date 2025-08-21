@@ -36,6 +36,12 @@
     <None Include="Config\RimAI\Persona\job_presets_en.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="Config\RimAI\Persona\server_prompts_zh-Hans.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Config\RimAI\Persona\server_prompts_en.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <!-- Reference to RimAI Framework -->

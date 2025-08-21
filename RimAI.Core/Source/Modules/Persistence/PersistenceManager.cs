@@ -49,6 +49,18 @@ namespace RimAI.Core.Source.Modules.Persistence
 			// 简化策略：直接使用 PersistenceService 维护的内存快照作为写入源
 			var svc = Resolve();
 			var snap = svc?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
+			// P13: 从 ServerService 导出到快照
+			try
+			{
+				var container = RimAI.Core.Source.Boot.RimAICoreMod.Container;
+				var server = container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>();
+				if (server != null)
+				{
+					var ss = server.ExportSnapshot();
+					if (ss != null) snap.Servers = ss;
+				}
+			}
+			catch { }
 			// 从 P8 的内存服务同步导出 History 与 Recap 到快照
 			try
 			{
@@ -170,6 +182,7 @@ namespace RimAI.Core.Source.Modules.Persistence
 				var container = RimAI.Core.Source.Boot.RimAICoreMod.Container;
 				var recap = container.Resolve<IRecapService>();
 				var history = container.Resolve<IHistoryService>();
+				var server = container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>();
 				if (recap != null && history != null && snapshot != null)
 				{
 					// History
@@ -214,6 +227,15 @@ namespace RimAI.Core.Source.Modules.Persistence
 					}
 					recap.ImportSnapshot(temp);
 				}
+				// P13: 回灌 Server 节点
+				try
+				{
+					if (server != null)
+					{
+						server.ImportSnapshot(snapshot.Servers);
+					}
+				}
+				catch { }
 			}
 			catch { }
 		}

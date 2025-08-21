@@ -260,6 +260,23 @@ namespace RimAI.Core.Source.Modules.Persistence
             {
                 stats.Details.Add(new NodeStat { Node = "RimAI_StageRecapV1", Ok = false, Error = ex.Message });
             }
+            // P13: Servers
+            try
+            {
+                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
+                Scribe.EnterNode("RimAI_ServersV1");
+                int schemaVersion = 1;
+                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
+                var servers = snapshot?.Servers ?? new Snapshots.ServerState();
+                RimAI.Core.Source.Modules.Persistence.ScribeAdapters.Scribe_Poco.LookJson(ref servers, "state");
+                Scribe.ExitNode();
+                nodeSw.Stop();
+                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = true, Entries = servers?.Items?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
+            }
+            catch (Exception ex)
+            {
+                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = false, Error = ex.Message });
+            }
             swAll.Stop();
             stats.Nodes = stats.Details.Count;
             stats.ElapsedMs = swAll.ElapsedMilliseconds;
@@ -460,6 +477,25 @@ namespace RimAI.Core.Source.Modules.Persistence
             {
                 stats.Details.Add(new NodeStat { Node = "RimAI_StageRecapV1", Ok = false, Error = ex.Message });
             }
+            // P13: Servers
+            try
+            {
+                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
+                Scribe.EnterNode("RimAI_ServersV1");
+                int schemaVersion = 1;
+                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
+                var servers = result.Servers;
+                RimAI.Core.Source.Modules.Persistence.ScribeAdapters.Scribe_Poco.LookJson(ref servers, "state");
+                servers ??= new Snapshots.ServerState();
+                result.Servers = servers;
+                Scribe.ExitNode();
+                nodeSw.Stop();
+                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = true, Entries = servers?.Items?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
+            }
+            catch (Exception ex)
+            {
+                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = false, Error = ex.Message });
+            }
             swAll.Stop();
             stats.Nodes = stats.Details.Count;
             stats.ElapsedMs = swAll.ElapsedMilliseconds;
@@ -557,6 +593,24 @@ namespace RimAI.Core.Source.Modules.Persistence
 			{
 				return await sr.ReadToEndAsync();
 			}
+		}
+
+		public async Task<string> ReadTextUnderModRootOrNullAsync(string relativePath, CancellationToken ct = default)
+		{
+			try
+			{
+				var baseDir = RimAI.Core.Source.Boot.RimAICoreMod.ModRootDir ?? string.Empty;
+				if (string.IsNullOrWhiteSpace(baseDir)) return null;
+				var normalized = relativePath.Replace('/', Path.DirectorySeparatorChar).Replace("\\", Path.DirectorySeparatorChar.ToString());
+				var abs = Path.Combine(baseDir, normalized);
+				if (!File.Exists(abs)) return null;
+				using (var fs = new FileStream(abs, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, FileOptions.Asynchronous))
+				using (var sr = new StreamReader(fs, Encoding.UTF8))
+				{
+					return await sr.ReadToEndAsync();
+				}
+			}
+			catch { return null; }
 		}
 	}
 }

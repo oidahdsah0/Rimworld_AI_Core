@@ -26,6 +26,7 @@ using RimAI.Core.Source.Modules.Stage.Triggers;
 using RimAI.Core.Source.Modules.Prompting;
 // using RimAI.Core.Source.Modules.Prompting.Composers.ChatUI; // composers are instantiated inside PromptService
 using RimAI.Core.Source.Infrastructure.Localization;
+using RimAI.Core.Source.Modules.Server;
 using Verse;
 
 namespace RimAI.Core.Source.Boot
@@ -80,6 +81,10 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<IPromptService, PromptService>();
                 Container.Register<ILocalizationService, LocalizationService>();
 
+                // Register P13 Server services
+                Container.Register<IServerService, ServerService>();
+                Container.Register<IServerPromptPresetManager, ServerPromptPresetManager>();
+
                 // Register built-in Acts/Triggers via StageService after construction
 
                 // Prewarm and fail fast
@@ -111,6 +116,35 @@ namespace RimAI.Core.Source.Boot
                         stage.RegisterTrigger(new TimedGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
                         stage.RegisterTrigger(new ManualGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
                     }
+                }
+                catch { }
+
+                // P13: 启动/进入地图后，自动发现通电服务器并注册周期任务（后台）
+                try
+                {
+                    var world = Container.Resolve<IWorldDataService>();
+                    var server = Container.Resolve<IServerService>();
+                    var scheduler = Container.Resolve<ISchedulerService>();
+                    _ = System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var ids = await world.GetPoweredAiServerThingIdsAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+                            foreach (var id in ids)
+                            {
+                                var entityId = $"thing:{id}";
+                                int level = 1;
+                                try { level = await world.GetAiServerLevelAsync(id).ConfigureAwait(false); } catch { level = 1; }
+                                server.GetOrCreate(entityId, level);
+                            }
+                            server.StartAllSchedulers(System.Threading.CancellationToken.None);
+                            Verse.Log.Message($"[RimAI.Core][P13] discovered_servers={ids?.Count ?? 0}; periodic_registered=true");
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Verse.Log.Error($"[RimAI.Core][P13] discover/start schedulers failed: {ex.Message}");
+                        }
+                    });
                 }
                 catch { }
 

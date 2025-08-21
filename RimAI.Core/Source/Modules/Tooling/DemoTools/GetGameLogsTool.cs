@@ -7,6 +7,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 		public string Name => "get_game_logs";
 		public string Description => "Get the latest N in-game log entries as plain text with game time.";
 		public string DisplayName => "游戏日志浏览器";
+		public int Level => 2;
 		public string ParametersJson => JsonConvert.SerializeObject(new
 		{
 			type = "object",

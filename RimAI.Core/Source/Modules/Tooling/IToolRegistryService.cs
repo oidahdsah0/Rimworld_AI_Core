@@ -9,6 +9,7 @@ internal sealed class ToolQueryOptions
 	{
 	public IReadOnlyList<string> IncludeWhitelist { get; set; }
 	public IReadOnlyList<string> ExcludeBlacklist { get; set; }
+	public int? MaxToolLevel { get; set; } // 允许按最大可用等级筛选（默认=3）；等级4为开发级，强制过滤
 	}
 
 internal sealed class ToolClassicResult

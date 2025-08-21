@@ -93,7 +93,9 @@ namespace RimAI.Core.Source.Modules.Tooling
 				var set = new HashSet<string>(options.ExcludeBlacklist, StringComparer.OrdinalIgnoreCase);
 				tools = tools.Where(t => !set.Contains(t.Name ?? string.Empty));
 			}
-			var toolList = tools.ToList();
+			// 等级过滤：默认 maxLevel=3；硬过滤掉 Level>=4 的开发级工具
+			int maxLevel = Math.Max(1, options?.MaxToolLevel ?? 3);
+			var toolList = tools.Where(t => (t?.Level ?? 1) <= maxLevel && (t?.Level ?? 1) <= 3).ToList();
 			var json = toolList.Select(t => t.BuildToolJson());
 			return new ToolClassicResult { ToolsJson = json.ToList() };
 		}
@@ -116,7 +118,12 @@ namespace RimAI.Core.Source.Modules.Tooling
 
 			IReadOnlyList<ToolScore> scores = RankTopK(q, snapshot, k, minScore);
 			var topNames = new HashSet<string>(scores.Select(s => s.ToolName), StringComparer.OrdinalIgnoreCase);
-			var selected = _allTools.Where(t => topNames.Contains(t.Name ?? string.Empty)).Select(t => t.BuildToolJson()).ToList();
+			int maxLevel2 = Math.Max(1, options?.MaxToolLevel ?? 3);
+			var selected = _allTools
+				.Where(t => topNames.Contains(t.Name ?? string.Empty))
+				.Where(t => (t?.Level ?? 1) <= maxLevel2 && (t?.Level ?? 1) <= 3)
+				.Select(t => t.BuildToolJson())
+				.ToList();
 			return new ToolNarrowTopKResult { ToolsJson = selected, Scores = scores };
 		}
 

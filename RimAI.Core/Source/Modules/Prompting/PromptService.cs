@@ -78,6 +78,10 @@ namespace RimAI.Core.Source.Modules.Prompting
             _composers.Add(new Composers.ChatUI.EnvTerrainComposer());
             _composers.Add(new Composers.ChatUI.UserPrefixComposer());
 
+            // Stage Scope：群聊（环境 + 参与者摘要）
+            _composers.Add(new Composers.Stage.StageEnvironmentComposer());
+            _composers.Add(new Composers.Stage.StageParticipantsComposer());
+
             // PersonaBiography Scope：仅系统提示 + 单段User
             var scopeBio = PromptScope.PersonaBiography;
             _composers.Add(new Composers.Persona.PersonaBiographySystemComposer());

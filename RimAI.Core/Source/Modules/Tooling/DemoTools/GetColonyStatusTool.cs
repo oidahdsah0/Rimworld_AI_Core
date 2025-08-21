@@ -7,6 +7,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 		public string Name => "get_colony_status";
 		public string Description => "Get an overview of the player's colony (name, population, wealth).";
 		public string DisplayName => "领地状况小助手";
+		public int Level => 2;
 		public string ParametersJson => JsonConvert.SerializeObject(new
 		{
 			type = "object",

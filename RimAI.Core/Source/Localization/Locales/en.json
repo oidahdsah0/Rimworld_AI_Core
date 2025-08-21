@@ -55,6 +55,13 @@
   "tool.display.get_beauty_average": "Beauty Average",
   "tool.display.get_terrain_group_counts": "Terrain Statistics",
   "tool.display.get_game_logs": "Game Logs Browser",
-  "orchestration.plantrace.hit_tool": "{pawn} used the handheld device to open an app: {displayName}. The results are ready."
+  "orchestration.plantrace.hit_tool": "{pawn} used the handheld device to open an app: {displayName}. The results are ready.",
+  
+  "stage.groupchat.system": "You are the colony's ad-hoc comms coordinator. Facilitate one short group chat among the participants. Keep it concise, spoken, and do not output explanations.",
+  "stage.groupchat.user": "Now produce round {round}. Strictly output JSON with keys 1..{count} mapping to each participant's line (concise, spoken), with no extra explanations: {template}",
+  "stage.serverchat.system": "You are the ops coordinator for the server cluster. Facilitate one short inter-server chat (status sync / mutual suggestions). Keep it concise, technical yet spoken; do not output explanations.",
+  "stage.serverchat.user": "Now produce round {round} of the server chat. Strictly output JSON with keys 1..{count} mapping to each server's line (concise, spoken), with no extra explanations: {template}",
+  "stage.groupchat.env.line": "Weather {weather}, feels like {temp}°C, light {glow}; nearby beauty ≈ {beauty}; terrain highlights: {terrains}; colony {colony} (pop {pop})",
+  "stage.groupchat.participant.line": "{index}) {name}{gender,optional,leadingComma}{age,optional,leadingComma}y{job,optional,leadingComma}; traits: {traits}; cannot: {disables}; skills: {skills}; needs: {needs}; health: {health}; ideology: {ideology}; fixed: {fixed}; social: {social}"
 }
 

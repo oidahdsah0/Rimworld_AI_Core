@@ -96,11 +96,18 @@ namespace RimAI.Core.Source.Boot
                             Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
                             Container.Resolve<IConfigurationService>(),
-                            Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()
+                            Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>(),
+                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>()
                         ));
-                        stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.AlphaFiberInterServerChatAct(Container.Resolve<ILLMService>(), Container.Resolve<IWorldDataService>()));
+                        stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.InterServerGroupChatAct(
+                            Container.Resolve<ILLMService>(),
+                            Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
+                            Container.Resolve<IWorldDataService>(),
+                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>()
+                        ));
                         stage.RegisterTrigger(new ProximityGroupChatTrigger());
-                        stage.RegisterTrigger(new AlphaFiberLinkTrigger());
+                        // 移除 AlphaFiberLinkTrigger，改用新的服务器定时触发器
+                        stage.RegisterTrigger(new TimedInterServerChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
                         stage.RegisterTrigger(new TimedGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
                         stage.RegisterTrigger(new ManualGroupChatTrigger(Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>()));
                     }

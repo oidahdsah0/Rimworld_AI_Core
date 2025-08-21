@@ -11,6 +11,7 @@ using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.Prompting.Models;
 using RimAI.Core.Source.Infrastructure.Configuration;
 using RimAI.Core.Source.Modules.History.View;
+using RimAI.Core.Source.Infrastructure.Localization;
 using RimAI.Core.Contracts.Config;
 
 namespace RimAI.Core.Source.Modules.Stage.Acts
@@ -23,10 +24,11 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
         private readonly ConfigurationService _cfg;
         private readonly IWorldDataService _worldData;
         private readonly IDisplayNameService _display;
+        private readonly ILocalizationService _loc;
 
-        public GroupChatAct(ILLMService llm, IWorldActionService worldAction = null, IPromptService prompt = null, IConfigurationService cfg = null, IWorldDataService worldData = null)
+        public GroupChatAct(ILLMService llm, IWorldActionService worldAction = null, IPromptService prompt = null, IConfigurationService cfg = null, IWorldDataService worldData = null, ILocalizationService loc = null)
         {
-            _llm = llm; _worldAction = worldAction; _prompt = prompt; _cfg = cfg as ConfigurationService; _worldData = worldData;
+            _llm = llm; _worldAction = worldAction; _prompt = prompt; _cfg = cfg as ConfigurationService; _worldData = worldData; _loc = loc;
             _display = new DisplayNameAdapter(worldData);
         }
 
@@ -99,21 +101,36 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             // 预取：在播放本轮气泡时并发请求下一轮
             Func<int, CancellationToken, Task<string>> startRequest = async (round, token) =>
             {
-                // 组装提示词（P11）：Stage Scope + 参与者
-                string systemLocal;
-                try
+                // 优先使用本地化模板（持久化读取），否则回退到 P11 Prompting
+                string locale = req?.Locale;
+                string systemLocal = string.Empty;
+                try { if (_loc != null) systemLocal = _loc.Get(locale, "stage.groupchat.system", string.Empty); } catch { systemLocal = string.Empty; }
+                if (string.IsNullOrWhiteSpace(systemLocal))
                 {
-                    if (_prompt != null)
+                    try
                     {
-                        var reqPrompt = new PromptBuildRequest { Scope = PromptScope.Stage, ConvKey = conv, ParticipantIds = participants, Locale = req?.Locale };
-                        var built = await _prompt.BuildAsync(reqPrompt, token).ConfigureAwait(false);
-                        systemLocal = built?.SystemPrompt ?? string.Empty;
+                        if (_prompt != null)
+                        {
+                            var reqPrompt = new PromptBuildRequest { Scope = PromptScope.Stage, ConvKey = conv, ParticipantIds = participants, Locale = req?.Locale };
+                            var built = await _prompt.BuildAsync(reqPrompt, token).ConfigureAwait(false);
+                            systemLocal = built?.SystemPrompt ?? string.Empty;
+                        }
                     }
-                    else { systemLocal = string.Empty; }
+                    catch { systemLocal = string.Empty; }
                 }
-                catch { systemLocal = string.Empty; }
 
-                var userLocal = BuildUserPromptSimpleMap(participants, round);
+                string userLocal;
+                if (_loc != null)
+                {
+                    var template = BuildJsonTemplate(participants.Count);
+                    var args = new System.Collections.Generic.Dictionary<string, string> { { "round", round.ToString() }, { "count", participants.Count.ToString() }, { "template", template } };
+                    try { userLocal = _loc.Format(locale, "stage.groupchat.user", args, string.Empty); }
+                    catch { userLocal = BuildUserPromptSimpleMap(participants, round); }
+                }
+                else
+                {
+                    userLocal = BuildUserPromptSimpleMap(participants, round);
+                }
                 var chatReqLocal = new RimAI.Framework.Contracts.UnifiedChatRequest
                 {
                     ConversationId = conv,
@@ -230,10 +247,15 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
         private static string BuildUserPromptSimpleMap(List<string> participants, int round)
         {
             // JSON 模板固定：{"1":"...","2":"...",...}，按参与者顺序映射 1..N；不要输出解释文本
-            var mapKeys = new List<string>();
-            for (int i = 0; i < participants.Count; i++) mapKeys.Add($"\"{i+1}\":\"...\"");
-            var template = "{" + string.Join(",", mapKeys) + "}";
+            var template = BuildJsonTemplate(participants.Count);
             return $"现在，生成第{round}轮对话。请严格输出 JSON，键为 1..{participants.Count}，值为对应角色的台词（简短口语化），不得包含解释文本：{template}";
+        }
+
+        private static string BuildJsonTemplate(int count)
+        {
+            var mapKeys = new List<string>();
+            for (int i = 0; i < count; i++) mapKeys.Add($"\"{i + 1}\":\"...\"");
+            return "{" + string.Join(",", mapKeys) + "}";
         }
         
     }

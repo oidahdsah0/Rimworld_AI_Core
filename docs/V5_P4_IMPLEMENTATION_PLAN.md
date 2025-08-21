@@ -131,6 +131,14 @@ namespace RimAI.Core.Modules.Tooling {
 
 > 执行契约 `IRimAITool`/`ToolSandbox` 保持原有：参数校验/主线程/速率/超时/互斥，本文不再重复。
 
+增量（工具等级与筛选）：
+
+- 工具等级（Level）：在 `IRimAITool` 增加 `int Level { get; }`
+  - 取值：1/2/3 为“游戏可用等级”；4 为“开发级（Dev）”，只供开发/测试，游戏内一律隐藏
+- 工具清单筛选：在 `ToolQueryOptions` 增加 `int? MaxToolLevel`
+  - `GetClassicToolCallSchema` 与 `GetNarrowTopKToolCallSchemaAsync` 均按 `Level <= min(MaxToolLevel ?? 3, 3)` 过滤；同时硬过滤 `Level >= 4`
+  - 目的：便于“服务器巡检槽位”等调用方按服务器等级选择“向下兼容”的工具，不必在上游手动做等级判断
+
 ---
 
 ## 3. 目录结构与文件
@@ -243,8 +251,9 @@ RimAI.Core/
 
 ### S1：契约与元数据
 
-- 保持 `IRimAITool`/`ToolMeta`/`ToolContext` 与 P4 既有定义
-- 扩展 `IToolRegistryService`：新增 Classic/TopK Tool JSON 接口与索引生命周期 API
+- 扩展 `IRimAITool`：新增 `Level`（1/2/3=可用；4=开发级隐藏）
+- 扩展 `ToolQueryOptions`：新增 `MaxToolLevel`（默认3），支持按最大等级筛选工具清单
+- 扩展 `IToolRegistryService`：Classic/TopK 两处均应用等级过滤逻辑；仍保留索引生命周期 API
 
 ### S2：索引模型与存储
 
@@ -320,6 +329,9 @@ RimAI.Core/
 
 - Classic
   - 能返回“可用工具全集”的 `ToolFunction[]`，Framework 可直接消费
+- 工具等级
+  - `Level=4` 的工具在任何游戏路径均不可见（Classic/TopK 返回集合中均不包含）
+  - 传入 `MaxToolLevel=n` 时，结果工具集合中所有项满足 `Level<=n`（n<=3）
 - 索引构建
   - 首次进入地图后自动构建完成；Debug 页签显示 Fingerprint/记录数/耗时
   - 修改 Embedding 配置后自动重建；日志与面板状态可观测

@@ -76,16 +76,42 @@ namespace RimAI.Core.Source.Modules.World
 			}, name: "GetAllColonistLoadIds", ct: cts.Token);
 		}
 
-		public Task<System.Collections.Generic.IReadOnlyList<(string serverAId, string serverBId)>> GetAlphaFiberLinksAsync(CancellationToken ct = default)
+		// 新增：返回通电的 AI 服务器（lv1/2/3，不含终端）的 thingID 列表
+		public Task<System.Collections.Generic.IReadOnlyList<int>> GetPoweredAiServerThingIdsAsync(CancellationToken ct = default)
 		{
 			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
 			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 			cts.CancelAfter(timeoutMs);
 			return _scheduler.ScheduleOnMainThreadAsync(() =>
 			{
-				// 最小占位：返回固定对
-				return (System.Collections.Generic.IReadOnlyList<(string, string)>)new (string, string)[] { ("thing:serverA", "thing:serverB") };
-			}, name: "GetAlphaFiberLinks", ct: cts.Token);
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				var ids = new List<int>();
+				try
+				{
+					// 允许的服务器 defName（lv1/2/3），排除终端
+					var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+					{
+						"RimAI_AIServer_Lv1A","RimAI_AIServer_Lv2A","RimAI_AIServer_Lv3A"
+					};
+					foreach (var map in Find.Maps)
+					{
+						if (map == null) continue;
+						var things = map.listerThings?.AllThings;
+						if (things == null) continue;
+						foreach (var t in things)
+						{
+							if (t == null) continue;
+							var defName = t.def?.defName;
+							if (string.IsNullOrEmpty(defName) || !allowed.Contains(defName)) continue;
+							var power = t.TryGetComp<CompPowerTrader>();
+							if (power == null || !power.PowerOn) continue;
+							ids.Add(t.thingIDNumber);
+						}
+					}
+				}
+				catch { }
+				return (System.Collections.Generic.IReadOnlyList<int>)ids;
+			}, name: "GetPoweredAiServerThingIds", ct: cts.Token);
 		}
 
 		public Task<AiServerSnapshot> GetAiServerSnapshotAsync(string serverId, CancellationToken ct = default)

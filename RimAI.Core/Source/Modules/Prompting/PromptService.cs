@@ -84,6 +84,12 @@ namespace RimAI.Core.Source.Modules.Prompting
             _composers.Add(new Composers.Stage.StageEnvironmentComposer());
             _composers.Add(new Composers.Stage.StageParticipantsComposer());
 
+            // ServerStage Scope：服务器群聊（服务器事实 + 合约约束）
+            _composers.Add(new Composers.ServerStage.ServerStageServerFactsComposer());
+            _composers.Add(new Composers.ServerStage.ServerStageContractComposer());
+            // 复用 ChatUI 的 ColonyStatus 到 ServerStage（用 Scope 适配器包一层）
+            _composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.ColonyStatusComposer(), PromptScope.ServerStage, idOverride: "server_colony_status", orderOverride: 60));
+
             // PersonaBiography Scope：仅系统提示 + 单段User
             var scopeBio = PromptScope.PersonaBiography;
             _composers.Add(new Composers.Persona.PersonaBiographySystemComposer());

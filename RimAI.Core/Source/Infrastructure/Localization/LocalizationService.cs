@@ -62,9 +62,15 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 			}
 			try
 			{
-				// 统一入口：一律通过持久化服务从配置根目录读取
+				// 首选：用户配置根目录
 				var path = $"Localization/Locales/{locale}.json";
 				var json = _persistence.ReadTextUnderConfigOrNullAsync(path).GetAwaiter().GetResult();
+				if (string.IsNullOrWhiteSpace(json))
+				{
+					// 回退：Mod 根目录随包内置（确保开箱可用）
+					var json2 = _persistence.ReadTextUnderModRootOrNullAsync($"Config/RimAI/Localization/Locales/{locale}.json").GetAwaiter().GetResult();
+					json = string.IsNullOrWhiteSpace(json2) ? null : json2;
+				}
 				if (string.IsNullOrWhiteSpace(json))
 				{
 					lock (_gate) { _cache[locale] = new Dictionary<string, string>(); }

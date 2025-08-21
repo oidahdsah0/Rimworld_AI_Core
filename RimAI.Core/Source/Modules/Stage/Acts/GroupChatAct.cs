@@ -102,36 +102,28 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             // 预取：在播放本轮气泡时并发请求下一轮
             Func<int, CancellationToken, Task<string>> startRequest = async (round, token) =>
             {
-                // 优先使用本地化模板（持久化读取），否则回退到 P11 Prompting
+                // 使用 P11 Prompting（Stage Scope）统一构建系统提示（包含参与者白名单与 JSON 数组合约）
                 string locale = req?.Locale;
                 string systemLocal = string.Empty;
-                try { if (_loc != null) systemLocal = _loc.Get(locale, "stage.groupchat.system", string.Empty); } catch { systemLocal = string.Empty; }
+                try
+                {
+                    if (_prompt != null)
+                    {
+                        var reqPrompt = new PromptBuildRequest { Scope = PromptScope.Stage, ConvKey = conv, ParticipantIds = participants, Locale = req?.Locale };
+                        var built = await _prompt.BuildAsync(reqPrompt, token).ConfigureAwait(false);
+                        systemLocal = built?.SystemPrompt ?? string.Empty;
+                    }
+                }
+                catch { systemLocal = string.Empty; }
                 if (string.IsNullOrWhiteSpace(systemLocal))
                 {
-                    try
-                    {
-                        if (_prompt != null)
-                        {
-                            var reqPrompt = new PromptBuildRequest { Scope = PromptScope.Stage, ConvKey = conv, ParticipantIds = participants, Locale = req?.Locale };
-                            var built = await _prompt.BuildAsync(reqPrompt, token).ConfigureAwait(false);
-                            systemLocal = built?.SystemPrompt ?? string.Empty;
-                        }
-                    }
-                    catch { systemLocal = string.Empty; }
+                    // 兜底：最小合约行（含白名单），防止缺本地化/作曲器失败
+                    var whitelist = string.Join(", ", participants.Select((id, i) => $"{i + 1}:{id}"));
+                    systemLocal = $"仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。";
                 }
 
-                string userLocal;
-                if (_loc != null)
-                {
-                    var template = BuildJsonTemplate(participants.Count);
-                    var args = new System.Collections.Generic.Dictionary<string, string> { { "round", round.ToString() }, { "count", participants.Count.ToString() }, { "template", template } };
-                    try { userLocal = _loc.Format(locale, "stage.groupchat.user", args, string.Empty); }
-                    catch { userLocal = BuildUserPromptSimpleMap(participants, round); }
-                }
-                else
-                {
-                    userLocal = BuildUserPromptSimpleMap(participants, round);
-                }
+                // 用户段提示：精简为轮次指示，具体 JSON 合约已在系统提示中给出
+                string userLocal = $"现在，生成第{round}轮群聊。";
                 var chatReqLocal = new RimAI.Framework.Contracts.UnifiedChatRequest
                 {
                     ConversationId = conv,
@@ -165,19 +157,35 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
                 try
                 {
-                    var shaped = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                    if (shaped != null && shaped.Count > 0)
+                    // 解析新契约：仅允许 JSON 数组 [{"speaker":"pawn:<id>","content":"..."}, ...]
+                    var arr = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(json);
+                    var messages = new List<(string speaker, string content)>();
+                    if (arr != null && arr.Count > 0)
+                    {
+                        foreach (var obj in arr)
+                        {
+                            if (obj == null) continue;
+                            object spkObj; object txtObj;
+                            var hasSpk = obj.TryGetValue("speaker", out spkObj);
+                            var hasTxt = obj.TryGetValue("content", out txtObj);
+                            var spk = hasSpk ? spkObj?.ToString() : null;
+                            var txt = hasTxt ? txtObj?.ToString() : null;
+                            if (string.IsNullOrWhiteSpace(spk) || string.IsNullOrWhiteSpace(txt)) continue;
+                            // 白名单校验：speaker 必须在参与者列表内
+                            if (!participants.Contains(spk)) continue;
+                            messages.Add((spk.Trim(), txt.Trim()));
+                        }
+                    }
+
+                    if (messages.Count > 0)
                     {
                         actualRounds++;
-                        // 随机顺序
-                        var items = shaped.ToList();
-                        items.Sort((a,b) => rnd.Next(-1,2));
 
                         // 解析显示名映射（pawn:<id> -> name）
-                        var nameMap = new Dictionary<string,string>();
+                        var nameMap = new Dictionary<string, string>();
                         try
                         {
-                            var ids = participants.Where(x => x != null && x.StartsWith("pawn:")).ToList();
+                            var ids = messages.Select(m => m.speaker).Distinct().Where(x => x != null && x.StartsWith("pawn:")).ToList();
                             foreach (var id in ids)
                             {
                                 try
@@ -187,7 +195,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                                     {
                                         var snap = await _worldData.GetPawnPromptSnapshotAsync(pid, ct).ConfigureAwait(false);
                                         var name = snap?.Id?.Name;
-                                        if (!string.IsNullOrWhiteSpace(name)) nameMap[id] = name; else nameMap[id] = id;
+                                        nameMap[id] = string.IsNullOrWhiteSpace(name) ? id : name;
                                     }
                                 }
                                 catch { nameMap[id] = id; }
@@ -197,16 +205,10 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
                         // 播放气泡并拼接文本，并逐句写入历史（P14 JSON）
                         transcript.AppendLine($"第{r}轮");
-                        foreach (var kv in items)
+                        foreach (var msg in messages)
                         {
-                            var key = kv.Key?.Trim();
-                            var text = kv.Value?.Trim();
-                            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(text)) continue;
-                            // key 形如 "1".."N"；按参与者序列映射到具体 pawn
-                            int idx;
-                            if (!int.TryParse(key, out idx)) idx = 1;
-                            idx = Math.Max(1, Math.Min(participants.Count, idx));
-                            var pidStr = participants[idx - 1];
+                            var pidStr = msg.speaker;
+                            var text = msg.content;
                             int pid;
                             if (!string.IsNullOrWhiteSpace(pidStr) && pidStr.StartsWith("pawn:") && int.TryParse(pidStr.Substring(5), out pid))
                             {
@@ -219,6 +221,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                         }
                         transcript.AppendLine();
                     }
+                    else { aborted = true; break; }
                 }
                 catch { aborted = true; break; }
 

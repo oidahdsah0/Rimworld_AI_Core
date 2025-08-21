@@ -110,7 +110,9 @@ namespace RimAI.Core.Source.Boot
                             Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
                             Container.Resolve<IWorldDataService>(),
                             Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>(),
-                            Container.Resolve<IHistoryService>()
+                            Container.Resolve<IHistoryService>(),
+                            Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>(),
+                            Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>()
                         ));
                         stage.RegisterTrigger(new ProximityGroupChatTrigger());
                         // 移除 AlphaFiberLinkTrigger，改用新的服务器定时触发器

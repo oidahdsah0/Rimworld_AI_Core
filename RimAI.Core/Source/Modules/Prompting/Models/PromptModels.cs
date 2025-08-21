@@ -6,7 +6,8 @@ namespace RimAI.Core.Source.Modules.Prompting.Models
 		Stage,
 		Tool,
 		PersonaBiography,
-		PersonaIdeology
+		PersonaIdeology,
+		ServerStage
 	}
 
 	internal sealed class PromptBuildRequest

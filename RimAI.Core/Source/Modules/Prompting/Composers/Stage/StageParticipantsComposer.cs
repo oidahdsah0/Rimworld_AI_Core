@@ -121,6 +121,9 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.Stage
 					}
 					lines.Add(line);
 				}
+				// 追加：群聊 JSON 合约与白名单（严格输出数组对象，不含解释文本）
+				var whitelist = string.Join(", ", participants.Select((id, i) => $"{i + 1}:{id}"));
+				lines.Add($"仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。");
 			}
 			catch { }
 			return new ComposerOutput { SystemLines = lines, ContextBlocks = Array.Empty<ContextBlock>() };

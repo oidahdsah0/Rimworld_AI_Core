@@ -144,7 +144,7 @@ namespace RimAI.Core.Source.Modules.Orchestration
 					if (!string.IsNullOrWhiteSpace(line))
 					{
 						plan.Add(line);
-						try { await _history.AppendAiNoteAsync(convId, line, ct).ConfigureAwait(false); } catch { }
+						try { await _history.AppendRecordAsync(convId, "ChatUI", "agent:stage", "chat", line, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
 					}
 				}
 
@@ -165,6 +165,13 @@ namespace RimAI.Core.Source.Modules.Orchestration
 						StartedAtUtc = t0,
 						FinishedAtUtc = DateTime.UtcNow
 					});
+					// P14：可选写入工具调用轨迹（tool_call），不推进回合
+					try
+					{
+						string compact = result?.ToString() ?? string.Empty;
+						await _history.AppendRecordAsync(convId, "ChatUI", $"tool:{toolName}", "tool_call", compact, advanceTurn: false, ct: ct).ConfigureAwait(false);
+					}
+					catch { }
 				}
 				catch (NotImplementedException)
 				{

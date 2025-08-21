@@ -27,6 +27,9 @@ namespace RimAI.Core.Source.Modules.World
 		Task<float> GetPawnBeautyAverageAsync(int pawnLoadId, int radius, CancellationToken ct = default);
 		Task<System.Collections.Generic.IReadOnlyList<TerrainCountItem>> GetPawnTerrainCountsAsync(int pawnLoadId, int radius, CancellationToken ct = default);
 		Task<System.Collections.Generic.IReadOnlyList<GameLogItem>> GetRecentGameLogsAsync(int maxCount, CancellationToken ct = default);
+
+		// P14：新增世界时间字符串获取（优先使用游戏内时间/经纬度；失败回退 UTC）
+		Task<string> GetCurrentGameTimeStringAsync(CancellationToken ct = default);
 	}
 }
 

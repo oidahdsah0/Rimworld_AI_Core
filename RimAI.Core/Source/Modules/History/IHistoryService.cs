@@ -8,13 +8,8 @@ namespace RimAI.Core.Source.Modules.History
 {
 	internal interface IHistoryService
 	{
-		// 写入（终端完成一次交互后调用）
-		Task AppendPairAsync(string convKey, string userText, string aiFinalText, CancellationToken ct = default);
-		Task AppendUserAsync(string convKey, string userText, CancellationToken ct = default);
-		Task AppendAiFinalAsync(string convKey, string aiFinalText, CancellationToken ct = default);
-
-		// 新增：写入 AI 过程说明（不推进回合，不参与 Recap 的 Turn 分桶）
-		Task AppendAiNoteAsync(string convKey, string aiNoteText, CancellationToken ct = default);
+		// P14：统一写入入口（JSON 留存：entry/speaker/time/type/content）
+		Task AppendRecordAsync(string convKey, string entry, string speaker, string type, string content, bool advanceTurn, CancellationToken ct = default);
 
 		// 查询（分页）
 		Task<HistoryThread> GetThreadAsync(string convKey, int page = 1, int pageSize = 100, CancellationToken ct = default);
@@ -31,6 +26,8 @@ namespace RimAI.Core.Source.Modules.History
 
 		// 内部查询/元数据（供 P8 Recap/Relations 使用）
 		Task<IReadOnlyList<HistoryEntry>> GetAllEntriesAsync(string convKey, CancellationToken ct = default);
+		// P14：供持久化模块使用的原始 JSON 读取（不解包）
+		Task<IReadOnlyList<HistoryEntry>> GetAllEntriesRawAsync(string convKey, CancellationToken ct = default);
 		bool TryGetEntry(string convKey, string entryId, out HistoryEntry entry);
 		Task UpsertParticipantsAsync(string convKey, IReadOnlyList<string> participantIds, CancellationToken ct = default);
 		IReadOnlyList<string> GetParticipantsOrEmpty(string convKey);

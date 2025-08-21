@@ -10,6 +10,7 @@ using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.Prompting.Models;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Infrastructure.Localization;
+using RimAI.Core.Source.Modules.History;
 
 namespace RimAI.Core.Source.Modules.Stage.Acts
 {
@@ -19,10 +20,11 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 		private readonly IPromptService _prompt;
 		private readonly IWorldDataService _world;
 		private readonly ILocalizationService _loc;
+        private readonly IHistoryService _history;
 
-		public InterServerGroupChatAct(ILLMService llm, IPromptService prompt, IWorldDataService world, ILocalizationService loc)
+		public InterServerGroupChatAct(ILLMService llm, IPromptService prompt, IWorldDataService world, ILocalizationService loc, IHistoryService history)
 		{
-			_llm = llm; _prompt = prompt; _world = world; _loc = loc;
+			_llm = llm; _prompt = prompt; _world = world; _loc = loc; _history = history;
 		}
 
 		public string Name => "InterServerGroupChat";
@@ -118,6 +120,8 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			{
 				var disp = $"服务器{item.idx}";
 				sb.AppendLine($"【{disp}】{item.text}");
+                // 历史写入（每句单独入档，不推进回合）
+                try { if (_history != null) { var speakerId = (item.idx >= 1 && item.idx <= servers.Count) ? servers[item.idx - 1] : $"thing:{item.idx}"; await _history.AppendRecordAsync(conv, $"Stage:{Name}", speakerId, "chat", item.text, advanceTurn: false, ct: ct).ConfigureAwait(false); } } catch { }
 			}
 			var finalText = sb.ToString().TrimEnd();
 			return new ActResult { Completed = true, Reason = "Completed", FinalText = finalText, Rounds = 1 };

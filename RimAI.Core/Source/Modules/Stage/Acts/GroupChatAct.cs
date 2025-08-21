@@ -24,11 +24,12 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
         private readonly ConfigurationService _cfg;
         private readonly IWorldDataService _worldData;
         private readonly IDisplayNameService _display;
+        private readonly RimAI.Core.Source.Modules.History.IHistoryService _history;
         private readonly ILocalizationService _loc;
 
-        public GroupChatAct(ILLMService llm, IWorldActionService worldAction = null, IPromptService prompt = null, IConfigurationService cfg = null, IWorldDataService worldData = null, ILocalizationService loc = null)
+        public GroupChatAct(ILLMService llm, IWorldActionService worldAction = null, IPromptService prompt = null, IConfigurationService cfg = null, IWorldDataService worldData = null, ILocalizationService loc = null, RimAI.Core.Source.Modules.History.IHistoryService history = null)
         {
-            _llm = llm; _worldAction = worldAction; _prompt = prompt; _cfg = cfg as ConfigurationService; _worldData = worldData; _loc = loc;
+            _llm = llm; _worldAction = worldAction; _prompt = prompt; _cfg = cfg as ConfigurationService; _worldData = worldData; _loc = loc; _history = history;
             _display = new DisplayNameAdapter(worldData);
         }
 
@@ -194,7 +195,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                         }
                         catch { }
 
-                        // 播放气泡并拼接文本（禁止 JSON 写入历史）
+                        // 播放气泡并拼接文本，并逐句写入历史（P14 JSON）
                         transcript.AppendLine($"第{r}轮");
                         foreach (var kv in items)
                         {
@@ -214,6 +215,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                             }
                             var disp = nameMap.TryGetValue(pidStr, out var nm) ? nm : pidStr;
                             transcript.AppendLine($"【{disp}】{text}");
+                            try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", pidStr, "chat", text, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
                         }
                         transcript.AppendLine();
                     }

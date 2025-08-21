@@ -102,13 +102,15 @@ namespace RimAI.Core.Source.Boot
                             Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
                             Container.Resolve<IConfigurationService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>(),
-                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>()
+                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>(),
+                            Container.Resolve<IHistoryService>()
                         ));
                         stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.InterServerGroupChatAct(
                             Container.Resolve<ILLMService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
                             Container.Resolve<IWorldDataService>(),
-                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>()
+                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>(),
+                            Container.Resolve<IHistoryService>()
                         ));
                         stage.RegisterTrigger(new ProximityGroupChatTrigger());
                         // 移除 AlphaFiberLinkTrigger，改用新的服务器定时触发器

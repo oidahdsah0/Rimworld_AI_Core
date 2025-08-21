@@ -450,6 +450,27 @@ namespace RimAI.Core.Source.Modules.World
 			}, name: "GetRecentGameLogs", ct: cts.Token);
 		}
 
+		public Task<string> GetCurrentGameTimeStringAsync(CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				try
+				{
+					var abs = Find.TickManager?.TicksAbs ?? 0;
+					int tile = Find.CurrentMap?.Tile ?? 0;
+					var longLat = Find.WorldGrid?.LongLatOf(tile) ?? UnityEngine.Vector2.zero;
+					return GenDate.DateFullStringAt(abs, longLat);
+				}
+				catch
+				{
+					return System.DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
+				}
+			}, name: "GetCurrentGameTimeString", ct: cts.Token);
+		}
+
 		public Task<float> GetBeautyAverageAsync(int centerX, int centerZ, int radius, CancellationToken ct = default)
 		{
 			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;

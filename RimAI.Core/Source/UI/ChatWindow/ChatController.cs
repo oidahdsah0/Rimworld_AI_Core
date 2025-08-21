@@ -103,6 +103,13 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				IsCommand = false
 			};
 			State.Messages.Add(userMsg);
+			// P14：立即写入用户消息（不推进回合）
+			try
+			{
+				var playerId = GetPlayerIdOrNull() ?? "player:unknown";
+				await _history.AppendRecordAsync(State.ConvKey, "ChatUI", playerId, "chat", userText ?? string.Empty, advanceTurn: false, ct: linked).ConfigureAwait(false);
+			}
+			catch { }
 
 			var aiMsg = new ChatMessage
 			{
@@ -194,6 +201,13 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				IsCommand = true
 			};
 			State.Messages.Add(userMsg);
+			// P14：立即写入命令类用户消息（不推进回合）
+			try
+			{
+				var playerId = GetPlayerIdOrNull() ?? "player:unknown";
+				await _history.AppendRecordAsync(State.ConvKey, "ChatUI", playerId, "chat", userText ?? string.Empty, advanceTurn: false, ct: linked).ConfigureAwait(false);
+			}
+			catch { }
 
 			var aiMsg = new ChatMessage
 			{
@@ -344,10 +358,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		public async Task WriteFinalToHistoryIfAnyAsync()
 		{
 			var final = GetLastAiText();
-			var lastUser = FindLast(State.Messages, MessageSender.User);
-			if (lastUser != null && !string.IsNullOrEmpty(final))
+			if (!string.IsNullOrEmpty(final))
 			{
-				await _history.AppendPairAsync(State.ConvKey, lastUser.Text, final);
+				var pawnId = TryGetPawnLoadId();
+				string speaker = pawnId.HasValue ? ($"pawn:{pawnId.Value}") : GetFirstPawnIdOrNull() ?? "agent:stage";
+				try { await _history.AppendRecordAsync(State.ConvKey, "ChatUI", speaker, "chat", final, advanceTurn: true).ConfigureAwait(false); } catch { }
 			}
 		}
 
@@ -395,6 +410,38 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					{
 						var s = id.Substring("pawn:".Length);
 						if (int.TryParse(s, out var v)) return v;
+					}
+				}
+			}
+			catch { }
+			return null;
+		}
+
+		private string GetPlayerIdOrNull()
+		{
+			try
+			{
+				if (State?.ParticipantIds != null)
+				{
+					foreach (var id in State.ParticipantIds)
+					{
+						if (id != null && id.StartsWith("player:")) return id;
+					}
+				}
+			}
+			catch { }
+			return null;
+		}
+
+		private string GetFirstPawnIdOrNull()
+		{
+			try
+			{
+				if (State?.ParticipantIds != null)
+				{
+					foreach (var id in State.ParticipantIds)
+					{
+						if (id != null && id.StartsWith("pawn:")) return id;
 					}
 				}
 			}

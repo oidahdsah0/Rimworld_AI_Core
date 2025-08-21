@@ -389,7 +389,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				var pids = new System.Collections.Generic.List<string> { entityId, playerId };
 				var convKey = BuildConvKey(pids);
 				convKey = Parts.ConversationSwitching.TryReuseExistingConvKey(_history, pids, convKey);
-				_ = _history.AppendUserAsync(convKey, userText);
+				_ = _history.AppendRecordAsync(convKey, "ChatUI", GetOrCreatePlayerSessionId(), "chat", userText, advanceTurn: false);
 			}
 			catch { }
 		}

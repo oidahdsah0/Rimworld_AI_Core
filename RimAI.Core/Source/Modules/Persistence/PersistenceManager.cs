@@ -74,7 +74,7 @@ namespace RimAI.Core.Source.Modules.Persistence
 					foreach (var ck in history.GetAllConvKeys())
 					{
 						var parts = history.GetParticipantsOrEmpty(ck) ?? System.Array.Empty<string>();
-						var entries = history.GetAllEntriesAsync(ck).GetAwaiter().GetResult();
+						var entries = history.GetAllEntriesRawAsync(ck).GetAwaiter().GetResult();
 						var rec = new ConversationRecord { ParticipantIds = parts.ToList(), Entries = new System.Collections.Generic.List<ConversationEntry>() };
 						foreach (var e in entries)
 						{
@@ -195,10 +195,8 @@ namespace RimAI.Core.Source.Modules.Persistence
 						var entries = kv.Value?.Entries ?? new System.Collections.Generic.List<ConversationEntry>();
 						foreach (var e in entries)
 						{
-							if (string.Equals(e.Role, "user", System.StringComparison.OrdinalIgnoreCase))
-								history.AppendUserAsync(convKey, e.Text).GetAwaiter().GetResult();
-							else
-								history.AppendAiFinalAsync(convKey, e.Text).GetAwaiter().GetResult();
+							// e.Text 为 JSON 字符串（P14）；直接导回原始 JSON 内容
+							try { (history as History.HistoryService)?.ImportRawSnapshotEntryAsync(convKey, e.Text, e.TurnOrdinal, new System.DateTime(e.CreatedAtTicksUtc, System.DateTimeKind.Utc)).GetAwaiter().GetResult(); } catch { }
 						}
 					}
 

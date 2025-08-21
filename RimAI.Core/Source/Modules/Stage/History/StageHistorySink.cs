@@ -25,15 +25,13 @@ namespace RimAI.Core.Source.Modules.Stage.History
 			{
 				var stage = _cfg?.GetInternal()?.Stage ?? new CoreConfig.StageSection();
 				var stageConvKey = stage.History?.StageLogConvKey ?? "agent:stage";
-				var header = (stage.History?.HeaderEnabled ?? true)
-					? $"[Act={actName ?? ""}][ConvKey={convKey ?? ""}][Result={result?.Reason ?? ""}][Latency={result?.LatencyMs ?? 0}ms]"
-					: string.Empty;
 				var body = result?.FinalText ?? string.Empty;
 				if (body.Length > (stage.History?.MaxFinalTextChars ?? 800)) body = body.Substring(0, Math.Max(0, (stage.History?.MaxFinalTextChars ?? 800)));
-				var text = string.IsNullOrEmpty(header) ? body : (header + "\n" + body);
+				var entry = $"Stage:{actName ?? ""}";
+				var speaker = "agent:stage";
 				_ = Task.Run(async () =>
 				{
-					try { await _history.AppendAiFinalAsync(stageConvKey, text, CancellationToken.None); }
+					try { await _history.AppendRecordAsync(stageConvKey, entry, speaker, "chat", body, advanceTurn: false, ct: CancellationToken.None).ConfigureAwait(false); }
 					catch { }
 				});
 				return true;

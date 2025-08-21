@@ -29,7 +29,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				lines.Add("[服务器状态]");
 				foreach (var s in list.OrderBy(x => x.EntityId))
 				{
-					lines.Add($"- {s.EntityId} Lv{s.Level} slots={s.InspectionSlots?.Count ?? 0} persona={s.PersonaSlots?.Count ?? 0}");
+					lines.Add($"- {s.EntityId} Lv{s.Level} slots={s.InspectionSlots?.Count ?? 0} persona={s.ServerPersonaSlots?.Count ?? 0}");
 				}
 				output.SystemLines = lines;
 			}

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace RimAI.Core.Source.Modules.Server
 {
@@ -13,9 +14,11 @@ namespace RimAI.Core.Source.Modules.Server
 	{
 		public int Version { get; set; }
 		public string Locale { get; set; }
-		public string Base { get; set; }
+		[JsonProperty("Base")] // 兼容旧字段名
+		public string BaseServerPersonaText { get; set; }
 		public EnvSection Env { get; set; } = new EnvSection();
-		public IReadOnlyList<BasePersonaOption> BaseOptions { get; set; }
+		[JsonProperty("BaseOptions")] // 兼容旧字段名
+		public IReadOnlyList<ServerPersonaOption> ServerPersonaOptions { get; set; }
 
 		internal sealed class EnvSection
 		{
@@ -24,7 +27,7 @@ namespace RimAI.Core.Source.Modules.Server
 			public string temp_high { get; set; }
 		}
 
-		internal sealed class BasePersonaOption
+		internal sealed class ServerPersonaOption
 		{
 			public string key { get; set; }
 			public string title { get; set; }

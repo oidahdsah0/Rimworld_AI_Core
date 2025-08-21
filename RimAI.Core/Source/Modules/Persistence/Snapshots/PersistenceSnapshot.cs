@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 {
@@ -134,12 +135,15 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public string SerialHex12 { get; set; } = string.Empty; // 12位16进制，A..F 大写
 		public int BuiltAtAbsTicks { get; set; } // 建成绝对 Tick（60k=1天）
 
-		// 基础人格（兼容字段：若 PersonaSlots 为空，则回退使用 BasePersona*）
-		public string BasePersonaPresetKey { get; set; } // 可空
-		public string BasePersonaOverride { get; set; } // 可空
+		// 基础人格（兼容字段：若 ServerPersonaSlots 为空，则回退使用 BaseServerPersona*）
+		[JsonProperty("BasePersonaPresetKey")] // 兼容旧字段名
+		public string BaseServerPersonaPresetKey { get; set; } // 可空
+		[JsonProperty("BasePersonaOverride")] // 兼容旧字段名
+		public string BaseServerPersonaOverride { get; set; } // 可空
 
 		// 人格槽位（按等级容量：Lv1=1/Lv2=2/Lv3=3）
-		public List<PersonaSlot> PersonaSlots { get; set; } = new List<PersonaSlot>();
+		[JsonProperty("PersonaSlots")] // 兼容旧字段名
+		public List<ServerPersonaSlot> ServerPersonaSlots { get; set; } = new List<ServerPersonaSlot>();
 
 		// 巡检计划
 		public int InspectionIntervalHours { get; set; } = 24; // 默认 24；最小 6
@@ -159,7 +163,7 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public int? NextDueAbsTicks { get; set; }
 	}
 
-	public sealed class PersonaSlot
+	public sealed class ServerPersonaSlot
 	{
 		public int Index { get; set; } // 0..(capacity-1)
 		public string PresetKey { get; set; } // 预设键，必须存在于 BaseOptions

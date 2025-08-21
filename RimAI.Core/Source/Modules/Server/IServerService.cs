@@ -12,13 +12,13 @@ namespace RimAI.Core.Source.Modules.Server
 		ServerRecord GetOrCreate(string entityId, int level);
 		ServerRecord Get(string entityId);
 		IReadOnlyList<ServerRecord> List();
-		void SetBasePersonaPreset(string entityId, string presetKey);
-		void SetBasePersonaOverride(string entityId, string overrideText);
+		void SetBaseServerPersonaPreset(string entityId, string presetKey);
+		void SetBaseServerPersonaOverride(string entityId, string overrideText);
 
-		// 人格槽位（按等级：Lv1=1 槽，Lv2=2 槽，Lv3=3 槽）
-		void SetPersonaSlot(string entityId, int slotIndex, string presetKey, string overrideText = null);
-		void ClearPersonaSlot(string entityId, int slotIndex);
-		IReadOnlyList<PersonaSlot> GetPersonaSlots(string entityId);
+		// 服务器人格槽位（按等级：Lv1=1 槽，Lv2=2 槽，Lv3=3 槽）
+		void SetServerPersonaSlot(string entityId, int slotIndex, string presetKey, string overrideText = null);
+		void ClearServerPersonaSlot(string entityId, int slotIndex);
+		IReadOnlyList<ServerPersonaSlot> GetServerPersonaSlots(string entityId);
 
 		// 巡检配置
 		void SetInspectionIntervalHours(string entityId, int hours);

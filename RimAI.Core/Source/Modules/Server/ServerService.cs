@@ -43,7 +43,7 @@ namespace RimAI.Core.Source.Modules.Server
 				BuiltAtAbsTicks = GetTicks(),
 				InspectionIntervalHours = 24,
 				InspectionSlots = new List<InspectionSlot>(),
-				PersonaSlots = new List<PersonaSlot>()
+				ServerPersonaSlots = new List<ServerPersonaSlot>()
 			});
 		}
 
@@ -56,41 +56,41 @@ namespace RimAI.Core.Source.Modules.Server
 
 		public IReadOnlyList<ServerRecord> List() => _servers.Values.OrderBy(s => s.EntityId).ToList();
 
-		public void SetBasePersonaPreset(string entityId, string presetKey)
+		public void SetBaseServerPersonaPreset(string entityId, string presetKey)
 		{
 			var s = GetOrThrow(entityId);
-			s.BasePersonaPresetKey = presetKey;
+			s.BaseServerPersonaPresetKey = presetKey;
 		}
 
-		public void SetBasePersonaOverride(string entityId, string overrideText)
+		public void SetBaseServerPersonaOverride(string entityId, string overrideText)
 		{
 			var s = GetOrThrow(entityId);
-			s.BasePersonaOverride = overrideText;
+			s.BaseServerPersonaOverride = overrideText;
 		}
 
-		public void SetPersonaSlot(string entityId, int slotIndex, string presetKey, string overrideText = null)
+		public void SetServerPersonaSlot(string entityId, int slotIndex, string presetKey, string overrideText = null)
 		{
 			var s = GetOrThrow(entityId);
 			var cap = GetPersonaCapacity(s.Level);
 			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
-			EnsurePersonaSlots(s, cap);
-			s.PersonaSlots[slotIndex] = new PersonaSlot { Index = slotIndex, PresetKey = presetKey, OverrideText = overrideText, Enabled = true };
+			EnsureServerPersonaSlots(s, cap);
+			s.ServerPersonaSlots[slotIndex] = new ServerPersonaSlot { Index = slotIndex, PresetKey = presetKey, OverrideText = overrideText, Enabled = true };
 		}
 
-		public void ClearPersonaSlot(string entityId, int slotIndex)
+		public void ClearServerPersonaSlot(string entityId, int slotIndex)
 		{
 			var s = GetOrThrow(entityId);
 			var cap = GetPersonaCapacity(s.Level);
 			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
-			EnsurePersonaSlots(s, cap);
-			s.PersonaSlots[slotIndex] = new PersonaSlot { Index = slotIndex, PresetKey = null, OverrideText = null, Enabled = false };
+			EnsureServerPersonaSlots(s, cap);
+			s.ServerPersonaSlots[slotIndex] = new ServerPersonaSlot { Index = slotIndex, PresetKey = null, OverrideText = null, Enabled = false };
 		}
 
-		public IReadOnlyList<PersonaSlot> GetPersonaSlots(string entityId)
+		public IReadOnlyList<ServerPersonaSlot> GetServerPersonaSlots(string entityId)
 		{
 			var s = GetOrThrow(entityId);
-			EnsurePersonaSlots(s, GetPersonaCapacity(s.Level));
-			return s.PersonaSlots.OrderBy(x => x.Index).ToList();
+			EnsureServerPersonaSlots(s, GetPersonaCapacity(s.Level));
+			return s.ServerPersonaSlots.OrderBy(x => x.Index).ToList();
 		}
 
 		public void SetInspectionIntervalHours(string entityId, int hours)
@@ -180,8 +180,8 @@ namespace RimAI.Core.Source.Modules.Server
 			var s = GetOrThrow(entityId);
 			var preset = await _presets.GetAsync(locale, ct).ConfigureAwait(false);
 			var systemLines = new List<string>();
-			// 基础人格
-			var personaLines = BuildPersonaLines(s, preset);
+			// 服务器人格
+			var personaLines = BuildServerPersonaLines(s, preset);
 			if (personaLines.Count > 0) systemLines.AddRange(personaLines);
 			// 环境变体
 			var tempC = (await _world.GetAiServerSnapshotAsync(entityId, ct).ConfigureAwait(false))?.TemperatureC ?? 37;
@@ -263,11 +263,11 @@ namespace RimAI.Core.Source.Modules.Server
 		private static int GetPersonaCapacity(int level) => level switch { 1 => 1, 2 => 2, _ => 3 };
 		private static int GetInspectionCapacity(int level) => level switch { 1 => 3, 2 => 5, _ => 10 };
 
-		private static void EnsurePersonaSlots(ServerRecord s, int cap)
+		private static void EnsureServerPersonaSlots(ServerRecord s, int cap)
 		{
-			if (s.PersonaSlots == null) s.PersonaSlots = new List<PersonaSlot>();
-			while (s.PersonaSlots.Count < cap) s.PersonaSlots.Add(new PersonaSlot { Index = s.PersonaSlots.Count, Enabled = false });
-			if (s.PersonaSlots.Count > cap) s.PersonaSlots = s.PersonaSlots.Take(cap).ToList();
+			if (s.ServerPersonaSlots == null) s.ServerPersonaSlots = new List<ServerPersonaSlot>();
+			while (s.ServerPersonaSlots.Count < cap) s.ServerPersonaSlots.Add(new ServerPersonaSlot { Index = s.ServerPersonaSlots.Count, Enabled = false });
+			if (s.ServerPersonaSlots.Count > cap) s.ServerPersonaSlots = s.ServerPersonaSlots.Take(cap).ToList();
 		}
 
 		private static void EnsureInspectionSlots(ServerRecord s, int cap)
@@ -309,42 +309,42 @@ namespace RimAI.Core.Source.Modules.Server
 				Level = s.Level,
 				SerialHex12 = s.SerialHex12,
 				BuiltAtAbsTicks = s.BuiltAtAbsTicks,
-				BasePersonaOverride = s.BasePersonaOverride,
-				BasePersonaPresetKey = s.BasePersonaPresetKey,
+				BaseServerPersonaOverride = s.BaseServerPersonaOverride,
+				BaseServerPersonaPresetKey = s.BaseServerPersonaPresetKey,
 				InspectionIntervalHours = s.InspectionIntervalHours,
 				InspectionSlots = (s.InspectionSlots ?? new List<InspectionSlot>()).Select(x => x == null ? null : new InspectionSlot { Index = x.Index, ToolName = x.ToolName, Enabled = x.Enabled, LastRunAbsTicks = x.LastRunAbsTicks, NextDueAbsTicks = x.NextDueAbsTicks }).ToList(),
-				PersonaSlots = (s.PersonaSlots ?? new List<PersonaSlot>()).Select(x => x == null ? null : new PersonaSlot { Index = x.Index, PresetKey = x.PresetKey, OverrideText = x.OverrideText, Enabled = x.Enabled }).ToList(),
+				ServerPersonaSlots = (s.ServerPersonaSlots ?? new List<ServerPersonaSlot>()).Select(x => x == null ? null : new ServerPersonaSlot { Index = x.Index, PresetKey = x.PresetKey, OverrideText = x.OverrideText, Enabled = x.Enabled }).ToList(),
 				LastSummaryText = s.LastSummaryText,
 				LastSummaryAtAbsTicks = s.LastSummaryAtAbsTicks
 			};
 		}
 
-		private static List<string> BuildPersonaLines(ServerRecord s, ServerPromptPreset preset)
+		private static List<string> BuildServerPersonaLines(ServerRecord s, ServerPromptPreset preset)
 		{
 			var lines = new List<string>();
-			bool hasSlots = s.PersonaSlots != null && s.PersonaSlots.Any(x => x != null && x.Enabled && (!string.IsNullOrWhiteSpace(x.OverrideText) || !string.IsNullOrWhiteSpace(x.PresetKey)));
+			bool hasSlots = s.ServerPersonaSlots != null && s.ServerPersonaSlots.Any(x => x != null && x.Enabled && (!string.IsNullOrWhiteSpace(x.OverrideText) || !string.IsNullOrWhiteSpace(x.PresetKey)));
 			if (hasSlots)
 			{
-				foreach (var slot in s.PersonaSlots.OrderBy(x => x.Index))
+				foreach (var slot in s.ServerPersonaSlots.OrderBy(x => x.Index))
 				{
 					if (slot == null || !slot.Enabled) continue;
 					if (!string.IsNullOrWhiteSpace(slot.OverrideText)) { lines.Add(slot.OverrideText); continue; }
 					if (!string.IsNullOrWhiteSpace(slot.PresetKey))
 					{
-						var opt = preset?.BaseOptions?.FirstOrDefault(o => string.Equals(o.key, slot.PresetKey, StringComparison.OrdinalIgnoreCase));
+						var opt = preset?.ServerPersonaOptions?.FirstOrDefault(o => string.Equals(o.key, slot.PresetKey, StringComparison.OrdinalIgnoreCase));
 						if (opt != null && !string.IsNullOrWhiteSpace(opt.text)) lines.Add(opt.text);
 					}
 				}
 			}
 			else
 			{
-				if (!string.IsNullOrWhiteSpace(s.BasePersonaOverride)) lines.Add(s.BasePersonaOverride);
-				else if (!string.IsNullOrWhiteSpace(s.BasePersonaPresetKey))
+				if (!string.IsNullOrWhiteSpace(s.BaseServerPersonaOverride)) lines.Add(s.BaseServerPersonaOverride);
+				else if (!string.IsNullOrWhiteSpace(s.BaseServerPersonaPresetKey))
 				{
-					var opt = preset?.BaseOptions?.FirstOrDefault(o => string.Equals(o.key, s.BasePersonaPresetKey, StringComparison.OrdinalIgnoreCase));
+					var opt = preset?.ServerPersonaOptions?.FirstOrDefault(o => string.Equals(o.key, s.BaseServerPersonaPresetKey, StringComparison.OrdinalIgnoreCase));
 					if (opt != null && !string.IsNullOrWhiteSpace(opt.text)) lines.Add(opt.text);
 				}
-				else if (!string.IsNullOrWhiteSpace(preset?.Base)) lines.Add(preset.Base);
+				else if (!string.IsNullOrWhiteSpace(preset?.BaseServerPersonaText)) lines.Add(preset.BaseServerPersonaText);
 			}
 			return lines;
 		}

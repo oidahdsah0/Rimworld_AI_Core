@@ -9,6 +9,10 @@
   <RimAI.Settings.Important.ToolingEnabled>Enable Tooling</RimAI.Settings.Important.ToolingEnabled>
   <RimAI.Settings.Important.DangerousConfirm>Confirm dangerous operations</RimAI.Settings.Important.DangerousConfirm>
   <RimAI.Settings.Important.LlmTimeout>LLM default timeout (ms)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Important.ToolCallMode>Tool Call Mode</RimAI.Settings.Important.ToolCallMode>
+  <RimAI.Settings.Important.ToolCallMode.Option.Classic>Classic</RimAI.Settings.Important.ToolCallMode.Option.Classic>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK>TopK</RimAI.Settings.Important.ToolCallMode.Option.TopK>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>TopK (Embedding OFF)</RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>
   <RimAI.Settings.Actions.Apply>Apply</RimAI.Settings.Actions.Apply>
   <RimAI.Settings.Actions.Reset>Reset</RimAI.Settings.Actions.Reset>
   <RimAI.Settings.Note.RestartMaybeRequired>Some changes may require restart to fully take effect.</RimAI.Settings.Note.RestartMaybeRequired>

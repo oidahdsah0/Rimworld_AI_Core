@@ -41,6 +41,19 @@ namespace RimAI.Core.Source.Modules.Orchestration
 			}
 
 			var mode = options?.Mode ?? OrchestrationMode.Classic;
+			// 若模式为 NarrowTopK，但当前 TopK 不可用（Embedding 关闭），则返回明确错误，不自动降级
+			if (mode == OrchestrationMode.NarrowTopK)
+			{
+				try
+				{
+					var topkAvailable = (_tooling as RimAI.Core.Source.Modules.Tooling.IToolRegistryService)?.IsTopKAvailable() ?? false;
+					if (!topkAvailable)
+					{
+						return new ToolCallsResult { Mode = mode, Profile = profile, IsSuccess = false, Error = "embedding_disabled", ExposedTools = Array.Empty<string>(), DecidedCalls = Array.Empty<ToolCallRecord>(), Executions = Array.Empty<ToolExecutionRecord>(), TotalLatencyMs = 0 };
+					}
+				}
+				catch { }
+			}
 			var start = DateTime.UtcNow;
 			var toolsTuple = mode == OrchestrationMode.Classic
 				? await _classic.GetToolsAsync(userInput, participantIds, mode, options, ct).ConfigureAwait(false)

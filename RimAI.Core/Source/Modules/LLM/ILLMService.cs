@@ -82,6 +82,9 @@ namespace RimAI.Core.Source.Modules.LLM
 		Task<RimAI.Framework.Contracts.Result<bool>> InvalidateConversationCacheAsync(
 			string conversationId,
 			CancellationToken cancellationToken = default);
+
+		// Embedding 开关桥接：从 Framework 读取总开关状态（UI/Tooling 门禁使用）
+		bool IsEmbeddingEnabled();
 	}
 }
 

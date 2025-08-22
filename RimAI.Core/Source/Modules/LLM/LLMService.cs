@@ -454,6 +454,11 @@ namespace RimAI.Core.Source.Modules.LLM
 			return RimAIApi.InvalidateConversationCacheAsync(conversationId, cancellationToken);
 		}
 
+		public bool IsEmbeddingEnabled()
+		{
+			try { return RimAIApi.IsEmbeddingEnabled(); } catch { return false; }
+		}
+
 		private static CancellationTokenSource CreateLinkedCtsWithDefaultTimeout(CancellationToken callerToken, int defaultTimeoutMs)
 		{
 			var cts = CancellationTokenSource.CreateLinkedTokenSource(callerToken);

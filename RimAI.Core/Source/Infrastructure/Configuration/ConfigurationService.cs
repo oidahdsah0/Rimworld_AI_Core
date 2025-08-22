@@ -39,11 +39,13 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 
         private static CoreConfigSnapshot MapToSnapshot(CoreConfig cfg)
         {
+            // 优先使用包含 ToolCallMode 的构造，确保对外可见。
             return new CoreConfigSnapshot(
                 version: cfg.Version,
                 locale: cfg.General.Locale,
                 debugPanelEnabled: cfg.UI.DebugPanelEnabled,
-                verboseLogs: cfg.Diagnostics.VerboseLogs
+                verboseLogs: cfg.Diagnostics.VerboseLogs,
+                toolCallMode: (cfg?.Tooling != null) ? cfg.Tooling.ToolCallMode : RimAI.Core.Contracts.Config.ToolCallMode.Classic
             );
         }
 

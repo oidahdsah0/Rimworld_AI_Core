@@ -9,6 +9,10 @@
   <RimAI.Settings.Important.ToolingEnabled>Включить систему инструментов</RimAI.Settings.Important.ToolingEnabled>
   <RimAI.Settings.Important.DangerousConfirm>Подтверждать опасные действия</RimAI.Settings.Important.DangerousConfirm>
   <RimAI.Settings.Important.LlmTimeout>Тайм-аут LLM по умолчанию (мс)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Important.ToolCallMode>Режим вызова инструментов</RimAI.Settings.Important.ToolCallMode>
+  <RimAI.Settings.Important.ToolCallMode.Option.Classic>Классический</RimAI.Settings.Important.ToolCallMode.Option.Classic>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK>TopK</RimAI.Settings.Important.ToolCallMode.Option.TopK>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>TopK (вектор отключён)</RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>
   <RimAI.Settings.Actions.Apply>Применить</RimAI.Settings.Actions.Apply>
   <RimAI.Settings.Actions.Reset>Сбросить</RimAI.Settings.Actions.Reset>
   <RimAI.Settings.Note.RestartMaybeRequired>Некоторые изменения требуют перезапуска.</RimAI.Settings.Note.RestartMaybeRequired>

@@ -161,7 +161,16 @@ namespace RimAI.Core.Source.Boot
                 _ = Container.Resolve<ILLMService>();
                 // P4: ensure tooling index attempt load (non-blocking)
                 try { _ = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>(); } catch { }
-                Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
+                try
+                {
+                    var toolingSvc = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
+                    var topkAvail = toolingSvc?.IsTopKAvailable() ?? false;
+                    Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms, topk_available={topkAvail})");
+                }
+                catch
+                {
+                    Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
+                }
 
                 // 初始化设置窗口（注册分区）
                 try

@@ -23,6 +23,9 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 		private bool _overrideLocale;
 		private string _overrideLocaleValue;
         private string _autoLocaleDisplay;
+        // 新增：Tool Call 模式（默认 Classic）
+        private RimAI.Core.Contracts.Config.ToolCallMode _toolCallMode = RimAI.Core.Contracts.Config.ToolCallMode.Classic;
+        private bool _embeddingEnabled;
 
 		public ImportantSettingsSection()
 		{
@@ -38,6 +41,9 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 				_dangerousConfirm = _cfgInternal?.GetToolingConfig()?.DangerousToolConfirmation ?? false;
 				_llmTimeoutMs = _cfgInternal?.GetLlmConfig()?.DefaultTimeoutMs ?? 15000;
 				_overrideLocaleValue = _cfgInternal?.GetPromptLocaleOverrideOrNull();
+                // 读取模式与 Embedding 开关
+                try { _toolCallMode = (_config?.Current != null) ? _config.Current.ToolCallMode : RimAI.Core.Contracts.Config.ToolCallMode.Classic; } catch { _toolCallMode = RimAI.Core.Contracts.Config.ToolCallMode.Classic; }
+                try { var llm = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.LLM.ILLMService>(); _embeddingEnabled = llm?.IsEmbeddingEnabled() ?? false; } catch { _embeddingEnabled = false; }
 			}
 			catch { }
 		}
@@ -113,6 +119,23 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 			timeoutStr = listing.TextEntryLabeled("RimAI.Settings.Important.LlmTimeout".Translate().ToString(), timeoutStr);
 			if (int.TryParse(timeoutStr, out var parsed)) _llmTimeoutMs = Math.Max(1000, parsed);
 
+			// Tool Call 模式下拉
+			listing.GapLine();
+			var modeLabel = "RimAI.Settings.Important.ToolCallMode".Translate().ToString();
+			var textClassic = "RimAI.Settings.Important.ToolCallMode.Option.Classic".Translate().ToString();
+			var textTopK = "RimAI.Settings.Important.ToolCallMode.Option.TopK".Translate().ToString();
+			var textTopKDisabled = "RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled".Translate().ToString();
+			Widgets.Label(new Rect(rect.x, listing.CurHeight, rect.width, 24f), modeLabel);
+			listing.Gap(26f);
+			if (Widgets.ButtonText(new Rect(rect.x, listing.CurHeight, 220f, 28f), _toolCallMode == RimAI.Core.Contracts.Config.ToolCallMode.Classic ? textClassic : textTopK))
+			{
+				var menu = new System.Collections.Generic.List<FloatMenuOption>();
+				menu.Add(new FloatMenuOption(textClassic, () => { _toolCallMode = RimAI.Core.Contracts.Config.ToolCallMode.Classic; }, MenuOptionPriority.Default));
+				var topkLabel = _embeddingEnabled ? textTopK : textTopKDisabled;
+				menu.Add(new FloatMenuOption(topkLabel, () => { if (_embeddingEnabled) _toolCallMode = RimAI.Core.Contracts.Config.ToolCallMode.TopK; }, MenuOptionPriority.Default));
+				Find.WindowStack.Add(new FloatMenu(menu));
+			}
+
 			listing.GapLine();
 			if (listing.ButtonText("RimAI.Settings.Actions.Apply".Translate().ToString()))
 			{
@@ -157,6 +180,26 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 				{
 					var target = _overrideLocaleValue.Trim();
 					if (_loc != null) _loc.SetDefaultLocale(target);
+				}
+				// 写入 Tool Call 模式（内部配置→快照）
+				var tooling = _cfgInternal?.GetToolingConfig();
+				if (tooling != null)
+				{
+					tooling.ToolCallMode = _toolCallMode;
+				}
+
+				// 若选择 TopK，保存时立即检查索引；若缺失则触发一次构建并持久化
+				try
+				{
+					if (_toolCallMode == RimAI.Core.Contracts.Config.ToolCallMode.TopK && _embeddingEnabled)
+					{
+						var toolingSvc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
+						_ = System.Threading.Tasks.Task.Run(async () => await toolingSvc.EnsureIndexReadyAsync(true));
+					}
+				}
+				catch (System.Exception ex)
+				{
+					Verse.Log.Warning("[RimAI.Core][P4] ensure_index_on_save warn: " + ex.Message);
 				}
 				// 广播新快照
 				if (_cfgInternal != null) _cfgInternal.Reload();

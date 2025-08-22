@@ -126,6 +126,8 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 			public string[] Whitelist { get; set; } = System.Array.Empty<string>();
 			public string[] Blacklist { get; set; } = System.Array.Empty<string>();
 			public bool DangerousToolConfirmation { get; set; } = false;
+			// 新增：工具调用模式（默认 Classic）
+			public RimAI.Core.Contracts.Config.ToolCallMode ToolCallMode { get; set; } = RimAI.Core.Contracts.Config.ToolCallMode.Classic;
 			public EmbeddingSection Embedding { get; set; } = new();
 			public NarrowTopKSection NarrowTopK { get; set; } = new();
 			public IndexFilesSection IndexFiles { get; set; } = new();

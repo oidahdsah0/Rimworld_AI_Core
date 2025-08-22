@@ -9,6 +9,10 @@
   <RimAI.Settings.Important.ToolingEnabled>Activer le système d'outils</RimAI.Settings.Important.ToolingEnabled>
   <RimAI.Settings.Important.DangerousConfirm>Confirmer les opérations dangereuses</RimAI.Settings.Important.DangerousConfirm>
   <RimAI.Settings.Important.LlmTimeout>Délai par défaut LLM (ms)</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Important.ToolCallMode>Mode d'appel d'outils</RimAI.Settings.Important.ToolCallMode>
+  <RimAI.Settings.Important.ToolCallMode.Option.Classic>Classique</RimAI.Settings.Important.ToolCallMode.Option.Classic>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK>TopK</RimAI.Settings.Important.ToolCallMode.Option.TopK>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>TopK (Embedding désactivé)</RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>
   <RimAI.Settings.Actions.Apply>Appliquer</RimAI.Settings.Actions.Apply>
   <RimAI.Settings.Actions.Reset>Réinitialiser</RimAI.Settings.Actions.Reset>
   <RimAI.Settings.Note.RestartMaybeRequired>Certains changements peuvent nécessiter un redémarrage.</RimAI.Settings.Note.RestartMaybeRequired>

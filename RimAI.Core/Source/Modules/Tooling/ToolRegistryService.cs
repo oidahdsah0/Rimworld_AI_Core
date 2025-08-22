@@ -22,6 +22,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 		private readonly ToolIndexManager _index;
 		private readonly ConfigurationService _cfgService;
 		private readonly ILocalizationService _loc;
+        private readonly bool _topkAvailable;
 
 		// 简化：先用内存中的演示工具列表；后续可加 ToolDiscovery 反射扫描
 		private readonly List<IRimAITool> _allTools;
@@ -44,6 +45,8 @@ namespace RimAI.Core.Source.Modules.Tooling
 			// 读取内部配置（构造函数注入，禁止 Service Locator）
 			_cfgService = configurationService as ConfigurationService;
 			_loc = localization;
+			// Embedding 总开关：由 LLMService 桥接 Framework 的 IsEmbeddingEnabled
+			try { _topkAvailable = _llm?.IsEmbeddingEnabled() ?? false; } catch { _topkAvailable = false; }
 			var tooling = _cfgService?.GetToolingConfig();
 			if (tooling == null) tooling = new CoreConfig.ToolingSection();
 			_indexBasePath = tooling.IndexFiles?.BasePath ?? "Config/RimAI/Indices";
@@ -100,8 +103,14 @@ namespace RimAI.Core.Source.Modules.Tooling
 			return new ToolClassicResult { ToolsJson = json.ToList() };
 		}
 
+		public bool IsTopKAvailable() => _topkAvailable;
+
 		public async Task<ToolNarrowTopKResult> GetNarrowTopKToolCallSchemaAsync(string userInput, int k, double? minScore, ToolQueryOptions options = null, CancellationToken ct = default)
 		{
+			if (!_topkAvailable)
+			{
+				throw new ToolIndexNotReadyException("embedding_disabled");
+			}
 			if (!_index.IsReady())
 			{
 				throw new ToolIndexNotReadyException("index_not_ready");
@@ -300,6 +309,63 @@ namespace RimAI.Core.Source.Modules.Tooling
 		public Task EnsureIndexBuiltAsync(CancellationToken ct = default) => _index.EnsureBuiltAsync(_provider, _model, _dimension, _instruction, _weights, BuildRecordsAsync, _indexBasePath, _indexFileName, ct);
 		public Task RebuildIndexAsync(CancellationToken ct = default) => _index.RebuildAsync(_provider, _model, _dimension, _instruction, _weights, BuildRecordsAsync, _indexBasePath, _indexFileName, ct);
 		public void MarkIndexStale() => _index.MarkStale();
+
+		public async Task EnsureIndexReadyAsync(bool rebuildIfMissing, CancellationToken ct = default)
+		{
+			if (!_topkAvailable) return;
+			if (_index.IsReady()) return;
+			var snap = await _index.TryLoadAsync(_provider, _model, _indexBasePath, _indexFileName, ct).ConfigureAwait(false);
+			if (snap == null && rebuildIfMissing)
+			{
+				await _index.EnsureBuiltAsync(_provider, _model, _dimension, _instruction, _weights, BuildRecordsAsync, _indexBasePath, _indexFileName, ct).ConfigureAwait(false);
+			}
+		}
+
+		public async Task<(IReadOnlyList<string> toolsJson, IReadOnlyList<(string name, double score)> scores, string error)> BuildToolsAsync(
+			RimAI.Core.Contracts.Config.ToolCallMode mode,
+			string userInput,
+			int? k,
+			double? minScore,
+			ToolQueryOptions options = null,
+			CancellationToken ct = default)
+		{
+			if (mode == ToolCallMode.TopK)
+			{
+				if (!_topkAvailable)
+				{
+					return (Array.Empty<string>(), Array.Empty<(string, double)>(), "embedding_disabled");
+				}
+				try
+				{
+					var res = await GetNarrowTopKToolCallSchemaAsync(userInput ?? string.Empty, Math.Max(1, k ?? 5), minScore, options, ct).ConfigureAwait(false);
+					var scores = res.Scores?.Select(s => (s.ToolName ?? string.Empty, s.Score)).ToList() ?? new List<(string,double)>();
+					return (res.ToolsJson ?? Array.Empty<string>(), scores, null);
+				}
+				catch (ToolIndexNotReadyException ex)
+				{
+					return (Array.Empty<string>(), Array.Empty<(string,double)>(), ex.Message ?? "index_not_ready");
+				}
+			}
+			else
+			{
+				var res = GetClassicToolCallSchema(options);
+				var names = res.ToolsJson?.Take(5).Select(j => ExtractName(j)).Where(n => !string.IsNullOrEmpty(n)).Select(n => (n, 1.0)).ToList() ?? new List<(string,double)>();
+				return (res.ToolsJson ?? Array.Empty<string>(), names, null);
+			}
+		}
+
+		private static string ExtractName(string toolJson)
+		{
+			if (string.IsNullOrEmpty(toolJson)) return null;
+			var key = "\"Name\":";
+			var idx = toolJson.IndexOf(key);
+			if (idx < 0) return null;
+			idx += key.Length;
+			while (idx < toolJson.Length && (toolJson[idx] == ' ' || toolJson[idx] == '\t' || toolJson[idx] == '"' || toolJson[idx] == '\'' || toolJson[idx] == ':')) idx++;
+			var end = idx;
+			while (end < toolJson.Length && toolJson[end] != '"' && toolJson[end] != '\'' && toolJson[end] != ',' && toolJson[end] != '}') end++;
+			return toolJson.Substring(idx, end - idx).Trim('"','\'',' ');
+		}
 
 		private async Task<List<ToolEmbeddingRecord>> BuildRecordsAsync(CancellationToken ct)
 		{

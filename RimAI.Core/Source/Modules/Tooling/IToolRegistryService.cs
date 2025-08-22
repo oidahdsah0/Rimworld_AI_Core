@@ -53,6 +53,21 @@ internal interface IToolRegistryService
 
 	// 新增：检查索引中的工具名集合与当前注册工具列表是否一致
 	Task<bool> CheckIndexMatchesToolsAsync(CancellationToken ct = default);
+
+	// 统一入口：根据模式返回工具列表（Classic=全量；TopK=窄集合）
+	Task<(System.Collections.Generic.IReadOnlyList<string> toolsJson, System.Collections.Generic.IReadOnlyList<(string name, double score)> scores, string error)> BuildToolsAsync(
+		RimAI.Core.Contracts.Config.ToolCallMode mode,
+		string userInput,
+		int? k,
+		double? minScore,
+		ToolQueryOptions options = null,
+		CancellationToken ct = default);
+
+	// TopK 可用性：当前是否允许 TopK（Embedding 开关）
+	bool IsTopKAvailable();
+
+	// 确保索引就绪（可选：缺失时构建）
+	Task EnsureIndexReadyAsync(bool rebuildIfMissing, CancellationToken ct = default);
 }
 }
 

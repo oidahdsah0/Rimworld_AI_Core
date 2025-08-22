@@ -9,6 +9,10 @@
   <RimAI.Settings.Important.ToolingEnabled>启用工具系统</RimAI.Settings.Important.ToolingEnabled>
   <RimAI.Settings.Important.DangerousConfirm>危险操作二次确认</RimAI.Settings.Important.DangerousConfirm>
   <RimAI.Settings.Important.LlmTimeout>LLM 默认超时（毫秒）</RimAI.Settings.Important.LlmTimeout>
+  <RimAI.Settings.Important.ToolCallMode>Tool Call 模式</RimAI.Settings.Important.ToolCallMode>
+  <RimAI.Settings.Important.ToolCallMode.Option.Classic>经典</RimAI.Settings.Important.ToolCallMode.Option.Classic>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK>TopK</RimAI.Settings.Important.ToolCallMode.Option.TopK>
+  <RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>TopK（Embedding 关闭）</RimAI.Settings.Important.ToolCallMode.Option.TopK.Disabled>
   <RimAI.Settings.Actions.Apply>应用</RimAI.Settings.Actions.Apply>
   <RimAI.Settings.Actions.Reset>重置</RimAI.Settings.Actions.Reset>
   <RimAI.Settings.Note.RestartMaybeRequired>部分设置可能需重启后完全生效。</RimAI.Settings.Note.RestartMaybeRequired>

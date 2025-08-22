@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+	<RimAI.ServerChatUI.Button.BackToChat>对话</RimAI.ServerChatUI.Button.BackToChat>
+	<RimAI.ServerChatUI.Button.Persona>人格设置</RimAI.ServerChatUI.Button.Persona>
+	<RimAI.ServerChatUI.Button.InterComms>服务器间通信</RimAI.ServerChatUI.Button.InterComms>
+	<RimAI.ServerChatUI.Button.History>历史记录</RimAI.ServerChatUI.Button.History>
+	<RimAI.ServerChatUI.Header.None>未选中服务器</RimAI.ServerChatUI.Header.None>
+</LanguageData>
+
+

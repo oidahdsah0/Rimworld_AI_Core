@@ -94,6 +94,52 @@ namespace RimAI.Core.Source.Modules.Persistence
                 int schemaVersion = 2;
                 Scribe_Values.Look(ref schemaVersion, "schemaVersion", 2);
 				var convs = snapshot?.History?.Conversations ?? new System.Collections.Generic.Dictionary<string, Snapshots.ConversationRecord>();
+				// 在写入前，按“发言条目”为单位进行截断，直到序列化后的单节点字符串长度符合限制
+				try
+				{
+					const int scribeStringNodeMax = 32760; // 与 Scribe_Poco 中的字符串节点上限保持一致
+					const int safetyMargin = 256;          // 预留安全余量，避免边界误差
+					int limit = scribeStringNodeMax - safetyMargin;
+					foreach (var key in convs.Keys.ToList())
+					{
+						var rec = convs[key];
+						if (rec == null) continue;
+						var entries = rec.Entries ?? new System.Collections.Generic.List<Snapshots.ConversationEntry>();
+						// 快速路径：无需截断
+						try
+						{
+							var initialLen = Newtonsoft.Json.JsonConvert.SerializeObject(rec).Length;
+							if (initialLen <= limit) continue;
+						}
+						catch { }
+
+						// 二分保留“最近 mid 条”发言，寻找最大可容纳条数
+						int total = entries.Count;
+						int low = 0, high = total; // 保留区间大小
+						while (low < high)
+						{
+							int mid = (low + high + 1) / 2;
+							var test = new Snapshots.ConversationRecord
+							{
+								ParticipantIds = rec.ParticipantIds?.ToList() ?? new System.Collections.Generic.List<string>(),
+								Entries = mid > 0 ? entries.Skip(total - mid).ToList() : new System.Collections.Generic.List<Snapshots.ConversationEntry>()
+							};
+							int len;
+							try { len = Newtonsoft.Json.JsonConvert.SerializeObject(test).Length; }
+							catch { len = int.MaxValue; }
+							if (len <= limit) low = mid; else high = mid - 1;
+						}
+						if (low < total)
+						{
+							var kept = low > 0 ? entries.Skip(total - low).ToList() : new System.Collections.Generic.List<Snapshots.ConversationEntry>();
+							rec.Entries = kept;
+							var removed = total - low;
+							try { Log.Message($"[RimAI.Core][P6.Persistence] truncate=ConversationsV2 convId={key}, removed={removed}, kept={low}"); } catch { }
+						}
+					}
+				}
+				catch { }
+
                 Scribe_Poco.LookJsonDict(ref convs, "items");
                 Scribe.ExitNode();
                 nodeSw.Stop();

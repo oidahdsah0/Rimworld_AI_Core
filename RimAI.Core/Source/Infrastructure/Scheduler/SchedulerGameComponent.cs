@@ -63,8 +63,8 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				KickoffToolIndexVerifyAsync();
 			}
 
-			// P13：在第 2500 Tick 后尝试发现服务器并注册周期任务（幂等）
-			if (tick == 2500)
+			// P13：在第 1000 Tick 后尝试发现服务器并注册周期任务（幂等）
+			if (tick == 1000)
 			{
 				try
 				{

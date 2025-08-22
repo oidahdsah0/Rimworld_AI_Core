@@ -123,34 +123,7 @@ namespace RimAI.Core.Source.Boot
                 }
                 catch { }
 
-                // P13: 启动/进入地图后，自动发现通电服务器并注册周期任务（后台）
-                try
-                {
-                    var world = Container.Resolve<IWorldDataService>();
-                    var server = Container.Resolve<IServerService>();
-                    var scheduler = Container.Resolve<ISchedulerService>();
-                    _ = System.Threading.Tasks.Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var ids = await world.GetPoweredAiServerThingIdsAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
-                            foreach (var id in ids)
-                            {
-                                var entityId = $"thing:{id}";
-                                int level = 1;
-                                try { level = await world.GetAiServerLevelAsync(id).ConfigureAwait(false); } catch { level = 1; }
-                                server.GetOrCreate(entityId, level);
-                            }
-                            server.StartAllSchedulers(System.Threading.CancellationToken.None);
-                            Verse.Log.Message($"[RimAI.Core][P13] discovered_servers={ids?.Count ?? 0}; periodic_registered=true");
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Verse.Log.Error($"[RimAI.Core][P13] discover/start schedulers failed: {ex.Message}");
-                        }
-                    });
-                }
-                catch { }
+                // P13: Server 周期任务发现与注册改由 SchedulerGameComponent 在 tick=2500 触发（避免加载早期世界数据未就绪导致的超时/取消）
 
                 // Harmony patches (UI button etc.)
                 var harmony = new Harmony("kilokio.rimai.core");

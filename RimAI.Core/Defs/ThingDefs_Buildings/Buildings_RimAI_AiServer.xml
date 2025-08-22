@@ -17,14 +17,16 @@
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
       <MaxHitPoints>450</MaxHitPoints>
-      <WorkToBuild>2200</WorkToBuild>
+      <WorkToBuild>2000</WorkToBuild>
       <Flammability>0.8</Flammability>
       <Mass>45</Mass>
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>120</Steel>
-      <ComponentIndustrial>3</ComponentIndustrial>
+      <Steel>240</Steel>
+      <ComponentIndustrial>6</ComponentIndustrial>
+      <Silver>200</Silver>
+      <Gold>10</Gold>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>
@@ -73,15 +75,17 @@
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
       <MaxHitPoints>450</MaxHitPoints>
-      <WorkToBuild>2200</WorkToBuild>
+      <WorkToBuild>4500</WorkToBuild>
       <Flammability>0.8</Flammability>
       <Mass>45</Mass>
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>180</Steel>
-      <ComponentIndustrial>6</ComponentIndustrial>
-      <Plasteel>50</Plasteel>
+      <Steel>360</Steel>
+      <ComponentIndustrial>12</ComponentIndustrial>
+      <Plasteel>100</Plasteel>
+      <Silver>400</Silver>
+      <Gold>25</Gold>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>
@@ -131,16 +135,17 @@
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
       <MaxHitPoints>450</MaxHitPoints>
-      <WorkToBuild>2200</WorkToBuild>
+      <WorkToBuild>7600</WorkToBuild>
       <Flammability>0.8</Flammability>
       <Mass>45</Mass>
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>240</Steel>
-      <ComponentSpacer>6</ComponentSpacer>
-      <Plasteel>120</Plasteel>
-      <AdvancedComponent>2</AdvancedComponent>
+      <Steel>480</Steel>
+      <ComponentSpacer>16</ComponentSpacer>
+      <Plasteel>240</Plasteel>
+      <Silver>800</Silver>
+      <Gold>50</Gold>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>
@@ -185,7 +190,7 @@
     <selectable>true</selectable>
     <designationCategory>RimAI</designationCategory>
     <researchPrerequisites>
-      <li>RimAI_AIServers</li>
+      <li>RimAI_AI_Level1</li>
     </researchPrerequisites>
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>

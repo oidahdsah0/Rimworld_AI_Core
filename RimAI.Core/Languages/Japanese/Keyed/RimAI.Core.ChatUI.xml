@@ -41,9 +41,9 @@
   <RimAI.ChatUI.Input.Cancel>通信を中断</RimAI.ChatUI.Input.Cancel>
 
   <!-- Indicator lights -->
-  <RimAI.ChatUI.Indicator.Data>データ</RimAI.ChatUI.Indicator.Data>
-  <RimAI.ChatUI.Indicator.Busy>ビジー</RimAI.ChatUI.Indicator.Busy>
-  <RimAI.ChatUI.Indicator.Finish>完了</RimAI.ChatUI.Indicator.Finish>
+  <RimAI.ChatUI.Indicator.Data>Data</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>Busy</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>Fin</RimAI.ChatUI.Indicator.Finish>
 
   <!-- Common messages -->
   <RimAI.ChatUI.Common.NoPawnSelected>有効な入植者が選択されていません</RimAI.ChatUI.Common.NoPawnSelected>

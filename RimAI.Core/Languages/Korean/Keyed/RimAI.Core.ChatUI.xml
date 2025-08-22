@@ -41,9 +41,9 @@
   <RimAI.ChatUI.Input.Cancel>통신 중단</RimAI.ChatUI.Input.Cancel>
 
   <!-- Indicator lights -->
-  <RimAI.ChatUI.Indicator.Data>데이터</RimAI.ChatUI.Indicator.Data>
-  <RimAI.ChatUI.Indicator.Busy>바쁨</RimAI.ChatUI.Indicator.Busy>
-  <RimAI.ChatUI.Indicator.Finish>완료</RimAI.ChatUI.Indicator.Finish>
+  <RimAI.ChatUI.Indicator.Data>Data</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>Busy</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>Fin</RimAI.ChatUI.Indicator.Finish>
 
   <!-- Common messages -->
   <RimAI.ChatUI.Common.NoPawnSelected>유효한 정착민이 선택되지 않았습니다</RimAI.ChatUI.Common.NoPawnSelected>

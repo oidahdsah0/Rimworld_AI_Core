@@ -41,9 +41,9 @@
   <RimAI.ChatUI.Input.Cancel>中断传输</RimAI.ChatUI.Input.Cancel>
 
   <!-- Indicator lights -->
-  <RimAI.ChatUI.Indicator.Data>数据</RimAI.ChatUI.Indicator.Data>
-  <RimAI.ChatUI.Indicator.Busy>忙碌</RimAI.ChatUI.Indicator.Busy>
-  <RimAI.ChatUI.Indicator.Finish>完成</RimAI.ChatUI.Indicator.Finish>
+  <RimAI.ChatUI.Indicator.Data>Data</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>Busy</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>Fin</RimAI.ChatUI.Indicator.Finish>
 
   <!-- Common messages -->
   <RimAI.ChatUI.Common.NoPawnSelected>未选择有效殖民者</RimAI.ChatUI.Common.NoPawnSelected>

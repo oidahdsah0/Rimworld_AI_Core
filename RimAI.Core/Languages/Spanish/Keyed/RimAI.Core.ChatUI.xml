@@ -41,9 +41,9 @@
   <RimAI.ChatUI.Input.Cancel>Interrumpir transmisión</RimAI.ChatUI.Input.Cancel>
 
   <!-- Indicator lights -->
-  <RimAI.ChatUI.Indicator.Data>Datos</RimAI.ChatUI.Indicator.Data>
-  <RimAI.ChatUI.Indicator.Busy>Ocupado</RimAI.ChatUI.Indicator.Busy>
-  <RimAI.ChatUI.Indicator.Finish>Finalizado</RimAI.ChatUI.Indicator.Finish>
+  <RimAI.ChatUI.Indicator.Data>Data</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>Busy</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>Fin</RimAI.ChatUI.Indicator.Finish>
 
   <!-- Common messages -->
   <RimAI.ChatUI.Common.NoPawnSelected>No hay colono válido seleccionado</RimAI.ChatUI.Common.NoPawnSelected>

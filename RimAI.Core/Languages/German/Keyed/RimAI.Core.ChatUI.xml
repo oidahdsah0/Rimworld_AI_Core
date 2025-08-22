@@ -41,9 +41,9 @@
   <RimAI.ChatUI.Input.Cancel>Übertragung abbrechen</RimAI.ChatUI.Input.Cancel>
 
   <!-- Indicator lights -->
-  <RimAI.ChatUI.Indicator.Data>Daten</RimAI.ChatUI.Indicator.Data>
-  <RimAI.ChatUI.Indicator.Busy>Beschäftigt</RimAI.ChatUI.Indicator.Busy>
-  <RimAI.ChatUI.Indicator.Finish>Fertig</RimAI.ChatUI.Indicator.Finish>
+  <RimAI.ChatUI.Indicator.Data>Data</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>Busy</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>Fin</RimAI.ChatUI.Indicator.Finish>
 
   <!-- Common messages -->
   <RimAI.ChatUI.Common.NoPawnSelected>Kein gültiger Kolonist ausgewählt</RimAI.ChatUI.Common.NoPawnSelected>

@@ -26,9 +26,11 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 					var who = string.IsNullOrWhiteSpace(e.WithName) ? "?" : e.WithName;
 					var kind = string.IsNullOrWhiteSpace(e.InteractionKind) ? "Social" : e.InteractionKind;
 					var outcome = string.IsNullOrWhiteSpace(e.Outcome) ? string.Empty : (" " + e.Outcome);
-					list.Add($"{idx++}. {ts} - {who}: {kind}{outcome}");
+					var colon = ctx?.L?.Invoke("prompt.punct.colon", ": ") ?? ": ";
+					list.Add($"{idx++}. {ts} - {who}{colon}{kind}{outcome}");
 				}
-				blocks.Add(new ContextBlock { Title = "[社交历史]", Text = string.Join("\n", list) });
+				var title = ctx?.L?.Invoke("prompt.section.social_history", "[Social History]") ?? "[Social History]";
+				blocks.Add(new ContextBlock { Title = title, Text = string.Join("\n", list) });
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = System.Array.Empty<string>(), ContextBlocks = blocks });
 		}

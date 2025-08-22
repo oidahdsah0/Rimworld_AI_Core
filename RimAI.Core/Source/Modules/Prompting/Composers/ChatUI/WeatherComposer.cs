@@ -20,10 +20,9 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var s = await world.GetWeatherStatusAsync(ctx?.Request?.PawnLoadId ?? 0, ct).ConfigureAwait(false);
 				if (s != null)
 				{
-					var isZh = (ctx?.Locale ?? "en").StartsWith("zh", System.StringComparison.OrdinalIgnoreCase);
-					var title = ctx?.L?.Invoke("prompt.section.weather", isZh ? "[天气]" : "[Weather]") ?? (isZh ? "[天气]" : "[Weather]");
-					var tempLabel = isZh ? "温度" : "Temp";
-					var glowLabel = isZh ? "光照" : "Glow";
+					var title = ctx?.L?.Invoke("prompt.section.weather", "[Weather]") ?? "[Weather]";
+					var tempLabel = ctx?.L?.Invoke("prompt.label.temp", "Temp") ?? "Temp";
+					var glowLabel = ctx?.L?.Invoke("prompt.label.glow", "Glow") ?? "Glow";
 					lines.Add($"{title} {s.Weather} | {tempLabel}: {s.OutdoorTempC:F1}°C | {glowLabel}: {s.Glow:P0}");
 				}
 			}

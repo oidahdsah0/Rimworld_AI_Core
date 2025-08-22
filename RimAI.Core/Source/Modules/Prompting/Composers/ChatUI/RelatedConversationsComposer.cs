@@ -42,7 +42,9 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var ai = all.Where(e => e.Role == EntryRole.Ai && e.TurnOrdinal.HasValue).TakeLast(perConv).ToList();
 				if (ai.Count == 0) continue;
 				var text = string.Join("\n", ai.Select(e => e.Content ?? string.Empty));
-				blocks.Add(new ContextBlock { Title = $"[关联对话@{ck}]", Text = text });
+				var titleTpl = ctx?.L?.Invoke("prompt.section.related_conv", "[Related Conversations@{key}]") ?? "[Related Conversations@{key}]";
+				var title = titleTpl.Replace("{key}", ck ?? string.Empty);
+				blocks.Add(new ContextBlock { Title = title, Text = text });
 			}
 
 			// 注意：关联对话不包括当前对话；此处不再附加当前会话的最近消息

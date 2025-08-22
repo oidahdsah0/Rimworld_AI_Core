@@ -74,6 +74,19 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			closeOnCancel = true; // 允许 ESC 关闭 ChatUI
 
 			_container = RimAICoreMod.Container;
+			// 打开 ChatWindow 时自动跟随当前游戏语言，并复用“手动设置”的完整替换逻辑
+			try
+			{
+				var locAuto = _container.Resolve<ILocalizationService>();
+				var cfgAuto = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var gameLang = LanguageDatabase.activeLanguage?.folderName ?? "English";
+				// 仅当未存在手动覆盖时，按当前游戏语言设置运行时默认（不写入覆盖）
+				if (string.IsNullOrWhiteSpace(cfgAuto?.GetPromptLocaleOverrideOrNull()))
+				{
+					locAuto?.SetDefaultLocale(gameLang); // 内部标准化为 de/ja/...
+				}
+			}
+			catch { }
 			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor resolved container"); } catch { }
 			_llm = _container.Resolve<ILLMService>();
 			_history = _container.Resolve<IHistoryService>();
@@ -93,8 +106,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			// try { var hid = (convKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor convKey rid={hid:X4} participants={participantIds?.Count ?? 0}"); } catch { }
 			_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, participantIds);
 			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller created"); } catch { }
-			// PlayerTitle：主线程快速回退，异步解析
-			try { _controller.State.PlayerTitle = "总督"; /* Verse.Log.Message("[RimAI.Core][P10] PlayerTitle fallback set"); */ } catch { }
+			// PlayerTitle：主线程不做本地化/IO，异步解析后回填
+			try { _controller.State.PlayerTitle = null; } catch { }
 			_ = System.Threading.Tasks.Task.Run(() =>
 			{
 				try
@@ -102,11 +115,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					// Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve begin");
 					var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
 					var loc = _container.Resolve<ILocalizationService>();
-					var locale = cfg?.GetInternal()?.General?.Locale ?? "zh-Hans";
+					var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
 					var title = cfg?.GetPlayerTitleOrDefault() ?? string.Empty;
-					if (string.IsNullOrWhiteSpace(title) || (title == "总督" && !locale.StartsWith("zh", StringComparison.OrdinalIgnoreCase)))
+					if (string.IsNullOrWhiteSpace(title))
 					{
-						title = loc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督";
+						title = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
 					}
 					_controller.State.PlayerTitle = title;
 					// Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve done");
@@ -145,7 +158,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				_controller.State.Messages.Add(initMsg);
 			}
-			var leftW = inRect.width * (1f / 6f) + 45f; // 人员名单放宽 30px
+			var leftW = inRect.width * (1f / 6f) + 55f; // 人员名单放宽 30px
 			var rightW = inRect.width - leftW - 8f;
 			var leftRect = new Rect(inRect.x, inRect.y, leftW, inRect.height);
 			var rightRectOuter = new Rect(leftRect.xMax + 8f, inRect.y, rightW, inRect.height);
@@ -179,7 +192,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault();
 					if (!_titleInputInitialized)
 					{
-						_titleInputText = _controller.State.PlayerTitle ?? "总督";
+						_titleInputText = _controller.State.PlayerTitle ?? "governor";
 						_titleInputInitialized = true;
 					}
 				} catch { }
@@ -487,7 +500,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				} 
 				catch { } 
 			}
-			if (Widgets.ButtonText(new Rect(inRect.x + 100f, btnY, 90f, 26f), "RimAI.Common.Reset".Translate())) { try { cfg?.SetPlayerTitle("RimAI.ChatUI.PlayerTitle.Default".Translate()); _titleInputText = cfg?.GetPlayerTitleOrDefault() ?? "RimAI.ChatUI.PlayerTitle.Default".Translate(); _controller.State.PlayerTitle = _titleInputText; } catch { } }
+			if (Widgets.ButtonText(new Rect(inRect.x + 100f, btnY, 90f, 26f), "RimAI.Common.Reset".Translate())) { try { cfg?.SetPlayerTitle(null); _titleInputText = cfg?.GetPlayerTitleOrDefault() ?? string.Empty; _controller.State.PlayerTitle = _titleInputText; } catch { } }
 		}
 
 		private void AppendToLastAiMessage(string delta)

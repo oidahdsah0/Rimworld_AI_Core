@@ -20,16 +20,15 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var n = await world.GetNeedsAsync(ctx?.Request?.PawnLoadId ?? 0, ct).ConfigureAwait(false);
 				if (n != null)
 				{
-					var isZh = (ctx?.Locale ?? "en").StartsWith("zh", System.StringComparison.OrdinalIgnoreCase);
-					var title = ctx?.L?.Invoke("prompt.section.needs", isZh ? "[需求]" : "[Needs]") ?? (isZh ? "[需求]" : "[Needs]");
-					var colon = isZh ? "：" : ": ";
-					var sep = isZh ? " " : " ";
-					var food = (isZh ? "饮食" : "Food") + colon + n.Food.ToString("P0");
-					var rest = (isZh ? "休息" : "Rest") + colon + n.Rest.ToString("P0");
-					var rec = (isZh ? "娱乐" : "Recreation") + colon + n.Recreation.ToString("P0");
-					var beauty = (isZh ? "美观" : "Beauty") + colon + n.Beauty.ToString("P0");
-					var indoors = (isZh ? "室内" : "Indoors") + colon + n.Indoors.ToString("P0");
-					var mood = (isZh ? "心情" : "Mood") + colon + n.Mood.ToString("P0");
+					var title = ctx?.L?.Invoke("prompt.section.needs", "[Needs]") ?? "[Needs]";
+					var colon = ctx?.L?.Invoke("prompt.punct.colon", ": ") ?? ": ";
+					var sep = ctx?.L?.Invoke("prompt.punct.sep_item", " ") ?? " ";
+					var food = (ctx?.L?.Invoke("prompt.label.need.food", "Food") ?? "Food") + colon + n.Food.ToString("P0");
+					var rest = (ctx?.L?.Invoke("prompt.label.need.rest", "Rest") ?? "Rest") + colon + n.Rest.ToString("P0");
+					var rec = (ctx?.L?.Invoke("prompt.label.need.recreation", "Recreation") ?? "Recreation") + colon + n.Recreation.ToString("P0");
+					var beauty = (ctx?.L?.Invoke("prompt.label.need.beauty", "Beauty") ?? "Beauty") + colon + n.Beauty.ToString("P0");
+					var indoors = (ctx?.L?.Invoke("prompt.label.need.indoors", "Indoors") ?? "Indoors") + colon + n.Indoors.ToString("P0");
+					var mood = (ctx?.L?.Invoke("prompt.label.need.mood", "Mood") ?? "Mood") + colon + n.Mood.ToString("P0");
 					lines.Add($"{title} {food}{sep}{rest}{sep}{rec}{sep}{beauty}{sep}{indoors}{sep}{mood}");
 				}
 			}

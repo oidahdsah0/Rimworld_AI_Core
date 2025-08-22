@@ -292,6 +292,10 @@ V5 对外最小面仅限配置：
 - 文件命名与工件：构建后应存在 `tools_index_{provider}_{model}.json`（仅设置文件）；存档节点按版本后缀；仓级 检查禁用除 Persistence 外的 `System.IO` 直接使用。
   - 指令两段式（P12）：编排与历史写入均为非流式；ChatUI 真流式仅在第二段；Orchestration 目录检查=0：`StreamResponseAsync\(`。
   - Server（P13）：所有文件 IO 经 Persistence；巡检最小间隔≥6h；工具分配强制 `tool.Level <= server.Level`（Level=4 工具在游戏内不可见）。
+  - ChatUI 作曲器（Composer）纪律：
+    - 标题、标签、标点、单位等一律经 `ctx.L/ctx.F` 取自本地化键（`prompt.section.*` / `prompt.label.*` / `prompt.punct.*` / `prompt.unit.*` / `prompt.token.*` / `prompt.format.*`）。
+    - 禁用 `isZh`/语言分支与任何硬编码“总督/Governor/governor”称谓；称谓为空时必须按“目标语言→en”从 `ui.chat.player_title.value` 获取。
+    - Composer 目录检查=0：`\bisZh\b|Governor|governor|总督|[：，；、]`；出现上述内容视为违反本地化纪律。
 
 > Gate 执行方式：统一由 Cursor 内置工具在提交前/PR 审阅时运行，不再依赖外部脚本。
 

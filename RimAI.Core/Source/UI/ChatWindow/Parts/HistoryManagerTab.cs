@@ -103,7 +103,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					var it = _entries[i];
 					var measureRect = new Rect(0f, 0f, contentWForMeasure, 99999f);
 					string senderNameMeasure = it.Role == EntryRole.User ? names.userName : names.pawnName;
-					string labelForMeasure = (senderNameMeasure ?? string.Empty) + "：" + (it.Content ?? string.Empty);
+					string labelForMeasure = (senderNameMeasure ?? string.Empty) + ": " + (it.Content ?? string.Empty);
 					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, measureRect.width)) : Mathf.Max(24f, Text.CalcHeight(labelForMeasure, measureRect.width));
 					float rowH = contentH + 12f;
 					totalH += rowH + 6f;
@@ -121,14 +121,14 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					float contentW = viewRect.width - actionsW - 16f;
 					var contentMeasureRect = new Rect(0f, 0f, contentW, 99999f);
 					string senderName = it.Role == EntryRole.User ? names.userName : names.pawnName;
-					string label = (senderName ?? string.Empty) + "：" + (it.Content ?? string.Empty);
+					string label = (senderName ?? string.Empty) + ": " + (it.Content ?? string.Empty);
 					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, contentMeasureRect.width)) : Mathf.Max(24f, Text.CalcHeight(label, contentMeasureRect.width));
 					float rowH = contentH + 12f;
 					var row = new Rect(0f, y, viewRect.width, rowH);
 					Widgets.DrawHighlightIfMouseover(row);
 					var contentRect = new Rect(row.x + 6f, row.y + 6f, contentW, contentH);
 					var actionsRect = new Rect(row.xMax - (actionsW + 10f), row.y + 8f, actionsW, 28f);
-					label = (senderName ?? string.Empty) + "：" + (it.Content ?? string.Empty);
+					label = (senderName ?? string.Empty) + ": " + (it.Content ?? string.Empty);
 					if (!it.IsEditing)
 					{
 						Widgets.Label(contentRect, label);
@@ -429,7 +429,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 		private (string userName, string pawnName) GetOrBeginResolveNames(IHistoryService history, string convKey)
 		{
-			if (string.IsNullOrWhiteSpace(convKey)) return ("玩家", "Pawn");
+			if (string.IsNullOrWhiteSpace(convKey)) return ("RimAI.Common.Player".Translate(), "RimAI.Common.Pawn".Translate());
 			if (!_convUserName.TryGetValue(convKey, out var user)) user = null;
 			if (!_convPawnName.TryGetValue(convKey, out var pawn)) pawn = null;
 			if ((user == null || pawn == null) && !_nameResolving.Contains(convKey))
@@ -441,7 +441,13 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					{
 						var cfg = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Contracts.Config.IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
 						var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
-						string playerTitle = cfg?.GetPlayerTitleOrDefault() ?? "玩家";
+						var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+						var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
+						string playerTitle = cfg?.GetPlayerTitleOrDefault();
+						if (string.IsNullOrWhiteSpace(playerTitle))
+						{
+							playerTitle = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
+						}
 						string pawnName = "Pawn";
 						try
 						{

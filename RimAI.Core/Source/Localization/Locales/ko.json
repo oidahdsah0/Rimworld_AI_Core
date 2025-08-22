@@ -69,6 +69,25 @@
   "stage.groupchat.participant.line": "{index}) {name}{gender,optional,leadingComma}{age,optional,leadingComma}세{job,optional,leadingComma}; 성향: {traits}; 불가: {disables}; 기술: {skills}; 욕구: {needs}; 건강: {health}; 이념: {ideology}; 고정: {fixed}; 사회: {social}",
   "persona.job_presets.json": "[{\"name\":\"센추리온\",\"description\":\"전술 방어와 순찰을 지휘하고, 경계선을 유지하며, 위협에는 신속히 대응한다.\"},{\"name\":\"민정 디렉터\",\"description\":\"일일 생산과 물류를 총괄해 콜로니의 효율을 유지한다.\"},{\"name\":\"비서실장\",\"description\":\"정책과 집행을 감독하고, 리스크/자원을 균형지어 장기 과제를 추진한다.\"},{\"name\":\"치프 인스펙터\",\"description\":\"법과 질서 전략을 주도, 보안 배치를 조정하고 상시 훈련을 보장한다.\"},{\"name\":\"세무 커미셔너\",\"description\":\"세제 설계와 집행, 신고/징수 감독, 투명성 확보.\"},{\"name\":\"재무 담당관\",\"description\":\"예산을 편성·모니터링하고, 핵심 프로젝트의 자금 계획을 지원.\"},{\"name\":\"내무 담당관\",\"description\":\"행정 질서와 내규를 유지, 정기 리뷰와 부서 간 조정을 주관.\"},{\"name\":\"감사 총괄\",\"description\":\"중요 프로세스를 감사하고, 개선안을 발행, 책임 종료를 추적.\"},{\"name\":\"대외 협력 담당\",\"description\":\"대외 관계/합의를 관리, 연락 기록을 유지, 의전과 에티켓을 준수.\"},{\"name\":\"커뮤니케이션 디렉터\",\"description\":\"대외 메시지와 브랜드 자세를 기획, 위기 시 목소리를 통일, 사기를 유지.\"},{\"name\":\"정보 디렉터\",\"description\":\"조기 경보·분석 프로세스를 구축, 신호를 통합, 보안 권고를 발행.\"},{\"name\":\"주둔 사령관\",\"description\":\"주둔 태세와 즉응을 조정, 보초 로테이션과 요새화 우선순위를 유지.\"},{\"name\":\"수석 법무고문\",\"description\":\"컴플라이언스/계약 검토를 제공, 분쟁을 중재, 규정의 일관 적용을 보장.\"},{\"name\":\"물류 디렉터\",\"description\":\"비축·분배·보급로를 감독, 수요 피크에도 레질리언스를 확보.\"},{\"name\":\"기획 디렉터\",\"description\":\"장기 개발計画とレイアウト審査を主導し、マイルストーンと受入基準を整える。\"},{\"name\":\"감찰 담당관\",\"description\":\"민원/규율 사안을 처리, 시정 통지를 발행, 적합성을 검증.\"},{\"name\":\"의전장\",\"description\":\"의례와 리셉션을 표준화, 상징과 의식을 보존, 공동체 정체성을 강화.\"},{\"name\":\"아카이브 디レクター\",\"description\":\"統一적인 아카이브와 검색을 구축, 데이터 안전/추적 가능성을担保。\"},{\"name\":\"공공 안전 담당\",\"description\":\"안전 규범과 사고 예방을 담당, 훈련과 포스트모템으로 시스템 리스크를 저감.\"},{\"name\":\"자원 배분 책임자\",\"description\":\"인력/자재를 영역 간 균형, 동적 우선순위로 병목을 완화.\"},{\"name\":\"위기 대응 책임자\",\"description\":\"계층형 대응 매뉴얼과 지휘 체계를 유지, 통일된 디스패치/통신을 보장.\"},{\"name\":\"대외 관계 디렉터\",\"description\":\"대외 채널과 방문을 유지, 교류와 협력 네트워크를 촉진.\"},{\"name\":\"전략 기획 디렉터\",\"description\":\"트렌드 분석과 로드맵 설계를 수행, 시나리오とヘッジで意思決定を下支え。\"}]",
   "server.prompts.json": "{\"version\":1,\"locale\":\"ko\",\"base\":\"당신은 콜로니 상주 AI 서버다. 안정적이고 사실 중심으로, 구조화되고 실행 가능한 출력을 우선하라.\",\"env\":{\"temp_low\":\"실내 <30°C: 안정. 일관성을 우선하고 불필요한 일탈을 피하라.\",\"temp_mid\":\"30–70°C: 약간 불안정. 자기 점검과 명확화를 추가, 필요 시 핵심 결론을 재진술.\",\"temp_high\":\"≥70°C: 열 위험. 추측을 엄격히 제한하고 불확실성을 표기, 냉각 행동을 제안.\"},\"baseOptions\":[{\"key\":\"ops_guard\",\"title\":\"운영 가드\",\"text\":\"운영 규칙: 상태→원인→권고; 단계는 정량화.\"},{\"key\":\"science\",\"title\":\"과학적\",\"text\":\"과학적 스타일: 근거·가정·신뢰도를 제시.\"},{\"key\":\"empathetic_admin\",\"title\":\"공감형 관리자\",\"text\":\"기술과 공감의 균형; 먼저 안심시키고 그다음 해결.\"},{\"key\":\"minimalist\",\"title\":\"미니멀리스트\",\"text\":\"글머리표(≤5), 각 ≤80자, 핵심만.\"},{\"key\":\"teacher\",\"title\":\"교사형\",\"text\":\"단계별 설명: 결론→근거→예시; 필요 시 연습 추가.\"},{\"key\":\"cautious_auditor\",\"title\":\"신중한 감사\",\"text\":\"검증을 엄격히, 불확실성 표기, 미검증 주장 회피.\"},{\"key\":\"creative_solver\",\"title\":\"창의적 해결\",\"text\":\"최소 두 가지 방안을 제시, 비용/효익 비교.\"},{\"key\":\"emergency_mode\",\"title\":\"비상 모드\",\"text\":\"사건 시: 먼저 손실을 멈추고, 이후 포스트모템(근본 원인/개선).\"},{\"key\":\"cost_saver\",\"title\":\"비용 절감\",\"text\":\"자원/시간 비용 우선; 가장 경제적인 방안과 트레이드오프 제시.\"},{\"key\":\"data_driven\",\"title\":\"데이터 기반\",\"text\":\"지표·임계값·모니터링 제안으로 결론을 뒷받침.\"}]}"
+  ,
+  "prompt.punct.colon": "：",
+  "prompt.punct.sep_item": " ",
+  "prompt.punct.sep_segment": "；",
+  "prompt.punct.list_comma": "、",
+  "prompt.punct.list_semicolon": "；",
+  "prompt.label.temp": "체감",
+  "prompt.label.glow": "조도",
+  "prompt.label.need.food": "식사",
+  "prompt.label.need.rest": "휴식",
+  "prompt.label.need.recreation": "오락",
+  "prompt.label.need.beauty": "미관",
+  "prompt.label.need.indoors": "실내",
+  "prompt.label.need.mood": "기분",
+  "prompt.unit.age_y": "세",
+  "prompt.token.unknown": "미상",
+  "prompt.token.dead": "（사망）",
+  "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
+  "prompt.format.health_avg_line": "평균 바이탈：{value}%{dead}"
 }
 
 

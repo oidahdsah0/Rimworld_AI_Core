@@ -302,16 +302,34 @@ namespace RimAI.Core.Source.Modules.History.Recap
 			try { OnRecapUpdated?.Invoke(convKey, notifyId); } catch { }
 		}
 
-		private static string BuildRecapSystemPrompt(int maxChars, string existingRecaps)
+		private string BuildRecapSystemPrompt(int maxChars, string existingRecaps)
 		{
-			var sb = new StringBuilder();
-			sb.Append($"你是Rimworld游戏对话总结助手AI。你的任务：在 {maxChars} 字以内，用要点式总结对话关键事实与进展；保留具体数值/事实；删去口头禅；使用简短段落或条目；其中U是用户发言，A是NPC发言，提要中不要出现U/A字眼。以下是该次对话之前的提要，以及本次对话内容：\n");
-			if (!string.IsNullOrWhiteSpace(existingRecaps))
+			try
 			{
-				sb.AppendLine("以下是最近一次的历史前情提要（可能为空或已被用户编辑/删除），可作为参考：");
-				sb.AppendLine(existingRecaps);
+				var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+				var locale = _cfg?.GetInternal()?.General?.PromptLocaleOverride ?? loc?.GetDefaultLocale() ?? "en";
+				var sb = new StringBuilder();
+				var baseLine = loc?.Format(locale, "recap.system.base", new System.Collections.Generic.Dictionary<string, string> { { "max", maxChars.ToString() } }, $"You are a dialogue recap assistant. In {maxChars} chars, summarize key facts and progress as bullet-like lines; keep numbers; avoid filler.") ?? $"You are a dialogue recap assistant. In {maxChars} chars, summarize key facts and progress as bullet-like lines; keep numbers; avoid filler.";
+				sb.Append(baseLine).Append('\n');
+				if (!string.IsNullOrWhiteSpace(existingRecaps))
+				{
+					var prevLabel = loc?.Get(locale, "recap.system.prev_label", "[Previous Recap]") ?? "[Previous Recap]";
+					sb.AppendLine(prevLabel);
+					sb.AppendLine(existingRecaps);
+				}
+				return sb.ToString();
 			}
-			return sb.ToString();
+			catch
+			{
+				var sb = new StringBuilder();
+				sb.Append($"You are a dialogue recap assistant. In {maxChars} chars, summarize key facts and progress as bullet-like lines; keep numbers; avoid filler.\n");
+				if (!string.IsNullOrWhiteSpace(existingRecaps))
+				{
+					sb.AppendLine("[Previous Recap]");
+					sb.AppendLine(existingRecaps);
+				}
+				return sb.ToString();
+			}
 		}
 
 		private string ComposeExistingRecapsText(string convKey, int maxBudget)

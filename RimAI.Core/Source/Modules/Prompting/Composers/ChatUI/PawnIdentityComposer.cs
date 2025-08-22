@@ -17,16 +17,15 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var p = ctx?.PawnPrompt;
 			if (p != null && p.Id != null)
 			{
-				var isZh = (ctx?.Locale ?? "en").StartsWith("zh", System.StringComparison.OrdinalIgnoreCase);
-				var title = ctx?.L?.Invoke("prompt.section.identity", isZh ? "[个体]" : "[Identity]") ?? (isZh ? "[个体]" : "[Identity]");
+				var title = ctx?.L?.Invoke("prompt.section.identity", "[Identity]") ?? "[Identity]";
 				var parts = new System.Collections.Generic.List<string>();
 				if (!string.IsNullOrWhiteSpace(p.Id.Name)) parts.Add(p.Id.Name);
 				if (!string.IsNullOrWhiteSpace(p.Id.Gender)) parts.Add(p.Id.Gender);
-				if (p.Id.Age > 0) parts.Add(isZh ? (p.Id.Age + "岁") : (p.Id.Age + "y"));
+				if (p.Id.Age > 0) parts.Add(p.Id.Age + (ctx?.L?.Invoke("prompt.unit.age_y", "y") ?? "y"));
 				if (!string.IsNullOrWhiteSpace(p.Id.Race)) parts.Add(p.Id.Race);
 				if (parts.Count > 0)
 				{
-					var sep = isZh ? " / " : " / ";
+					var sep = " / ";
 					lines.Add(title + string.Join(sep, parts));
 				}
 			}

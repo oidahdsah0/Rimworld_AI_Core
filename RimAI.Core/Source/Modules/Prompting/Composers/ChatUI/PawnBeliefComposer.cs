@@ -17,7 +17,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var p = ctx?.PawnPrompt;
 			if (p != null && p.IsIdeologyAvailable && p.Id != null && !string.IsNullOrWhiteSpace(p.Id.Belief))
 			{
-				var title = ctx?.L?.Invoke("prompt.section.belief", "[信仰]") ?? "[信仰]";
+				var title = ctx?.L?.Invoke("prompt.section.belief", "[Belief]") ?? "[Belief]";
 				lines.Add(title + p.Id.Belief);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });

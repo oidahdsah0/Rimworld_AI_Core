@@ -21,11 +21,16 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var desc = rec.Job.Description ?? string.Empty;
 				if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(desc))
 				{
-					lines.Add("[职务]未任命");
+					var title = ctx?.L?.Invoke("prompt.section.persona_job", "[Job]") ?? "[Job]";
+					var unassigned = ctx?.L?.Invoke("persona.job.unassigned", "Unassigned") ?? "Unassigned";
+					lines.Add(title + unassigned);
 				}
 				else
 				{
-					lines.Add("[职务]" + ($"{name}：{desc}".Trim('：')));
+					var title = ctx?.L?.Invoke("prompt.section.persona_job", "[Job]") ?? "[Job]";
+					var colon = ctx?.L?.Invoke("prompt.punct.colon", ": ") ?? ": ";
+					var content = (name ?? string.Empty) + (string.IsNullOrWhiteSpace(desc) ? string.Empty : (colon + desc));
+					lines.Add(title + content);
 				}
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });

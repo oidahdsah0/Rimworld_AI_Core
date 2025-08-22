@@ -26,10 +26,22 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var list = _server?.List() ?? new List<RimAI.Core.Source.Modules.Persistence.Snapshots.ServerRecord>();
 				if (list.Count == 0) return System.Threading.Tasks.Task.FromResult(output);
 				var lines = new List<string>();
-				lines.Add("[服务器状态]");
+				var title = ctx?.L?.Invoke("prompt.section.server_status", "[Server Status]") ?? "[Server Status]";
+				lines.Add(title);
 				foreach (var s in list.OrderBy(x => x.EntityId))
 				{
-					lines.Add($"- {s.EntityId} Lv{s.Level} slots={s.InspectionSlots?.Count ?? 0} persona={s.ServerPersonaSlots?.Count ?? 0}");
+					var tpl = ctx?.F?.Invoke(
+						"prompt.format.server_status_line",
+						new System.Collections.Generic.Dictionary<string, string>
+						{
+							{"id", s.EntityId ?? string.Empty},
+							{"level", (s.Level).ToString()},
+							{"slots", (s.InspectionSlots?.Count ?? 0).ToString()},
+							{"persona", (s.ServerPersonaSlots?.Count ?? 0).ToString()}
+						},
+						$"- {s.EntityId} Lv{s.Level} slots={(s.InspectionSlots?.Count ?? 0)} persona={(s.ServerPersonaSlots?.Count ?? 0)}"
+					);
+					lines.Add(tpl);
 				}
 				output.SystemLines = lines;
 			}

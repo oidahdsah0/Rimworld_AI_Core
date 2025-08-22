@@ -16,7 +16,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
             var lines = new List<string>();
             var locSvc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
             var locale = ctx?.Locale ?? "en";
-            var playerTitle = ctx?.PlayerTitle ?? (locSvc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督");
+            var playerTitle = ctx?.PlayerTitle ?? (locSvc?.Get(locale, "ui.chat.player_title.value", locSvc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? (locSvc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor"));
 
             // 目标语言取值
             var nameLoc = locSvc?.Get(locale, "ui.chat.system.base.name", string.Empty) ?? string.Empty;

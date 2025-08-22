@@ -20,7 +20,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
         {
             var l = ctx?.L;
             var f = ctx?.F;
-            var playerTitle = ctx?.PlayerTitle ?? (l?.Invoke("ui.chat.player_title.value", "总督") ?? "总督");
+            var playerTitle = ctx?.PlayerTitle ?? (l?.Invoke("ui.chat.player_title.value", ctx?.L?.Invoke("ui.chat.player_title.value", "governor") ?? "governor") ?? (ctx?.L?.Invoke("ui.chat.player_title.value", "governor") ?? "governor"));
             var pfx = f?.Invoke("ui.chat.user_prefix", new System.Collections.Generic.Dictionary<string, string> { { "player_title", playerTitle } }, string.Empty) ?? string.Empty;
             return pfx;
         }

@@ -78,6 +78,11 @@ RimAI.Core.Contracts/
 - 文件 IO 集中：除 `Modules/Persistence/**` 外，检查：`using\s+System\.IO|\bFile\.|\bDirectory\.|\bFileStream\b|\bStreamReader\b|\bStreamWriter\b` → 0 次匹配（模块不得直接文件 IO）。
 - 日志前缀（建议性 Gate）：通过 Cursor 内置工具对 `Log\.(Message|Warning|Error)\(` 的调用进行抽样/审计，确保文本以 `[RimAI.Core]` 开头；建议叠加阶段标识（含 P12/P13）；必要时引入包装器统一打印。
 
+- 作曲器（Composer）额外 Gate（强制）：
+  - 检查=0：`\bisZh\b`（禁用任何“按语言分支”的代码路径）。
+  - 检查=0（C# 源文件）：直接出现中文标点字符 `：，；、` 或其全角码位（应统一经本地化键 `prompt.punct.*` 获取）。
+  - 检查=0（C# 源文件）：硬编码“总督/ governor / Governor”等称谓常量（称谓必须经 `ui.chat.player_title.value` 获取）。
+
 ---
 
 ## 5. 性能预算与容错（通用目标）
@@ -144,6 +149,36 @@ RimAI.Core.Contracts/
   - 检查=0：`GetResponseAsync\([^U]`（禁用所有非 `UnifiedChatRequest` 重载）。
   - 检查=0：`StreamResponseAsync\([^U]`（禁用旧式流式重载）。
   - 检查=0：后台代码中 `Stream\s*=\s*true`（仅 `Source/UI/ChatWindow/**` 允许）。
+
+### 9.4 ChatUI 作曲器（Composer）纪律（强制）
+
+- 单入口与回退：
+  - ChatUI 的 SystemPrompt 仅由 `IPromptService.BuildAsync` 聚合，所有作曲器通过 `PromptBuildContext` 获取上下文，不得触达 Framework/Verse/文件 IO。
+  - 本地化统一走 `ctx.L(key, fallback)` 与 `ctx.F(key, args, fallback)`；缺键时整对（name/value）回退到英文，避免中英混搭。
+  - 标点/分隔/单位等一律通过键：`prompt.punct.{colon|sep_item|sep_segment|list_comma|list_semicolon}`、`prompt.unit.age_y`；不得在代码中直拼。
+
+- 文本键与命名：
+  - 区段标题：`prompt.section.*`（如 `identity/backstory/traits/.../current_job/social_relations`）。
+  - 标签/单位/令牌：`prompt.label.*`、`prompt.unit.*`、`prompt.token.*`。
+  - 格式化模板：`prompt.format.*`（如 `backstory/traits_line/work_disables_line/relation/colonist_item/health_avg_line/apparel_item`）。
+
+- 组成规则：
+  - 列表连接使用 `prompt.punct.list_comma` 或 `prompt.punct.list_semicolon`；段落连接使用 `prompt.punct.sep_segment`；键值对使用 `prompt.punct.colon`；词项间距使用 `prompt.punct.sep_item`。
+  - 关系/人物等条目统一通过 `prompt.format.relation`、`prompt.format.colonist_item` 等模板格式化，避免在 Composer 中手写插值格式。
+  - 缺失数据使用令牌键（如 `prompt.token.unknown`），避免落空字符串导致格式破坏。
+
+- PlayerTitle 纪律：
+  - 称谓一律来源于 `ctx.PlayerTitle`；当 `ctx.PlayerTitle` 为空时，按“目标语言→英文(en)”的顺序从 `ui.chat.player_title.value` 获取；不得在代码中硬编码“总督/Governor/governor”。
+  - `UserPrefix` 仅使用 `ui.chat.user_prefix` 模板，通过 `ctx.F` 注入 `{player_title}`。
+
+- 线程与访问边界：
+  - 作曲器为纯聚合层，禁止直接 `using RimAI.Framework.*`、禁止 Verse/Scribe、禁止 `System.IO`。
+  - 需要世界数据/文件/历史/Persona 等内容，必须通过相应服务（P3/P6/P8/P7）的只读快照接口获取，且由调用方负责异步与主线程化（作曲器自身不触达）。
+
+- Gate（强制）：
+  - 检查=0：`\bisZh\b|\bzh\b` 等语言分支变量。
+  - 检查=0：中文/英文硬编码标点与称谓（通过正则抽样 `：，；、|Governor|governor|总督`）。
+  - 检查=0：Composer 目录下出现 `using Verse|\bScribe\.|System\.IO`。
 
 ### 9.2 指令模式（P12）
 

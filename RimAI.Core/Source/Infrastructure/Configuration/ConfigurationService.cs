@@ -50,17 +50,30 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         }
 
         // Helper: get current player title for UI (internal consumers may cast and read directly)
-        public string GetPlayerTitleOrDefault() => _current?.UI?.ChatWindow?.PlayerTitle ?? "总督";
+        // Best practice: if not set, return null so callers can localize fallback per current locale
+        public string GetPlayerTitleOrDefault()
+        {
+            var t = _current?.UI?.ChatWindow?.PlayerTitle;
+            return string.IsNullOrWhiteSpace(t) ? null : t;
+        }
 
         // Helper: set and broadcast change (persisting via ModSettings deferred; P6 config file persistence via IPersistenceService)
         public void SetPlayerTitle(string title)
         {
-            var t = string.IsNullOrWhiteSpace(title) ? "总督" : title.Trim();
+            var t = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
             if (_current?.UI?.ChatWindow != null)
             {
                 _current.UI.ChatWindow.PlayerTitle = t;
                 var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
             }
+        }
+
+        // Called by PersistenceService after reading disk configuration
+        public void ApplyFullConfig(CoreConfig cfg)
+        {
+            if (cfg == null) return;
+            _current = cfg;
+            var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
         }
 
 		public void SetVerboseLogs(bool enabled)

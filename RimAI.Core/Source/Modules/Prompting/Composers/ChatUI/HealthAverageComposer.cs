@@ -19,8 +19,10 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			{
 				// 计算均值（0..100），与 UI 生命体征一致
 				var avg = (h.Consciousness + h.Moving + h.Manipulation + h.Sight + h.Hearing + h.Talking + h.Breathing + h.BloodPumping + h.BloodFiltration + h.Metabolism) / 10f * 100f;
-				var title = ctx?.L?.Invoke("prompt.section.health_avg", "[生命体征]") ?? "[生命体征]";
-				sysLines.Add(title + $"Average Health: {avg:F0}%{(h.IsDead ? " (DEAD)" : string.Empty)}");
+				var title = ctx?.L?.Invoke("prompt.section.health_avg", "[Vitals]") ?? "[Vitals]";
+				var dead = h.IsDead ? (ctx?.L?.Invoke("prompt.token.dead", " (DEAD)") ?? " (DEAD)") : string.Empty;
+				var line = ctx?.F?.Invoke("prompt.format.health_avg_line", new System.Collections.Generic.Dictionary<string, string> { { "value", avg.ToString("F0") }, { "dead", dead } }, $"Average Health: {avg:F0}%{dead}") ?? $"Average Health: {avg:F0}%{dead}";
+				sysLines.Add(title + line);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = sysLines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

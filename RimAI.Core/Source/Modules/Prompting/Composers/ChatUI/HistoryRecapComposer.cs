@@ -22,7 +22,8 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var text = string.Join("\n\n", latest.Select(r => r.Text ?? string.Empty));
 				if (!string.IsNullOrWhiteSpace(text))
 				{
-					blocks.Add(new ContextBlock { Title = "[前情提要]", Text = text }); // 后续接入本地化
+					var title = ctx?.L?.Invoke("prompt.section.recap", "[Recap]") ?? "[Recap]";
+					blocks.Add(new ContextBlock { Title = title, Text = text });
 				}
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = System.Array.Empty<string>(), ContextBlocks = blocks });

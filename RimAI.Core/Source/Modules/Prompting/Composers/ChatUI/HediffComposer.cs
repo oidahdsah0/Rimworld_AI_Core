@@ -27,13 +27,14 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 					.ToList();
 				if (top.Count > 0)
 				{
-					var title = ctx?.L?.Invoke("prompt.section.hediffs", "[健康状况]") ?? "[健康状况]";
+					var title = ctx?.L?.Invoke("prompt.section.hediffs", "[Health Status]") ?? "[Health Status]";
 					var items = top.Select(x =>
 					{
 						var baseLabel = string.IsNullOrWhiteSpace(x.Part) ? x.Label : ($"{x.Label}({x.Part})");
 						return string.IsNullOrWhiteSpace(x.Category) ? baseLabel : ($"{baseLabel}[{x.Category}]");
 					});
-					lines.Add(title + string.Join("；", items));
+					var sep = ctx?.L?.Invoke("prompt.punct.list_semicolon", "; ") ?? "; ";
+					lines.Add(title + string.Join(sep, items));
 				}
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });

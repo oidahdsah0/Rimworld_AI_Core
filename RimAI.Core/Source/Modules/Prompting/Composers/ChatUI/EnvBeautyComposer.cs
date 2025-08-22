@@ -20,8 +20,8 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				{
 					var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
 					var avg = await world.GetPawnBeautyAverageAsync(ctx.Request.PawnLoadId.Value, 9, ct).ConfigureAwait(false);
-					var title = ctx?.L?.Invoke("prompt.section.env_beauty", "[环境-周围美化度]") ?? "[环境-周围美化度]";
-					lines.Add(title + avg.ToString("F1"));
+					var title = ctx?.L?.Invoke("prompt.section.env_beauty", "[Env-Beauty Nearby]") ?? "[Env-Beauty Nearby]";
+					lines.Add(title + " " + avg.ToString("F1"));
 				}
 			}
 			catch { }

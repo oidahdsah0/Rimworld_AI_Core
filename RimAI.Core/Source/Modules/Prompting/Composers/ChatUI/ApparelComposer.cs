@@ -21,9 +21,15 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var list = await world.GetApparelAsync(ctx?.Request?.PawnLoadId ?? 0, 6, ct).ConfigureAwait(false);
 				if (list != null && list.Count > 0)
 				{
-					var title = ctx?.L?.Invoke("prompt.section.apparel", "[衣着]") ?? "[衣着]";
-					var items = list.Select(a => string.IsNullOrWhiteSpace(a.Quality) ? $"{a.Label}({a.DurabilityPercent}%)" : $"{a.Label}({a.Quality},{a.DurabilityPercent}%)");
-					lines.Add(title + " " + string.Join("；", items));
+					var title = ctx?.L?.Invoke("prompt.section.apparel", "[Apparel]") ?? "[Apparel]";
+					var items = list.Select(a => ctx?.F?.Invoke("prompt.format.apparel_item", new Dictionary<string, string>
+					{
+						{ "label", a.Label ?? string.Empty },
+						{ "quality", a.Quality ?? string.Empty },
+						{ "durability", a.DurabilityPercent.ToString() }
+					}, $"{a.Label}({(string.IsNullOrWhiteSpace(a.Quality) ? string.Empty : a.Quality + "," )}{a.DurabilityPercent}%)") ?? $"{a.Label}({(string.IsNullOrWhiteSpace(a.Quality) ? string.Empty : a.Quality + "," )}{a.DurabilityPercent}%)");
+					var sep = ctx?.L?.Invoke("prompt.punct.list_semicolon", "; ") ?? "; ";
+					lines.Add(title + " " + string.Join(sep, items));
 				}
 			}
 			catch { }

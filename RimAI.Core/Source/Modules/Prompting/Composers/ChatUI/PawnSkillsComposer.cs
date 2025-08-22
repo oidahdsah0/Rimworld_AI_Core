@@ -18,7 +18,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var p = ctx?.PawnPrompt;
 			if (p?.Skills?.Items != null && p.Skills.Items.Count > 0)
 			{
-				var title = ctx?.L?.Invoke("prompt.section.skills", "[技能]") ?? "[技能]";
+				var title = ctx?.L?.Invoke("prompt.section.skills", "[Skills]") ?? "[Skills]";
 				var parts = new List<string>();
 				foreach (var s in p.Skills.Items.Take(12))
 				{
@@ -27,7 +27,12 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 						?? $"{s.Name}: Lv{s.Level}{passion}";
 					parts.Add(tpl);
 				}
-				if (parts.Count > 0) lines.Add(title + string.Join("; ", parts) + ";");
+				if (parts.Count > 0)
+				{
+					var sep = ctx?.L?.Invoke("prompt.punct.list_semicolon", "; ") ?? "; ";
+					var end = ctx?.L?.Invoke("prompt.punct.end_semicolon", ";") ?? ";";
+					lines.Add(title + string.Join(sep, parts) + end);
+				}
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

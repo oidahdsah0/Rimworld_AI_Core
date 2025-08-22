@@ -20,7 +20,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var job = await world.GetCurrentJobLabelAsync(ctx?.Request?.PawnLoadId ?? 0, ct).ConfigureAwait(false);
 				if (!string.IsNullOrWhiteSpace(job))
 				{
-					var title = ctx?.L?.Invoke("prompt.section.current_job", "[当前任务]") ?? "[当前任务]";
+					var title = ctx?.L?.Invoke("prompt.section.current_job", "[Current Job]") ?? "[Current Job]";
 					blocks.Add(new ContextBlock { Title = title, Text = job });
 				}
 			}

@@ -20,16 +20,18 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			{
 				if (p.Traits.Traits != null && p.Traits.Traits.Count > 0)
 				{
-					var title = ctx?.L?.Invoke("prompt.section.traits", "[特质]") ?? "[特质]";
-					var list = string.Join("、", p.Traits.Traits);
-					var line = ctx?.F?.Invoke("prompt.format.traits_line", new Dictionary<string, string> { { "traits", list } }, $"特质：{list}") ?? $"特质：{list}";
+					var title = ctx?.L?.Invoke("prompt.section.traits", "[Traits]") ?? "[Traits]";
+					var comma = ctx?.L?.Invoke("prompt.punct.list_comma", ", ") ?? ", ";
+					var list = string.Join(comma, p.Traits.Traits);
+					var line = ctx?.F?.Invoke("prompt.format.traits_line", new Dictionary<string, string> { { "traits", list } }, $"Traits: {list}") ?? $"Traits: {list}";
 					lines.Add(title + line);
 				}
 				if (p.Traits.WorkDisables != null && p.Traits.WorkDisables.Count > 0)
 				{
-					var title2 = ctx?.L?.Invoke("prompt.section.work_disables", "[无法从事]") ?? "[无法从事]";
-					var list2 = string.Join("、", p.Traits.WorkDisables);
-					var line2 = ctx?.F?.Invoke("prompt.format.work_disables_line", new Dictionary<string, string> { { "list", list2 } }, $"无法从事：{list2}") ?? $"无法从事：{list2}";
+					var title2 = ctx?.L?.Invoke("prompt.section.work_disables", "[Work Disables]") ?? "[Work Disables]";
+					var comma2 = ctx?.L?.Invoke("prompt.punct.list_comma", ", ") ?? ", ";
+					var list2 = string.Join(comma2, p.Traits.WorkDisables);
+					var line2 = ctx?.F?.Invoke("prompt.format.work_disables_line", new Dictionary<string, string> { { "list", list2 } }, $"Cannot: {list2}") ?? $"Cannot: {list2}";
 					lines.Add(title2 + line2);
 				}
 			}

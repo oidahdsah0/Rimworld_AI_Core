@@ -16,10 +16,10 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var lines = new System.Collections.Generic.List<string>();
 			var locSvc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
 			var locale = ctx?.Locale ?? "en";
-			var titleLoc = ctx?.PlayerTitle ?? (locSvc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督");
+			var titleLoc = ctx?.PlayerTitle ?? (locSvc?.Get(locale, "ui.chat.player_title.value", locSvc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? (locSvc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor"));
 			var nameLoc = locSvc?.Get(locale, "ui.chat.player_title.name", string.Empty) ?? string.Empty;
 			var nameEn = locSvc?.Get("en", "ui.chat.player_title.name", "[You should address the player as]") ?? "[You should address the player as]";
-			var titleEn = ctx?.PlayerTitle ?? (locSvc?.Get("en", "ui.chat.player_title.value", "Governor") ?? "Governor");
+			var titleEn = ctx?.PlayerTitle ?? (locSvc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor");
 			bool useEn = string.IsNullOrWhiteSpace(nameLoc) || string.IsNullOrWhiteSpace(titleLoc);
 			var name = useEn ? nameEn : nameLoc;
 			var title = useEn ? titleEn : titleLoc;

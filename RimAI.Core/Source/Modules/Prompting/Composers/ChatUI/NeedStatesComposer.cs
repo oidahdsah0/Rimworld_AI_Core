@@ -21,9 +21,8 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				var list = await world.GetMoodThoughtOffsetsAsync(ctx?.Request?.PawnLoadId ?? 0, 10, ct).ConfigureAwait(false);
 				if (list != null && list.Count > 0)
 				{
-					var isZh = (ctx?.Locale ?? "en").StartsWith("zh", System.StringComparison.OrdinalIgnoreCase);
-					var title = ctx?.L?.Invoke("prompt.section.need_states", isZh ? "[需求状态]" : "[Need States]") ?? (isZh ? "[需求状态]" : "[Need States]");
-					var sep = isZh ? "；" : "; ";
+					var title = ctx?.L?.Invoke("prompt.section.need_states", "[Need States]") ?? "[Need States]";
+					var sep = ctx?.L?.Invoke("prompt.punct.list_semicolon", "; ") ?? "; ";
 					var items = list.Select(t => $"{t.Label}({(t.MoodOffset > 0 ? "+" : string.Empty)}{t.MoodOffset})");
 					lines.Add(title + " " + string.Join(sep, items));
 				}

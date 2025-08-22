@@ -121,14 +121,17 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				try
 				{
 					var container = RimAICoreMod.Container;
-					var cfg = container.Resolve<RimAI.Core.Contracts.Config.IConfigurationService>();
-					var locale = (cfg as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService)?.GetInternal()?.General?.Locale ?? "zh-Hans";
+					var cfgSvc = container.Resolve<RimAI.Core.Contracts.Config.IConfigurationService>();
 					string json = null;
 					try
 					{
 						var loc = container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+						var cfgInternal = cfgSvc as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+						var overrideLocale = cfgInternal?.GetPromptLocaleOverrideOrNull();
+						var locale = string.IsNullOrWhiteSpace(overrideLocale)
+							? (loc?.GetDefaultLocale() ?? cfgInternal?.GetInternal()?.General?.Locale ?? "en")
+							: overrideLocale;
 						json = loc?.Get(locale, "persona.job_presets.json", string.Empty);
-						if (string.IsNullOrWhiteSpace(json)) json = loc?.Get("zh-Hans", "persona.job_presets.json", string.Empty);
 					}
 					catch { }
 					if (!string.IsNullOrWhiteSpace(json))

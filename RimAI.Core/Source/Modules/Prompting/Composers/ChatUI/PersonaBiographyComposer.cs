@@ -18,10 +18,12 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var list = ctx?.Persona?.Biography;
 			if (list != null && list.Count > 0)
 			{
-				var title = ctx?.L?.Invoke("prompt.section.biography", "[人物传记]") ?? "[人物传记]";
+				var title = ctx?.L?.Invoke("prompt.section.biography", "[Biography]") ?? "[Biography]";
 				var parts = list.Take(4).Select(b => (b.Text ?? string.Empty).Trim()).Where(s => !string.IsNullOrEmpty(s));
-				var oneLine = string.Join("; ", parts);
-				if (!string.IsNullOrEmpty(oneLine)) lines.Add(title + oneLine + ";");
+				var sep = ctx?.L?.Invoke("prompt.punct.list_semicolon", "; ") ?? "; ";
+				var end = ctx?.L?.Invoke("prompt.punct.end_semicolon", ";") ?? ";";
+				var oneLine = string.Join(sep, parts);
+				if (!string.IsNullOrEmpty(oneLine)) lines.Add(title + oneLine + end);
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

@@ -26,8 +26,10 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 		public void SetDefaultLocale(string locale)
 		{
 			if (string.IsNullOrWhiteSpace(locale)) return;
-			_defaultLocale = NormalizeLocale(locale);
-			try { OnLocaleChanged?.Invoke(locale); } catch { }
+			var normalized = NormalizeLocale(locale);
+			if (string.Equals(_defaultLocale, normalized, StringComparison.OrdinalIgnoreCase)) return;
+			_defaultLocale = normalized;
+			try { OnLocaleChanged?.Invoke(normalized); } catch { }
 		}
 
 		public IEnumerable<string> GetAvailableLocales()

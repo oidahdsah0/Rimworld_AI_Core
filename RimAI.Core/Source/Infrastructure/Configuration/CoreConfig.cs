@@ -53,7 +53,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
         public sealed class ChatWindowSection
         {
             public ChatPromptsSection Prompts { get; set; } = new();
-            public string PlayerTitle { get; set; } = "总督";
+            public string PlayerTitle { get; set; } = null;
         }
 
         public sealed class ChatPromptsSection

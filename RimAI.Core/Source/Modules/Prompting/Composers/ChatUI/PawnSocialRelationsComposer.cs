@@ -18,12 +18,21 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 			var social = ctx?.PawnSocial;
 			if (social?.Relations != null && social.Relations.Count > 0)
 			{
-				var parts = new List<string>();
+				var title = ctx?.L?.Invoke("prompt.section.social_relations", "[Social Relations]") ?? "[Social Relations]";
+				var sep = ctx?.L?.Invoke("prompt.punct.list_semicolon", "; ") ?? "; ";
+				var items = new List<string>();
 				foreach (var r in social.Relations.Take(5))
 				{
-					parts.Add($"{r.RelationKind}:{r.OtherName}({r.Opinion})");
+					var rel = r?.RelationKind ?? string.Empty;
+					var name = r?.OtherName ?? (ctx?.L?.Invoke("prompt.token.unknown", "Unknown") ?? "Unknown");
+					var opinion = r?.Opinion.ToString() ?? "0";
+					var formatted = ctx?.F?.Invoke("prompt.format.relation",
+						new Dictionary<string, string> { { "rel", rel }, { "name", name }, { "opinion", opinion } },
+						$"{rel}: {name} (opinion {opinion})")
+						?? $"{rel}: {name} (opinion {opinion})";
+					items.Add(formatted);
 				}
-				if (parts.Count > 0) lines.Add("[社交关系]" + string.Join("; ", parts) + ";");
+				if (items.Count > 0) lines.Add(title + string.Join(sep, items));
 			}
 			return Task.FromResult(new ComposerOutput { SystemLines = lines, ContextBlocks = System.Array.Empty<ContextBlock>() });
 		}

@@ -21,11 +21,11 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 				{
 					var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
 					var list = await world.GetPawnTerrainCountsAsync(ctx.Request.PawnLoadId.Value, 9, ct).ConfigureAwait(false);
-					var title = ctx?.L?.Invoke("prompt.section.env_terrain", "[环境-周围地貌]") ?? "[环境-周围地貌]";
+					var title = ctx?.L?.Invoke("prompt.section.env_terrain", "[Env-Terrain Nearby]") ?? "[Env-Terrain Nearby]";
 					var parts = (list ?? new List<RimAI.Core.Source.Modules.World.TerrainCountItem>()).OrderByDescending(x => x?.Count ?? 0).Take(6).Select(x => $"{x.Terrain}-{x.Count}");
-					var text = string.Join(";", parts);
-					if (!string.IsNullOrEmpty(text)) text += ";";
-					lines.Add(title + text);
+					var sep = ctx?.L?.Invoke("prompt.punct.list_semicolon", "; ") ?? "; ";
+					var text = string.Join(sep, parts);
+					lines.Add(title + " " + text);
 				}
 			}
 			catch { }

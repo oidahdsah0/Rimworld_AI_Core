@@ -166,9 +166,11 @@ namespace RimAI.Core.Source.Boot
                         {
                             var langFolder = LanguageDatabase.activeLanguage?.folderName ?? "English";
                             var normalized = NormalizeLocaleFromRimworld(langFolder);
-                            // 首次同步：将覆盖值设置为 normalized（一次性），并设置运行时默认
-                            cfg?.SetPromptLocaleOverride(normalized);
-                            loc?.SetDefaultLocale(normalized);
+                            // 自动跟随：若无手动覆盖，仅设置运行时默认；有覆盖则尊重玩家设置
+                            if (string.IsNullOrWhiteSpace(cfg?.GetPromptLocaleOverrideOrNull()))
+                            {
+                                loc?.SetDefaultLocale(normalized);
+                            }
                         }
                         try { var _ = loc?.GetAvailableLocales(); } catch { }
                     }

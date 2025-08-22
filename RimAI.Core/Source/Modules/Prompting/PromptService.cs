@@ -136,9 +136,9 @@ namespace RimAI.Core.Source.Modules.Prompting
 				Recaps = recapsTask.Result,
 				RecentThread = threadTask.Result,
 				EnvMatrix = null,
-				PlayerTitle = string.IsNullOrWhiteSpace(_cfg?.GetPlayerTitleOrDefault()) 
-					? (_loc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督")
-					: _cfg.GetPlayerTitleOrDefault(),
+				PlayerTitle = (_cfg?.GetPlayerTitleOrDefault())
+					?? (_loc?.Get(locale, "ui.chat.player_title.value", _loc?.Get("en", "ui.chat.player_title.value", "governor"))
+						?? _loc?.Get("en", "ui.chat.player_title.value", "governor")),
 				L = (key, fb) => GetString(locale, key, fb),
 				F = (key, args, fb) => { try { return _loc?.Format(locale, key, args, fb) ?? fb; } catch { return fb; } }
 			};
@@ -208,7 +208,7 @@ namespace RimAI.Core.Source.Modules.Prompting
 			{
 				SystemPrompt = sb.ToString(),
 				ContextBlocks = blocks,
-				UserPrefixedInput = ctx.L("ui.chat.user_prefix", "{player_title}传来的信息如下：").Replace("{player_title}", ctx.PlayerTitle ?? (ctx.L("ui.chat.player_title.value", "总督")))
+				UserPrefixedInput = ctx.L("ui.chat.user_prefix", "Message from the {player_title}:").Replace("{player_title}", ctx.PlayerTitle ?? (ctx.L("ui.chat.player_title.value", "governor")))
 			};
 		}
 

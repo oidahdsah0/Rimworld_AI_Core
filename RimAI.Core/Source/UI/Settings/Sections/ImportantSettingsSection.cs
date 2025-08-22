@@ -15,7 +15,6 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 		private readonly ILocalizationService _loc;
 		private readonly ConfigurationService _cfgInternal;
 
-		private string _playerTitle;
 		private bool _verboseLogs;
 		private bool _toolingEnabled;
 		private bool _dangerousConfirm;
@@ -35,7 +34,6 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 			// 初始化本地可编辑副本
 			try
 			{
-				_playerTitle = _cfgInternal?.GetPlayerTitleOrDefault() ?? "总督";
 				_verboseLogs = _config?.Current?.VerboseLogs ?? false;
 				_toolingEnabled = _cfgInternal?.GetToolingConfig()?.Enabled ?? true;
 				_dangerousConfirm = _cfgInternal?.GetToolingConfig()?.DangerousToolConfirmation ?? false;
@@ -57,8 +55,8 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 
 		public float GetHeight(float width)
 		{
-			// 估算高度：标题 ~ 28f + 5 行控件 * 32f + 2 个按钮行 * 32f + padding
-			return 28f + 5 * 34f + 2 * 34f + 24f;
+			// 估算高度：标题 ~ 28f + 4 行控件 * 34f + 2 个按钮行 * 34f + padding
+			return 28f + 4 * 34f + 2 * 34f + 24f;
 		}
 
 		public void Draw(Rect rect)
@@ -103,9 +101,6 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 				}
 				Find.WindowStack.Add(new FloatMenu(menu));
 			}
-
-			// 玩家称谓
-			_playerTitle = listing.TextEntryLabeled("RimAI.Settings.Important.PlayerTitle".Translate().ToString() + ": ", _playerTitle ?? "");
 
 			// Verbose 日志
 			listing.CheckboxLabeled("RimAI.Settings.Important.VerboseLogs".Translate().ToString(), ref _verboseLogs);
@@ -153,7 +148,6 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 		{
 			try
 			{
-				_playerTitle = _cfgInternal?.GetPlayerTitleOrDefault() ?? "总督";
 				_verboseLogs = _config?.Current?.VerboseLogs ?? false;
 				_toolingEnabled = _cfgInternal?.GetToolingConfig()?.Enabled ?? true;
 				_dangerousConfirm = _cfgInternal?.GetToolingConfig()?.DangerousToolConfirmation ?? false;
@@ -166,7 +160,6 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 		{
 			try
 			{
-				_cfgInternal?.SetPlayerTitle(_playerTitle);
 				var internalCfg = _cfgInternal != null ? _cfgInternal.GetInternal() : null;
 				if (internalCfg != null && internalCfg.Diagnostics != null)
 				{

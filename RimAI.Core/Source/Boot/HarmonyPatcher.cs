@@ -54,7 +54,15 @@ namespace RimAI.Core.Source.Boot
                             icon = ContentFinder<Texture2D>.Get("RimAI/Chat/InfoSend", true),
                             action = () =>
                             {
-                                try { if (__instance != null) Find.WindowStack.Add(new ChatWindow(__instance)); } catch { }
+                                try
+                                {
+                                    Verse.Log.Message($"[RimAI.Core][P10] Gizmo click ChatWindow for pawn={__instance?.thingIDNumber}");
+                                    if (__instance != null) Find.WindowStack.Add(new ChatWindow(__instance));
+                                }
+                                catch (Exception ex)
+                                {
+                                    Verse.Log.Error($"[RimAI.Core][P10] Gizmo open ChatWindow failed: {ex}");
+                                }
                             }
                         };
                         list.Add(cmd);

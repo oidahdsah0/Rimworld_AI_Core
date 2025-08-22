@@ -48,12 +48,15 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				ConvKey = convKey,
 				ParticipantIds = participantIds
 			};
+			try { Verse.Log.Message($"[RimAI.Core][P10] ChatController ctor conv={convKey} pids={participantIds?.Count ?? 0}"); } catch { }
 		}
 
 		public async Task StartAsync()
 		{
 			try
 			{
+				var t0 = DateTime.UtcNow;
+				Verse.Log.Message($"[RimAI.Core][P10] ChatController.StartAsync begin conv={State?.ConvKey}");
 				// 记录参与者（若无则创建），并加载现有历史（若无则为空列表）
 				await _history.UpsertParticipantsAsync(State.ConvKey, State.ParticipantIds).ConfigureAwait(false);
 				var thread = await _history.GetThreadAsync(State.ConvKey, page: 1, pageSize: 200).ConfigureAwait(false);
@@ -76,12 +79,14 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						State.PendingInitMessages.Enqueue(msg);
 					}
 				}
+				try { var ms = (int)(DateTime.UtcNow - t0).TotalMilliseconds; Verse.Log.Message($"[RimAI.Core][P10] ChatController.StartAsync done msgs={State.PendingInitMessages?.Count} elapsed={ms}ms"); } catch { }
 			}
 			catch { }
 		}
 
 		public async Task SendSmalltalkAsync(string userText, CancellationToken ct = default)
 		{
+			try { Verse.Log.Message($"[RimAI.Core][P10] SendSmalltalk begin len={userText?.Length ?? 0}"); } catch { }
 			CancelStreaming();
 			_streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 			var linked = _streamCts.Token;
@@ -139,6 +144,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					{
 						if (!r.IsSuccess)
 						{
+							try { Verse.Log.Warning("[RimAI.Core][P10] SendSmalltalk stream error"); } catch { }
 							break;
 						}
 						// 忽略已被新会话替换的延迟包
@@ -165,21 +171,25 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				}
 				catch (OperationCanceledException)
 				{
+					try { Verse.Log.Message("[RimAI.Core][P10] SendSmalltalk canceled"); } catch { }
 				}
 				catch (Exception)
 				{
+					try { Verse.Log.Error("[RimAI.Core][P10] SendSmalltalk exception"); } catch { }
 				}
 				finally
 				{
 					try { _streamCts?.Dispose(); } catch { }
 					_streamCts = null;
 					State.IsStreaming = false;
+					try { Verse.Log.Message("[RimAI.Core][P10] SendSmalltalk end"); } catch { }
 				}
 			}, linked);
 		}
 
 		public async Task SendCommandAsync(string userText, CancellationToken ct = default)
 		{
+			try { Verse.Log.Message($"[RimAI.Core][P10] SendCommand begin len={userText?.Length ?? 0}"); } catch { }
 			CancelStreaming();
 			_streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 			var linked = _streamCts.Token;
@@ -231,6 +241,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						Profile = RimAI.Core.Source.Modules.Orchestration.ExecutionProfile.Fast,
 						MaxCalls = 1
 					}, linked);
+					try { Verse.Log.Message($"[RimAI.Core][P12] Orchestration done ok={result != null}"); } catch { }
 
 					// 显示一次过程说明（PlanTrace 首条）到 UI（历史写入已由编排完成）
 					if (result != null && result.PlanTrace != null && result.PlanTrace.Count > 0)
@@ -294,15 +305,18 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				}
 				catch (OperationCanceledException)
 				{
+					try { Verse.Log.Message("[RimAI.Core][P12] SendCommand canceled"); } catch { }
 				}
 				catch (Exception)
 				{
+					try { Verse.Log.Error("[RimAI.Core][P12] SendCommand exception"); } catch { }
 				}
 				finally
 				{
 					try { _streamCts?.Dispose(); } catch { }
 					_streamCts = null;
 					State.IsStreaming = false;
+					try { Verse.Log.Message("[RimAI.Core][P12] SendCommand end"); } catch { }
 				}
 			}, linked);
 		}

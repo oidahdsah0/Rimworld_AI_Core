@@ -5,7 +5,7 @@
   "ui.chat.player_title.name": "[Vous devez vous adresser au joueur en tant que]",
   "ui.chat.player_title.value": "gouverneur",
 
-  "ui.persona.biography.system": "Générez un brouillon de 'Biographie' pour le colon : exploitez identité, traits, compétences, liens sociaux et histoire ; écriture à la troisième personne, style concis en points, ton en-univers ; pas de sortie de rôle, pas d'invention, pas de copie brute ; mettez en avant la personnalité et l'arc de vie plutôt qu'une liste de faits ; restez bref (~200 caractères), usez d'ambiguïté prudente en cas de manque.",
+  "ui.persona.biography.system": "Générez un brouillon de 'Biographie' pour le colon : exploitez identité, traits, compétences, liens sociaux et histoire ; écrivez à la troisième personne, en un paragraphe unique concis, ton en‑univers ; pas de sortie de rôle, pas d'invention, pas de copie brute ; mettez en avant la personnalité et l'arc de vie plutôt qu'une liste de faits ; la sortie doit être un seul paragraphe (≤ ~300 caractères) ; en cas de manque, recourir à une ambiguïté prudente.",
   "ui.persona.ideology.system": "Générez un brouillon 'Idéologie/Monde' : résumez en lignes de type points Monde/Valeurs/Code de conduite/Tendances ; ancrage dans le contexte connu ; pas d'OOC ni d'invention ; une phrase par ligne, total ~= 200 caractères ; omissions et ambiguïté prudente autorisées.",
 
   "prompt.section.identity": "[Identité]",
@@ -88,6 +88,8 @@
   "prompt.token.dead": " (MORT)",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Santé moyenne : {value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[Discussions récentes]"
 }
 
 

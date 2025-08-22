@@ -202,7 +202,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		{
 			// 顶部操作按钮：生成/保存
 			float y = rect.y;
-			if (!_ideoBusy && Widgets.ButtonText(new Rect(rect.x, y, 90f, 28f), "RimAI.ChatUI.Recap.Generate".Translate()))
+			if (!_ideoBusy && Widgets.ButtonText(new Rect(rect.x, y, 90f, 28f), "RimAI.ChatUI.Ideo.Generate".Translate()))
 			{
 				_ideoBusy = true;
 				_ = Task.Run(async () =>

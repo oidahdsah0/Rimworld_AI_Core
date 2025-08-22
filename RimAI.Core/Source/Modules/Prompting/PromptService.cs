@@ -90,17 +90,15 @@ namespace RimAI.Core.Source.Modules.Prompting
             // 复用 ChatUI 的 ColonyStatus 到 ServerStage（用 Scope 适配器包一层）
             _composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.ColonyStatusComposer(), PromptScope.ServerStage, idOverride: "server_colony_status", orderOverride: 60));
 
-            // PersonaBiography Scope：仅系统提示 + 单段User
+            // PersonaBiography Scope：仅系统提示 + 单段User（去除世界信息，不引入日志）
             var scopeBio = PromptScope.PersonaBiography;
             _composers.Add(new Composers.Persona.PersonaBiographySystemComposer());
             _composers.Add(new Composers.Persona.PersonaUserPayloadComposer(scopeBio));
-            _composers.Add(new Composers.Common.GameLogComposer(PromptScope.PersonaBiography, 30));
 
-            // PersonaIdeology Scope：仅系统提示 + 单段User
+            // PersonaIdeology Scope：仅系统提示 + 单段User（去除世界信息，不引入日志）
             var scopeIdeo = PromptScope.PersonaIdeology;
             _composers.Add(new Composers.Persona.PersonaIdeologySystemComposer());
             _composers.Add(new Composers.Persona.PersonaUserPayloadComposer(scopeIdeo));
-            _composers.Add(new Composers.Common.GameLogComposer(PromptScope.PersonaIdeology, 30));
 		}
 
 		public async Task<PromptBuildResult> BuildAsync(PromptBuildRequest request, CancellationToken ct = default)

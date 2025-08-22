@@ -5,7 +5,7 @@
   "ui.chat.player_title.name": "[你应该称呼玩家为]",
   "ui.chat.player_title.value": "总督",
 
-  "ui.persona.biography.system": "你将为RimWorld 边缘世界游戏中的【新落地殖民者】生成“人物传记”草案：基于提供的身份、特质、技能、社交与历史等上下文，用第三人称、要点式、沉浸风格撰写；不出戏、不臆造、不照读原文；突出性格与经历脉络，避免流水账；整体精炼（不超过约200字），信息缺失时保持含糊与克制。",
+  "ui.persona.biography.system": "你将为RimWorld 边缘世界游戏中的【新落地殖民者】生成“人物传记”草案：基于提供的身份、特质、技能、社交与历史等上下文，用第三人称、要点式、沉浸风格撰写；不出戏、不臆造、不照读原文；突出性格与经历脉络，避免流水账；整体精炼，单一段落（必须单段落，且不超过约300字），信息缺失时保持含糊与克制。",
   "ui.persona.ideology.system": "你将为RimWorld 边缘世界游戏中的【新落地殖民者】生成“世界观/意识形态”草案：按“世界观/价值观/行为准则/性格倾向”要点式概述，结合已知上下文；不出戏、不臆造；每点不超过一行，整体不超过约200字；允许留白并使用审慎的模糊措辞。",
 
   "prompt.section.identity": "[个体]",
@@ -88,5 +88,7 @@
   "prompt.token.dead": "（死亡）",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "平均生命体征：{value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[最近对话]"
 }
 

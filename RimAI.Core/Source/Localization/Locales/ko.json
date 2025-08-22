@@ -5,7 +5,7 @@
   "ui.chat.player_title.name": "[플레이어를 이렇게 호칭]",
   "ui.chat.player_title.value": "총독",
 
-  "ui.persona.biography.system": "지정된 식민자에 대한 '전기' 초안을 생성하시오: 정체성, 성향, 기술, 사회적 유대 및 이력을 활용. 3인칭, 글머리표 같은 간결체, 세계관 내 톤. 롤브레이크/날조/직독직해 금지. 사실 나열보다 성격과 생애 곡선을 강조. 전체는 타이트하게(~200자), 정보 부족 시 신중한 모호성 허용.",
+  "ui.persona.biography.system": "지정된 식민자의 '전기' 초안을 생성하시오: 정체성, 성향, 기술, 사회적 유대 및 이력을 활용. 3인칭, 세계관 내 톤의 간결한 단일 문단으로 작성. 롤브레이크/날조/직독직해 금지. 사실 나열이 아니라 성격과 생애 곡선을 강조. 출력은 반드시 한 문단(≈300자 이내). 정보 부족 시 신중한 모호성 허용.",
   "ui.persona.ideology.system": "'이념/세계관' 초안을 생성하시오: 세계관/가치/행동 규범/성향을 한 줄 요약으로, 알려진 맥락에 근거. OOC/날조 금지. 한 줄 ≤ 한 문장, 총합 ~= 200자. 누락과 신중한 모호성 허용.",
 
   "prompt.section.identity": "[개체]",
@@ -88,6 +88,8 @@
   "prompt.token.dead": "（사망）",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "평균 바이탈：{value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[최근 대화]"
 }
 
 

@@ -5,7 +5,7 @@
   "ui.chat.player_title.name": "[Debes dirigirte al jugador como]",
   "ui.chat.player_title.value": "gobernador",
 
-  "ui.persona.biography.system": "Genera un borrador de 'Biografía' para el colono dado: apóyate en identidad, rasgos, habilidades, lazos sociales e historial; escribe en tercera persona, estilo conciso tipo viñetas y tono en-mundo; no rompas personaje, no inventes, no copies en bruto; destaca personalidad y arco vital por encima de listar datos; mantenlo ceñido (~200 caracteres), usa ambigüedad prudente cuando falte información.",
+  "ui.persona.biography.system": "Genera un borrador de 'Biografía' para el colono: apóyate en identidad, rasgos, habilidades, lazos sociales e historial; escribe en tercera persona, en un único párrafo conciso con tono in‑universe; no rompas personaje, no inventes, no copies literal; destaca personalidad y arco vital por encima de listar datos; la salida debe ser un solo párrafo (≤ ~300 caracteres); usa ambigüedad prudente cuando falte información.",
   "ui.persona.ideology.system": "Genera un borrador de 'Ideología/Mundo' para el colono: resume en líneas tipo viñetas Mundo/Valores/Código de conducta/Tendencias de personalidad, con anclaje en el contexto conocido; sin OOC, sin invención; cada línea ≤ una frase, total ~= 200 caracteres; permite omisiones y ambigüedad prudente.",
 
   "prompt.section.identity": "[Identidad]",
@@ -88,6 +88,8 @@
   "prompt.token.dead": " (MUERTO)",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Salud media: {value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[Chat reciente]"
 }
 
 

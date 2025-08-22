@@ -5,7 +5,7 @@
   "ui.chat.player_title.name": "[Du solltest den Spieler ansprechen als]",
   "ui.chat.player_title.value": "Gouverneur",
 
-  "ui.persona.biography.system": "Erzeuge einen Entwurf 'Biographie' für den Kolonisten: nutze Identität, Traits, Skills, soziale Bindungen und Historie; schreibe in dritter Person, stichpunktartig knapp, in-world Ton; kein OOC, keine Erfindung, kein wörtliches Kopieren; betone Persönlichkeit und Lebensbogen, nicht das Auflisten von Fakten; halte es knapp (~200 Zeichen), wähle bei Lücken vorsichtige Unschärfe.",
+  "ui.persona.biography.system": "Erzeuge einen Entwurf 'Biographie' für den Kolonisten: nutze Identität, Traits, Skills, soziale Bindungen und Historie; schreibe in dritter Person als einen einzigen, knappen Absatz im In‑World‑Ton; kein OOC, keine Erfindung, kein wörtliches Kopieren; betone Persönlichkeit und Lebensbogen statt Faktenlisten; Ausgabe muss ein einziger Absatz sein (≤ ~300 Zeichen); bei Lücken vorsichtige Unschärfe.",
   "ui.persona.ideology.system": "Erzeuge einen Entwurf 'Ideologie/Weltbild': fasse als stichpunktartige Zeilen Weltbild/Werte/Verhaltenskodex/Persönlichkeitstendenzen zusammen, geerdet im bekannten Kontext; kein OOC, keine Erfindung; je Zeile ≤ ein Satz, gesamt ~= 200 Zeichen; Lücken und vorsichtige Ambiguität erlaubt.",
 
   "prompt.section.identity": "[Identität]",
@@ -88,6 +88,8 @@
   "prompt.token.dead": " (TOT)",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Durchschnittliche Gesundheit: {value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[Letzte Chats]"
 }
 
 

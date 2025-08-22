@@ -5,7 +5,7 @@
   "ui.chat.player_title.name": "[プレイヤーの呼称]",
   "ui.chat.player_title.value": "総督",
 
-  "ui.persona.biography.system": "与えられた入植者の『人物伝』草案を生成せよ。アイデンティティ・特性・技能・社会関係・履歴を活用する。三人称、箇条書き風の簡潔な文体、世界内の口調。ロール崩し・捏造・丸読みは禁止。事実の羅列よりも個性と人生の弧を強調。全体は引き締め（約 200 文字）。情報が欠ける場合は慎み深い曖昧さを用いる。",
+  "ui.persona.biography.system": "与えられた入植者の『人物伝』草案を生成せよ。アイデンティティ・特性・技能・社会関係・履歴を活用する。三人称、世界内の口調で簡潔な単一段落で書くこと。ロール崩し・捏造・逐語の丸写しは禁止。事実の羅列ではなく個性と人生の弧を強調。出力は必ず一段落（かつおよそ 300 文字以内）。情報が欠ける場合は慎み深い曖昧さを用いる。",
   "ui.persona.ideology.system": "『イデオロギー/世界観』草案を生成せよ：世界観/価値観/行動規範/性向を箇条書き風に一行ずつ、既知の文脈に基づき要約。OOC と捏造は禁止。一行は一文、合計およそ 200 文字。欠落や慎重な曖昧さは許容。",
 
   "prompt.section.identity": "[個体]",
@@ -88,6 +88,8 @@
   "prompt.token.dead": "（死亡）",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "平均バイタル：{value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[最近の会話]"
 }
 
 

@@ -11,7 +11,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			var pulseLabelW = 72f;
 			var pulseSpacing = 6f;
 			var rightReserveW = pulseLabelW + pulseSpacing + pulseW;
-			var titleLabelRect = new Rect(titleRect.x, titleRect.y, Mathf.Max(0f, titleRect.width - rightReserveW + 80f), titleRect.height);
+			var titleLabelRect = new Rect(titleRect.x, titleRect.y, Mathf.Max(0f, titleRect.width - rightReserveW + 160f), titleRect.height);
 			TitleBar.Draw(titleLabelRect, portrait, pawnName ?? "RimAI.Common.Pawn".Translate(), string.IsNullOrWhiteSpace(jobTitle) ? "RimAI.ChatUI.Left.Unassigned".Translate() : jobTitle);
 			var pulseRect = new Rect(titleRect.xMax - pulseW, titleRect.y + 12f, pulseW - 6f, titleRect.height - 18f);
 			var pulseTitleRect = new Rect(pulseRect.x - pulseSpacing - pulseLabelW - 10f, pulseRect.y, pulseLabelW, pulseRect.height);

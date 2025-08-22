@@ -48,11 +48,15 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				try
 				{
 					var tooling = RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
-					_ = System.Threading.Tasks.Task.Run(async () =>
+					// 若未启用 TopK（Embedding 关闭），则跳过索引构建
+					if (tooling != null && (tooling.IsTopKAvailable()))
 					{
-						try { await tooling.EnsureIndexBuiltAsync(); }
-						catch (System.Exception ex) { Log.Error($"[RimAI.Core][P4] EnsureIndexBuiltAsync failed: {ex.Message}"); }
-					});
+						_ = System.Threading.Tasks.Task.Run(async () =>
+						{
+							try { await tooling.EnsureIndexBuiltAsync(); }
+							catch (System.Exception ex) { Log.Error($"[RimAI.Core][P4] EnsureIndexBuiltAsync failed: {ex.Message}"); }
+						});
+					}
 				}
 				catch { }
 			}
@@ -132,6 +136,8 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 			try
 			{
 				var tooling = RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
+				// 若未启用 TopK（Embedding 关闭），则不进行校验与重建
+				if (tooling != null && !tooling.IsTopKAvailable()) return;
 				_ = System.Threading.Tasks.Task.Run(async () =>
 				{
 					try

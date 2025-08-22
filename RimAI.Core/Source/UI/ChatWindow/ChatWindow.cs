@@ -162,7 +162,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			var rightW = inRect.width - leftW - 8f;
 			var leftRect = new Rect(inRect.x, inRect.y, leftW, inRect.height);
 			var rightRectOuter = new Rect(leftRect.xMax + 8f, inRect.y, rightW, inRect.height);
-			var titleH = 72f; // 放大标题栏用于半身像展示
+			var titleH = 70f; // 放大标题栏用于半身像展示
 			var indicatorH = 20f;
 			var inputH = 60f; // 输入栏高度与按钮同高
 			var titleRect = new Rect(rightRectOuter.x, rightRectOuter.y, rightRectOuter.width, titleH);

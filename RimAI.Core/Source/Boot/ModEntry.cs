@@ -152,7 +152,7 @@ namespace RimAI.Core.Source.Boot
                     _settingsController.Register(new ImportantSettingsSection());
                     _settingsWindow = new SettingsWindow(_settingsController);
 
-                    // 设置默认本地化语言：跟随游戏语言，回退 en
+                    // 设置默认本地化语言：首次加载时同步一次；如用户已设置覆盖，则尊重覆盖
                     try
                     {
                         var loc = Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
@@ -166,6 +166,8 @@ namespace RimAI.Core.Source.Boot
                         {
                             var langFolder = LanguageDatabase.activeLanguage?.folderName ?? "English";
                             var normalized = NormalizeLocaleFromRimworld(langFolder);
+                            // 首次同步：将覆盖值设置为 normalized（一次性），并设置运行时默认
+                            cfg?.SetPromptLocaleOverride(normalized);
                             loc?.SetDefaultLocale(normalized);
                         }
                         try { var _ = loc?.GetAvailableLocales(); } catch { }

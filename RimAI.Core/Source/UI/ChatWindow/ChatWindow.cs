@@ -56,16 +56,14 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private string _lcdText;
 		private System.Random _lcdRng;
 		private double _lcdNextShuffleRealtime;
-		private bool _firstDrawLogged;
-		private bool _firstDrawEndLogged;
 
 		public override Vector2 InitialSize => new Vector2(960f, 600f);
 
 		public ChatWindow(Pawn pawn)
 		{
 			_pawn = pawn;
-			var t0 = DateTime.UtcNow;
-			try { Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor begin pawnId={_pawn?.thingIDNumber ?? 0}"); } catch { }
+			// var t0 = DateTime.UtcNow;
+			// try { Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor begin pawnId={_pawn?.thingIDNumber ?? 0}"); } catch { }
 			doCloseX = true;
 			draggable = true;
 			preventCameraMotion = false;
@@ -76,7 +74,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			closeOnCancel = true; // 允许 ESC 关闭 ChatUI
 
 			_container = RimAICoreMod.Container;
-			try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor resolved container"); } catch { }
+			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor resolved container"); } catch { }
 			_llm = _container.Resolve<ILLMService>();
 			_history = _container.Resolve<IHistoryService>();
 			_world = _container.Resolve<IWorldDataService>();
@@ -86,22 +84,22 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_biography = _container.Resolve<IBiographyService>();
 			_ideology = _container.Resolve<IIdeologyService>();
 			_recap = _container.Resolve<IRecapService>();
-			try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor resolved services"); } catch { }
+			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor resolved services"); } catch { }
 
 			var participantIds = BuildParticipantIds(pawn);
 			var convKey = BuildConvKey(participantIds);
 			// 若已存在与该 pawn 相关的历史会话，优先复用其 convKey（避免因 playerId 不稳定导致历史无法匹配）
 			convKey = Parts.ConversationSwitching.TryReuseExistingConvKey(_history, participantIds, convKey);
-			try { var hid = (convKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor convKey rid={hid:X4} participants={participantIds?.Count ?? 0}"); } catch { }
+			// try { var hid = (convKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor convKey rid={hid:X4} participants={participantIds?.Count ?? 0}"); } catch { }
 			_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, participantIds);
-			try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller created"); } catch { }
+			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller created"); } catch { }
 			// PlayerTitle：主线程快速回退，异步解析
-			try { _controller.State.PlayerTitle = "总督"; Verse.Log.Message("[RimAI.Core][P10] PlayerTitle fallback set"); } catch { }
+			try { _controller.State.PlayerTitle = "总督"; /* Verse.Log.Message("[RimAI.Core][P10] PlayerTitle fallback set"); */ } catch { }
 			_ = System.Threading.Tasks.Task.Run(() =>
 			{
 				try
 				{
-					Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve begin");
+					// Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve begin");
 					var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
 					var loc = _container.Resolve<ILocalizationService>();
 					var locale = cfg?.GetInternal()?.General?.Locale ?? "zh-Hans";
@@ -111,7 +109,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						title = loc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督";
 					}
 					_controller.State.PlayerTitle = title;
-					Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve done");
+					// Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve done");
 				}
 				catch { }
 			});
@@ -119,21 +117,21 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_lcdNextShuffleRealtime = 0.0;
 			// 启动健康轮询
 			_healthCts = new CancellationTokenSource();
-			try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor health poll start"); } catch { }
+			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor health poll start"); } catch { }
 			_ = PollHealthAsync(_healthCts.Token);
 			// 加载历史（若无则空）
-			try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller.StartAsync scheduled"); } catch { }
+			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller.StartAsync scheduled"); } catch { }
 			_ = _controller.StartAsync();
-			try { var ms = (int)(DateTime.UtcNow - t0).TotalMilliseconds; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor end elapsed={ms}ms"); } catch { }
+			// try { var ms = (int)(DateTime.UtcNow - t0).TotalMilliseconds; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor end elapsed={ms}ms"); } catch { }
 		}
 
 		public override void DoWindowContents(Rect inRect)
 		{
-			if (!_firstDrawLogged)
-			{
-				_firstDrawLogged = true;
-				try { var hid = (_controller?.State?.ConvKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow first draw rid={hid:X4} msgs={_controller?.State?.Messages?.Count ?? 0}"); } catch { }
-			}
+			// if (!_firstDrawLogged)
+			// {
+			// 	_firstDrawLogged = true;
+			// 	try { var hid = (_controller?.State?.ConvKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow first draw rid={hid:X4} msgs={_controller?.State?.Messages?.Count ?? 0}"); } catch { }
+			// }
 			// 若当前不在称谓设置页，允许下次进入时重新初始化输入框
 			if (_activeTab != ChatTab.Title) _titleInputInitialized = false;
 			if (_activeTab == ChatTab.FixedPrompt)
@@ -274,11 +272,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
                 _historyWritten = true;
             }
 
-			if (!_firstDrawEndLogged)
-			{
-				_firstDrawEndLogged = true;
-				try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow first draw end"); } catch { }
-			}
+			// if (!_firstDrawEndLogged)
+			// {
+			// 	_firstDrawEndLogged = true;
+			// 	try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow first draw end"); } catch { }
+			// }
 		}
 
 		private void OnCancelStreaming()
@@ -568,10 +566,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			if (_pawn == null) { _pawnPortrait = null; return; }
 			if (_pawnPortrait == null)
 			{
-				try { Verse.Log.Message($"[RimAI.Core][P10] Build pawn portrait begin id={_pawn?.thingIDNumber ?? 0}"); } catch { }
+				// try { Verse.Log.Message($"[RimAI.Core][P10] Build pawn portrait begin id={_pawn?.thingIDNumber ?? 0}"); } catch { }
 				var sz = new Vector2(size, size);
 				_pawnPortrait = PortraitsCache.Get(_pawn, sz, Rot4.South);
-				try { Verse.Log.Message("[RimAI.Core][P10] Build pawn portrait done"); } catch { }
+				// try { Verse.Log.Message("[RimAI.Core][P10] Build pawn portrait done"); } catch { }
 			}
 		}
 

@@ -13,15 +13,18 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 
 		public async Task<ComposerOutput> ComposeAsync(PromptBuildContext ctx, CancellationToken ct)
 		{
-			var lines = new List<string>();
+			var lines = new System.Collections.Generic.List<string>();
 			try
 			{
 				var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
 				var s = await world.GetWeatherStatusAsync(ctx?.Request?.PawnLoadId ?? 0, ct).ConfigureAwait(false);
 				if (s != null)
 				{
-					var title = ctx?.L?.Invoke("prompt.section.weather", "[天气]") ?? "[天气]";
-					lines.Add($"{title} {s.Weather} | 温度: {s.OutdoorTempC:F1}°C | 光照: {s.Glow:P0}");
+					var isZh = (ctx?.Locale ?? "en").StartsWith("zh", System.StringComparison.OrdinalIgnoreCase);
+					var title = ctx?.L?.Invoke("prompt.section.weather", isZh ? "[天气]" : "[Weather]") ?? (isZh ? "[天气]" : "[Weather]");
+					var tempLabel = isZh ? "温度" : "Temp";
+					var glowLabel = isZh ? "光照" : "Glow";
+					lines.Add($"{title} {s.Weather} | {tempLabel}: {s.OutdoorTempC:F1}°C | {glowLabel}: {s.Glow:P0}");
 				}
 			}
 			catch { }

@@ -26,7 +26,7 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 		public void SetDefaultLocale(string locale)
 		{
 			if (string.IsNullOrWhiteSpace(locale)) return;
-			_defaultLocale = locale;
+			_defaultLocale = NormalizeLocale(locale);
 			try { OnLocaleChanged?.Invoke(locale); } catch { }
 		}
 
@@ -89,6 +89,7 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 		private Dictionary<string, string> LoadLocale(string locale)
 		{
 			locale = string.IsNullOrWhiteSpace(locale) ? _defaultLocale : locale;
+			locale = NormalizeLocale(locale);
 			lock (_gate)
 			{
 				if (_cache.TryGetValue(locale, out var dict)) return dict;
@@ -115,8 +116,9 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 							?? all.FirstOrDefault(f => string.Equals(Path.GetFileNameWithoutExtension(f), locale.Replace('_', '-'), StringComparison.OrdinalIgnoreCase));
 					if (!string.IsNullOrWhiteSpace(found))
 					{
-						var tryUser = _persistence.ReadTextUnderConfigOrNullAsync($"Localization/Locales/{found}").GetAwaiter().GetResult();
-						json = string.IsNullOrWhiteSpace(tryUser) ? _persistence.ReadTextUnderModRootOrNullAsync($"Config/RimAI/Localization/Locales/{found}").GetAwaiter().GetResult() : tryUser;
+						var fileName = Path.GetFileName(found);
+						var tryUser = _persistence.ReadTextUnderConfigOrNullAsync($"Localization/Locales/{fileName}").GetAwaiter().GetResult();
+						json = string.IsNullOrWhiteSpace(tryUser) ? _persistence.ReadTextUnderModRootOrNullAsync($"Config/RimAI/Localization/Locales/{fileName}").GetAwaiter().GetResult() : tryUser;
 					}
 				}
 				if (string.IsNullOrWhiteSpace(json))
@@ -133,6 +135,54 @@ namespace RimAI.Core.Source.Infrastructure.Localization
 				lock (_gate) { _cache[locale] = new Dictionary<string, string>(); _knownLocales.Add(locale); }
 				return _cache[locale];
 			}
+		}
+
+		private static string NormalizeLocale(string locale)
+		{
+			if (string.IsNullOrWhiteSpace(locale)) return "en";
+			var s = locale.Trim();
+			// 拆分括号，合并为“主体 + 括号内”并去除分隔符，便于匹配
+			string basePart = s;
+			string parenPart = string.Empty;
+			int idx = s.IndexOf('(');
+			if (idx >= 0)
+			{
+				basePart = s.Substring(0, idx);
+				int idx2 = s.IndexOf(')', idx + 1);
+				parenPart = idx2 > idx ? s.Substring(idx + 1, idx2 - idx - 1) : s.Substring(idx + 1);
+			}
+			var tokens = (basePart + " " + parenPart)
+				.ToLowerInvariant()
+				.Replace('_', ' ')
+				.Replace('-', ' ')
+				.Replace('.', ' ')
+				.Trim();
+			tokens = string.Join(" ", tokens.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+
+			// 葡萄牙语（巴西）优先匹配
+			if ((tokens.Contains("portuguese") || tokens.Contains("portugues") || tokens.Contains("português"))
+				&& (tokens.Contains("brazil") || tokens.Contains("br"))) return "pt-BR";
+
+			// 简体中文
+			if (tokens.Contains("simplified") || tokens.Contains("hans") || tokens.Contains("简体") || tokens.Contains("zh cn") || tokens.Contains("zh hans")) return "zh-Hans";
+			// 繁体中文
+			if (tokens.Contains("traditional") || tokens.Contains("hant") || tokens.Contains("繁体") || tokens.Contains("zh tw") || tokens.Contains("zh hant")) return "zh-Hant";
+
+			if (tokens.Contains("english") || tokens == "en") return "en";
+			if (tokens.Contains("japanese") || tokens.Contains("日本") || tokens == "ja" || tokens.Contains(" ja ")) return "ja";
+			if (tokens.Contains("korean") || tokens.Contains("한국") || tokens == "ko" || tokens.Contains(" ko ")) return "ko";
+			if (tokens.Contains("french") || tokens.Contains("fran") || tokens == "fr" || tokens.Contains(" fr ")) return "fr";
+			if (tokens.Contains("german") || tokens.Contains("deutsch") || tokens == "de" || tokens.Contains(" de ")) return "de";
+			if (tokens.Contains("spanish") || tokens.Contains("español") || tokens.Contains("espanol") || tokens == "es" || tokens.Contains(" es ")) return "es";
+			if (tokens.Contains("russian") || tokens.Contains("рус") || tokens == "ru" || tokens.Contains(" ru ")) return "ru";
+
+			// 直接返回已是标准代码的
+			if (s.Equals("zh-Hans", StringComparison.OrdinalIgnoreCase) || s.Equals("zh-Hant", StringComparison.OrdinalIgnoreCase)) return s;
+			if (s.Equals("pt-BR", StringComparison.OrdinalIgnoreCase)) return s;
+			if (s.Length <= 5 && (s.Contains("-") || s.Length == 2)) return s.ToLowerInvariant();
+
+			// 默认回退：不变返回
+			return s;
 		}
 	}
 }

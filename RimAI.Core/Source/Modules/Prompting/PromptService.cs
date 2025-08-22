@@ -106,7 +106,12 @@ namespace RimAI.Core.Source.Modules.Prompting
 		public async Task<PromptBuildResult> BuildAsync(PromptBuildRequest request, CancellationToken ct = default)
 		{
 			if (request == null) throw new ArgumentNullException(nameof(request));
-			var locale = string.IsNullOrWhiteSpace(request.Locale) ? (_cfg?.GetInternal()?.General?.Locale ?? "zh-Hans") : request.Locale;
+			// Locale 选择优先级：request.Locale > 配置覆盖 PromptLocaleOverride > 本地化服务默认 > 配置 General.Locale > en
+			var locale = string.IsNullOrWhiteSpace(request.Locale)
+				? (!string.IsNullOrWhiteSpace(_cfg?.GetInternal()?.General?.PromptLocaleOverride)
+					? _cfg.GetInternal().General.PromptLocaleOverride
+					: (_loc?.GetDefaultLocale() ?? _cfg?.GetInternal()?.General?.Locale ?? "en"))
+				: request.Locale;
 			var entityId = request.PawnLoadId.HasValue ? ($"pawn:{request.PawnLoadId.Value}") : null;
 
 			// 预取快照（按需）
@@ -198,81 +203,45 @@ namespace RimAI.Core.Source.Modules.Prompting
 			{
 				sb.Append(string.Join(Environment.NewLine, sysLines));
 			}
-			string userPrefix = null;
-			// 从提供者作曲器获取用户前缀
-			foreach (var comp in ordered)
-			{
-				if (comp is IProvidesUserPrefix up && up.Scope == request.Scope)
-				{
-					var pfx = up.GetUserPrefix(ctx) ?? string.Empty;
-					if (!string.IsNullOrWhiteSpace(pfx)) { userPrefix = pfx; break; }
-				}
-			}
-			if (string.IsNullOrWhiteSpace(userPrefix))
-			{
-				var playerTitle = _cfg?.GetPlayerTitleOrDefault() ?? "总督";
-				try { userPrefix = _loc?.Format(locale, "ui.chat.user_prefix", new Dictionary<string, string> { { "player_title", playerTitle } }, string.Empty) ?? string.Empty; }
-				catch { userPrefix = GetString(locale, "ui.chat.user_prefix", string.Empty); }
-			}
 
-			// Persona Scope：覆盖为单段 User 文本
-			string personaUser = null;
-			if (request.Scope == PromptScope.PersonaBiography || request.Scope == PromptScope.PersonaIdeology)
+			return new PromptBuildResult
 			{
-				foreach (var comp in ordered)
-				{
-					if (comp is IProvidesUserPayload up2 && up2.Scope == request.Scope)
-					{
-						try { personaUser = await up2.BuildUserPayloadAsync(ctx, ct).ConfigureAwait(false); }
-						catch { personaUser = null; }
-						if (!string.IsNullOrWhiteSpace(personaUser)) break;
-					}
-				}
-			}
-
-			var result = new PromptBuildResult
-			{
-				SystemPrompt = TrimToBudget(sb.ToString(), GetMaxSystemPromptChars()),
-				ContextBlocks = TrimBlocks(blocks, GetBlocksBudgetChars()),
-				UserPrefixedInput = (request.Scope == PromptScope.PersonaBiography || request.Scope == PromptScope.PersonaIdeology)
-					? (personaUser ?? string.Empty)
-					: (string.IsNullOrWhiteSpace(request.UserInput)
-						? string.Empty
-						: (string.IsNullOrWhiteSpace(userPrefix) ? request.UserInput : (userPrefix + " " + request.UserInput)))
+				SystemPrompt = sb.ToString(),
+				ContextBlocks = blocks,
+				UserPrefixedInput = ctx.L("ui.chat.user_prefix", "{player_title}传来的信息如下：").Replace("{player_title}", ctx.PlayerTitle ?? (ctx.L("ui.chat.player_title.value", "总督")))
 			};
-			return result;
 		}
 
-		private int GetMaxSystemPromptChars() => Math.Max(200, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.MaxSystemPromptChars ?? 1600);
-		private int GetBlocksBudgetChars() => Math.Max(400, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.MaxBlocksChars ?? 2400);
-		private int GetTopRelations() => Math.Max(0, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Social?.TopRelations ?? 5);
-		private int GetRecentEvents() => Math.Max(0, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Social?.RecentEvents ?? 5);
-		private int GetEnvRadius() => Math.Max(1, _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Env?.Radius ?? 9);
-
-		/* removed EnvMatrix enrichment */
-		private HashSet<string> GetEnabledComposerIds(PromptScope scope)
+		private IReadOnlyList<string> GetEnabledComposerIds(PromptScope scope)
 		{
 			try
 			{
-				var arr = scope == PromptScope.ChatUI ? _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Composers?.ChatUI?.Enabled : null;
-				return arr == null ? new HashSet<string>() : new HashSet<string>(arr);
+				var group = _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Composers;
+				var ids = (scope == PromptScope.ChatUI ? group?.ChatUI?.Enabled : System.Array.Empty<string>()) ?? Array.Empty<string>();
+				if (ids == null || ids.Length == 0) return Array.Empty<string>();
+				var list = new List<string>();
+				foreach (var id in ids) if (!string.IsNullOrWhiteSpace(id)) list.Add(id.Trim());
+				return list;
 			}
-			catch { return new HashSet<string>(); }
+			catch { return Array.Empty<string>(); }
 		}
 
-		private static string TrimToBudget(string s, int max)
+		private int GetTopRelations()
 		{
-			if (string.IsNullOrEmpty(s)) return string.Empty;
-			return s.Length <= max ? s : s.Substring(0, max);
+			try { return _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Social?.TopRelations ?? 5; } catch { return 5; }
+		}
+		private int GetRecentEvents()
+		{
+			try { return _cfg?.GetInternal()?.UI?.ChatWindow?.Prompts?.Social?.RecentEvents ?? 5; } catch { return 5; }
 		}
 
-		private static IReadOnlyList<ContextBlock> TrimBlocks(List<ContextBlock> blocks, int maxTotalChars)
+		private static List<ContextBlock> BudgetBlocks(List<ContextBlock> src, int maxTotalChars)
 		{
-			if (blocks == null || blocks.Count == 0) return Array.Empty<ContextBlock>();
+			var list = new List<ContextBlock>();
 			int acc = 0;
-			var list = new List<ContextBlock>(blocks.Count);
-			foreach (var b in blocks)
+			for (int i = 0; i < src.Count; i++)
 			{
+				var b = src[i];
 				var text = b.Text ?? string.Empty;
 				var title = b.Title ?? string.Empty;
 				var need = title.Length + 1 + text.Length;

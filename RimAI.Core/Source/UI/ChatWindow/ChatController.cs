@@ -48,15 +48,15 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				ConvKey = convKey,
 				ParticipantIds = participantIds
 			};
-			try { Verse.Log.Message($"[RimAI.Core][P10] ChatController ctor conv={convKey} pids={participantIds?.Count ?? 0}"); } catch { }
+			// try { Verse.Log.Message($"[RimAI.Core][P10] ChatController ctor conv={convKey} pids={participantIds?.Count ?? 0}"); } catch { }
 		}
 
 		public async Task StartAsync()
 		{
 			try
 			{
-				var t0 = DateTime.UtcNow;
-				Verse.Log.Message($"[RimAI.Core][P10] ChatController.StartAsync begin conv={State?.ConvKey}");
+				// var t0 = DateTime.UtcNow;
+				// Verse.Log.Message($"[RimAI.Core][P10] ChatController.StartAsync begin conv={State?.ConvKey}");
 				// 记录参与者（若无则创建），并加载现有历史（若无则为空列表）
 				await _history.UpsertParticipantsAsync(State.ConvKey, State.ParticipantIds).ConfigureAwait(false);
 				var thread = await _history.GetThreadAsync(State.ConvKey, page: 1, pageSize: 200).ConfigureAwait(false);
@@ -79,14 +79,14 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						State.PendingInitMessages.Enqueue(msg);
 					}
 				}
-				try { var ms = (int)(DateTime.UtcNow - t0).TotalMilliseconds; Verse.Log.Message($"[RimAI.Core][P10] ChatController.StartAsync done msgs={State.PendingInitMessages?.Count} elapsed={ms}ms"); } catch { }
+				// try { var ms = (int)(DateTime.UtcNow - t0).TotalMilliseconds; Verse.Log.Message($"[RimAI.Core][P10] ChatController.StartAsync done msgs={State.PendingInitMessages?.Count} elapsed={ms}ms"); } catch { }
 			}
 			catch { }
 		}
 
 		public async Task SendSmalltalkAsync(string userText, CancellationToken ct = default)
 		{
-			try { Verse.Log.Message($"[RimAI.Core][P10] SendSmalltalk begin len={userText?.Length ?? 0}"); } catch { }
+			// try { Verse.Log.Message($"[RimAI.Core][P10] SendSmalltalk begin len={userText?.Length ?? 0}"); } catch { }
 			CancelStreaming();
 			_streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 			var linked = _streamCts.Token;
@@ -137,16 +137,12 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					SplitSpecialFromSystem(prompt.SystemPrompt, out var systemFiltered, out var specialLines);
 					var systemPayload = BuildSystemPayload(systemFiltered, prompt.ContextBlocks);
 					var messages = BuildMessagesArray(systemPayload, State.Messages);
-					// 新版日志：仅输出 Messages 列表（system+历史+本次用户输入），遵循 UI 允许日志
+					// 输出 Messages 列表（system+历史+本次用户输入）到日志
 					LogMessagesList(State.ConvKey, messages);
 					var uiReq = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = State.ConvKey, Messages = messages, Stream = true };
 					await foreach (var r in _llm.StreamResponseAsync(uiReq, linked))
 					{
-						if (!r.IsSuccess)
-						{
-							try { Verse.Log.Warning("[RimAI.Core][P10] SendSmalltalk stream error"); } catch { }
-							break;
-						}
+						if (!r.IsSuccess) { break; }
 						// 忽略已被新会话替换的延迟包
 						if (currentStreamId != State.ActiveStreamId) break;
 						var chunk = r.Value;
@@ -169,27 +165,20 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						}
 					}
 				}
-				catch (OperationCanceledException)
-				{
-					try { Verse.Log.Message("[RimAI.Core][P10] SendSmalltalk canceled"); } catch { }
-				}
-				catch (Exception)
-				{
-					try { Verse.Log.Error("[RimAI.Core][P10] SendSmalltalk exception"); } catch { }
-				}
+				catch (OperationCanceledException) { }
+				catch (Exception) { }
 				finally
 				{
 					try { _streamCts?.Dispose(); } catch { }
 					_streamCts = null;
 					State.IsStreaming = false;
-					try { Verse.Log.Message("[RimAI.Core][P10] SendSmalltalk end"); } catch { }
 				}
 			}, linked);
 		}
 
 		public async Task SendCommandAsync(string userText, CancellationToken ct = default)
 		{
-			try { Verse.Log.Message($"[RimAI.Core][P10] SendCommand begin len={userText?.Length ?? 0}"); } catch { }
+			// try { Verse.Log.Message($"[RimAI.Core][P10] SendCommand begin len={userText?.Length ?? 0}"); } catch { }
 			CancelStreaming();
 			_streamCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 			var linked = _streamCts.Token;
@@ -241,7 +230,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						Profile = RimAI.Core.Source.Modules.Orchestration.ExecutionProfile.Fast,
 						MaxCalls = 1
 					}, linked);
-					try { Verse.Log.Message($"[RimAI.Core][P12] Orchestration done ok={result != null}"); } catch { }
+					// try { Verse.Log.Message($"[RimAI.Core][P12] Orchestration done ok={result != null}"); } catch { }
 
 					// 显示一次过程说明（PlanTrace 首条）到 UI（历史写入已由编排完成）
 					if (result != null && result.PlanTrace != null && result.PlanTrace.Count > 0)
@@ -277,6 +266,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					SplitSpecialFromSystem(prompt2.SystemPrompt, out var systemFiltered3, out var specialLines3);
 					var systemPayload2 = BuildSystemPayload(systemFiltered3, prompt2.ContextBlocks);
 					var messages2 = BuildMessagesArray(systemPayload2, State.Messages);
+					// 输出 Messages 列表（system+历史+本次用户输入）到日志
 					LogMessagesList(State.ConvKey, messages2);
 					var uiReq2 = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = State.ConvKey, Messages = messages2, Stream = true };
 					await foreach (var r in _llm.StreamResponseAsync(uiReq2, linked))
@@ -303,20 +293,13 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						}
 					}
 				}
-				catch (OperationCanceledException)
-				{
-					try { Verse.Log.Message("[RimAI.Core][P12] SendCommand canceled"); } catch { }
-				}
-				catch (Exception)
-				{
-					try { Verse.Log.Error("[RimAI.Core][P12] SendCommand exception"); } catch { }
-				}
+				catch (OperationCanceledException) { }
+				catch (Exception) { }
 				finally
 				{
 					try { _streamCts?.Dispose(); } catch { }
 					_streamCts = null;
 					State.IsStreaming = false;
-					try { Verse.Log.Message("[RimAI.Core][P12] SendCommand end"); } catch { }
 				}
 			}, linked);
 		}
@@ -533,59 +516,12 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		private static void LogBuiltPrompt(string convKey, string systemFiltered, System.Collections.Generic.IReadOnlyList<string> special, PromptBuildResult prompt, string mode)
 		{
-			try
-			{
-				var sb = new System.Text.StringBuilder();
-				sb.AppendLine($"[RimAI.Core][P10] ChatUI Prompt ({mode})");
-				sb.AppendLine($"conv={convKey}");
-				sb.AppendLine("--- SystemPrompt ---");
-				sb.AppendLine(systemFiltered ?? string.Empty);
-				if (special != null && special.Count > 0)
-				{
-					sb.AppendLine("--- Special Info ---");
-					for (int i = 0; i < special.Count; i++) sb.AppendLine(special[i]);
-					sb.AppendLine();
-				}
-				sb.AppendLine("--- Activities ---");
-				if (prompt?.ContextBlocks != null)
-				{
-					foreach (var b in prompt.ContextBlocks)
-					{
-						var title = b?.Title;
-						var text = b?.Text;
-						bool textIsSingleLine = !string.IsNullOrWhiteSpace(text) && text.IndexOf('\n') < 0 && text.IndexOf('\r') < 0;
-						if (!string.IsNullOrWhiteSpace(title) && textIsSingleLine)
-						{
-							sb.AppendLine(title + " " + text);
-						}
-						else
-						{
-							if (!string.IsNullOrWhiteSpace(title)) sb.AppendLine(title);
-							if (!string.IsNullOrWhiteSpace(text)) sb.AppendLine(text);
-						}
-						sb.AppendLine();
-					}
-				}
-				sb.AppendLine("--- UserPrefixedInput ---");
-				sb.AppendLine(prompt?.UserPrefixedInput ?? string.Empty);
-				Verse.Log.Message(sb.ToString());
-			}
-			catch { }
+			// disabled in ChatUI
 		}
 
 		private static void LogOutboundRequest(string convKey, ChatMessage userMsg, ChatMessage aiMsg, PromptBuildResult prompt, string finalUserText, string mode)
 		{
-			try
-			{
-				var header = $"[RimAI.Core][P10] Outbound ({mode})";
-				var title = userMsg?.DisplayName ?? "RimAI.Common.Player".Translate().ToString();
-				var ts = (userMsg?.TimestampUtc ?? DateTime.UtcNow).ToLocalTime().ToString("HH:mm:ss");
-				var content = userMsg?.Text ?? string.Empty;
-				var line1 = $"{title} {ts}: {content}";
-				var line2 = $"“{title}”发来的最新内容：{content}";
-				Verse.Log.Message(header + "\n" + line1 + "\n\n" + line2);
-			}
-			catch { }
+			// disabled in ChatUI
 		}
 
 		private static string ComposeUserMessage(PromptBuildResult prompt, System.Collections.Generic.IReadOnlyList<string> special)

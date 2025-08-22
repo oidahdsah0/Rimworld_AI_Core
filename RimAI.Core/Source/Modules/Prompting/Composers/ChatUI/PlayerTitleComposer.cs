@@ -13,10 +13,16 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 
 		public Task<ComposerOutput> ComposeAsync(PromptBuildContext ctx, CancellationToken ct)
 		{
-			var lines = new List<string>();
-			var l = ctx?.L;
-			var name = l?.Invoke("ui.chat.player_title.name", "[你应该称呼玩家为]") ?? "[你应该称呼玩家为]";
-			var title = ctx?.PlayerTitle ?? (l?.Invoke("ui.chat.player_title.value", "总督") ?? "总督");
+			var lines = new System.Collections.Generic.List<string>();
+			var locSvc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+			var locale = ctx?.Locale ?? "en";
+			var titleLoc = ctx?.PlayerTitle ?? (locSvc?.Get(locale, "ui.chat.player_title.value", "总督") ?? "总督");
+			var nameLoc = locSvc?.Get(locale, "ui.chat.player_title.name", string.Empty) ?? string.Empty;
+			var nameEn = locSvc?.Get("en", "ui.chat.player_title.name", "[You should address the player as]") ?? "[You should address the player as]";
+			var titleEn = ctx?.PlayerTitle ?? (locSvc?.Get("en", "ui.chat.player_title.value", "Governor") ?? "Governor");
+			bool useEn = string.IsNullOrWhiteSpace(nameLoc) || string.IsNullOrWhiteSpace(titleLoc);
+			var name = useEn ? nameEn : nameLoc;
+			var title = useEn ? titleEn : titleLoc;
 			if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(title))
 			{
 				lines.Add(name + title);

@@ -56,7 +56,7 @@ namespace RimAI.Core.Source.Boot
                             {
                                 try
                                 {
-                                    Verse.Log.Message($"[RimAI.Core][P10] Gizmo click ChatWindow for pawn={__instance?.thingIDNumber}");
+                                    // Verse.Log.Message($"[RimAI.Core][P10] Gizmo click ChatWindow for pawn={__instance?.thingIDNumber}");
                                     if (__instance != null) Find.WindowStack.Add(new ChatWindow(__instance));
                                 }
                                 catch (Exception ex)

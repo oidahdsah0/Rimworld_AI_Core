@@ -33,7 +33,7 @@ namespace RimAI.Core.Source.Modules.Server
 
 		// 提示词与温度
 		Task<ServerPromptPack> BuildPromptAsync(string entityId, string locale, CancellationToken ct = default);
-		float GetRecommendedSamplingTemperature(string entityId);
+		Task<float> GetRecommendedSamplingTemperatureAsync(string entityId, CancellationToken ct = default);
 
 		// 持久化桥接（由 PersistenceManager 使用）
 		ServerState ExportSnapshot();

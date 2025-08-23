@@ -196,24 +196,18 @@ namespace RimAI.Core.Source.Modules.Server
 			{
 				blocks.Add(new RimAI.Core.Source.Modules.Prompting.Models.ContextBlock { Title = "最近一次巡检摘要", Text = s.LastSummaryText });
 			}
-			var temp = GetRecommendedSamplingTemperature(entityId);
+			var temp = await GetRecommendedSamplingTemperatureAsync(entityId, ct).ConfigureAwait(false);
 			return new ServerPromptPack { SystemLines = systemLines, ContextBlocks = blocks, SamplingTemperature = temp };
 		}
 
-		public float GetRecommendedSamplingTemperature(string entityId)
+		public async Task<float> GetRecommendedSamplingTemperatureAsync(string entityId, CancellationToken ct = default)
 		{
 			try
 			{
-				var s = _world.GetAiServerSnapshotAsync(entityId).GetAwaiter().GetResult();
+				var s = await _world.GetAiServerSnapshotAsync(entityId, ct).ConfigureAwait(false);
 				int t = s?.TemperatureC ?? 37;
-				if (t < 30)
-				{
-					return RandRange(0.9f, 1.2f);
-				}
-				if (t < 70)
-				{
-					return RandRange(1.2f, 1.5f);
-				}
+				if (t < 30) return RandRange(0.9f, 1.2f);
+				if (t < 70) return RandRange(1.2f, 1.5f);
 				return 2.0f;
 			}
 			catch { return 1.2f; }

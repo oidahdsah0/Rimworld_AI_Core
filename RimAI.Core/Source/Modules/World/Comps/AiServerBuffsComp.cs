@@ -36,16 +36,6 @@ namespace RimAI.Core.Source.Modules.World.Comps
 			try
 			{
 				var sb = new StringBuilder();
-				bool online = false;
-				if (parent is Building b)
-				{
-					var powered = b.GetComp<CompPowerTrader>()?.PowerOn ?? false;
-					var flick = b.GetComp<CompFlickable>();
-					bool switchedOn = flick == null || flick.SwitchIsOn;
-					var broken = b.GetComp<CompBreakdownable>()?.BrokenDown ?? false;
-					online = powered && switchedOn && !broken;
-				}
-				sb.AppendLine($"AI服务器状态：{(online ? "在线" : "离线")}");
 				if (Props != null && Props.baseGlobalWorkSpeedPercent > 0)
 				{
 					var stat = DefDatabase<StatDef>.GetNamedSilentFail("WorkSpeedGlobal");

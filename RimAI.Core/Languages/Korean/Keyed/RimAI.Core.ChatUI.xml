@@ -60,6 +60,7 @@
   <RimAI.ChatUI.History.Tab.Thread>기록</RimAI.ChatUI.History.Tab.Thread>
   <RimAI.ChatUI.History.Tab.Recaps>요약</RimAI.ChatUI.History.Tab.Recaps>
   <RimAI.ChatUI.History.Tab.Related>관련 스레드</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.History.Tab.RawJson>원시 JSON</RimAI.ChatUI.History.Tab.RawJson>
   <RimAI.ChatUI.Recap.Generate>요약 생성</RimAI.ChatUI.Recap.Generate>
   <RimAI.ChatUI.Recap.Generating>생성 중...</RimAI.ChatUI.Recap.Generating>
   <RimAI.ChatUI.Related.Select>관련 스레드 선택</RimAI.ChatUI.Related.Select>
@@ -68,6 +69,7 @@
   <RimAI.ChatUI.Persona.Tab.Bio>전기</RimAI.ChatUI.Persona.Tab.Bio>
   <RimAI.ChatUI.Persona.Tab.Ideo>이데올로기</RimAI.ChatUI.Persona.Tab.Ideo>
   <RimAI.ChatUI.Persona.GenerateDraft>전기 초안 생성</RimAI.ChatUI.Persona.GenerateDraft>
+  <RimAI.ChatUI.Ideo.Generate>세계관 생성</RimAI.ChatUI.Ideo.Generate>
 
   <!-- Ideology Compose labels -->
   <RimAI.ChatUI.Ideo.WorldviewLabel>세계관:</RimAI.ChatUI.Ideo.WorldviewLabel>

@@ -60,6 +60,7 @@
   <RimAI.ChatUI.History.Tab.Thread>历史记录</RimAI.ChatUI.History.Tab.Thread>
   <RimAI.ChatUI.History.Tab.Recaps>前情提要</RimAI.ChatUI.History.Tab.Recaps>
   <RimAI.ChatUI.History.Tab.Related>关联对话</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.History.Tab.RawJson>JSON全历史</RimAI.ChatUI.History.Tab.RawJson>
   <RimAI.ChatUI.Recap.Generate>生成前情提要</RimAI.ChatUI.Recap.Generate>
   <RimAI.ChatUI.Recap.Generating>生成中...</RimAI.ChatUI.Recap.Generating>
   <RimAI.ChatUI.Related.Select>选择关联对话</RimAI.ChatUI.Related.Select>
@@ -68,6 +69,7 @@
   <RimAI.ChatUI.Persona.Tab.Bio>个人传记</RimAI.ChatUI.Persona.Tab.Bio>
   <RimAI.ChatUI.Persona.Tab.Ideo>世界观</RimAI.ChatUI.Persona.Tab.Ideo>
   <RimAI.ChatUI.Persona.GenerateDraft>生成传记草案</RimAI.ChatUI.Persona.GenerateDraft>
+  <RimAI.ChatUI.Ideo.Generate>生成世界观</RimAI.ChatUI.Ideo.Generate>
 
   <!-- Ideology Compose labels -->
   <RimAI.ChatUI.Ideo.WorldviewLabel>世界观：</RimAI.ChatUI.Ideo.WorldviewLabel>

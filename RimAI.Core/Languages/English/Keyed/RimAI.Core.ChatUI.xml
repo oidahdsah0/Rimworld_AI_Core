@@ -60,6 +60,7 @@
   <RimAI.ChatUI.History.Tab.Thread>History</RimAI.ChatUI.History.Tab.Thread>
   <RimAI.ChatUI.History.Tab.Recaps>Recaps</RimAI.ChatUI.History.Tab.Recaps>
   <RimAI.ChatUI.History.Tab.Related>Related Threads</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.History.Tab.RawJson>Raw JSON</RimAI.ChatUI.History.Tab.RawJson>
   <RimAI.ChatUI.Recap.Generate>Generate Recap</RimAI.ChatUI.Recap.Generate>
   <RimAI.ChatUI.Recap.Generating>Generating...</RimAI.ChatUI.Recap.Generating>
   <RimAI.ChatUI.Related.Select>Select related thread</RimAI.ChatUI.Related.Select>
@@ -68,6 +69,7 @@
   <RimAI.ChatUI.Persona.Tab.Bio>Biography</RimAI.ChatUI.Persona.Tab.Bio>
   <RimAI.ChatUI.Persona.Tab.Ideo>Ideology</RimAI.ChatUI.Persona.Tab.Ideo>
   <RimAI.ChatUI.Persona.GenerateDraft>Generate Biography Draft</RimAI.ChatUI.Persona.GenerateDraft>
+  <RimAI.ChatUI.Ideo.Generate>Generate</RimAI.ChatUI.Ideo.Generate>
 
   <!-- Ideology Compose labels -->
   <RimAI.ChatUI.Ideo.WorldviewLabel>Worldview:</RimAI.ChatUI.Ideo.WorldviewLabel>

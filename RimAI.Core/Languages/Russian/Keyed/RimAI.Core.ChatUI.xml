@@ -60,6 +60,7 @@
   <RimAI.ChatUI.History.Tab.Thread>История</RimAI.ChatUI.History.Tab.Thread>
   <RimAI.ChatUI.History.Tab.Recaps>Краткие итоги</RimAI.ChatUI.History.Tab.Recaps>
   <RimAI.ChatUI.History.Tab.Related>Связанные темы</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.History.Tab.RawJson>Сырой JSON</RimAI.ChatUI.History.Tab.RawJson>
   <RimAI.ChatUI.Recap.Generate>Сформировать краткий итог</RimAI.ChatUI.Recap.Generate>
   <RimAI.ChatUI.Recap.Generating>Формирование...</RimAI.ChatUI.Recap.Generating>
   <RimAI.ChatUI.Related.Select>Выбрать связанную тему</RimAI.ChatUI.Related.Select>
@@ -68,6 +69,7 @@
   <RimAI.ChatUI.Persona.Tab.Bio>Биография</RimAI.ChatUI.Persona.Tab.Bio>
   <RimAI.ChatUI.Persona.Tab.Ideo>Идеология</RimAI.ChatUI.Persona.Tab.Ideo>
   <RimAI.ChatUI.Persona.GenerateDraft>Создать черновик биографии</RimAI.ChatUI.Persona.GenerateDraft>
+  <RimAI.ChatUI.Ideo.Generate>Сгенерировать</RimAI.ChatUI.Ideo.Generate>
 
   <!-- Ideology Compose labels -->
   <RimAI.ChatUI.Ideo.WorldviewLabel>Мировоззрение:</RimAI.ChatUI.Ideo.WorldviewLabel>

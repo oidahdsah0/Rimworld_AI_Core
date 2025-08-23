@@ -60,6 +60,7 @@
   <RimAI.ChatUI.History.Tab.Thread>履歴</RimAI.ChatUI.History.Tab.Thread>
   <RimAI.ChatUI.History.Tab.Recaps>要約</RimAI.ChatUI.History.Tab.Recaps>
   <RimAI.ChatUI.History.Tab.Related>関連スレッド</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.History.Tab.RawJson>生JSON</RimAI.ChatUI.History.Tab.RawJson>
   <RimAI.ChatUI.Recap.Generate>要約を生成</RimAI.ChatUI.Recap.Generate>
   <RimAI.ChatUI.Recap.Generating>生成中...</RimAI.ChatUI.Recap.Generating>
   <RimAI.ChatUI.Related.Select>関連スレッドを選択</RimAI.ChatUI.Related.Select>
@@ -68,6 +69,7 @@
   <RimAI.ChatUI.Persona.Tab.Bio>伝記</RimAI.ChatUI.Persona.Tab.Bio>
   <RimAI.ChatUI.Persona.Tab.Ideo>イデオロギー</RimAI.ChatUI.Persona.Tab.Ideo>
   <RimAI.ChatUI.Persona.GenerateDraft>伝記の草案を生成</RimAI.ChatUI.Persona.GenerateDraft>
+  <RimAI.ChatUI.Ideo.Generate>世界観を生成</RimAI.ChatUI.Ideo.Generate>
 
   <!-- Ideology Compose labels -->
   <RimAI.ChatUI.Ideo.WorldviewLabel>世界観：</RimAI.ChatUI.Ideo.WorldviewLabel>

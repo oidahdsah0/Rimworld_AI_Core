@@ -78,6 +78,8 @@ namespace RimAI.Core.Source.Modules.Stage
 			if (intent == null) throw new ArgumentNullException(nameof(intent));
 			var participants = intent.ParticipantIds?.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList() ?? new List<string>();
 			var convKey = string.Join("|", participants);
+			bool isManual = string.Equals(intent.Origin, "Manual", StringComparison.OrdinalIgnoreCase);
+			_log.Info($"SubmitIntent act={intent.ActName} convKey={convKey} origin={intent.Origin} participants={participants.Count}");
 			if (participants.Count < 2)
 			{
 				_log.Warn($"Reject intent (TooFewParticipants) act={intent.ActName} convKey={convKey}");
@@ -88,17 +90,22 @@ namespace RimAI.Core.Source.Modules.Stage
 			var coalesceMs = stageCfg?.CoalesceWindowMs ?? 300;
 			var cooldownSec = stageCfg?.CooldownSeconds ?? 30;
 
-			// 合流窗口：若窗口内已有同 convKey 的请求，直接视为合流
-			var coalesced = await _kernel.CoalesceWithinAsync(convKey, coalesceMs, () => Task.FromResult(false));
-			if (coalesced)
+			// 合流窗口：手动触发不参与合流
+			if (!isManual)
 			{
-				_log.Info($"Coalesced intent act={intent.ActName} convKey={convKey} windowMs={coalesceMs}");
-				return new StageDecision { Outcome = "Coalesced", Reason = "Window" };
+				_log.Info($"CoalesceCheck convKey={convKey} windowMs={coalesceMs}");
+				var coalesced = await _kernel.CoalesceWithinAsync(convKey, coalesceMs, () => Task.FromResult(false));
+				if (coalesced)
+				{
+					_log.Info($"Coalesced intent act={intent.ActName} convKey={convKey} windowMs={coalesceMs}");
+					return new StageDecision { Outcome = "Coalesced", Reason = "Window" };
+				}
 			}
 
-			// 冷却
+			// 冷却：手动触发跳过冷却检查
 			var cdKey = (intent.ActName ?? string.Empty) + ":" + convKey;
-			if (_kernel.IsInCooldown(cdKey)) { _log.Info($"Reject intent (Cooling) act={intent.ActName} convKey={convKey}"); return new StageDecision { Outcome = "Reject", Reason = "Cooling" }; }
+			if (!isManual && _kernel.IsInCooldown(cdKey)) { _log.Info($"Reject intent (Cooling) act={intent.ActName} convKey={convKey}"); return new StageDecision { Outcome = "Reject", Reason = "Cooling" }; }
+			_log.Info($"Reserve attempt act={intent.ActName} convKey={convKey}");
 
 			// 幂等
 			var idemKey = Kernel.StageKernel.ComputeIdempotencyKey(intent.ActName ?? string.Empty, convKey, intent.ScenarioText ?? string.Empty, intent.Seed ?? string.Empty);
@@ -115,6 +122,7 @@ namespace RimAI.Core.Source.Modules.Stage
 				_log.Info($"Reject intent (ConflictOrBusy) act={intent.ActName} convKey={convKey}");
 				return new StageDecision { Outcome = "Reject", Reason = "ConflictOrBusy" };
 			}
+			_log.Info($"Reserve success ticket={ticket.Id} convKey={convKey}");
 
 			// 路由执行（后台）
 			_ = Task.Run(async () =>
@@ -140,38 +148,64 @@ namespace RimAI.Core.Source.Modules.Stage
 				var leaseTtlMs = _cfg.GetInternal().Stage?.LeaseTtlMs ?? 10000;
 				var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 				var maxMs = _cfg.GetInternal().Stage?.Acts?.GroupChat?.MaxLatencyMsPerTurn ?? 8000;
-				cts.CancelAfter(maxMs);
 				var leaseTtl = TimeSpan.FromMilliseconds(leaseTtlMs);
 				var renewTask = Task.Run(async () =>
 				{
 					while (!cts.IsCancellationRequested)
 					{
-						await Task.Delay(leaseTtlMs / 2, cts.Token);
-						_kernel.ExtendLease(req.Ticket, leaseTtl);
+						try { await Task.Delay(Math.Max(100, leaseTtlMs / 2), cts.Token); } catch { break; }
+						try { _kernel.ExtendLease(req.Ticket, leaseTtl); } catch { }
 					}
 				});
 
-				ActResult result;
+				ActResult result = null;
+				Exception execError = null;
 				try
 				{
-					result = await act.ExecuteAsync(req, cts.Token);
+					var execTask = act.ExecuteAsync(req, cts.Token);
+					var timeoutTask = Task.Delay(maxMs, CancellationToken.None);
+					var finished = await Task.WhenAny(execTask, timeoutTask);
+					if (finished == execTask)
+					{
+						result = await execTask; // observe result/exception
+					}
+					else
+					{
+						// Hard timeout: signal cancel and return a timeout result without awaiting the hanging task
+						try { cts.Cancel(); } catch { }
+						_log.Warn($"ActTimeout act={actName} convKey={req?.Ticket?.ConvKey} maxMs={maxMs}");
+						result = new ActResult { Completed = false, Reason = "Timeout", FinalText = "（本轮对话失败或超时，已跳过）" };
+					}
+				}
+				catch (OperationCanceledException)
+				{
+					result = new ActResult { Completed = false, Reason = "Timeout", FinalText = "（本轮对话失败或超时，已跳过）" };
+				}
+				catch (Exception ex)
+				{
+					execError = ex;
+					result = new ActResult { Completed = false, Reason = "Exception", FinalText = "（本轮对话失败或超时，已跳过）" };
 				}
 				finally
 				{
 					try { cts.Cancel(); } catch { }
 					try { await renewTask; } catch { }
 				}
+
 				result = result ?? new ActResult { Completed = false, Reason = "Exception", FinalText = "（本轮对话失败或超时，已跳过）" };
 				result.LatencyMs = (int)(DateTime.UtcNow - start).TotalMilliseconds;
 				if (string.IsNullOrEmpty(result.FinalText)) result.FinalText = "（本轮对话失败或超时，已跳过）";
+				if (!(result.Completed))
+				{
+					var reason = string.IsNullOrWhiteSpace(result.Reason) ? "Unknown" : result.Reason;
+					_log.Warn($"ActFailed act={actName} convKey={req?.Ticket?.ConvKey} reason={reason} latencyMs={result.LatencyMs}");
+					if (execError != null) { _log.Error($"ActException act={actName} convKey={req?.Ticket?.ConvKey} error={execError.GetType().Name}:{execError.Message}"); }
+				}
 				return result;
 			}
-			catch (OperationCanceledException)
+			catch (Exception ex)
 			{
-				return new ActResult { Completed = false, Reason = "Timeout", FinalText = "（本轮对话失败或超时，已跳过）", LatencyMs = (int)(DateTime.UtcNow - start).TotalMilliseconds };
-			}
-			catch (Exception)
-			{
+				_log.Error($"StartAsyncError act={actName} convKey={req?.Ticket?.ConvKey} error={ex.GetType().Name}:{ex.Message}");
 				return new ActResult { Completed = false, Reason = "Exception", FinalText = "（本轮对话失败或超时，已跳过）", LatencyMs = (int)(DateTime.UtcNow - start).TotalMilliseconds };
 			}
 		}
@@ -230,7 +264,14 @@ namespace RimAI.Core.Source.Modules.Stage
 				_log.Info($"ActStarted act={intent.ActName} convKey={convKey} ticket={ticket.Id}");
 				_ticketToActName[ticket.Id] = intent.ActName ?? string.Empty;
 				var req = new StageExecutionRequest { Ticket = ticket, ScenarioText = intent.ScenarioText, Origin = intent.Origin, Locale = intent.Locale, Seed = intent.Seed };
+				_log.Info($"StartAsync begin act={intent.ActName} ticket={ticket.Id}");
 				var result = await StartAsync(intent.ActName, req, outerCt);
+				_log.Info($"StartAsync end act={intent.ActName} ticket={ticket.Id} completed={result?.Completed} reason={result?.Reason}");
+				if (!(result?.Completed ?? false))
+				{
+					var reason = result?.Reason ?? "Unknown";
+					_log.Warn($"ActResultNotCompleted act={intent.ActName} convKey={convKey} reason={reason} latencyMs={result?.LatencyMs}");
+				}
 				// 仅当 GroupChat 成功完成时写入；其他 Act 按原逻辑全部写入
 				bool isGroupChat = string.Equals(intent.ActName, "GroupChat", StringComparison.OrdinalIgnoreCase);
 				if (!isGroupChat || (result?.Completed ?? false))
@@ -241,13 +282,16 @@ namespace RimAI.Core.Source.Modules.Stage
 				var idemKey = Kernel.StageKernel.ComputeIdempotencyKey(intent.ActName ?? string.Empty, convKey, intent.ScenarioText ?? string.Empty, intent.Seed ?? string.Empty);
 				var idemTtl = TimeSpan.FromMilliseconds(_cfg.GetInternal().Stage?.IdempotencyTtlMs ?? 60000);
 				_kernel.IdempotencySet(idemKey, result, idemTtl);
-				_log.Info($"ActFinished act={intent.ActName} convKey={convKey} ticket={ticket.Id} latency={result?.LatencyMs}ms completed={result?.Completed}");
+				var finReason = result?.Reason ?? "";
+				_log.Info($"ActFinished act={intent.ActName} convKey={convKey} ticket={ticket.Id} latency={result?.LatencyMs}ms completed={result?.Completed} reason={finReason}");
 			}
 			finally
 			{
+				_log.Info($"ActCleanup begin ticket={ticket.Id} convKey={convKey}");
 				_ticketToActName.TryRemove(ticket.Id, out _);
 				_kernel.Release(ticket);
 				_kernel.SetCooldown((intent.ActName ?? string.Empty) + ":" + convKey, TimeSpan.FromSeconds(Math.Max(1, cooldownSec)));
+				_log.Info($"ActCleanup end ticket={ticket.Id} convKey={convKey}");
 			}
 		}
 	}

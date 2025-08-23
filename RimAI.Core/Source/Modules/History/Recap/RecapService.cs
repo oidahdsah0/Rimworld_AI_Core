@@ -1,3 +1,4 @@
+using RimAI.Core.Source.Infrastructure.Localization;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -306,7 +307,7 @@ namespace RimAI.Core.Source.Modules.History.Recap
 		{
 			try
 			{
-				var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+				var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<ILocalizationService>();
 				var locale = _cfg?.GetInternal()?.General?.PromptLocaleOverride ?? loc?.GetDefaultLocale() ?? "en";
 				var sb = new StringBuilder();
 				var baseLine = loc?.Format(locale, "recap.system.base", new System.Collections.Generic.Dictionary<string, string> { { "max", maxChars.ToString() } }, $"You are a dialogue recap assistant. In {maxChars} chars, summarize key facts and progress as bullet-like lines; keep numbers; avoid filler.") ?? $"You are a dialogue recap assistant. In {maxChars} chars, summarize key facts and progress as bullet-like lines; keep numbers; avoid filler.";

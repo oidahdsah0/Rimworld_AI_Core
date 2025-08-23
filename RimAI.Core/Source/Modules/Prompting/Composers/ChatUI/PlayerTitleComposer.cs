@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Source.Modules.Prompting.Models;
+using RimAI.Core.Source.Boot;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 {
@@ -14,7 +16,7 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ChatUI
 		public Task<ComposerOutput> ComposeAsync(PromptBuildContext ctx, CancellationToken ct)
 		{
 			var lines = new System.Collections.Generic.List<string>();
-			var locSvc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+			var locSvc = RimAICoreMod.Container.Resolve<ILocalizationService>();
 			var locale = ctx?.Locale ?? "en";
 			var titleLoc = ctx?.PlayerTitle ?? (locSvc?.Get(locale, "ui.chat.player_title.value", locSvc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? (locSvc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor"));
 			var nameLoc = locSvc?.Get(locale, "ui.chat.player_title.name", string.Empty) ?? string.Empty;

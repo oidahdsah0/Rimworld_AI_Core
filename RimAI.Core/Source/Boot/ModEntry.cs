@@ -76,7 +76,9 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<IRelationsService, RelationsService>();
 
                 // Register P9 Stage services
-                Container.Register<IStageKernel, StageKernel>();
+                // StageKernel depends on IConfigurationService for MaxRunning/cooldowns; use instance registration with cfg
+                try { Container.RegisterInstance<IStageKernel>(new StageKernel(Container.Resolve<IConfigurationService>())); }
+                catch { Container.Register<IStageKernel, StageKernel>(); }
                 Container.Register<StageLogging, StageLogging>();
                 Container.Register<StageHistorySink, StageHistorySink>();
                 Container.Register<IStageService, StageService>();
@@ -106,19 +108,20 @@ namespace RimAI.Core.Source.Boot
                             Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
                             Container.Resolve<IConfigurationService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>(),
-                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>(),
+                            Container.Resolve<ILocalizationService>(),
                             Container.Resolve<IHistoryService>()
                         ));
                         stage.RegisterAct(new RimAI.Core.Source.Modules.Stage.Acts.InterServerGroupChatAct(
                             Container.Resolve<ILLMService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>(),
                             Container.Resolve<IWorldDataService>(),
-                            Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>(),
+                            Container.Resolve<ILocalizationService>(),
                             Container.Resolve<IHistoryService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>(),
                             Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>()
                         ));
                         stage.RegisterTrigger(new GlobalTimedRandomActTrigger(stage, Container.Resolve<RimAI.Core.Source.Modules.Stage.Diagnostics.IStageLogging>()));
+                        stage.RegisterTrigger(new RimAI.Core.Source.Modules.Stage.Triggers.ManualInterServerTrigger(stage, Container.Resolve<RimAI.Core.Source.Modules.Stage.Diagnostics.IStageLogging>()));
                     }
                 }
                 catch { }
@@ -138,11 +141,11 @@ namespace RimAI.Core.Source.Boot
                 {
                     var toolingSvc = Container.Resolve<RimAI.Core.Source.Modules.Tooling.IToolRegistryService>();
                     var topkAvail = toolingSvc?.IsTopKAvailable() ?? false;
-                    Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms, topk_available={topkAvail})");
+                    Log.Message($"[RimAI.Core] All Parts Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms, topk_available={topkAvail})");
                 }
                 catch
                 {
-                    Log.Message($"[RimAI.Core][P1][P2][P3][P4][P5][P7][P8][P9] Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
+                    Log.Message($"[RimAI.Core] All Parts Boot OK (services={Container.GetKnownServiceCount()}, elapsed={sw.ElapsedMilliseconds} ms)");
                 }
 
                 // 初始化设置窗口（注册分区）
@@ -155,7 +158,7 @@ namespace RimAI.Core.Source.Boot
                     // 设置默认本地化语言：首次加载时同步一次；如用户已设置覆盖，则尊重覆盖
                     try
                     {
-                        var loc = Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+                        var loc = Container.Resolve<ILocalizationService>();
                         var cfg = Container.Resolve<IConfigurationService>() as ConfigurationService;
                         var overrideLocale = cfg?.GetPromptLocaleOverrideOrNull();
                         if (!string.IsNullOrWhiteSpace(overrideLocale))

@@ -6,6 +6,7 @@ using Verse;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
 using RimAI.Core.Source.Modules.History.Recap;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.UI.ChatWindow.Parts
 {
@@ -550,7 +551,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					{
 						var cfg = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Contracts.Config.IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
 						var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
-						var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+						var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<ILocalizationService>();
 						var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
 						string playerTitle = cfg?.GetPlayerTitleOrDefault();
 						if (string.IsNullOrWhiteSpace(playerTitle))

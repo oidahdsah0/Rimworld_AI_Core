@@ -24,6 +24,10 @@ namespace RimAI.Core.Source.Boot
 				var gameFinalize = AccessTools.Method(typeof(Game), nameof(Game.FinalizeInit));
 				var gamePostfix = new HarmonyMethod(typeof(Game_FinalizeInit_Patch), nameof(Game_FinalizeInit_Patch.Postfix));
 				harmony.Patch(gameFinalize, postfix: gamePostfix);
+
+                // 移除旧的 MapComponent 绑定（缓存方案无需）
+
+                // (Removed) Inspect string postfix for AI buff line
             }
             catch (Exception ex)
             {
@@ -66,6 +70,8 @@ namespace RimAI.Core.Source.Boot
                             }
                         };
                         list.Add(cmd);
+
+                        // Dev-only dump gizmo removed to reduce clutter; use logs if needed.
                     }
                 }
                 catch { }
@@ -100,5 +106,10 @@ namespace RimAI.Core.Source.Boot
 			}
 		}
 	}
+
+    // Map_FinalizeInit_Patch removed
+
+
+    // (Removed) Pawn_GetInspectString_Patch
 
 

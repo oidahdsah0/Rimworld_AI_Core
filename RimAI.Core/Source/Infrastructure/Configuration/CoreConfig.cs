@@ -253,6 +253,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		{
 			public int PayloadPreviewChars { get; set; } = 200;
 			public int SlowActWarnMs { get; set; } = 5000;
+			public bool DebugEnabled { get; set; } = false;
 		}
 
 		public sealed class ActsSection

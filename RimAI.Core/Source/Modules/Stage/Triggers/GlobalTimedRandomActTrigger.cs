@@ -44,7 +44,7 @@ namespace RimAI.Core.Source.Modules.Stage.Triggers
 			if (!force)
 			{
 				// 1% 概率
-				if (_rnd.Next(0, 100) != 0) return;
+				if (_rnd.Next(0, 100) != 0) { try { _log?.Info("GlobalTrigger skipped by probability"); } catch { } return; }
 			}
 
 			try { _log?.Info($"TriggerHit mode={(force ? "manual" : "random")}"); } catch { }
@@ -67,6 +67,7 @@ namespace RimAI.Core.Source.Modules.Stage.Triggers
 					if (intent == null) continue;
 					try { _log?.Info($"ActPicked name={intent.ActName} participants={(intent.ParticipantIds?.Count ?? 0)} origin={intent.Origin}"); } catch { }
 					await submit(intent).ConfigureAwait(false);
+					try { _log?.Info("GlobalTrigger submission done"); } catch { }
 					return;
 				}
 				catch { }

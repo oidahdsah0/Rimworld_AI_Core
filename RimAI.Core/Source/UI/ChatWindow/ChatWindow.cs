@@ -60,249 +60,86 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		public override Vector2 InitialSize => new Vector2(960f, 600f);
 
+		private Parts.HistoryManagerTabView _historyView;
+		private Parts.PersonaTabView _personaView;
+		private Parts.FixedPromptTabView _fixedPromptView;
+		private Parts.TitleSettingsTabView _titleSettingsView;
+
 		public ChatWindow(Pawn pawn)
 		{
 			_pawn = pawn;
-			// var t0 = DateTime.UtcNow;
-			// try { Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor begin pawnId={_pawn?.thingIDNumber ?? 0}"); } catch { }
-			doCloseX = true;
-			draggable = true;
-			preventCameraMotion = false;
-			absorbInputAroundWindow = false; // 允许点击窗体外的游戏控件
-			closeOnClickedOutside = false;
-			// 确保 Enter/Escape 不会触发默认 Close 行为，由我们自行处理
-			closeOnAccept = false;
-			closeOnCancel = true; // 允许 ESC 关闭 ChatUI
+			ApplyWindowDefaults();
 
 			_container = RimAICoreMod.Container;
-			// 打开 ChatWindow 时自动跟随当前游戏语言，并复用“手动设置”的完整替换逻辑
-			try
-			{
-				var locAuto = _container.Resolve<ILocalizationService>();
-				var cfgAuto = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
-				var gameLang = LanguageDatabase.activeLanguage?.folderName ?? "English";
-				// 仅当未存在手动覆盖时，按当前游戏语言设置运行时默认（不写入覆盖）
-				if (string.IsNullOrWhiteSpace(cfgAuto?.GetPromptLocaleOverrideOrNull()))
-				{
-					locAuto?.SetDefaultLocale(gameLang); // 内部标准化为 de/ja/...
-				}
-			}
-			catch { }
-			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor resolved container"); } catch { }
-			_llm = _container.Resolve<ILLMService>();
-			_history = _container.Resolve<IHistoryService>();
-			_world = _container.Resolve<IWorldDataService>();
-			_orchestration = _container.Resolve<IOrchestrationService>();
-			_prompting = _container.Resolve<IPromptService>();
-			_persona = _container.Resolve<IPersonaService>();
-			_biography = _container.Resolve<IBiographyService>();
-			_ideology = _container.Resolve<IIdeologyService>();
-			_recap = _container.Resolve<IRecapService>();
-			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor resolved services"); } catch { }
+			SyncLocaleDefaultIfNoOverride();
+			var svc = ResolveServicesOnce();
+			_llm = svc.llm;
+			_history = svc.history;
+			_world = svc.world;
+			_orchestration = svc.orchestration;
+			_prompting = svc.prompting;
+			_persona = svc.persona;
+			_biography = svc.biography;
+			_ideology = svc.ideology;
+			_recap = svc.recap;
 
 			var participantIds = BuildParticipantIds(pawn);
 			var convKey = BuildConvKey(participantIds);
-			// 若已存在与该 pawn 相关的历史会话，优先复用其 convKey（避免因 playerId 不稳定导致历史无法匹配）
 			convKey = Parts.ConversationSwitching.TryReuseExistingConvKey(_history, participantIds, convKey);
-			// try { var hid = (convKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor convKey rid={hid:X4} participants={participantIds?.Count ?? 0}"); } catch { }
 			_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, participantIds);
-			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller created"); } catch { }
-			// PlayerTitle：同步解析一次（带本地化回退），避免首次进入时为英文默认
-			try
-			{
-				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
-				var loc = _container.Resolve<ILocalizationService>();
-				var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
-				var title = cfg?.GetPlayerTitleOrDefault();
-				if (string.IsNullOrWhiteSpace(title))
-				{
-					title = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
-				}
-				_controller.State.PlayerTitle = title;
-				// 若配置中未设置称谓，将本地化默认写入配置，作为运行期内存变量来源（避免各处直接读本地化）
-				try { if (string.IsNullOrWhiteSpace(cfg?.GetPlayerTitleOrDefault())) cfg?.SetPlayerTitle(title); } catch { }
-			}
-			catch { }
-			// 订阅配置与本地化变更，采用“置脏”策略，避免在 OnGUI 每帧触发 IO
-			try
-			{
-				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
-				var loc = _container.Resolve<ILocalizationService>();
-				if (cfg != null) cfg.OnConfigurationChanged += _ => { try { _titleDirty = true; } catch { } };
-				if (loc != null) loc.OnLocaleChanged += _ => { try { _titleDirty = true; } catch { } };
-			}
-			catch { }
-			_lcdRng = new System.Random(convKey.GetHashCode());
-			_lcdNextShuffleRealtime = 0.0;
-			// 启动健康轮询
-			_healthCts = new CancellationTokenSource();
-			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor health poll start"); } catch { }
-			_ = PollHealthAsync(_healthCts.Token);
-			// 加载历史（若无则空）
-			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller.StartAsync scheduled"); } catch { }
-			_ = _controller.StartAsync();
-			// try { var ms = (int)(DateTime.UtcNow - t0).TotalMilliseconds; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor end elapsed={ms}ms"); } catch { }
+
+			EnsurePlayerTitleInitialized();
+			SubscribeConfigAndLocaleChanges();
+			InitializeLcdRng(convKey);
+			StartBackgroundTasks();
 		}
 
 		public override void DoWindowContents(Rect inRect)
 		{
-			// if (!_firstDrawLogged)
-			// {
-			// 	_firstDrawLogged = true;
-			// 	try { var hid = (_controller?.State?.ConvKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow first draw rid={hid:X4} msgs={_controller?.State?.Messages?.Count ?? 0}"); } catch { }
-			// }
 			// 若当前不在称谓设置页，允许下次进入时重新初始化输入框
 			if (_activeTab != ChatTab.Title) _titleInputInitialized = false;
+			// 固定提示页：保持原有逻辑，直接绘制并提前返回（不绘制左侧栏）
 			if (_activeTab == ChatTab.FixedPrompt)
 			{
 				DrawFixedPromptTab(inRect);
 				return;
 			}
-			// 历史页绘制延后到布局计算之后
-			// 将后台初始化加载的历史消息在主线程合并到可见消息列表
-			while (_controller.State.PendingInitMessages.TryDequeue(out var initMsg))
-			{
-				_controller.State.Messages.Add(initMsg);
-			}
-			var leftW = inRect.width * (1f / 6f) + 55f; // 人员名单放宽 30px
-			var rightW = inRect.width - leftW - 8f;
-			var leftRect = new Rect(inRect.x, inRect.y, leftW, inRect.height);
-			var rightRectOuter = new Rect(leftRect.xMax + 8f, inRect.y, rightW, inRect.height);
-			var titleH = 70f; // 放大标题栏用于半身像展示
-			var indicatorH = 20f;
-			var inputH = 60f; // 输入栏高度与按钮同高
-			var titleRect = new Rect(rightRectOuter.x, rightRectOuter.y, rightRectOuter.width, titleH);
-			var transcriptRect = new Rect(rightRectOuter.x, titleRect.yMax + 4f, rightRectOuter.width, rightRectOuter.height - titleH - indicatorH - inputH - 26f);
-			var indicatorRect = new Rect(rightRectOuter.x, transcriptRect.yMax + 4f, rightRectOuter.width, indicatorH);
-			var inputRect = new Rect(rightRectOuter.x, indicatorRect.yMax + 12f, rightRectOuter.width, inputH);
+
+			// 合并后台初始化消息
+			ConsumePendingInitMessages();
+
+			// 计算布局
+			var layout = ComputeLayout(inRect);
 
 			// 左列
 			EnsurePawnPortrait(96f);
-			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => { try { if (_pawn != null) SwitchConversationToPawn(_pawn); } catch { } BackToChatAndRefresh(); _titleDirty = true; }, onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName, isStreaming: _controller.State.IsStreaming);
-			// 若切换到历史页或聊天主界面，也刷新一次称谓，确保前缀/抬头正确
-			if (_activeTab == ChatTab.History) { }
-			if (_activeTab == ChatTab.FixedPrompt)
-			{
-				DrawFixedPromptTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
-				return;
-			}
+			DrawLeftSidebar(layout.leftRect);
+
+			// 右列按活动页分派
 			if (_activeTab == ChatTab.Title)
 			{
-				// 流式期间禁用 Title 页，强制回到聊天页
 				if (_controller.State.IsStreaming) { _activeTab = ChatTab.History; }
-				else
-				{
-					try 
-					{ 
-						var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; 
-						_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault();
-						if (!_titleInputInitialized)
-						{
-							_titleInputText = _controller.State.PlayerTitle ?? "governor";
-							_titleInputInitialized = true;
-						}
-					} catch { }
-					DrawTitleSettingsTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
-					return;
-				}
+				else { EnsureTitleTabStateInitialized(); DrawTitleSettingsTab(new Rect(layout.rightRectOuter.x, layout.rightRectOuter.y + 32f, layout.rightRectOuter.width, layout.rightRectOuter.height - 32f)); }
+				return;
 			}
 			if (_activeTab == ChatTab.HistoryAdmin)
 			{
-				DrawHistoryManagerTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
+				DrawHistoryManagerTab(new Rect(layout.rightRectOuter.x, layout.rightRectOuter.y + 32f, layout.rightRectOuter.width, layout.rightRectOuter.height - 32f));
 				return;
 			}
 			if (_activeTab == ChatTab.Job)
 			{
-				Parts.JobManagerTab.Draw(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f), ref _scrollRight, p => OpenJobAssignDialog(p));
+				Parts.JobManagerTab.Draw(new Rect(layout.rightRectOuter.x, layout.rightRectOuter.y + 32f, layout.rightRectOuter.width, layout.rightRectOuter.height - 32f), ref _scrollRight, p => OpenJobAssignDialog(p));
 				return;
 			}
 			if (_activeTab == ChatTab.Persona)
 			{
-				// 标题栏（同聊天主界面）
-				Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
-				// 内容区域：人格信息子Tab（带 Biography/Ideology 两个子页）
-				if (_personaView == null) _personaView = new Parts.PersonaTabView();
-				string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
-				var bodyRect = new Rect(rightRectOuter.x, titleRect.yMax + 4f, rightRectOuter.width, rightRectOuter.height - titleH - 8f);
-				_personaView.Draw(bodyRect, entityId, _controller.State.ConvKey, _persona, _biography, _ideology);
+				DrawPersonaTab(layout.rightRectOuter, layout.titleRect);
 				return;
 			}
 
-			// 右列：标题 + 生命体征
-			// 在绘制标题前按需刷新称谓（置脏后仅刷新一次，避免每帧 IO）
-			if (_titleDirty) { try { RefreshPlayerTitle(); } catch { } _titleDirty = false; }
-			Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
-
-			// 在绘制前计算内容高度并判断是否需要自动吸底
-			var prevViewH = _lastTranscriptContentHeight;
-			var newViewH = ComputeTranscriptViewHeight(transcriptRect, _controller.State);
-			var prevMaxScrollY = Mathf.Max(0f, prevViewH - transcriptRect.height);
-			bool wasNearBottom = _scrollTranscript.y >= (prevMaxScrollY - 20f);
-
-			ChatTranscriptView.Draw(transcriptRect, _controller.State, _scrollTranscript, out _scrollTranscript);
-
-			// 若先前处于底部附近且内容增长，则自动滚动到底（不打断用户向上查看）
-			if (wasNearBottom && newViewH > prevViewH + 1f)
-			{
-				_scrollTranscript.y = newViewH; // 设置为大值，Unity 会夹取为最大滚动位置
-			}
-			_lastTranscriptContentHeight = newViewH;
-			// 左侧指示灯（Busy=黄色：根据 IsStreaming）
-			IndicatorLights.Draw(indicatorRect, _controller.State.Indicators, _controller.State.IsStreaming);
-			// 右侧剩余区域绘制 LCD 跑马灯
-			var lcdLeft = indicatorRect.x + 180f; // 预留左侧指示灯区域宽度
-			if (lcdLeft < indicatorRect.xMax)
-			{
-				const float lcdRightMargin = 5f; // 右端向左缩 5px
-				var lcdRect = new Rect(lcdLeft, indicatorRect.y, Mathf.Max(0f, indicatorRect.xMax - lcdLeft - lcdRightMargin), indicatorRect.height);
-				var pulse = _controller.State.Indicators.DataOn;
-				var text = GetOrShuffleLcdText();
-				Parts.LcdMarquee.Draw(lcdRect, _controller.State.Lcd, text, pulse, _controller.State.IsStreaming);
-			}
-			InputRow.Draw(inputRect, ref _inputText,
-				onSmalltalk: () => _ = OnSendSmalltalkAsync(),
-				onCommand: () => _ = OnSendCommandAsync(),
-				onCancel: () => OnCancelStreaming(),
-				isStreaming: _controller.State.IsStreaming || _pawnDead);
-
-			// 若用户刚刚发送了消息，切换到历史页时应立即看到更新：当活跃页为 HistoryAdmin 时强制刷新
-			if (_activeTab == ChatTab.HistoryAdmin && _historyView != null)
-			{
-				// 流式期间禁用历史页刷新与交互
-				if (!_controller.State.IsStreaming)
-				{
-					try { _historyView.ForceReloadHistory(_history, _controller.State.ConvKey); _historyView.ForceReloadRecaps(_recap, _controller.State.ConvKey); } catch { }
-				}
-			}
-
-			// 消费流式 chunk：将其累加到最后一条 AI 文本
-			if (_controller.TryDequeueChunk(out var chunk))
-			{
-				AppendToLastAiMessage(chunk);
-			}
-
-			// 更新 Data 灯熄灭时机
-			if (DateTime.UtcNow > _controller.State.Indicators.DataBlinkUntilUtc)
-			{
-				_controller.State.Indicators.DataOn = false;
-			}
-
-            // 流式完成后处理（仅一次）：仅吸干剩余分片；最终历史提交由控制器负责
-            if (_controller.State.Indicators.FinishOn && !_historyWritten)
-            {
-                try
-                {
-                    AppendAllChunksToLastAiMessage();
-                    _historyWritten = true;
-                }
-                catch { }
-            }
-
-			// if (!_firstDrawEndLogged)
-			// {
-			// 	_firstDrawEndLogged = true;
-			// 	try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow first draw end"); } catch { }
-			// }
+			// 聊天主界面
+			DrawChatMain(layout.titleRect, layout.transcriptRect, layout.indicatorRect, layout.inputRect, layout.rightRectOuter);
 		}
 
 		private void OnCancelStreaming()
@@ -386,10 +223,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			});
 		}
 
-		private Parts.HistoryManagerTabView _historyView;
-		private Parts.PersonaTabView _personaView;
-		private Parts.FixedPromptTabView _fixedPromptView;
-		private Parts.TitleSettingsTabView _titleSettingsView;
+		
 
 		private void OpenJobAssignDialog(Verse.Pawn pawn)
 		{
@@ -658,6 +492,212 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				_lcdNextShuffleRealtime = now + Mathf.Max(4f, secsPerLoop);
 			}
 			return _lcdText;
+		}
+
+		// ---------- helpers (no behavior change) ----------
+		private void ApplyWindowDefaults()
+		{
+			doCloseX = true;
+			draggable = true;
+			preventCameraMotion = false;
+			absorbInputAroundWindow = false; // 允许点击窗体外的游戏控件
+			closeOnClickedOutside = false;
+			closeOnAccept = false; // Enter 不关闭
+			closeOnCancel = true;  // ESC 关闭
+		}
+
+		private void SyncLocaleDefaultIfNoOverride()
+		{
+			try
+			{
+				var locAuto = _container.Resolve<ILocalizationService>();
+				var cfgAuto = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var gameLang = LanguageDatabase.activeLanguage?.folderName ?? "English";
+				if (string.IsNullOrWhiteSpace(cfgAuto?.GetPromptLocaleOverrideOrNull()))
+				{
+					locAuto?.SetDefaultLocale(gameLang);
+				}
+			}
+			catch { }
+		}
+
+		private (ILLMService llm, IHistoryService history, IWorldDataService world, IOrchestrationService orchestration, IPromptService prompting, IPersonaService persona, IBiographyService biography, IIdeologyService ideology, IRecapService recap) ResolveServicesOnce()
+		{
+			return (
+				_container.Resolve<ILLMService>(),
+				_container.Resolve<IHistoryService>(),
+				_container.Resolve<IWorldDataService>(),
+				_container.Resolve<IOrchestrationService>(),
+				_container.Resolve<IPromptService>(),
+				_container.Resolve<IPersonaService>(),
+				_container.Resolve<IBiographyService>(),
+				_container.Resolve<IIdeologyService>(),
+				_container.Resolve<IRecapService>()
+			);
+		}
+
+		private void EnsurePlayerTitleInitialized()
+		{
+			try
+			{
+				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var loc = _container.Resolve<ILocalizationService>();
+				var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
+				var title = cfg?.GetPlayerTitleOrDefault();
+				if (string.IsNullOrWhiteSpace(title))
+				{
+					title = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
+				}
+				_controller.State.PlayerTitle = title;
+				try { if (string.IsNullOrWhiteSpace(cfg?.GetPlayerTitleOrDefault())) cfg?.SetPlayerTitle(title); } catch { }
+			}
+			catch { }
+		}
+
+		private void SubscribeConfigAndLocaleChanges()
+		{
+			try
+			{
+				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var loc = _container.Resolve<ILocalizationService>();
+				if (cfg != null) cfg.OnConfigurationChanged += _ => { try { _titleDirty = true; } catch { } };
+				if (loc != null) loc.OnLocaleChanged += _ => { try { _titleDirty = true; } catch { } };
+			}
+			catch { }
+		}
+
+		private void InitializeLcdRng(string convKey)
+		{
+			_lcdRng = new System.Random((convKey ?? string.Empty).GetHashCode());
+			_lcdNextShuffleRealtime = 0.0;
+		}
+
+		private void StartBackgroundTasks()
+		{
+			_healthCts = new CancellationTokenSource();
+			_ = PollHealthAsync(_healthCts.Token);
+			_ = _controller.StartAsync();
+		}
+
+		// ----- DoWindowContents helpers (behavior-preserving) -----
+		private void ConsumePendingInitMessages()
+		{
+			while (_controller.State.PendingInitMessages.TryDequeue(out var initMsg))
+			{
+				_controller.State.Messages.Add(initMsg);
+			}
+		}
+
+		private (Rect leftRect, Rect rightRectOuter, Rect titleRect, Rect transcriptRect, Rect indicatorRect, Rect inputRect) ComputeLayout(Rect inRect)
+		{
+			var leftW = inRect.width * (1f / 6f) + 55f;
+			var rightW = inRect.width - leftW - 8f;
+			var leftRect = new Rect(inRect.x, inRect.y, leftW, inRect.height);
+			var rightRectOuter = new Rect(leftRect.xMax + 8f, inRect.y, rightW, inRect.height);
+			var titleH = 70f;
+			var indicatorH = 20f;
+			var inputH = 60f;
+			var titleRect = new Rect(rightRectOuter.x, rightRectOuter.y, rightRectOuter.width, titleH);
+			var transcriptRect = new Rect(rightRectOuter.x, titleRect.yMax + 4f, rightRectOuter.width, rightRectOuter.height - titleH - indicatorH - inputH - 26f);
+			var indicatorRect = new Rect(rightRectOuter.x, transcriptRect.yMax + 4f, rightRectOuter.width, indicatorH);
+			var inputRect = new Rect(rightRectOuter.x, indicatorRect.yMax + 12f, rightRectOuter.width, inputH);
+			return (leftRect, rightRectOuter, titleRect, transcriptRect, indicatorRect, inputRect);
+		}
+
+		private void DrawLeftSidebar(Rect leftRect)
+		{
+			LeftSidebarCard.Draw(
+				leftRect,
+				ref _activeTab,
+				_pawnPortrait as Texture2D,
+				_pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(),
+				GetJobTitleOrNone(_pawn),
+				ref _scrollRoster,
+				onBackToChat: () => { try { if (_pawn != null) SwitchConversationToPawn(_pawn); } catch { } BackToChatAndRefresh(); _titleDirty = true; },
+				onSelectPawn: p => SwitchConversationToPawn(p),
+				getJobTitle: GetJobName,
+				isStreaming: _controller.State.IsStreaming
+			);
+		}
+
+		private void EnsureTitleTabStateInitialized()
+		{
+			try
+			{
+				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault();
+				if (!_titleInputInitialized)
+				{
+					_titleInputText = _controller.State.PlayerTitle ?? "governor";
+					_titleInputInitialized = true;
+				}
+			}
+			catch { }
+		}
+
+		private void DrawPersonaTab(Rect rightRectOuter, Rect titleRect)
+		{
+			Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
+			if (_personaView == null) _personaView = new Parts.PersonaTabView();
+			string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
+			var titleH = 70f;
+			var bodyRect = new Rect(rightRectOuter.x, titleRect.yMax + 4f, rightRectOuter.width, rightRectOuter.height - titleH - 8f);
+			_personaView.Draw(bodyRect, entityId, _controller.State.ConvKey, _persona, _biography, _ideology);
+		}
+
+		private void DrawChatMain(Rect titleRect, Rect transcriptRect, Rect indicatorRect, Rect inputRect, Rect rightRectOuter)
+		{
+			if (_titleDirty) { try { RefreshPlayerTitle(); } catch { } _titleDirty = false; }
+			Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
+
+			var prevViewH = _lastTranscriptContentHeight;
+			var newViewH = ComputeTranscriptViewHeight(transcriptRect, _controller.State);
+			var prevMaxScrollY = Mathf.Max(0f, prevViewH - transcriptRect.height);
+			bool wasNearBottom = _scrollTranscript.y >= (prevMaxScrollY - 20f);
+
+			ChatTranscriptView.Draw(transcriptRect, _controller.State, _scrollTranscript, out _scrollTranscript);
+
+			if (wasNearBottom && newViewH > prevViewH + 1f)
+			{
+				_scrollTranscript.y = newViewH;
+			}
+			_lastTranscriptContentHeight = newViewH;
+
+			IndicatorLights.Draw(indicatorRect, _controller.State.Indicators, _controller.State.IsStreaming);
+
+			var lcdLeft = indicatorRect.x + 180f;
+			if (lcdLeft < indicatorRect.xMax)
+			{
+				const float lcdRightMargin = 5f;
+				var lcdRect = new Rect(lcdLeft, indicatorRect.y, Mathf.Max(0f, indicatorRect.xMax - lcdLeft - lcdRightMargin), indicatorRect.height);
+				var pulse = _controller.State.Indicators.DataOn;
+				var text = GetOrShuffleLcdText();
+				Parts.LcdMarquee.Draw(lcdRect, _controller.State.Lcd, text, pulse, _controller.State.IsStreaming);
+			}
+
+			InputRow.Draw(
+				inputRect,
+				ref _inputText,
+				onSmalltalk: () => _ = OnSendSmalltalkAsync(),
+				onCommand: () => _ = OnSendCommandAsync(),
+				onCancel: () => OnCancelStreaming(),
+				isStreaming: _controller.State.IsStreaming || _pawnDead
+			);
+
+			if (_controller.TryDequeueChunk(out var chunk))
+			{
+				AppendToLastAiMessage(chunk);
+			}
+
+			if (DateTime.UtcNow > _controller.State.Indicators.DataBlinkUntilUtc)
+			{
+				_controller.State.Indicators.DataOn = false;
+			}
+
+			if (_controller.State.Indicators.FinishOn && !_historyWritten)
+			{
+				try { AppendAllChunksToLastAiMessage(); _historyWritten = true; } catch { }
+			}
 		}
 	}
 }

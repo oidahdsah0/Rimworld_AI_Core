@@ -74,13 +74,13 @@ namespace RimAI.Core.Source.Modules.World.PlaceWorkers
 
 	internal sealed class PlaceWorker_AIServerLimit_Lv1 : PlaceWorker_AIServerLimitBase
 	{
-		protected override int GetLimit() => 3;
+		protected override int GetLimit() => 5;
 		protected override string GetLimitMessageKey() => "RimAI.Building.LimitReached.Format";
 	}
 
 	internal sealed class PlaceWorker_AIServerLimit_Lv2 : PlaceWorker_AIServerLimitBase
 	{
-		protected override int GetLimit() => 2;
+		protected override int GetLimit() => 3;
 		protected override string GetLimitMessageKey() => "RimAI.Building.LimitReached.Format";
 	}
 

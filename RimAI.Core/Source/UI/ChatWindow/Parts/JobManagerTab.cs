@@ -5,6 +5,7 @@ using RimAI.Core.Source.Modules.Persona;
 using RimAI.Core.Source.Modules.Persistence;
 using RimAI.Core.Source.Boot;
 using RimWorld;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.UI.ChatWindow.Parts
 {
@@ -125,7 +126,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					string json = null;
 					try
 					{
-						var loc = container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+						var loc = container.Resolve<ILocalizationService>();
 						var cfgInternal = cfgSvc as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
 						var overrideLocale = cfgInternal?.GetPromptLocaleOverrideOrNull();
 						var locale = string.IsNullOrWhiteSpace(overrideLocale)

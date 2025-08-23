@@ -176,6 +176,7 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 			double budgetMs = sc.MaxBudgetMsPerUpdate;
 			int longWarnMs = sc.LongTaskWarnMs;
 			int maxQueueLen = sc.MaxQueueLength;
+			bool warnOnBudgetExceeded = false; // suppress noisy frame budget warnings by default
 
 			// process delay completions
 			lock (_delayLock)
@@ -213,6 +214,9 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 			var swFrame = Stopwatch.StartNew();
 			int processed = 0;
 			int queueLen = _queue.Count;
+			int queueLenStart = queueLen;
+			string lastItemName = null;
+			long lastItemMs = 0;
 			if (queueLen > maxQueueLen)
 			{
 				logWarn?.Invoke($"[RimAI.Core][P3][Scheduler] Queue length {queueLen} > MaxQueueLength={maxQueueLen}");
@@ -225,6 +229,8 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 					var swTask = Stopwatch.StartNew();
 					item.Execute();
 					swTask.Stop();
+					lastItemName = item?.Name;
+					lastItemMs = swTask.ElapsedMilliseconds;
 					if (swTask.ElapsedMilliseconds > longWarnMs)
 					{
 						_interlockedLongTaskInc();
@@ -243,7 +249,14 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				_interlockedTotalProcessedInc();
 				if (swFrame.Elapsed.TotalMilliseconds > budgetMs)
 				{
-					logWarn?.Invoke($"[RimAI.Core][P3][Scheduler] Frame budget exceeded: {swFrame.Elapsed.TotalMilliseconds:F3} ms (budget={budgetMs} ms)");
+					var qNow = _queue.Count;
+					if (warnOnBudgetExceeded)
+					{
+						logWarn?.Invoke(
+							$"[RimAI.Core][P3][Scheduler] Frame budget exceeded: {swFrame.Elapsed.TotalMilliseconds:F3} ms (budget={budgetMs} ms); " +
+							$"processed={processed}/{maxTasks}, queue(start={queueLenStart}, now={qNow}); last='{lastItemName ?? "(unknown)"}' took {lastItemMs} ms"
+						);
+					}
 					break;
 				}
 			}

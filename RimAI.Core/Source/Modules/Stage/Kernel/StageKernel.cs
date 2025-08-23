@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using RimAI.Core.Source.Modules.Stage.Models;
+using RimAI.Core.Source.Infrastructure.Configuration;
+using RimAI.Core.Contracts.Config;
 
 namespace RimAI.Core.Source.Modules.Stage.Kernel
 {
@@ -26,9 +28,16 @@ namespace RimAI.Core.Source.Modules.Stage.Kernel
 		private readonly int _maxRunning;
 		private readonly Timer _sweeper;
 
-		public StageKernel()
+
+		private readonly ConfigurationService _cfg;
+
+		public StageKernel() : this(null) { }
+
+		public StageKernel(IConfigurationService cfg)
 		{
-			_maxRunning = 1; // 全局唯一运行（可未来通过配置注入）
+			_cfg = cfg as ConfigurationService;
+			try { _maxRunning = Math.Max(1, _cfg?.GetInternal()?.Stage?.MaxRunning ?? 1); }
+			catch { _maxRunning = 1; }
 			_sweeper = new Timer(SweepExpired, null, 1000, 1000);
 		}
 
@@ -42,12 +51,12 @@ namespace RimAI.Core.Source.Modules.Stage.Kernel
 			var primaryConvKey = claim.ConvKeys?.FirstOrDefault();
 			if (!string.IsNullOrEmpty(primaryConvKey) && _runningByConvKey.ContainsKey(primaryConvKey)) return false;
 
-			// 参与者集合互斥
+			// 参与者集合互斥（仅当计数>0 时才视为占用）
 			if (claim.ParticipantIds != null)
 			{
 				foreach (var pid in claim.ParticipantIds)
 				{
-					if (_runningByParticipant.ContainsKey(pid)) return false;
+					if (_runningByParticipant.TryGetValue(pid, out var usingCount) && usingCount > 0) return false;
 				}
 			}
 

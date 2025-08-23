@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build RimAI.Core.sln",
+			"type": "shell",
+			"command": "dotnet build \"e:\\CodeCrafts\\RimAI Mods\\Rimworld_AI_Core\\Rimworld_AI_Core.sln\" -c Debug",
+			"args": [],
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		}
+	]
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef>
+    <defName>RimAI_ServerBuff</defName>
+    <label>AI服务器增益</label>
+  <description>来自在线 AI 服务器的辅助加成（仅用于显示）。</description>
+    <hediffClass>HediffWithComps</hediffClass>
+    <tendable>false</tendable>
+    <isBad>false</isBad>
+    <initialSeverity>0</initialSeverity>
+  <displayWound>false</displayWound>
+    <Defs>
+      <!-- 兼容占位：保留旧 HediffDef，避免旧存档缺失定义；不再被代码使用，也无任何显示组件 -->
+      <HediffDef>
+        <defName>RimAI_ServerBuff</defName>
+        <label>AI服务器增益（旧版兼容）</label>
+        <hediffClass>Hediff</hediffClass>
+        <isBad>false</isBad>
+        <scenarioCanAdd>false</scenarioCanAdd>
+        <tendable>false</tendable>
+        <alwaysAllowHideInHealth>false</alwaysAllowHideInHealth>
+      </HediffDef>
+    </Defs>
+</Defs>

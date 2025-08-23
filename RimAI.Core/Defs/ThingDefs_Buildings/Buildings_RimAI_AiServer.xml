@@ -47,8 +47,6 @@
       </li>
       <li Class="RimAI.Core.Source.Modules.World.Comps.CompProperties_AiServerBuffs">
         <baseGlobalWorkSpeedPercent>15</baseGlobalWorkSpeedPercent>
-        <randomAttributeCount>0</randomAttributeCount>
-        <randomAttributePercent>0</randomAttributePercent>
       </li>
       <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
     </comps>
@@ -106,8 +104,8 @@
       </li>
       <li Class="RimAI.Core.Source.Modules.World.Comps.CompProperties_AiServerBuffs">
         <baseGlobalWorkSpeedPercent>25</baseGlobalWorkSpeedPercent>
-        <randomAttributeCount>1</randomAttributeCount>
-        <randomAttributePercent>10</randomAttributePercent>
+  <randomAttributeCount>1</randomAttributeCount>
+  <randomAttributePercent>10</randomAttributePercent>
       </li>
       <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
     </comps>
@@ -166,8 +164,8 @@
       </li>
       <li Class="RimAI.Core.Source.Modules.World.Comps.CompProperties_AiServerBuffs">
         <baseGlobalWorkSpeedPercent>50</baseGlobalWorkSpeedPercent>
-        <randomAttributeCount>2</randomAttributeCount>
-        <randomAttributePercent>20</randomAttributePercent>
+  <randomAttributeCount>2</randomAttributeCount>
+  <randomAttributePercent>20</randomAttributePercent>
       </li>
       <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
     </comps>

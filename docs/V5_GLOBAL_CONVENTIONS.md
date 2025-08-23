@@ -45,6 +45,28 @@
 - 日志与可观测：
   - 【V5 强制】所有日志必须以 `[RimAI.Core]` 为前缀（置于最开头），推荐追加阶段标记形成层级前缀，例如：`[RimAI.Core][P1] ...`、`[RimAI.Core][P4] ...`。
   - 避免输出敏感正文；Debug 面板提供最小自检按钮与指标。
+  - 开发态日志最小化：除启动期一次性校验日志（如注入名单）外，不得在高频 Tick 路径持续输出；涉及 MapComponent/StatPart 的调试日志必须受 `Prefs.DevMode` 门控，默认静音。
+
+---
+
+## 1.1 RimWorld StatPart 注入与 Buff 纪律（新增）
+
+- 注入方式：
+  - 【强制】RimWorld 1.6 场景下，StatPart 注入采用运行时注入（`StaticConstructorOnStartup`），避免 XML Patch 的加载次序/Schema 脆弱性。
+  - 【强制】运行时创建的 `StatPart` 必须设置 `parentStat`，否则 `TransformValue/ExplanationPart` 行为不可靠或不生效。
+
+- 单一事实源（Source of truth）：
+  - 影响数值与 UI 的信号应统一来源（例如以 Hediff.Severity 表达百分比），StatPart 仅消费同一来源；必要时提供短暂回退，避免瞬时空窗导致闪烁。
+
+- UI 可视与噪音控制：
+  - 可视化优先 Hediff（健康面板绿色条目 + 括号数值），避免对 Inspect 字符串打补丁。
+  - 解释行（ExplanationPart）遵循原版样式（`<hediffLabel> severity: +X%`）。
+
+- Tick 频率与性能：
+  - MapComponent 巡检间隔不小于 60 ticks；在稳定态仅更新必要对象，避免 O(n) 级别多次遍历。
+
+- 诊断日志：
+  - 启动时可打印一次“已附着 StatPart 的 StatDef 列表”以便确认；其余高频日志应默认关闭（DevMode 下也应最小化）。
 
 ---
 

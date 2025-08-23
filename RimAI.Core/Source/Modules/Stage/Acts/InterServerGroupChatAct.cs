@@ -65,11 +65,8 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					}
 				}
 			}
-			catch { }
-			if (loadedTools.Count == 0)
-			{
-				return new ActResult { Completed = false, Reason = "NoTools", FinalText = "（未发现可用的巡检工具，跳过本次群聊）" };
-			}
+			catch (Exception ex) { /* best effort; just log via history */ try { await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"loadedToolsScanError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
+			// 若无工具，继续走后续兜底流程（不再直接返回），以随机议题开启群聊
 
 			// 过滤为当前已注册工具集合
 			try
@@ -77,7 +74,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				var registered = _tooling.GetRegisteredToolNames() ?? Array.Empty<string>();
 				loadedTools.IntersectWith(registered);
 			}
-			catch { }
+			catch (Exception ex) { try { await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"toolRegistryError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
 			if (loadedTools.Count == 0)
 			{
 				// Fallback：无工具可用时，生成一个随机关联话题（本地化），并以黑色幽默风格讨论
@@ -220,7 +217,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					catch { }
 				}
 			}
-			catch { }
+			catch (Exception ex) { try { await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"toolPickError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
 			if (string.IsNullOrWhiteSpace(topicJson))
 			{
 				// 工具执行未产出时，也回退到随机关联话题

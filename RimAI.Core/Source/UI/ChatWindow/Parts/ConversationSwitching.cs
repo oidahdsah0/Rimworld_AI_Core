@@ -53,9 +53,12 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		{
 			try
 			{
+				// 尝试重用现有对话键
 				if (history == null || participantIds == null || participantIds.Count == 0) return fallbackConvKey;
+				// 查找当前 pawnId
 				string pawnId = null; foreach (var id in participantIds) { if (id != null && id.StartsWith("pawn:")) { pawnId = id; break; } }
 				if (string.IsNullOrEmpty(pawnId)) return fallbackConvKey;
+				// 查找当前对话的所有参与者
 				var all = history.GetAllConvKeys(); if (all == null || all.Count == 0) return fallbackConvKey;
 				foreach (var ck in all)
 				{

@@ -94,7 +94,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                     if (session == null) { return new ActResult { Completed = false, Reason = "WorldActionFailed", FinalText = "（无法开始群聊任务）" }; }
                 }
             }
-            catch { }
+            catch (Exception ex) { try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"startSessionError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
 
             int actualRounds = 0;
             var bubbleDelayMs = Math.Max(0, _cfg?.GetInternal()?.Stage?.Acts?.GroupChat?.BubbleDelayMs ?? 1000);
@@ -227,7 +227,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                     }
                     else { aborted = true; break; }
                 }
-                catch { aborted = true; break; }
+                catch (Exception ex) { aborted = true; try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"parseError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } break; }
 
                 // 轮次间隔（0-1 秒）
                 var minMs = Math.Max(0, _cfg?.GetInternal()?.Stage?.Acts?.GroupChat?.RoundIntervalMinMs ?? 0);
@@ -243,11 +243,12 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             }
 
             // 结束世界会话
-            try { if (session != null) await _worldAction.EndGroupChatDutyAsync(session, (!aborted && actualRounds >= rounds) ? "Completed" : "Aborted", ct).ConfigureAwait(false); } catch { }
+            try { if (session != null) await _worldAction.EndGroupChatDutyAsync(session, (!aborted && actualRounds >= rounds) ? "Completed" : "Aborted", ct).ConfigureAwait(false); }
+            catch (Exception ex) { try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"endSessionError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
 
             if (aborted || actualRounds < rounds)
             {
-                return new ActResult { Completed = false, Reason = "NoContent", FinalText = "（本次群聊无有效输出）", Rounds = 0 };
+                return new ActResult { Completed = false, Reason = aborted ? "Aborted" : "NoContent", FinalText = "（本次群聊无有效输出）", Rounds = 0 };
             }
             finalTranscript = transcript.ToString().TrimEnd();
             return new ActResult { Completed = true, Reason = "Completed", FinalText = finalTranscript, Rounds = actualRounds };

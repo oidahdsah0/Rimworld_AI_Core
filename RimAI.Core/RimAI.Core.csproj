@@ -91,6 +91,12 @@
     </ItemGroup>
     <Copy SourceFiles="@(DefFiles)" DestinationFolder="$(ModDir)\Defs\%(RecursiveDir)" />
 
+    <!-- Copy the Patches folder (PatchOperation XML) -->
+    <ItemGroup>
+      <PatchFiles Include="Patches\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PatchFiles)" DestinationFolder="$(ModDir)\Patches\%(RecursiveDir)" SkipUnchangedFiles="true" />
+
     <!-- Copy the Languages folder (XML translation files) -->
     <ItemGroup>
       <LanguageFiles Include="Languages\**\*.*" />

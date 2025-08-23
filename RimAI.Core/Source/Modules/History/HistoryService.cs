@@ -163,6 +163,7 @@ namespace RimAI.Core.Source.Modules.History
 			_store.TryGetValue(convKey, out var list);
 			IReadOnlyList<HistoryEntry> result = (list ?? new List<HistoryEntry>())
 				.OrderBy(e => e.Timestamp)
+				.Where(e => !e.Deleted)
 				.Select(MapForDisplay)
 				.ToList();
 			return Task.FromResult(result);

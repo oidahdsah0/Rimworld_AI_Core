@@ -279,8 +279,12 @@ namespace RimAI.Core.Source.Modules.LLM
 				bool wasCancelled = false;
 				bool failBeforeFirstChunk = false;
 				Result<UnifiedChatChunk> earlyError = null;
-				var stream = RimAIApi.StreamCompletionAsync(request, cancellationToken);
-				await using var enumerator = stream.GetAsyncEnumerator(cancellationToken);
+				// Watchdog：对“首包”与“分片间”统一用心跳超时控制，避免 UI 长时间卡死。
+				// 使用与调用方 token 链接的 CTS，并在每次收到分片后重新设定 CancelAfter。
+				using var watchdogCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+				if (hbTimeoutMs > 0) watchdogCts.CancelAfter(hbTimeoutMs);
+				var stream = RimAIApi.StreamCompletionAsync(request, watchdogCts.Token);
+				await using var enumerator = stream.GetAsyncEnumerator(watchdogCts.Token);
 				// 移除未使用的首包 watchdog 以保持代码简洁
 				while (true)
 				{
@@ -328,6 +332,8 @@ namespace RimAI.Core.Source.Modules.LLM
 						System.Diagnostics.Debug.WriteLine($"[RimAI.Core][P2.LLM] stream progress conv={LlmLogging.HashConversationId(request.ConversationId)} chunks={chunks}");
 					}
 					last = DateTime.UtcNow;
+					// 重置心跳计时（下一分片超时）
+					try { if (hbTimeoutMs > 0) watchdogCts.CancelAfter(hbTimeoutMs); } catch { }
 					yield return result;
 					if (result.Value != null && result.Value.FinishReason != null)
 					{

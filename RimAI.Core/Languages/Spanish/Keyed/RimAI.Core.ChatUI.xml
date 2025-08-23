@@ -50,7 +50,7 @@
 
   <!-- Tool results -->
   <RimAI.ChatUI.Tools.ResultTitle>Resultado de la herramienta</RimAI.ChatUI.Tools.ResultTitle>
-  <RimAI.ChatUI.Tools.ResultTitleWithName>Resultado de la herramienta · {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>[Resultado de la herramienta]: {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
 
   <!-- Title settings -->
   <RimAI.ChatUI.TitleSettings.Question>¿Cómo deberían dirigirse a usted los colonos?</RimAI.ChatUI.TitleSettings.Question>

@@ -48,7 +48,10 @@ namespace RimAI.Core.Source.Modules.Persona.Ideology
 				};
 				var prompt = await prompting.BuildAsync(req, cts.Token).ConfigureAwait(false);
 				try { Verse.Log.Message("[RimAI.Core][P7] Persona Ideology Payload\nconv=" + req.ConvKey + "\n--- System ---\n" + (prompt?.SystemPrompt ?? string.Empty) + "\n--- User ---\n" + (prompt?.UserPrefixedInput ?? string.Empty)); } catch { }
-				var ureq = new UnifiedChatRequest { ConversationId = req.ConvKey, Messages = new System.Collections.Generic.List<ChatMessage> { new ChatMessage{ Role="system", Content = prompt?.SystemPrompt ?? string.Empty }, new ChatMessage{ Role="user", Content = prompt?.UserPrefixedInput ?? string.Empty } }, Stream = false };
+				var msgs = new System.Collections.Generic.List<ChatMessage>();
+				msgs.Add(new ChatMessage { Role = "system", Content = prompt?.SystemPrompt ?? string.Empty });
+				if (!string.IsNullOrWhiteSpace(prompt?.UserPrefixedInput)) msgs.Add(new ChatMessage { Role = "user", Content = prompt.UserPrefixedInput });
+				var ureq = new UnifiedChatRequest { ConversationId = req.ConvKey, Messages = msgs, Stream = false };
 				var r = await _llm.GetResponseAsync(ureq, cts.Token).ConfigureAwait(false);
 				if (!r.IsSuccess)
 				{

@@ -11,14 +11,17 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 {
 	internal sealed class HistoryManagerTabView
 	{
-		private enum HistorySubTab { Thread, Recaps, Related }
+		private enum HistorySubTab { Thread, Recaps, Related, RawJson }
 		private HistorySubTab _subTab = HistorySubTab.Thread;
 		private Vector2 _scrollThread = Vector2.zero;
 		private Vector2 _scrollRecaps = Vector2.zero;
 		private Vector2 _scrollRelated = Vector2.zero;
+		private Vector2 _scrollRaw = Vector2.zero;
+		private string _rawAllText;
+		private bool _rawLoaded;
 		private bool _recapGenerating = false;
 
-		private sealed class HistoryEntryVM { public string Id; public EntryRole Role; public string Content; public DateTime TimestampUtc; public bool IsEditing; public string EditText; }
+		private sealed class HistoryEntryVM { public string Id; public string ConvKey; public EntryRole Role; public string Content; public DateTime TimestampUtc; public bool IsEditing; public string EditText; }
 		private List<HistoryEntryVM> _entries;
 		private sealed class RecapVM { public string Id; public string Text; public bool IsEditing; public string EditText; public string Range; public DateTime UpdatedAtUtc; }
 		private List<RecapVM> _recaps;
@@ -41,6 +44,11 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			if (Widgets.ButtonText(new Rect(rTabs.x, rTabs.y, btnW, tabsH), "RimAI.ChatUI.History.Tab.Thread".Translate())) _subTab = HistorySubTab.Thread;
 			if (Widgets.ButtonText(new Rect(rTabs.x + btnW + sp, rTabs.y, btnW, tabsH), "RimAI.ChatUI.History.Tab.Recaps".Translate())) _subTab = HistorySubTab.Recaps;
 			if (Widgets.ButtonText(new Rect(rTabs.x + (btnW + sp) * 2, rTabs.y, btnW, tabsH), "RimAI.ChatUI.History.Tab.Related".Translate())) _subTab = HistorySubTab.Related;
+			if (Widgets.ButtonText(new Rect(rTabs.x + (btnW + sp) * 3, rTabs.y, btnW, tabsH), "RimAI.ChatUI.History.Tab.RawJson".Translate())) { _subTab = HistorySubTab.RawJson; _rawLoaded = false; _rawAllText = string.Empty; }
+			// Add right aligned button for viewing raw JSON (thread-wide), only on Thread subtab
+			var rightBtnW = 220f;
+			var rightBtnRect = new Rect(rTabs.xMax - rightBtnW, rTabs.y, rightBtnW, tabsH);
+			// 保留右侧空间（不再使用子窗口入口）
 			var contentRect = new Rect(inRect.x, rTabs.yMax + 8f, inRect.width, inRect.height - tabsH - 12f);
 
 			switch (_subTab)
@@ -57,6 +65,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					EnsureRelatedLoaded(history, state.ParticipantIds);
 					DrawRelated(contentRect, switchToConvKey);
 					break;
+				case HistorySubTab.RawJson:
+					DrawRawJson(contentRect, history, state.ConvKey);
+					break;
 			}
 		}
 
@@ -72,7 +83,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					foreach (var e in thread.Entries)
 					{
 						if (e == null || e.Deleted) continue;
-						_entries.Add(new HistoryEntryVM { Id = e.Id, Role = e.Role, Content = e.Content, TimestampUtc = e.Timestamp, IsEditing = false, EditText = e.Content });
+						_entries.Add(new HistoryEntryVM { Id = e.Id, ConvKey = convKey, Role = e.Role, Content = e.Content, TimestampUtc = e.Timestamp, IsEditing = false, EditText = e.Content });
 					}
 				}
 			}
@@ -82,6 +93,8 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		private void ReloadHistory(IHistoryService history, string convKey)
 		{
 			_entries = null; EnsureHistoryLoaded(history, convKey);
+			// 同步刷新 Raw JSON 视图的缓存标志，确保删除/编辑后原文页面能重新加载
+			_rawLoaded = false; _rawAllText = string.Empty;
 		}
 
 		public void ForceReloadHistory(IHistoryService history, string convKey)
@@ -133,18 +146,81 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					{
 						Widgets.Label(contentRect, label);
 						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Edit".Translate())) { it.IsEditing = true; it.EditText = it.Content; }
-						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Delete".Translate())) { _ = DeleteEntryAsync(history, convKey, it.Id); }
+						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Delete".Translate())) { _ = DeleteEntryAsync(history, it.ConvKey ?? convKey, it.Id); }
 					}
 					else
 					{
 						it.EditText = Widgets.TextArea(contentRect, it.EditText ?? string.Empty);
-						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Save".Translate())) { _ = SaveEntryAsync(history, convKey, it.Id, it.EditText); }
+						if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Save".Translate())) { _ = SaveEntryAsync(history, it.ConvKey ?? convKey, it.Id, it.EditText); }
 						if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Cancel".Translate())) { it.IsEditing = false; it.EditText = it.Content; }
 					}
 					y += rowH + 6f;
 				}
 			}
 			Widgets.EndScrollView();
+		}
+
+		// 单条 JSON 查看窗口已移除
+
+		private sealed class JsonHistoryViewerDialogAll : Window
+		{
+			private readonly IHistoryService _history;
+			private readonly string _convKey;
+			private string _rawJson = string.Empty;
+			private Vector2 _scroll = Vector2.zero;
+			private bool _loaded;
+			public override Vector2 InitialSize => new Vector2(900f, 600f);
+
+			public JsonHistoryViewerDialogAll(IHistoryService history, string convKey)
+			{
+				_history = history;
+				_convKey = convKey;
+				doCloseX = true;
+				draggable = true;
+				absorbInputAroundWindow = true;
+				closeOnCancel = true;
+				closeOnClickedOutside = false;
+			}
+
+			public override void DoWindowContents(Rect inRect)
+			{
+				if (!_loaded)
+				{
+					_loaded = true;
+					_ = System.Threading.Tasks.Task.Run(() =>
+					{
+						try
+						{
+							var rawList = _history.GetAllEntriesRawAsync(_convKey).GetAwaiter().GetResult();
+							var sb = new System.Text.StringBuilder();
+							if (rawList != null)
+							{
+								for (int i = 0; i < rawList.Count; i++)
+								{
+									var r = rawList[i];
+									if (r == null || r.Deleted) continue;
+									sb.AppendLine(r.Content ?? string.Empty);
+								}
+							}
+							_rawJson = sb.ToString();
+						}
+						catch { _rawJson = string.Empty; }
+					});
+				}
+
+				float footerH = 28f; float btnW = 90f;
+				var footer = new Rect(inRect.x, inRect.yMax - footerH, inRect.width, footerH);
+				var btnClose = new Rect(footer.xMax - btnW, footer.y, btnW, footerH);
+
+				var body = new Rect(inRect.x, inRect.y, inRect.width, inRect.height - footerH - 6f);
+				var inner = new Rect(0f, 0f, body.width - 16f, Mathf.Max(body.height, Text.CalcHeight(_rawJson ?? string.Empty, body.width - 16f) + 10f));
+				Widgets.BeginScrollView(body, ref _scroll, inner);
+				_rawJson = Widgets.TextArea(new Rect(0f, 0f, inner.width, inner.height), _rawJson ?? string.Empty);
+				Widgets.EndScrollView();
+
+				// 禁用保存/导出功能：仅允许查看
+				// if (Widgets.ButtonText(btnClose, "RimAI.Common.Close".Translate())) Close();
+			}
 		}
 
 		private async Task SaveEntryAsync(IHistoryService history, string convKey, string entryId, string text)
@@ -416,7 +492,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					foreach (var e in thread.Entries)
 					{
 						if (e == null || e.Deleted) continue;
-						temp.Add(new HistoryEntryVM { Id = e.Id, Role = e.Role, Content = e.Content, TimestampUtc = e.Timestamp, IsEditing = false, EditText = e.Content });
+						temp.Add(new HistoryEntryVM { Id = e.Id, ConvKey = convKey, Role = e.Role, Content = e.Content, TimestampUtc = e.Timestamp, IsEditing = false, EditText = e.Content });
 					}
 				}
 				// 复用 Thread 绘制逻辑（只读：隐藏保存/删除，保留修改/删除按钮入口，但点击时操作当前 convKey）
@@ -425,6 +501,39 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				_entries = saved;
 			}
 			catch { }
+		}
+
+		private void DrawRawJson(Rect rect, IHistoryService history, string convKey)
+		{
+			if (!_rawLoaded)
+			{
+				_rawLoaded = true;
+				_rawAllText = string.Empty;
+				try
+				{
+					var list = history.GetAllEntriesRawAsync(convKey).GetAwaiter().GetResult();
+					var sb = new System.Text.StringBuilder();
+					if (list != null)
+					{
+						for (int i = 0; i < list.Count; i++)
+						{
+							var r = list[i];
+							if (r == null || r.Deleted) continue;
+							sb.AppendLine(r.Content ?? string.Empty);
+						}
+					}
+					_rawAllText = sb.ToString();
+				}
+				catch { _rawAllText = string.Empty; }
+			}
+
+			// 可滚动富文本框
+			float totalH = Mathf.Max(24f, Text.CalcHeight(_rawAllText ?? string.Empty, rect.width - 16f));
+			var viewRect = new Rect(0f, 0f, rect.width - 16f, Mathf.Max(rect.height, totalH + 8f));
+			Widgets.BeginScrollView(rect, ref _scrollRaw, viewRect);
+			var textRect = new Rect(4f, 4f, viewRect.width - 8f, totalH);
+			_rawAllText = Widgets.TextArea(textRect, _rawAllText ?? string.Empty);
+			Widgets.EndScrollView();
 		}
 
 		private (string userName, string pawnName) GetOrBeginResolveNames(IHistoryService history, string convKey)

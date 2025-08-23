@@ -164,9 +164,22 @@ namespace RimAI.Core.Source.Modules.Prompting
 			}
 
 			var sb = new StringBuilder();
+			// 合并外部传入的 RAG 块（如编排工具结果），并统一做预算裁剪
+			if (request.ExternalBlocks != null && request.ExternalBlocks.Count > 0)
+			{
+				foreach (var b in request.ExternalBlocks)
+				{
+					if (b == null) continue;
+					if (!string.IsNullOrWhiteSpace(b.Title) || !string.IsNullOrWhiteSpace(b.Text))
+					{
+						blocks.Add(b);
+					}
+				}
+			}
+
+			// 最终在 ChatUI 下将（包含外部 RAG 在内的）全部 ContextBlocks 合并进 System 段
 			if (request.Scope == PromptScope.ChatUI && blocks != null && blocks.Count > 0)
 			{
-				// 将 Activities（ContextBlocks）也并入 System 段，满足“ChatUI 下必须进入 System Prompt”的要求
 				foreach (var b in blocks)
 				{
 					var title = b?.Title ?? string.Empty;
@@ -184,29 +197,37 @@ namespace RimAI.Core.Source.Modules.Prompting
 					}
 				}
 			}
-			// 合并外部传入的 RAG 块（如编排工具结果），并统一做预算裁剪
-			if (request.ExternalBlocks != null && request.ExternalBlocks.Count > 0)
-			{
-				foreach (var b in request.ExternalBlocks)
-				{
-					if (b == null) continue;
-					if (!string.IsNullOrWhiteSpace(b.Title) || !string.IsNullOrWhiteSpace(b.Text))
-					{
-						blocks.Add(b);
-					}
-				}
-			}
 
 			if (sysLines.Count > 0)
 			{
 				sb.Append(string.Join(Environment.NewLine, sysLines));
 			}
 
+			// 作用域化的 user 构造：ChatUI 才使用 UI 前缀；Persona 等专用作用域改用 IProvidesUserPayload 产物
+			string userInput = string.Empty;
+			if (request.Scope == PromptScope.ChatUI)
+			{
+				userInput = ctx.L("ui.chat.user_prefix", "Message from the {player_title}:")
+					.Replace("{player_title}", ctx.PlayerTitle ?? (ctx.L("ui.chat.player_title.value", "governor")));
+			}
+			else
+			{
+				try
+				{
+					var provider = _composers.OfType<IProvidesUserPayload>().FirstOrDefault(p => p.Scope == request.Scope);
+					if (provider != null)
+					{
+						userInput = provider.BuildUserPayloadAsync(ctx, ct).GetAwaiter().GetResult() ?? string.Empty;
+					}
+				}
+				catch { userInput = string.Empty; }
+			}
+
 			return new PromptBuildResult
 			{
 				SystemPrompt = sb.ToString(),
 				ContextBlocks = blocks,
-				UserPrefixedInput = ctx.L("ui.chat.user_prefix", "Message from the {player_title}:").Replace("{player_title}", ctx.PlayerTitle ?? (ctx.L("ui.chat.player_title.value", "governor")))
+				UserPrefixedInput = userInput
 			};
 		}
 

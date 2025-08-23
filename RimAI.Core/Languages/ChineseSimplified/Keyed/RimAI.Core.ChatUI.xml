@@ -50,7 +50,7 @@
 
   <!-- Tool results -->
   <RimAI.ChatUI.Tools.ResultTitle>工具结果</RimAI.ChatUI.Tools.ResultTitle>
-  <RimAI.ChatUI.Tools.ResultTitleWithName>工具结果 · {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>[工具结果]: {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
 
   <!-- Title settings -->
   <RimAI.ChatUI.TitleSettings.Question>您希望殖民者们如何称呼您？</RimAI.ChatUI.TitleSettings.Question>

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
@@ -59,21 +60,43 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				// Verse.Log.Message($"[RimAI.Core][P10] ChatController.StartAsync begin conv={State?.ConvKey}");
 				// 记录参与者（若无则创建），并加载现有历史（若无则为空列表）
 				await _history.UpsertParticipantsAsync(State.ConvKey, State.ParticipantIds).ConfigureAwait(false);
-				var thread = await _history.GetThreadAsync(State.ConvKey, page: 1, pageSize: 200).ConfigureAwait(false);
+				// 为避免工具 JSON 污染对话，在 ChatUI 载入时使用原始历史并过滤 type=tool_call
+				var rawList = await _history.GetAllEntriesRawAsync(State.ConvKey).ConfigureAwait(false);
 				string playerName = "RimAI.Common.Player".Translate().ToString();
 				try { playerName = await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "RimAI.Common.Player".Translate().ToString(); } catch { }
-				if (thread?.Entries != null)
+				if (rawList != null)
 				{
-					foreach (var e in thread.Entries)
+					foreach (var r in rawList)
 					{
-						if (e == null || e.Deleted) continue;
+						if (r == null || r.Deleted) continue;
+						// 解析 JSON payload，若 type=tool_call 则跳过
+						string displayText = r.Content ?? string.Empty;
+						try
+						{
+							var jo = JObject.Parse(r.Content ?? "{}");
+							var type = jo.Value<string>("type") ?? string.Empty;
+							if (string.Equals(type, "tool_call", System.StringComparison.OrdinalIgnoreCase)) continue;
+							displayText = jo.Value<string>("content") ?? displayText;
+						}
+						catch { }
+						// 计算显示名：用户采用当前称谓或玩家名；AI 采用实际小人名
+						string displayName = r.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "RimAI.Common.Pawn".Translate().ToString();
+						if (r.Role != EntryRole.User)
+						{
+							try
+							{
+								var nm = await GetPawnDisplayNameAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+								if (!string.IsNullOrWhiteSpace(nm)) displayName = nm;
+							}
+							catch { }
+						}
 						var msg = new ChatMessage
 						{
-							Id = e.Id ?? Guid.NewGuid().ToString("N"),
-							Sender = e.Role == EntryRole.User ? MessageSender.User : MessageSender.Ai,
-							DisplayName = e.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "RimAI.Common.Pawn".Translate().ToString(),
-							TimestampUtc = e.Timestamp,
-							Text = e.Content ?? string.Empty,
+							Id = r.Id ?? Guid.NewGuid().ToString("N"),
+							Sender = r.Role == EntryRole.User ? MessageSender.User : MessageSender.Ai,
+							DisplayName = displayName,
+							TimestampUtc = r.Timestamp,
+							Text = displayText,
 							IsCommand = false
 						};
 						State.PendingInitMessages.Enqueue(msg);
@@ -164,6 +187,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 							break;
 						}
 					}
+					// 流完成后：在控制器侧统一合并残余分片并尝试写入最终历史（独立于 UI 是否在绘制）
+					try { await TryFinalizeStreamingAndCommitAsync().ConfigureAwait(false); } catch { }
 				}
 				catch (OperationCanceledException) { }
 				catch (Exception) { }
@@ -172,6 +197,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					try { _streamCts?.Dispose(); } catch { }
 					_streamCts = null;
 					State.IsStreaming = false;
+					// 中断情况下，确保指示灯复位，避免 UI 假性“忙碌”
+					State.Indicators.DataOn = false;
+					State.Indicators.FinishOn = false;
 				}
 			}, linked);
 		}
@@ -233,13 +261,31 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					// try { Verse.Log.Message($"[RimAI.Core][P12] Orchestration done ok={result != null}"); } catch { }
 
 					// 显示一次过程说明（PlanTrace 首条）到 UI（历史写入已由编排完成）
+					bool hasPlanTrace = false;
 					if (result != null && result.PlanTrace != null && result.PlanTrace.Count > 0)
 					{
 						try
 						{
 							aiMsg.Text = result.PlanTrace[0] ?? string.Empty;
+							hasPlanTrace = !string.IsNullOrWhiteSpace(aiMsg.Text);
 						}
 						catch { }
+					}
+
+					// 若存在 PlanTrace，则为“LLM 汇总”单独插入一条新的 AI 占位消息，确保 UI 显示为两行
+					ChatMessage aiSummaryMsg = null;
+					if (hasPlanTrace)
+					{
+						aiSummaryMsg = new ChatMessage
+						{
+							Id = Guid.NewGuid().ToString("N"),
+							Sender = MessageSender.Ai,
+							DisplayName = "RimAI.Common.Pawn".Translate().ToString(),
+							TimestampUtc = DateTime.UtcNow,
+							Text = string.Empty,
+							IsCommand = true
+						};
+						State.Messages.Add(aiSummaryMsg);
 					}
 
 					// 构造 ExternalBlocks（RAG）注入工具结果概览
@@ -260,18 +306,38 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						catch { }
 					}
 
+					// 调试日志：RAG 块装载概览（用于观察工具结果是否正确注入）——放在 ExternalBlocks 注入与 Prompt.Build 之后
+
 					// 段2：RAG→LLM 真流式
 					var req2 = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = true, Locale = null, UserInput = userText, ExternalBlocks = blocks };
 					var prompt2 = await _prompting.BuildAsync(req2, linked).ConfigureAwait(false);
 					SplitSpecialFromSystem(prompt2.SystemPrompt, out var systemFiltered3, out var specialLines3);
 					var systemPayload2 = BuildSystemPayload(systemFiltered3, prompt2.ContextBlocks);
-					var messages2 = BuildMessagesArray(systemPayload2, State.Messages);
+					// 调试日志：汇总阶段的最终 SystemPayload（含 ExternalBlocks 合并后的结果）
+					try
+					{
+						var preview = systemPayload2 ?? string.Empty;
+						if (preview.Length > 4000) preview = preview.Substring(0, 4000) + "...";
+						Verse.Log.Message("[RimAI.Core][P12] Command Summary SystemPayload\nconv=" + State.ConvKey + "\n" + preview);
+					}
+					catch { }
+					// 从发送给 LLM 的上下文中排除 PlanTrace，以避免模型复述“过程说明”；
+					// 同时占位的“LLM 汇总”消息为空，将在 BuildMessagesArray 中被自动忽略。
+					System.Collections.Generic.IReadOnlyList<ChatMessage> visibleForLlm = State.Messages;
+					if (hasPlanTrace)
+					{
+						var tmp = new List<ChatMessage>(State.Messages.Count);
+						foreach (var m in State.Messages) { if (!object.ReferenceEquals(m, aiMsg)) tmp.Add(m); }
+						visibleForLlm = tmp;
+					}
+					var messages2 = BuildMessagesArray(systemPayload2, visibleForLlm);
 					// 输出 Messages 列表（system+历史+本次用户输入）到日志
 					LogMessagesList(State.ConvKey, messages2);
 					var uiReq2 = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = State.ConvKey, Messages = messages2, Stream = true };
 					await foreach (var r in _llm.StreamResponseAsync(uiReq2, linked))
 					{
 						if (!r.IsSuccess) { break; }
+						// 仅在会话被新流替换时中断；用户取消通过专用按钮
 						if (currentStreamId != State.ActiveStreamId) break;
 						var chunk = r.Value;
 						if (!string.IsNullOrEmpty(chunk.ContentDelta))
@@ -292,6 +358,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 							break;
 						}
 					}
+					// 流完成后：在控制器侧统一合并残余分片并尝试写入最终历史（独立于 UI 是否在绘制）
+					try { await TryFinalizeStreamingAndCommitAsync().ConfigureAwait(false); } catch { }
+					// 流结束或提前中断时，确保 State.IsStreaming 复位
+					State.IsStreaming = false;
 				}
 				catch (OperationCanceledException) { }
 				catch (Exception) { }
@@ -300,6 +370,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					try { _streamCts?.Dispose(); } catch { }
 					_streamCts = null;
 					State.IsStreaming = false;
+					// 中断情况下，确保指示灯复位，避免 UI 假性“忙碌”
+					State.Indicators.DataOn = false;
+					State.Indicators.FinishOn = false;
 				}
 			}, linked);
 		}
@@ -354,12 +427,13 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		public async Task WriteFinalToHistoryIfAnyAsync()
 		{
+			if (State.FinalCommittedThisTurn) return;
 			var final = GetLastAiText();
 			if (!string.IsNullOrEmpty(final))
 			{
 				var pawnId = TryGetPawnLoadId();
 				string speaker = pawnId.HasValue ? ($"pawn:{pawnId.Value}") : GetFirstPawnIdOrNull() ?? "agent:stage";
-				try { await _history.AppendRecordAsync(State.ConvKey, "ChatUI", speaker, "chat", final, advanceTurn: true).ConfigureAwait(false); } catch { }
+				try { await _history.AppendRecordAsync(State.ConvKey, "ChatUI", speaker, "chat", final, advanceTurn: true).ConfigureAwait(false); State.FinalCommittedThisTurn = true; } catch { }
 			}
 		}
 
@@ -395,6 +469,38 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				yield return text.Substring(idx, len);
 				idx += len;
 			}
+		}
+
+		// 统一在控制器侧将残余流式分片合并到最后一条 AI 消息，避免 UI 未渲染导致丢失
+		private void AppendAllChunksToLastAiMessageInternal()
+		{
+			try
+			{
+				while (State.StreamingChunks.TryDequeue(out var c))
+				{
+					if (string.IsNullOrEmpty(c)) continue;
+					for (var i = State.Messages.Count - 1; i >= 0; i--)
+					{
+						var m = State.Messages[i];
+						if (m.Sender == MessageSender.Ai)
+						{
+							m.Text += c;
+							break;
+						}
+					}
+				}
+			}
+			catch { }
+		}
+
+		public async Task TryFinalizeStreamingAndCommitAsync()
+		{
+			try
+			{
+				AppendAllChunksToLastAiMessageInternal();
+				await WriteFinalToHistoryIfAnyAsync().ConfigureAwait(false);
+			}
+			catch { }
 		}
 
 		private int? TryGetPawnLoadId()
@@ -488,6 +594,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					var role = m.Sender == MessageSender.User ? "user" : "assistant";
 					var content = m.Text ?? string.Empty;
 					if (string.IsNullOrWhiteSpace(content)) continue; // 跳过空占位
+					// 额外防护：过滤工具调用文案与明显非自然语言 JSON（避免模型误学）
+					if (content.Length > 0 && content.Length < 8192 && content.TrimStart().StartsWith("[{") && content.TrimEnd().EndsWith("}]"))
+					{
+						continue;
+					}
 					list.Add(new RimAI.Framework.Contracts.ChatMessage { Role = role, Content = content });
 				}
 			}

@@ -51,6 +51,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		public string LastUserInputStash { get; set; }
 		public int ActiveStreamId { get; set; }
 		public string PlayerTitle { get; set; }
+		public bool FinalCommittedThisTurn { get; set; }
 	}
 
 	internal sealed class LcdMarqueeState

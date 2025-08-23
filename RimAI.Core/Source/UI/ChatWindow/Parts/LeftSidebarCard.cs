@@ -16,7 +16,8 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			ref Vector2 rosterScroll,
 			System.Action onBackToChat = null,
 			System.Action<Pawn> onSelectPawn = null,
-			System.Func<Pawn, string> getJobTitle = null)
+			System.Func<Pawn, string> getJobTitle = null,
+			bool isStreaming = false)
 		{
 			// 无自定义外框
 			var padding = 8f;
@@ -85,8 +86,8 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				Text.Anchor = TextAnchor.UpperLeft; Text.Font = GameFont.Small;
 				Widgets.Label(textRect, line1 + "\n" + line2);
 				Text.Anchor = prevAnchor;
-				// 点击切换对话
-				if (Widgets.ButtonInvisible(row)) { onSelectPawn?.Invoke(p); activeTab = ChatTab.History; }
+				// 点击切换对话（流式期间禁用点击，但视觉保持）
+				if (!isStreaming && Widgets.ButtonInvisible(row)) { onSelectPawn?.Invoke(p); activeTab = ChatTab.History; }
 				yy += rowH + 6f;
 			}
 			Widgets.EndScrollView();
@@ -104,22 +105,58 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					switch (idx)
 					{
 						case 0:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Chat".Translate())) { onBackToChat?.Invoke(); activeTab = ChatTab.History; }
+							{
+								var btnRect0 = new Rect(bx, y, btnW, buttonH);
+								var prevEnabled0 = GUI.enabled;
+								GUI.enabled = !isStreaming;
+								if (Widgets.ButtonText(btnRect0, "RimAI.ChatUI.Tabs.Chat".Translate())) { onBackToChat?.Invoke(); activeTab = ChatTab.History; }
+								GUI.enabled = prevEnabled0;
+							}
 							break;
 						case 1:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Title".Translate())) activeTab = ChatTab.Title;
+							{
+								var btnRect1 = new Rect(bx, y, btnW, buttonH);
+								var prevEnabled1 = GUI.enabled;
+								GUI.enabled = !isStreaming;
+								if (Widgets.ButtonText(btnRect1, "RimAI.ChatUI.Tabs.Title".Translate())) activeTab = ChatTab.Title;
+								GUI.enabled = prevEnabled1;
+							}
 							break;
 						case 2:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.History".Translate())) activeTab = ChatTab.HistoryAdmin;
+							{
+								var btnRect2 = new Rect(bx, y, btnW, buttonH);
+								var prevEnabled2 = GUI.enabled;
+								GUI.enabled = !isStreaming;
+								if (Widgets.ButtonText(btnRect2, "RimAI.ChatUI.Tabs.History".Translate())) activeTab = ChatTab.HistoryAdmin;
+								GUI.enabled = prevEnabled2;
+							}
 							break;
 						case 3:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Persona".Translate())) activeTab = ChatTab.Persona;
+							{
+								var btnRect3 = new Rect(bx, y, btnW, buttonH);
+								var prevEnabled3 = GUI.enabled;
+								GUI.enabled = !isStreaming;
+								if (Widgets.ButtonText(btnRect3, "RimAI.ChatUI.Tabs.Persona".Translate())) activeTab = ChatTab.Persona;
+								GUI.enabled = prevEnabled3;
+							}
 							break;
 						case 4:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.Job".Translate())) activeTab = ChatTab.Job;
+							{
+								var btnRect4 = new Rect(bx, y, btnW, buttonH);
+								var prevEnabled4 = GUI.enabled;
+								GUI.enabled = !isStreaming;
+								if (Widgets.ButtonText(btnRect4, "RimAI.ChatUI.Tabs.Job".Translate())) activeTab = ChatTab.Job;
+								GUI.enabled = prevEnabled4;
+							}
 							break;
 						case 5:
-							if (Widgets.ButtonText(new Rect(bx, y, btnW, buttonH), "RimAI.ChatUI.Tabs.FixedPrompt".Translate())) activeTab = ChatTab.FixedPrompt;
+							{
+								var btnRect5 = new Rect(bx, y, btnW, buttonH);
+								var prevEnabled5 = GUI.enabled;
+								GUI.enabled = !isStreaming;
+								if (Widgets.ButtonText(btnRect5, "RimAI.ChatUI.Tabs.FixedPrompt".Translate())) activeTab = ChatTab.FixedPrompt;
+								GUI.enabled = prevEnabled5;
+							}
 							break;
 					}
 				}

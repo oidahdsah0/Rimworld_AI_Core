@@ -50,7 +50,7 @@
 
   <!-- Tool results -->
   <RimAI.ChatUI.Tools.ResultTitle>도구 결과</RimAI.ChatUI.Tools.ResultTitle>
-  <RimAI.ChatUI.Tools.ResultTitleWithName>도구 결과 · {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>[도구 결과]: {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
 
   <!-- Title settings -->
   <RimAI.ChatUI.TitleSettings.Question>정착민들이 당신을 어떻게 호칭하길 원하나요?</RimAI.ChatUI.TitleSettings.Question>

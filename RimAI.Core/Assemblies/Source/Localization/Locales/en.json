@@ -86,5 +86,7 @@
   "prompt.token.dead": " (DEAD)",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Average Health: {value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[Recent Chat]"
 }
 

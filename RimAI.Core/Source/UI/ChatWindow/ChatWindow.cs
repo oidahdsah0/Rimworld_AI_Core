@@ -46,6 +46,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private Vector2 _scrollRight = Vector2.zero;
 		private Vector2 _scrollRoster = Vector2.zero;
         private bool _historyWritten;
+		private bool _titleDirty;
 		private static string _cachedPlayerId;
 		private float _lastTranscriptContentHeight;
 		private Texture _pawnPortrait;
@@ -106,26 +107,31 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			// try { var hid = (convKey?.GetHashCode() ?? 0) & 0xFFFF; Verse.Log.Message($"[RimAI.Core][P10] ChatWindow ctor convKey rid={hid:X4} participants={participantIds?.Count ?? 0}"); } catch { }
 			_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, participantIds);
 			// try { Verse.Log.Message("[RimAI.Core][P10] ChatWindow ctor controller created"); } catch { }
-			// PlayerTitle：主线程不做本地化/IO，异步解析后回填
-			try { _controller.State.PlayerTitle = null; } catch { }
-			_ = System.Threading.Tasks.Task.Run(() =>
+			// PlayerTitle：同步解析一次（带本地化回退），避免首次进入时为英文默认
+			try
 			{
-				try
+				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var loc = _container.Resolve<ILocalizationService>();
+				var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
+				var title = cfg?.GetPlayerTitleOrDefault();
+				if (string.IsNullOrWhiteSpace(title))
 				{
-					// Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve begin");
-					var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
-					var loc = _container.Resolve<ILocalizationService>();
-					var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
-					var title = cfg?.GetPlayerTitleOrDefault() ?? string.Empty;
-					if (string.IsNullOrWhiteSpace(title))
-					{
-						title = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
-					}
-					_controller.State.PlayerTitle = title;
-					// Verse.Log.Message("[RimAI.Core][P10] PlayerTitle async resolve done");
+					title = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
 				}
-				catch { }
-			});
+				_controller.State.PlayerTitle = title;
+				// 若配置中未设置称谓，将本地化默认写入配置，作为运行期内存变量来源（避免各处直接读本地化）
+				try { if (string.IsNullOrWhiteSpace(cfg?.GetPlayerTitleOrDefault())) cfg?.SetPlayerTitle(title); } catch { }
+			}
+			catch { }
+			// 订阅配置与本地化变更，采用“置脏”策略，避免在 OnGUI 每帧触发 IO
+			try
+			{
+				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var loc = _container.Resolve<ILocalizationService>();
+				if (cfg != null) cfg.OnConfigurationChanged += _ => { try { _titleDirty = true; } catch { } };
+				if (loc != null) loc.OnLocaleChanged += _ => { try { _titleDirty = true; } catch { } };
+			}
+			catch { }
 			_lcdRng = new System.Random(convKey.GetHashCode());
 			_lcdNextShuffleRealtime = 0.0;
 			// 启动健康轮询
@@ -172,12 +178,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 			// 左列
 			EnsurePawnPortrait(96f);
-			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => { try { if (_pawn != null) SwitchConversationToPawn(_pawn); } catch { } BackToChatAndRefresh(); }, onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName);
+			LeftSidebarCard.Draw(leftRect, ref _activeTab, _pawnPortrait as Texture2D, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobTitleOrNone(_pawn), ref _scrollRoster, onBackToChat: () => { try { if (_pawn != null) SwitchConversationToPawn(_pawn); } catch { } BackToChatAndRefresh(); _titleDirty = true; }, onSelectPawn: p => SwitchConversationToPawn(p), getJobTitle: GetJobName, isStreaming: _controller.State.IsStreaming);
 			// 若切换到历史页或聊天主界面，也刷新一次称谓，确保前缀/抬头正确
-			if (_activeTab == ChatTab.History)
-			{
-				try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
-			}
+			if (_activeTab == ChatTab.History) { }
 			if (_activeTab == ChatTab.FixedPrompt)
 			{
 				DrawFixedPromptTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
@@ -185,19 +188,23 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			}
 			if (_activeTab == ChatTab.Title)
 			{
-				// 进入称谓设置页时刷新一次 PlayerTitle；输入框仅在首次进入时初始化，编辑期间不被覆盖
-				try 
-				{ 
-					var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; 
-					_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault();
-					if (!_titleInputInitialized)
-					{
-						_titleInputText = _controller.State.PlayerTitle ?? "governor";
-						_titleInputInitialized = true;
-					}
-				} catch { }
-				DrawTitleSettingsTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
-				return;
+				// 流式期间禁用 Title 页，强制回到聊天页
+				if (_controller.State.IsStreaming) { _activeTab = ChatTab.History; }
+				else
+				{
+					try 
+					{ 
+						var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; 
+						_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault();
+						if (!_titleInputInitialized)
+						{
+							_titleInputText = _controller.State.PlayerTitle ?? "governor";
+							_titleInputInitialized = true;
+						}
+					} catch { }
+					DrawTitleSettingsTab(new Rect(rightRectOuter.x, rightRectOuter.y + 32f, rightRectOuter.width, rightRectOuter.height - 32f));
+					return;
+				}
 			}
 			if (_activeTab == ChatTab.HistoryAdmin)
 			{
@@ -212,7 +219,6 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			if (_activeTab == ChatTab.Persona)
 			{
 				// 标题栏（同聊天主界面）
-				try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
 				Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
 				// 内容区域：人格信息子Tab（带 Biography/Ideology 两个子页）
 				if (_personaView == null) _personaView = new Parts.PersonaTabView();
@@ -223,8 +229,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			}
 
 			// 右列：标题 + 生命体征
-			// 在绘制标题前刷新称谓（避免 UI 切页未触发时的滞后）
-			try { var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService; _controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault(); } catch { }
+			// 在绘制标题前按需刷新称谓（置脏后仅刷新一次，避免每帧 IO）
+			if (_titleDirty) { try { RefreshPlayerTitle(); } catch { } _titleDirty = false; }
 			Parts.ConversationHeader.Draw(titleRect, _pawnPortrait, _pawn?.LabelCap ?? "RimAI.Common.Pawn".Translate(), GetJobName(_pawn), _healthPulse, _healthPercent, _pawnDead);
 
 			// 在绘制前计算内容高度并判断是否需要自动吸底
@@ -262,7 +268,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			// 若用户刚刚发送了消息，切换到历史页时应立即看到更新：当活跃页为 HistoryAdmin 时强制刷新
 			if (_activeTab == ChatTab.HistoryAdmin && _historyView != null)
 			{
-				try { _historyView.ForceReloadHistory(_history, _controller.State.ConvKey); _historyView.ForceReloadRecaps(_recap, _controller.State.ConvKey); } catch { }
+				// 流式期间禁用历史页刷新与交互
+				if (!_controller.State.IsStreaming)
+				{
+					try { _historyView.ForceReloadHistory(_history, _controller.State.ConvKey); _historyView.ForceReloadRecaps(_recap, _controller.State.ConvKey); } catch { }
+				}
 			}
 
 			// 消费流式 chunk：将其累加到最后一条 AI 文本
@@ -277,12 +287,15 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				_controller.State.Indicators.DataOn = false;
 			}
 
-            // 流式完成后写入历史（仅一次）
+            // 流式完成后处理（仅一次）：仅吸干剩余分片；最终历史提交由控制器负责
             if (_controller.State.Indicators.FinishOn && !_historyWritten)
             {
-                AppendAllChunksToLastAiMessage();
-                _ = _controller.WriteFinalToHistoryIfAnyAsync();
-                _historyWritten = true;
+                try
+                {
+                    AppendAllChunksToLastAiMessage();
+                    _historyWritten = true;
+                }
+                catch { }
             }
 
 			// if (!_firstDrawEndLogged)
@@ -295,6 +308,20 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private void OnCancelStreaming()
 		{
 			_controller.CancelStreaming();
+			// 若当前最后一条 AI 消息为空（半生成占位），直接删除，避免下次进入历史页混淆
+			try
+			{
+				for (int i = _controller.State.Messages.Count - 1; i >= 0; i--)
+				{
+					var m = _controller.State.Messages[i];
+					if (m.Sender == MessageSender.Ai && string.IsNullOrWhiteSpace(m.Text))
+					{
+						_controller.State.Messages.RemoveAt(i);
+						break;
+					}
+				}
+			}
+			catch { }
 			// 若控制器中有缓存的最后一次用户输入，则恢复到输入框
 			if (!string.IsNullOrEmpty(_controller.State.LastUserInputStash))
 			{
@@ -324,7 +351,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			var text = _inputText?.Trim();
 			if (string.IsNullOrEmpty(text)) return;
 			_inputText = string.Empty;
-			_historyWritten = false;
+			_historyWritten = false; _controller.State.FinalCommittedThisTurn = false;
 			await _controller.SendSmalltalkAsync(text);
 		}
 
@@ -333,7 +360,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			var text = _inputText?.Trim();
 			if (string.IsNullOrEmpty(text)) return;
 			_inputText = string.Empty;
-			_historyWritten = false;
+			_historyWritten = false; _controller.State.FinalCommittedThisTurn = false;
 			await _controller.SendCommandAsync(text);
 		}
 
@@ -361,6 +388,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		private Parts.HistoryManagerTabView _historyView;
 		private Parts.PersonaTabView _personaView;
+		private Parts.FixedPromptTabView _fixedPromptView;
+		private Parts.TitleSettingsTabView _titleSettingsView;
 
 		private void OpenJobAssignDialog(Verse.Pawn pawn)
 		{
@@ -467,40 +496,16 @@ namespace RimAI.Core.Source.UI.ChatWindow
 
 		private void DrawFixedPromptTab(Rect inRect)
 		{
-			// 直接弹出编辑窗口，避免在主窗内嵌长输入控件；保持简单
-			// 根据 pawn id 生成 entityId
-			string entityId = _pawn != null && _pawn.thingIDNumber != 0 ? ($"pawn:{_pawn.thingIDNumber}") : null;
-			if (string.IsNullOrEmpty(entityId))
-			{
-				Widgets.Label(inRect, "RimAI.ChatUI.Common.NoPawnSelected".Translate());
-				return;
-			}
-			Find.WindowStack.Add(new Parts.FixedPromptEditor(entityId, _persona));
-			// 回到历史页
-			_activeTab = ChatTab.History;
+			if (_fixedPromptView == null) _fixedPromptView = new Parts.FixedPromptTabView();
+			_fixedPromptView.Draw(inRect, _pawn, _persona, () => { _activeTab = ChatTab.History; });
 		}
 
 		private void DrawTitleSettingsTab(Rect inRect)
 		{
-			var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
-			string current = null; try { current = cfg?.GetPlayerTitleOrDefault() ?? "RimAI.ChatUI.PlayerTitle.Default".Translate(); } catch { current = "RimAI.ChatUI.PlayerTitle.Default".Translate(); }
-			// 文本框 + 保存/重置（不在此处覆盖 _titleInputText，避免用户清空时被重置）
-			Text.Font = GameFont.Medium; Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "RimAI.ChatUI.TitleSettings.Question".Translate()); Text.Font = GameFont.Small;
-			var box = new Rect(inRect.x, inRect.y + 36f, Mathf.Min(260f, inRect.width - 20f), 28f);
-			// 独立的称谓单行输入框，不与聊天输入共享
-			_titleInputText = Widgets.TextField(box, _titleInputText ?? string.Empty);
-			var btnY = box.yMax + 8f;
-			if (Widgets.ButtonText(new Rect(inRect.x, btnY, 90f, 26f), "RimAI.Common.Save".Translate())) 
-			{ 
-				try 
-				{ 
-					var toSave = string.IsNullOrWhiteSpace(_titleInputText) ? (current ?? "RimAI.ChatUI.PlayerTitle.Default".Translate()) : _titleInputText.Trim();
-					cfg?.SetPlayerTitle(toSave); 
-					_controller.State.PlayerTitle = cfg?.GetPlayerTitleOrDefault() ?? "RimAI.ChatUI.PlayerTitle.Default".Translate(); 
-				} 
-				catch { } 
-			}
-			if (Widgets.ButtonText(new Rect(inRect.x + 100f, btnY, 90f, 26f), "RimAI.Common.Reset".Translate())) { try { cfg?.SetPlayerTitle(null); _titleInputText = cfg?.GetPlayerTitleOrDefault() ?? string.Empty; _controller.State.PlayerTitle = _titleInputText; } catch { } }
+			if (_titleSettingsView == null) _titleSettingsView = new Parts.TitleSettingsTabView();
+			var loc = _container.Resolve<ILocalizationService>();
+			var cfg = _container.Resolve<IConfigurationService>();
+			_titleSettingsView.Draw(inRect, loc, cfg, _ => { try { RefreshPlayerTitle(); } catch { } });
 		}
 
 		private void AppendToLastAiMessage(string delta)
@@ -584,6 +589,23 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				_pawnPortrait = PortraitsCache.Get(_pawn, sz, Rot4.South);
 				// try { Verse.Log.Message("[RimAI.Core][P10] Build pawn portrait done"); } catch { }
 			}
+		}
+
+		private void RefreshPlayerTitle()
+		{
+			try
+			{
+				var cfg = _container.Resolve<IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var loc = _container.Resolve<ILocalizationService>();
+				var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
+				var title = cfg?.GetPlayerTitleOrDefault();
+				if (string.IsNullOrWhiteSpace(title))
+				{
+					title = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
+				}
+				_controller.State.PlayerTitle = title;
+			}
+			catch { }
 		}
 
 		private async System.Threading.Tasks.Task PollHealthAsync(System.Threading.CancellationToken ct)

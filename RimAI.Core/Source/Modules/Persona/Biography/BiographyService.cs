@@ -51,8 +51,21 @@ namespace RimAI.Core.Source.Modules.Persona.Biography
 					UserInput = string.Empty
 				};
 				var prompt = await prompting.BuildAsync(req, cts.Token).ConfigureAwait(false);
-				try { Verse.Log.Message("[RimAI.Core][P7] Persona Biography Payload\nconv=" + req.ConvKey + "\n--- System ---\n" + (prompt?.SystemPrompt ?? string.Empty) + "\n--- User ---\n" + (prompt?.UserPrefixedInput ?? string.Empty)); } catch { }
-				var ureq = new UnifiedChatRequest { ConversationId = req.ConvKey, Messages = new System.Collections.Generic.List<ChatMessage> { new ChatMessage{ Role="system", Content = prompt?.SystemPrompt ?? string.Empty }, new ChatMessage{ Role="user", Content = prompt?.UserPrefixedInput ?? string.Empty } }, Stream = false };
+				var messages = new System.Collections.Generic.List<ChatMessage>();
+				messages.Add(new ChatMessage { Role = "system", Content = prompt?.SystemPrompt ?? string.Empty });
+				if (!string.IsNullOrWhiteSpace(prompt?.UserPrefixedInput))
+				{
+					messages.Add(new ChatMessage { Role = "user", Content = prompt.UserPrefixedInput });
+				}
+				// 记录实际将要发送的 Payload，确保与请求严格一致
+				try 
+				{ 
+					string sysOut = string.Empty; string userOut = string.Empty; 
+					foreach (var m in messages) { if (m?.Role == "system") sysOut = m.Content ?? string.Empty; else if (m?.Role == "user") userOut = m.Content ?? string.Empty; }
+					Verse.Log.Message("[RimAI.Core][P7] Persona Biography Payload\nconv=" + req.ConvKey + "\n--- System ---\n" + sysOut + "\n--- User ---\n" + userOut);
+				} 
+				catch { }
+				var ureq = new UnifiedChatRequest { ConversationId = req.ConvKey, Messages = messages, Stream = false };
 				var r = await _llm.GetResponseAsync(ureq, cts.Token).ConfigureAwait(false);
 				if (!r.IsSuccess)
 				{

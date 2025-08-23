@@ -1,6 +1,7 @@
 using System;
 using Newtonsoft.Json;
 using RimAI.Core.Contracts.Config;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.Infrastructure.Configuration
 {
@@ -135,6 +136,21 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 			if (_current?.General == null) return;
 			_current.General.PromptLocaleOverride = string.IsNullOrWhiteSpace(localeOrNull) ? null : localeOrNull.Trim();
 			var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+		}
+
+		// Ensure UI player title is initialized from localization once, then always read from config memory
+		internal void EnsurePlayerTitleInitialized(ILocalizationService loc)
+		{
+			if (string.IsNullOrWhiteSpace(GetPlayerTitleOrDefault()))
+			{
+				try
+				{
+					var locale = _current?.General?.Locale ?? "en";
+					var fallback = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
+					SetPlayerTitle(fallback);
+				}
+				catch { }
+			}
 		}
     }
 }

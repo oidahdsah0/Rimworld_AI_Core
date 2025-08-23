@@ -88,5 +88,7 @@
   "prompt.token.dead": "（死亡）",
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "平均生命体征：{value}%{dead}"
+  ,
+  "prompt.section.recent_chat": "[最近对话]"
 }
 

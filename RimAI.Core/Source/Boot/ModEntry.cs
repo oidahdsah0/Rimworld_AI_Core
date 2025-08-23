@@ -173,6 +173,8 @@ namespace RimAI.Core.Source.Boot
                             }
                         }
                         try { var _ = loc?.GetAvailableLocales(); } catch { }
+                        // 全局预热：确保称谓在配置层初始化一次，后续 UI 不直接触达本地化
+                        try { cfg?.EnsurePlayerTitleInitialized(loc); } catch { }
                     }
                     catch { }
                 }

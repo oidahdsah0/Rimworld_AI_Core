@@ -55,6 +55,7 @@
   "tool.display.get_beauty_average": "Beauty Average",
   "tool.display.get_terrain_group_counts": "Terrain Statistics",
   "tool.display.get_game_logs": "Game Logs Browser",
+  "server.inspection.summary.system": "You'll receive one tool result (JSON or text). Summarize in 2–3 lines how it relates to the colony's current state. Output only the summary (no explanations or wrappers).",
   "orchestration.plantrace.hit_tool": "{pawn} used the handheld device to open an app: {displayName}. The results are ready.",
   
   "stage.groupchat.system": "You are the colony's ad-hoc comms coordinator. Facilitate one short group chat among the participants. Keep it concise, spoken, and do not output explanations.",
@@ -87,6 +88,11 @@
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Average Health: {value}%{dead}"
   ,
+  "ui.server.identity.title": "[Server Identity]",
+  "ui.server.identity.line": "Name: {name}; Serial: {sn}; Level: L{level}",
+  "ui.server.persona.title": "[Server Persona]",
+  "ui.server.env.temp.title": "[Server Room Temperature]",
+  "RimAI.Common.AIServer": "AI Server",
   "prompt.section.recent_chat": "[Recent Chat]"
 }
 

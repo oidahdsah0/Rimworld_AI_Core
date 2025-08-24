@@ -10,6 +10,10 @@ using RimAI.Core.Source.Infrastructure.Scheduler;
 using RimAI.Core.Source.Modules.Persistence.Snapshots;
 using RimAI.Core.Source.Modules.Tooling;
 using RimAI.Core.Source.Modules.World;
+using RimAI.Core.Source.Modules.Prompting;
+using RimAI.Core.Source.Modules.History;
+using RimAI.Core.Source.Modules.LLM;
+using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.Modules.Server
 {
@@ -19,16 +23,22 @@ namespace RimAI.Core.Source.Modules.Server
 		private readonly IWorldDataService _world;
 		private readonly IToolRegistryService _tooling;
 		private readonly IServerPromptPresetManager _presets;
+		private readonly IHistoryService _history;
+	private readonly ILLMService _llm;
+	private readonly ILocalizationService _loc;
 
 		private readonly ConcurrentDictionary<string, ServerRecord> _servers = new ConcurrentDictionary<string, ServerRecord>(StringComparer.OrdinalIgnoreCase);
 		private readonly ConcurrentDictionary<string, IDisposable> _periodics = new ConcurrentDictionary<string, IDisposable>(StringComparer.OrdinalIgnoreCase);
 
-		public ServerService(ISchedulerService scheduler, IWorldDataService world, IToolRegistryService tooling, IServerPromptPresetManager presets)
+		public ServerService(ISchedulerService scheduler, IWorldDataService world, IToolRegistryService tooling, IServerPromptPresetManager presets, IHistoryService history, ILLMService llm, ILocalizationService loc)
 		{
 			_scheduler = scheduler;
 			_world = world;
 			_tooling = tooling;
 			_presets = presets;
+			_history = history;
+			_llm = llm;
+			_loc = loc;
 		}
 
 		public ServerRecord GetOrCreate(string entityId, int level)
@@ -100,6 +110,13 @@ namespace RimAI.Core.Source.Modules.Server
 			RestartScheduler(entityId);
 		}
 
+		public void SetInspectionEnabled(string entityId, bool enabled)
+		{
+			var s = GetOrThrow(entityId);
+			s.InspectionEnabled = enabled;
+			RestartScheduler(entityId);
+		}
+
 		public void AssignSlot(string entityId, int slotIndex, string toolName)
 		{
 			var s = GetOrThrow(entityId);
@@ -132,25 +149,69 @@ namespace RimAI.Core.Source.Modules.Server
 		public async Task RunInspectionOnceAsync(string entityId, CancellationToken ct = default)
 		{
 			var s = GetOrThrow(entityId);
-			var slots = (s.InspectionSlots ?? new List<InspectionSlot>()).Where(x => x != null && x.Enabled && !string.IsNullOrWhiteSpace(x.ToolName)).OrderBy(x => x.Index).ToList();
-			var sb = new StringBuilder();
-			sb.AppendLine($"[状态汇总] {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z");
-			foreach (var slot in slots)
+			if (!(s.InspectionEnabled)) return;
+			var enabled = (s.InspectionSlots ?? new List<InspectionSlot>()).Where(x => x != null && x.Enabled && !string.IsNullOrWhiteSpace(x.ToolName)).OrderBy(x => x.Index).ToList();
+			if (enabled.Count == 0) return;
+			// pick one slot by rotation pointer
+			if (s.NextSlotPointer < 0) s.NextSlotPointer = 0;
+			if (s.NextSlotPointer >= enabled.Count) s.NextSlotPointer = 0;
+			var chosen = enabled[s.NextSlotPointer];
+			s.NextSlotPointer = (s.NextSlotPointer + 1) % Math.Max(1, enabled.Count);
+
+			object toolResult = null; string toolName = chosen.ToolName;
+			try
 			{
+				toolResult = await _tooling.ExecuteToolAsync(toolName, new Dictionary<string, object>(), ct).ConfigureAwait(false);
+			}
+			catch (OperationCanceledException) { throw; }
+			catch (Exception ex)
+			{
+				toolResult = new { error = ex.GetType().Name, message = ex.Message };
+			}
+
+			// Build prompt via PromptService(ServerInspection) and compose a non-stream summary
+			string summary = null;
+			try
+			{
+				var locale = _loc?.GetDefaultLocale() ?? "en";
+				var conv = BuildServerHubConvKey();
+				var external = new List<RimAI.Core.Source.Modules.Prompting.Models.ContextBlock>();
 				try
 				{
-					var result = await _tooling.ExecuteToolAsync(slot.ToolName, new Dictionary<string, object>(), ct).ConfigureAwait(false);
-					sb.AppendLine($"- tool={slot.ToolName} ok=true");
+					var jsonText = toolResult?.ToString() ?? string.Empty;
+					external.Add(new RimAI.Core.Source.Modules.Prompting.Models.ContextBlock
+					{
+						Title = _loc?.Get(locale, "RimAI.ChatUI.Tools.ResultTitle", "Tool Result") ?? "Tool Result",
+						Text = TrimToBudget(jsonText, 1800)
+					});
 				}
-				catch (OperationCanceledException) { throw; }
-				catch (Exception ex)
+				catch { }
+				var promptReq = new RimAI.Core.Source.Modules.Prompting.Models.PromptBuildRequest
 				{
-					sb.AppendLine($"- tool={slot.ToolName} ok=false err={ex.Message}");
-				}
+					Scope = RimAI.Core.Source.Modules.Prompting.Models.PromptScope.ServerInspection,
+					ConvKey = conv,
+					ParticipantIds = new List<string> { entityId, "player:servers" },
+					PawnLoadId = null,
+					IsCommand = false,
+					Locale = locale,
+					UserInput = null,
+					ExternalBlocks = external
+				};
+				var prompt = await RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>().BuildAsync(promptReq, ct).ConfigureAwait(false);
+				var sys = prompt?.SystemPrompt ?? string.Empty;
+				var messages = new List<RimAI.Framework.Contracts.ChatMessage>
+				{
+					new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys },
+					new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=$"tool={toolName}" }
+				};
+				var resp = await _llm.GetResponseAsync(new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = conv, Messages = messages, Stream = false }, ct).ConfigureAwait(false);
+				summary = resp.IsSuccess ? (resp.Value?.Message?.Content ?? string.Empty) : null;
 			}
-			s.LastSummaryText = TrimToBudget(sb.ToString(), 1600);
+			catch { summary = null; }
+
+			// Update snapshot & next due
+			s.LastSummaryText = TrimToBudget(summary ?? (toolResult?.ToString() ?? string.Empty), 1600);
 			s.LastSummaryAtAbsTicks = GetTicks();
-			// 更新下一次到期时间
 			var next = GetTicks() + Math.Max(6, s.InspectionIntervalHours) * 2500;
 			foreach (var slot in s.InspectionSlots)
 			{
@@ -158,13 +219,25 @@ namespace RimAI.Core.Source.Modules.Server
 				slot.LastRunAbsTicks = GetTicks();
 				slot.NextDueAbsTicks = next;
 			}
+
+			// Append to AI Log history (server hub convKey)
+			try
+			{
+				var convKey = BuildServerHubConvKey();
+				var content = string.IsNullOrWhiteSpace(summary) ? (toolResult?.ToString() ?? string.Empty) : summary;
+				await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", content, advanceTurn: false, ct: ct).ConfigureAwait(false);
+			}
+			catch { }
 		}
 
 		public void StartAllSchedulers(CancellationToken appRootCt)
 		{
 			foreach (var s in _servers.Values.ToList())
 			{
-				StartOneScheduler(s.EntityId, s.InspectionIntervalHours, appRootCt);
+				if (s?.InspectionEnabled == true)
+				{
+					StartOneScheduler(s.EntityId, s.InspectionIntervalHours, appRootCt);
+				}
 			}
 		}
 
@@ -172,7 +245,11 @@ namespace RimAI.Core.Source.Modules.Server
 		{
 			if (string.IsNullOrWhiteSpace(entityId)) return;
 			if (_periodics.TryRemove(entityId, out var d)) { try { d.Dispose(); } catch { } }
-			StartOneScheduler(entityId, GetOrThrow(entityId).InspectionIntervalHours, CancellationToken.None);
+			var rec = GetOrThrow(entityId);
+			if (rec.InspectionEnabled)
+			{
+				StartOneScheduler(entityId, rec.InspectionIntervalHours, CancellationToken.None);
+			}
 		}
 
 		public async Task<ServerPromptPack> BuildPromptAsync(string entityId, string locale, CancellationToken ct = default)
@@ -254,6 +331,17 @@ namespace RimAI.Core.Source.Modules.Server
 			catch { }
 		}
 
+		private static string BuildServerHubConvKey()
+		{
+			try
+			{
+				var list = new List<string> { "agent:server_hub", "player:servers" };
+				list.Sort(StringComparer.Ordinal);
+				return string.Join("|", list);
+			}
+			catch { return "agent:server_hub|player:servers"; }
+		}
+
 		private static int GetPersonaCapacity(int level) => level switch { 1 => 1, 2 => 2, _ => 3 };
 		private static int GetInspectionCapacity(int level) => level switch { 1 => 3, 2 => 5, _ => 10 };
 
@@ -306,6 +394,8 @@ namespace RimAI.Core.Source.Modules.Server
 				BaseServerPersonaOverride = s.BaseServerPersonaOverride,
 				BaseServerPersonaPresetKey = s.BaseServerPersonaPresetKey,
 				InspectionIntervalHours = s.InspectionIntervalHours,
+				InspectionEnabled = s.InspectionEnabled,
+				NextSlotPointer = s.NextSlotPointer,
 				InspectionSlots = (s.InspectionSlots ?? new List<InspectionSlot>()).Select(x => x == null ? null : new InspectionSlot { Index = x.Index, ToolName = x.ToolName, Enabled = x.Enabled, LastRunAbsTicks = x.LastRunAbsTicks, NextDueAbsTicks = x.NextDueAbsTicks }).ToList(),
 				ServerPersonaSlots = (s.ServerPersonaSlots ?? new List<ServerPersonaSlot>()).Select(x => x == null ? null : new ServerPersonaSlot { Index = x.Index, PresetKey = x.PresetKey, OverrideText = x.OverrideText, Enabled = x.Enabled }).ToList(),
 				LastSummaryText = s.LastSummaryText,

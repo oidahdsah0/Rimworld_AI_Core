@@ -19,6 +19,8 @@ using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.UI.ServerChatWindow.Parts;
 using RimAI.Core.Source.UI.ChatWindow.Parts; // reuse TitleBar style indirectly
 using RimAI.Core.Source.Modules.Stage; // for IStageService
+using RimAI.Core.Source.UI.ChatWindow; // ChatController, ChatConversationState
+using RimAI.Core.Source.Modules.Tooling; // IToolRegistryService
 
 namespace RimAI.Core.Source.UI.ServerChatWindow
 {
@@ -33,6 +35,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 		private readonly IOrchestrationService _orchestration;
 		private readonly IPromptService _prompting;
 		private readonly IServerService _server;
+		private readonly IToolRegistryService _tooling;
 	private readonly IStageService _stage;
 
 		// Parameters
@@ -51,9 +54,17 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 		private int? _currentServerThingId;
 		private int _currentServerLevel;
 		private string _currentServerTitle;
+		// Chat 主体状态（复刻 CW）
+		private ChatController _controller;
+		private string _inputText = string.Empty;
+		private Vector2 _scrollTranscript = Vector2.zero;
+		private float _lastTranscriptContentHeight;
+		private bool _historyWritten;
 		
 		// AI Log Part 状态容器
 		private ServerAiLogTab.State _aiLogState = new ServerAiLogTab.State();
+		private Parts.ServerHistoryManagerTabView _historyView;
+		private Parts.ServerToolsTab.State _toolsState = new Parts.ServerToolsTab.State();
 
 		// Design params
 		public override Vector2 InitialSize => new Vector2(960f, 600f);
@@ -86,6 +97,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 			_orchestration = _container.Resolve<IOrchestrationService>();
 			_prompting = _container.Resolve<IPromptService>();
 			_server = _container.Resolve<IServerService>();
+			_tooling = _container.Resolve<IToolRegistryService>();
 			_stage = _container.Resolve<IStageService>();
 
 			// 若从按钮携带了服务器实体ID，则直接初始化当前会话与标题/icon
@@ -132,19 +144,22 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 
 			// 右侧主体区域：根据 Tab 渲染
 			var bodyRect = new Rect(rightRectOuter.x, titleRect.yMax + 6f, rightRectOuter.width, rightRectOuter.height - titleRect.height - 6f);
-			switch (_activeTab)
+				switch (_activeTab)
 			{
 				case ServerTab.Chat:
-					// 暂未实现聊天主体；预留占位
+					DrawChatBody(bodyRect);
 					break;
 				case ServerTab.Persona:
 					DrawPersonaBody(bodyRect);
+					break;
+				case ServerTab.Tools:
+					DrawToolsBody(bodyRect);
 					break;
 				case ServerTab.AiLog:
 					ServerAiLogTab.Draw(bodyRect, _aiLogState, _history, _stage);
 					break;
 				case ServerTab.History:
-					// 预留
+						DrawHistoryBody(bodyRect);
 					break;
 			}
 		}
@@ -193,6 +208,48 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 				OnSelectPersonaPreset,
 				OnSavePersona,
 				OnClearPersonaOverride);
+		}
+
+		private void DrawHistoryBody(Rect rect)
+		{
+			EnsureChatController();
+			if (_historyView == null) _historyView = new Parts.ServerHistoryManagerTabView();
+			_historyView.Draw(rect, _controller?.State ?? new RimAI.Core.Source.UI.ChatWindow.ChatConversationState { ConvKey = _currentConvKey, ParticipantIds = new List<string> { _currentServerThingId.HasValue ? ($"server:{_currentServerThingId.Value}") : null, GetOrCreatePlayerSessionId() } }, _history, _recap,
+				switchToConvKey: convKey =>
+				{
+					try
+					{
+						if (string.IsNullOrWhiteSpace(convKey)) return;
+						_currentConvKey = convKey;
+						// 从 convKey 中尽量解析服务器 id
+						int? id = null;
+						try
+						{
+							var parts = _history.GetParticipantsOrEmpty(convKey) ?? new List<string>();
+							foreach (var p in parts) { if (p != null && p.StartsWith("server:")) { var s = p.Substring("server:".Length); if (int.TryParse(s, out var v)) { id = v; break; } } }
+						}
+						catch { }
+						if (id.HasValue) { _currentServerThingId = id.Value; }
+						EnsureChatController();
+						_activeTab = ServerTab.Chat;
+					}
+					catch { }
+				});
+		}
+
+		private void DrawToolsBody(Rect rect)
+		{
+			if (!_currentServerThingId.HasValue)
+			{
+				// 占位提示
+				var info = new Rect(rect.x + 8f, rect.y + 8f, rect.width - 16f, 24f);
+				Text.Font = GameFont.Small;
+				Widgets.Label(info, "请先在左侧选择一个服务器");
+				return;
+			}
+			var entityId = $"thing:{_currentServerThingId.Value}";
+			int lvl = _currentServerLevel <= 0 ? 1 : _currentServerLevel;
+			Parts.ServerToolsTab.Draw(rect, _toolsState, entityId, lvl, _server, _tooling);
 		}
 
 		private void OnSelectPersonaPreset(string key, string name, string content)
@@ -287,7 +344,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 				if (_serverAvatar == null)
 					_serverAvatar = GetServerIcon(new ServerListItem { ThingId = id, Level = _currentServerLevel });
 			}
-			// 真实消息区刷新将在接入 Chat 主体时统一读取 _currentConvKey
+			// 刷新控制器与会话
+			EnsureChatController();
 		}
 
 		private void TryRefreshSelectedInfoIfMissing()
@@ -326,10 +384,64 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 				_currentServerTitle = TryGetServerTitle(item.ThingId) ?? $"AI Server L{item.Level}";
 				// 切换服务器后加载其人格持久化状态
 				LoadPersonaStateForCurrent();
-				// 切回聊天页（主界面），便于测试点击效果
+				// 切回聊天页并刷新会话
 				_activeTab = ServerTab.Chat;
+				EnsureChatController();
 			}
 			catch { }
+		}
+
+		private void EnsureChatController()
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(_currentConvKey)) return;
+				// 构造参与者：server:thingId + playerId
+				var participants = new List<string>();
+				if (_currentServerThingId.HasValue) participants.Add($"server:{_currentServerThingId.Value}");
+				participants.Add(GetOrCreatePlayerSessionId());
+				participants.Sort(StringComparer.Ordinal);
+				if (_controller == null || _controller.State == null || !string.Equals(_controller.State.ConvKey, _currentConvKey, StringComparison.Ordinal))
+				{
+					_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, _currentConvKey, participants);
+					// 重置可视状态
+					_inputText = string.Empty;
+					_scrollTranscript = Vector2.zero;
+					_lastTranscriptContentHeight = 0f;
+					_historyWritten = false;
+					_ = _controller.StartAsync();
+				}
+			}
+			catch { }
+		}
+
+		private void DrawChatBody(Rect bodyRect)
+		{
+			EnsureChatController();
+			// 与 CW 相同的区域划分：对话区、指示灯、输入区
+			var indicatorH = 20f;
+			var inputH = 60f;
+			var transcriptRect = new Rect(bodyRect.x, bodyRect.y, bodyRect.width, bodyRect.height - indicatorH - inputH - 18f);
+			var indicatorRect = new Rect(bodyRect.x, transcriptRect.yMax + 4f, bodyRect.width, indicatorH);
+			var inputRect = new Rect(bodyRect.x, indicatorRect.yMax + 12f, bodyRect.width, inputH);
+			if (_controller != null)
+			{
+				// 合并后台初始化消息到可见消息列表
+				try { while (_controller.State.PendingInitMessages.TryDequeue(out var initMsg)) { _controller.State.Messages.Add(initMsg); } } catch { }
+				Parts.ServerChatMain.Draw(
+					transcriptRect,
+					indicatorRect,
+					inputRect,
+					_controller,
+					ref _inputText,
+					ref _scrollTranscript,
+					ref _lastTranscriptContentHeight,
+					ref _historyWritten,
+					onCancel: () => { try { _controller.CancelStreaming(); if (!string.IsNullOrEmpty(_controller.State.LastUserInputStash)) { _inputText = _controller.State.LastUserInputStash; _controller.State.LastUserInputStash = null; } } catch { } },
+					onSmalltalkAsync: async t => { if (!string.IsNullOrWhiteSpace(t)) { _historyWritten = false; _controller.State.FinalCommittedThisTurn = false; await _controller.SendSmalltalkAsync(t); } },
+					onCommandAsync: async t => { if (!string.IsNullOrWhiteSpace(t)) { _historyWritten = false; _controller.State.FinalCommittedThisTurn = false; await _controller.SendCommandAsync(t); } }
+				);
+			}
 		}
 
 		private Texture GetServerIcon(ServerListItem item)

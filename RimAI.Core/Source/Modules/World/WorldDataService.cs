@@ -121,8 +121,69 @@ namespace RimAI.Core.Source.Modules.World
 			cts.CancelAfter(timeoutMs);
 			return _scheduler.ScheduleOnMainThreadAsync(() =>
 			{
-				// 最小占位：返回空快照
-				return new AiServerSnapshot { ServerId = serverId, TemperatureC = 37, LoadPercent = 50, PowerOn = true, HasAlarm = false };
+				// 从 entityId(期望形如 "thing:<id>") 定位建筑并读取房间/环境温度与供电状态
+				if (Current.Game == null) throw new WorldDataException("World not loaded");
+				var snap = new AiServerSnapshot { ServerId = serverId, TemperatureC = 37, LoadPercent = 50, PowerOn = false, HasAlarm = false };
+				try
+				{
+					// 解析 thingId
+					int thingId = 0;
+					if (!string.IsNullOrWhiteSpace(serverId))
+					{
+						var idText = serverId;
+						if (idText.StartsWith("thing:", StringComparison.OrdinalIgnoreCase)) idText = idText.Substring(6);
+						else if (idText.StartsWith("server:", StringComparison.OrdinalIgnoreCase)) idText = idText.Substring(7);
+						int.TryParse(idText, out thingId);
+					}
+
+					Thing found = null;
+					foreach (var map in Find.Maps)
+					{
+						var things = map?.listerThings?.AllThings; if (things == null) continue;
+						foreach (var t in things)
+						{
+							if (t == null) continue;
+							if (thingId != 0)
+							{
+								if (t.thingIDNumber == thingId) { found = t; break; }
+							}
+							else
+							{
+								// 退化路径：若解析失败，尝试按允许的服务器 defName 捕获第一个通电实例
+								var defName = t.def?.defName;
+								if (string.IsNullOrEmpty(defName)) continue;
+								if (defName.StartsWith("RimAI_AIServer_", StringComparison.OrdinalIgnoreCase)) { found = t; break; }
+							}
+						}
+						if (found != null) break;
+					}
+
+					if (found != null)
+					{
+						// 电力状态
+						try { var power = found.TryGetComp<CompPowerTrader>(); snap.PowerOn = (power != null && power.PowerOn); } catch { snap.PowerOn = false; }
+						// 房间温度优先，其次格子温度，最后 AmbientTemperature
+						float temp = 37f;
+						try
+						{
+							var map = found.Map;
+							var pos = found.Position;
+							var room = pos.GetRoom(map);
+							if (room != null)
+							{
+								temp = room.Temperature;
+							}
+							else
+							{
+								try { temp = GenTemperature.GetTemperatureForCell(pos, map); } catch { temp = found.AmbientTemperature; }
+							}
+						}
+						catch { try { temp = found.AmbientTemperature; } catch { temp = 37f; } }
+						snap.TemperatureC = Mathf.RoundToInt(temp);
+					}
+				}
+				catch { /* 使用默认值 */ }
+				return snap;
 			}, name: "GetAiServerSnapshot", ct: cts.Token);
 		}
 

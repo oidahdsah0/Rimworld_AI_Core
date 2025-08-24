@@ -48,6 +48,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
         public static void Draw(Rect rect, State state, IHistoryService history, IStageService stage)
         {
             if (state == null) return;
+            var prevFont = Text.Font;
+            Text.Font = GameFont.Small;
 
             // periodic refresh
             var now = Time.realtimeSinceStartup;
@@ -95,16 +97,19 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             {
                 _ = TriggerAsync(stage, state);
             }
+            Text.Font = prevFont;
         }
 
         private static float CalcTotalHeight(State state, float width)
         {
+            var prev = Text.Font; Text.Font = GameFont.Small;
             float total = 0f;
             for (int i = 0; i < state.Lines.Count; i++)
             {
                 total += Text.CalcHeight(state.Lines[i].text, width) + 4f;
             }
             if (total < 10f) total = 10f;
+            Text.Font = prev;
             return total;
         }
 

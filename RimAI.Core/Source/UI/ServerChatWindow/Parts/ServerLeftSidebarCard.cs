@@ -26,11 +26,14 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 
 			float buttonH = 28f;
 			float spacing = 4f;
-			int buttonCount = 4;
+			int buttonCount = 4;   // 下面的网格按钮数量（对话/人格/AI Log/历史）
 			int columns = 2;
 			int rows = (buttonCount + columns - 1) / columns;
 			float colSpacing = 6f;
-			float totalButtonsH = rows * buttonH + (rows - 1) * spacing;
+			// 额外在网格按钮区域顶部添加一个“工具管理”按钮（独占整行）
+			bool hasToolManagerButton = true;
+			float extraTopButtonH = hasToolManagerButton ? (buttonH + spacing) : 0f;
+			float totalButtonsH = extraTopButtonH + rows * buttonH + (rows - 1) * spacing;
 			float buttonsStartY = rect.yMax - 8f - totalButtonsH;
 
 			float headerH = 28f;
@@ -71,6 +74,19 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 			Widgets.EndScrollView();
 
 			var y = buttonsStartY;
+			// 顶部“工具管理”按钮（跨两列）
+			if (hasToolManagerButton)
+			{
+				var tmRect = new Rect(x, y, w, buttonH);
+				var prev = GUI.enabled;
+				GUI.enabled = !isStreaming;
+				if (Widgets.ButtonText(tmRect, "服务器工具加载"))
+				{
+					activeTab = ServerTab.Tools;
+				}
+				GUI.enabled = prev;
+				y += buttonH + spacing;
+			}
 			float btnW = (w - colSpacing) / 2f;
 			for (int r = 0; r < rows; r++)
 			{

@@ -147,6 +147,8 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 
 		// 巡检计划
 		public int InspectionIntervalHours { get; set; } = 24; // 默认 24；最小 6
+		public bool InspectionEnabled { get; set; } = false; // 是否启用巡检（UI 可切换），默认关闭
+		public int NextSlotPointer { get; set; } = 0; // 下次从哪个槽位开始轮询（0..cap-1）
 		public List<InspectionSlot> InspectionSlots { get; set; } = new List<InspectionSlot>();
 
 		// 最近一次汇总

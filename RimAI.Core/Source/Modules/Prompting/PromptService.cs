@@ -90,6 +90,20 @@ namespace RimAI.Core.Source.Modules.Prompting
             // 复用 ChatUI 的 ColonyStatus 到 ServerStage（用 Scope 适配器包一层）
             _composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.ColonyStatusComposer(), PromptScope.ServerStage, idOverride: "server_colony_status", orderOverride: 60));
 
+			// New: Server scopes (Chat / Command / Inspection)
+			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerChat));
+			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerChat));
+			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerChat));
+
+			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerCommand));
+			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerCommand));
+			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerCommand));
+
+			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerInspection));
+			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerInspection));
+			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerInspection));
+			_composers.Add(new Composers.Server.ServerInspectionSystemComposer());
+
             // PersonaBiography Scope：仅系统提示 + 单段User（去除世界信息，不引入日志）
             var scopeBio = PromptScope.PersonaBiography;
             _composers.Add(new Composers.Persona.PersonaBiographySystemComposer());
@@ -177,8 +191,12 @@ namespace RimAI.Core.Source.Modules.Prompting
 				}
 			}
 
-			// 最终在 ChatUI 下将（包含外部 RAG 在内的）全部 ContextBlocks 合并进 System 段
-			if (request.Scope == PromptScope.ChatUI && blocks != null && blocks.Count > 0)
+			// 最终在 ChatUI/Server* 下将（包含外部 RAG 在内的）全部 ContextBlocks 合并进 System 段
+			bool mergeBlocks = request.Scope == PromptScope.ChatUI
+				|| request.Scope == PromptScope.ServerChat
+				|| request.Scope == PromptScope.ServerCommand
+				|| request.Scope == PromptScope.ServerInspection;
+			if (mergeBlocks && blocks != null && blocks.Count > 0)
 			{
 				foreach (var b in blocks)
 				{

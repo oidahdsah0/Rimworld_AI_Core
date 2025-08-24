@@ -155,7 +155,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				try
 				{
-					var req = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = false, Locale = null, UserInput = userText };
+					// 如果会话包含服务器参与者，则切换到 ServerChat 作用域
+					var hasServer = false; try { foreach (var p in State.ParticipantIds) { if (p != null && (p.StartsWith("server:") || p.StartsWith("thing:"))) { hasServer = true; break; } } } catch { }
+					var scope = hasServer ? PromptScope.ServerChat : PromptScope.ChatUI;
+					var req = new PromptBuildRequest { Scope = scope, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = false, Locale = null, UserInput = userText };
 					var prompt = await _prompting.BuildAsync(req, linked).ConfigureAwait(false);
 					SplitSpecialFromSystem(prompt.SystemPrompt, out var systemFiltered, out var specialLines);
 					var systemPayload = BuildSystemPayload(systemFiltered, prompt.ContextBlocks);
@@ -309,7 +312,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					// 调试日志：RAG 块装载概览（用于观察工具结果是否正确注入）——放在 ExternalBlocks 注入与 Prompt.Build 之后
 
 					// 段2：RAG→LLM 真流式
-					var req2 = new PromptBuildRequest { Scope = PromptScope.ChatUI, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = true, Locale = null, UserInput = userText, ExternalBlocks = blocks };
+					// 命令模式：服务器参与者则用 ServerCommand，否则仍用 ChatUI
+					var hasServer2 = false; try { foreach (var p in State.ParticipantIds) { if (p != null && (p.StartsWith("server:") || p.StartsWith("thing:"))) { hasServer2 = true; break; } } } catch { }
+					var scope2 = hasServer2 ? PromptScope.ServerCommand : PromptScope.ChatUI;
+					var req2 = new PromptBuildRequest { Scope = scope2, ConvKey = State.ConvKey, ParticipantIds = State.ParticipantIds, PawnLoadId = TryGetPawnLoadId(), IsCommand = true, Locale = null, UserInput = userText, ExternalBlocks = blocks };
 					var prompt2 = await _prompting.BuildAsync(req2, linked).ConfigureAwait(false);
 					SplitSpecialFromSystem(prompt2.SystemPrompt, out var systemFiltered3, out var specialLines3);
 					var systemPayload2 = BuildSystemPayload(systemFiltered3, prompt2.ContextBlocks);

@@ -7,7 +7,11 @@ namespace RimAI.Core.Source.Modules.Prompting.Models
 		Tool,
 		PersonaBiography,
 		PersonaIdeology,
-		ServerStage
+		ServerStage,
+		// New server-specific scopes
+		ServerChat,
+		ServerCommand,
+		ServerInspection
 	}
 
 	internal sealed class PromptBuildRequest

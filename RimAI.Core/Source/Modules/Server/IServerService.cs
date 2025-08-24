@@ -22,6 +22,7 @@ namespace RimAI.Core.Source.Modules.Server
 
 		// 巡检配置
 		void SetInspectionIntervalHours(string entityId, int hours);
+		void SetInspectionEnabled(string entityId, bool enabled);
 		void AssignSlot(string entityId, int slotIndex, string toolName);
 		void RemoveSlot(string entityId, int slotIndex);
 		IReadOnlyList<InspectionSlot> GetSlots(string entityId);

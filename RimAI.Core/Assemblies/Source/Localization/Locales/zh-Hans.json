@@ -57,6 +57,7 @@
   "tool.display.get_terrain_group_counts": "地形统计",
   "tool.display.get_game_logs": "游戏日志浏览器"
   ,
+  "server.inspection.summary.system": "你将收到一个工具的结果（JSON或文本）。请用2–3行中文概括它与殖民地当前状态的关联。不要输出解释或任何前后缀，只输出摘要内容。",
   "orchestration.plantrace.hit_tool": "{pawn}从随身设备中找到了合适的APP：{displayName}，软件已经显示结果。",
   
   "stage.groupchat.system": "你是殖民地的临时通讯协调员，负责促成参与者之间进行一轮简短群聊。保持口语化与简洁，不要输出解释文本。",
@@ -89,6 +90,11 @@
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "平均生命体征：{value}%{dead}"
   ,
+  "ui.server.identity.title": "[服务器身份]",
+  "ui.server.identity.line": "名称：{name}；序列号：{sn}；等级：L{level}",
+  "ui.server.persona.title": "[服务器人格]",
+  "ui.server.env.temp.title": "[机房温度]",
+  "RimAI.Common.AIServer": "AI Server",
   "prompt.section.recent_chat": "[最近对话]"
 }
 

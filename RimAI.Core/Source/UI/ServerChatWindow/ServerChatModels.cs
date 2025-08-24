@@ -6,6 +6,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 	{
 		Chat,
 		Persona,
+		Tools,
 		AiLog,
 		History
 	}

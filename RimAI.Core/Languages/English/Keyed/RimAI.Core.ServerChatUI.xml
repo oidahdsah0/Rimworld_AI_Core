@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LanguageData>
+  <!-- Server Chat Window (SCW) specific localization -->
+  <RimAI.ChatUI.Server.Name>Server List</RimAI.ChatUI.Server.Name>
+
+  <RimAI.SCW.Left.Header>Server List</RimAI.SCW.Left.Header>
+  <RimAI.SCW.Tools.ManagerButton>Server Tools</RimAI.SCW.Tools.ManagerButton>
+
+  <RimAI.SCW.Tabs.Chat>Chat</RimAI.SCW.Tabs.Chat>
+  <RimAI.SCW.Tabs.Persona>Persona</RimAI.SCW.Tabs.Persona>
+  <RimAI.SCW.Tabs.AiLog>AI Log</RimAI.SCW.Tabs.AiLog>
+  <RimAI.SCW.Tabs.History>History</RimAI.SCW.Tabs.History>
+
 	<RimAI.ServerChatUI.Button.BackToChat>Chat</RimAI.ServerChatUI.Button.BackToChat>
 	<RimAI.ServerChatUI.Button.Persona>Persona</RimAI.ServerChatUI.Button.Persona>
 	<RimAI.ServerChatUI.Button.InterComms>Inter-Server Comms</RimAI.ServerChatUI.Button.InterComms>

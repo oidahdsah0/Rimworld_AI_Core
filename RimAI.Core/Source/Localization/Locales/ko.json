@@ -89,7 +89,14 @@
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "평균 바이탈：{value}%{dead}"
   ,
-  "prompt.section.recent_chat": "[최근 대화]"
+  "prompt.section.recent_chat": "[최근 대화]",
+  "ui.server.inspection.base.name": "[시스템 베이스]",
+  "ui.server.inspection.base.value": "당신은 콜로니 상주 AI 서버다. 안정적이고 사실 중심으로, 구조화되고 실행 가능한 출력을 우선하라. 정보가 부족하면 날조하지 말고, 불확실성을 명시하며, 가정은 분명히 밝혀라. 설명용 접두/접미를 붙이지 말고 과제만 수행하라. 약간 기계적인 절제된 톤은 허용된다.",
+  "server.inspection.summary.system": "도구 결과 한 건(JSON 또는 텍스트)이 주어진다. 콜로니의 현재 상태와의 관련성을 2–3줄로 요약하라. 요약만 출력(설명/래퍼 금지).",
+  "ui.server.inspection.task_suffix": "[중요: 현재 임무] 당신은 기지 자동 순찰·점검을 수행 중이다. 아래에 반환된 기지 JSON을 요약하여 기록하라:",
+  "ui.server.inspection.user": "{app}을(를) 호출했다. 해당 JSON 출력은 아래에 첨부된다. 페르소나에 부합하는 목소리로 AI의 점검 기록을 한 건 작성하라. 프로그램의 상세 결과는 다음과 같다: {result}",
+  "recap.system.base": "당신은 대화 요약 보조다. {max}자 이내로 핵심 사실과 진행을 글머리줄처럼 요약하라; 수치는 유지; 군더더기 금지.",
+  "recap.system.prev_label": "[이전 요약]"
 }
 
 

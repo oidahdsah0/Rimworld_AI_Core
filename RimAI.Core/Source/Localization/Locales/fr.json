@@ -89,7 +89,14 @@
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Santé moyenne : {value}%{dead}"
   ,
-  "prompt.section.recent_chat": "[Discussions récentes]"
+  "prompt.section.recent_chat": "[Discussions récentes]",
+  "ui.server.inspection.base.name": "[Socle système]",
+  "ui.server.inspection.base.value": "Vous êtes le serveur d’IA local de la colonie. Restez stable et factuel. Privilégiez des sorties structurées et actionnables ; en cas d’information insuffisante, n’inventez pas, signalez l’incertitude et gardez les hypothèses explicites. N’ajoutez pas de pré-/suffixes explicatifs ; contentez-vous d’exécuter la tâche. Un ton retenu, légèrement mécanique, est acceptable.",
+  "server.inspection.summary.system": "Vous recevrez un résultat d’outil (JSON ou texte). Résumez en 2–3 lignes son lien avec l’état actuel de la colonie. Produisez uniquement le résumé (sans explications ni habillage).",
+  "ui.server.inspection.task_suffix": "[Important : Tâche en cours] Vous effectuez une inspection automatisée de la base. Résumez et enregistrez le JSON de base renvoyé ci-dessous :",
+  "ui.server.inspection.user": "Vous avez invoqué {app}. Sa sortie JSON sera jointe ci-dessous. Dans une voix cohérente avec la persona, rédigez une note d’inspection par l’IA. Le résultat détaillé du programme est : {result}",
+  "recap.system.base": "Vous êtes l’assistant de récapitulatif de dialogue. En {max} caractères, résumez faits clés et avancement sous forme de lignes façon puces ; conservez les nombres ; évitez le remplissage.",
+  "recap.system.prev_label": "[Récapitulatif précédent]"
 }
 
 

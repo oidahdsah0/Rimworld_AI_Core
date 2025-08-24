@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+  <!-- Ventana de chat de servidor (SCW) -->
+  <RimAI.ChatUI.Server.Name>Lista de servidores</RimAI.ChatUI.Server.Name>
+
+  <RimAI.SCW.Left.Header>Lista de servidores</RimAI.SCW.Left.Header>
+  <RimAI.SCW.Tools.ManagerButton>Herramientas del servidor</RimAI.SCW.Tools.ManagerButton>
+
+  <RimAI.SCW.Tabs.Chat>Chat</RimAI.SCW.Tabs.Chat>
+  <RimAI.SCW.Tabs.Persona>Persona</RimAI.SCW.Tabs.Persona>
+  <RimAI.SCW.Tabs.AiLog>Registro de IA</RimAI.SCW.Tabs.AiLog>
+  <RimAI.SCW.Tabs.History>Historial</RimAI.SCW.Tabs.History>
+
+  <RimAI.ServerChatUI.Button.BackToChat>Chat</RimAI.ServerChatUI.Button.BackToChat>
+  <RimAI.ServerChatUI.Button.Persona>Config. Persona</RimAI.ServerChatUI.Button.Persona>
+  <RimAI.ServerChatUI.Button.InterComms>Comunicaciones inter-servidor</RimAI.ServerChatUI.Button.InterComms>
+  <RimAI.ServerChatUI.Button.History>Historial</RimAI.ServerChatUI.Button.History>
+  <RimAI.ServerChatUI.Header.None>Ningún servidor seleccionado</RimAI.ServerChatUI.Header.None>
+</LanguageData>

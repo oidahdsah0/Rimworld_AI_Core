@@ -199,7 +199,17 @@ namespace RimAI.Core.Source.Modules.History.Recap
 			var mergedSb = new StringBuilder();
 			if (!string.IsNullOrWhiteSpace(existingRecapsText))
 			{
-				mergedSb.AppendLine("[上次前情提要]");
+				try
+				{
+					var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+					var locale = _cfg?.GetInternal()?.General?.PromptLocaleOverride ?? loc?.GetDefaultLocale() ?? "en";
+					var prevLabel = loc?.Get(locale, "recap.system.prev_label", "[Previous Recap]") ?? "[Previous Recap]";
+					mergedSb.AppendLine(prevLabel);
+				}
+				catch
+				{
+					mergedSb.AppendLine("[Previous Recap]");
+				}
 				mergedSb.AppendLine(existingRecapsText.Trim());
 				mergedSb.AppendLine();
 			}

@@ -39,7 +39,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 			float headerH = 28f;
 			float listTop = rect.y + 8f;
 			Text.Font = GameFont.Medium;
-			Widgets.Label(new Rect(x, listTop, w, headerH), headerName ?? "RimAI.ChatUI.Left.Header".Translate());
+			Widgets.Label(new Rect(x, listTop, w, headerH), headerName ?? "RimAI.SCW.Left.Header".Translate());
 			Text.Font = GameFont.Small;
 			float listY = listTop + headerH + 2f;
 			var listRect = new Rect(x, listY, w, Mathf.Max(0f, buttonsStartY - listY - 8f));
@@ -80,7 +80,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 				var tmRect = new Rect(x, y, w, buttonH);
 				var prev = GUI.enabled;
 				GUI.enabled = !isStreaming;
-				if (Widgets.ButtonText(tmRect, "服务器工具加载"))
+				if (Widgets.ButtonText(tmRect, "RimAI.SCW.Tools.ManagerButton".Translate()))
 				{
 					activeTab = ServerTab.Tools;
 				}
@@ -102,7 +102,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 								var btnRect0 = new Rect(bx, y, btnW, buttonH);
 								var prevEnabled0 = GUI.enabled;
 								GUI.enabled = !isStreaming;
-								if (Widgets.ButtonText(btnRect0, "对话")) { onBackToChat?.Invoke(); activeTab = ServerTab.Chat; }
+								if (Widgets.ButtonText(btnRect0, "RimAI.SCW.Tabs.Chat".Translate())) { onBackToChat?.Invoke(); activeTab = ServerTab.Chat; }
 								GUI.enabled = prevEnabled0;
 							}
 							break;
@@ -111,7 +111,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 								var btnRect1 = new Rect(bx, y, btnW, buttonH);
 								var prevEnabled1 = GUI.enabled;
 								GUI.enabled = !isStreaming;
-								if (Widgets.ButtonText(btnRect1, "人格")) activeTab = ServerTab.Persona;
+								if (Widgets.ButtonText(btnRect1, "RimAI.SCW.Tabs.Persona".Translate())) activeTab = ServerTab.Persona;
 								GUI.enabled = prevEnabled1;
 							}
 							break;
@@ -120,7 +120,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 								var btnRect2 = new Rect(bx, y, btnW, buttonH);
 								var prevEnabled2 = GUI.enabled;
 								GUI.enabled = !isStreaming;
-								if (Widgets.ButtonText(btnRect2, "AI Log")) activeTab = ServerTab.AiLog;
+								if (Widgets.ButtonText(btnRect2, "RimAI.SCW.Tabs.AiLog".Translate())) activeTab = ServerTab.AiLog;
 								GUI.enabled = prevEnabled2;
 							}
 							break;
@@ -129,7 +129,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 								var btnRect3 = new Rect(bx, y, btnW, buttonH);
 								var prevEnabled3 = GUI.enabled;
 								GUI.enabled = !isStreaming;
-								if (Widgets.ButtonText(btnRect3, "历史")) activeTab = ServerTab.History;
+								if (Widgets.ButtonText(btnRect3, "RimAI.SCW.Tabs.History".Translate())) activeTab = ServerTab.History;
 								GUI.enabled = prevEnabled3;
 							}
 							break;

@@ -89,7 +89,14 @@
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Durchschnittliche Gesundheit: {value}%{dead}"
   ,
-  "prompt.section.recent_chat": "[Letzte Chats]"
+  "prompt.section.recent_chat": "[Letzte Chats]",
+  "ui.server.inspection.base.name": "[Systembasis]",
+  "ui.server.inspection.base.value": "Du bist der lokale KI-Server der Kolonie. Bleib stabil und sachlich. Bevorzuge strukturierte, umsetzbare Ausgaben; wenn Informationen fehlen, nicht erfinden, Ungewissheit nennen und Annahmen explizit halten. Keine erklärenden Vor-/Nachsätze hinzufügen; erledige einfach die Aufgabe. Ein zurückhaltender, leicht mechanischer Ton ist in Ordnung.",
+  "server.inspection.summary.system": "Du erhältst ein Tool-Ergebnis (JSON oder Text). Fasse in 2–3 Zeilen zusammen, wie es sich auf den aktuellen Zustand der Kolonie bezieht. Gib nur die Zusammenfassung aus (keine Erklärungen oder Hüllen).",
+  "ui.server.inspection.task_suffix": "[Wichtig: Aktuelle Aufgabe] Du führst eine automatische Basis-Inspektion durch. Fasse das unten zurückgegebene Basis-JSON zusammen und protokolliere es:",
+  "ui.server.inspection.user": "Du hast {app} aufgerufen. Dessen JSON-Ausgabe ist unten angehängt. Verfasse in zur Persona passender Stimme einen Inspektionsvermerk der KI. Das detaillierte Programmergebnis lautet: {result}",
+  "recap.system.base": "Du bist ein Assistent für Dialog-Zusammenfassungen. Fasse in {max} Zeichen die Schlüsselfakten und den Fortschritt in stichpunktartiger Form zusammen; Zahlen erhalten; Fülltext vermeiden.",
+  "recap.system.prev_label": "[Vorherige Zusammenfassung]"
 }
 
 

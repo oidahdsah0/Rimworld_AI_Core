@@ -89,7 +89,14 @@
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "Salud media: {value}%{dead}"
   ,
-  "prompt.section.recent_chat": "[Chat reciente]"
+  "prompt.section.recent_chat": "[Chat reciente]",
+  "ui.server.inspection.base.name": "[Base del sistema]",
+  "ui.server.inspection.base.value": "Eres el servidor de IA local de la colonia. Mantente estable y factual. Prefiere salidas estructuradas y accionables; si falta información, no inventes, declara incertidumbre y mantén explícitas las suposiciones. No añadas prefijos/sufijos explicativos; simplemente realiza la tarea. Se acepta un tono contenido y ligeramente mecánico.",
+  "server.inspection.summary.system": "Recibirás un resultado de una herramienta (JSON o texto). Resume en 2–3 líneas cómo se relaciona con el estado actual de la colonia. Salida solo del resumen (sin explicaciones ni envoltorios).",
+  "ui.server.inspection.task_suffix": "[Importante: Tarea actual] Estás realizando una inspección automatizada de la base. Resume y registra el JSON de base devuelto abajo:",
+  "ui.server.inspection.user": "Invocaste {app}. Su salida JSON se adjuntará abajo. En una voz coherente con la persona, escribe un registro de inspección de la IA. El resultado detallado del programa es: {result}",
+  "recap.system.base": "Eres un asistente de recapitulación de diálogos. En {max} caracteres, resume hechos clave y avances en líneas tipo viñetas; conserva números; evita relleno.",
+  "recap.system.prev_label": "[Resumen anterior]"
 }
 
 

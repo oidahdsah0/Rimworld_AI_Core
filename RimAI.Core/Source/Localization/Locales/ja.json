@@ -89,7 +89,14 @@
   "prompt.format.apparel_item": "{label}({quality,optional,leadingComma}{durability}%)",
   "prompt.format.health_avg_line": "平均バイタル：{value}%{dead}"
   ,
-  "prompt.section.recent_chat": "[最近の会話]"
+  "prompt.section.recent_chat": "[最近の会話]",
+  "ui.server.inspection.base.name": "[システム基盤]",
+  "ui.server.inspection.base.value": "あなたはコロニー常駐のAIサーバーである。安定し事実重視で、構造化され実行可能な出力を優先せよ。情報が不足する場合は捏造せず、不確実性を明示し、仮定は明確に示す。説明的な前後置きは付けず、課題だけを遂行せよ。やや機械的で抑制的な口調は許容される。",
+  "server.inspection.summary.system": "ツール結果（JSON またはテキスト）が1件届く。コロニーの現状との関係を2～3行で要約せよ。要約のみを出力（説明やラッパーは不要）。",
+  "ui.server.inspection.task_suffix": "[重要：現在の任務] あなたは基地の自動巡検を実施している。以下に返る基地JSONを要約し、記録せよ：",
+  "ui.server.inspection.user": "{app} を起動した。JSON出力は下に添付される。ペルソナに一致する声で、AIによる巡検記録を1件作成せよ。プログラムの詳細な結果は：{result}",
+  "recap.system.base": "あなたは対話の前情提要アシスタントである。{max}文字以内で、要点風の行として重要事実と進捗を要約せよ；数値は保持；冗長な言い回しは避ける。",
+  "recap.system.prev_label": "[前回の前情提要]"
 }
 
 

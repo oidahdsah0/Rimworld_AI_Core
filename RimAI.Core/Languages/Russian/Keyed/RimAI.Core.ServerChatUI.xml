@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+  <!-- Окно серверного чата (SCW) -->
+  <RimAI.ChatUI.Server.Name>Список серверов</RimAI.ChatUI.Server.Name>
+
+  <RimAI.SCW.Left.Header>Список серверов</RimAI.SCW.Left.Header>
+  <RimAI.SCW.Tools.ManagerButton>Инструменты сервера</RimAI.SCW.Tools.ManagerButton>
+
+  <RimAI.SCW.Tabs.Chat>Чат</RimAI.SCW.Tabs.Chat>
+  <RimAI.SCW.Tabs.Persona>Персона</RimAI.SCW.Tabs.Persona>
+  <RimAI.SCW.Tabs.AiLog>Журнал ИИ</RimAI.SCW.Tabs.AiLog>
+  <RimAI.SCW.Tabs.History>История</RimAI.SCW.Tabs.History>
+
+  <RimAI.ServerChatUI.Button.BackToChat>Чат</RimAI.ServerChatUI.Button.BackToChat>
+  <RimAI.ServerChatUI.Button.Persona>Персона</RimAI.ServerChatUI.Button.Persona>
+  <RimAI.ServerChatUI.Button.InterComms>Межсерверные связи</RimAI.ServerChatUI.Button.InterComms>
+  <RimAI.ServerChatUI.Button.History>История</RimAI.ServerChatUI.Button.History>
+  <RimAI.ServerChatUI.Header.None>Сервер не выбран</RimAI.ServerChatUI.Header.None>
+</LanguageData>

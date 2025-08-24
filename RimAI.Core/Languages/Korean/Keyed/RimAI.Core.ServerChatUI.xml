@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+  <!-- 서버 채팅 창 (SCW) -->
+  <RimAI.ChatUI.Server.Name>서버 목록</RimAI.ChatUI.Server.Name>
+
+  <RimAI.SCW.Left.Header>서버 목록</RimAI.SCW.Left.Header>
+  <RimAI.SCW.Tools.ManagerButton>서버 도구</RimAI.SCW.Tools.ManagerButton>
+
+  <RimAI.SCW.Tabs.Chat>대화</RimAI.SCW.Tabs.Chat>
+  <RimAI.SCW.Tabs.Persona>인격</RimAI.SCW.Tabs.Persona>
+  <RimAI.SCW.Tabs.AiLog>AI 로그</RimAI.SCW.Tabs.AiLog>
+  <RimAI.SCW.Tabs.History>기록</RimAI.SCW.Tabs.History>
+
+  <RimAI.ServerChatUI.Button.BackToChat>대화</RimAI.ServerChatUI.Button.BackToChat>
+  <RimAI.ServerChatUI.Button.Persona>인격 설정</RimAI.ServerChatUI.Button.Persona>
+  <RimAI.ServerChatUI.Button.InterComms>서버 간 통신</RimAI.ServerChatUI.Button.InterComms>
+  <RimAI.ServerChatUI.Button.History>기록</RimAI.ServerChatUI.Button.History>
+  <RimAI.ServerChatUI.Header.None>서버가 선택되지 않음</RimAI.ServerChatUI.Header.None>
+</LanguageData>

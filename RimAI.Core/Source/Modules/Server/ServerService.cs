@@ -199,10 +199,12 @@ namespace RimAI.Core.Source.Modules.Server
 				};
 				var prompt = await RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>().BuildAsync(promptReq, ct).ConfigureAwait(false);
 				var sys = prompt?.SystemPrompt ?? string.Empty;
+				var user = prompt?.UserPrefixedInput ?? string.Empty;
+				if (string.IsNullOrWhiteSpace(user)) user = $"tool={toolName}"; // fallback
 				var messages = new List<RimAI.Framework.Contracts.ChatMessage>
 				{
 					new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys },
-					new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=$"tool={toolName}" }
+					new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user }
 				};
 				var resp = await _llm.GetResponseAsync(new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = conv, Messages = messages, Stream = false }, ct).ConfigureAwait(false);
 				summary = resp.IsSuccess ? (resp.Value?.Message?.Content ?? string.Empty) : null;

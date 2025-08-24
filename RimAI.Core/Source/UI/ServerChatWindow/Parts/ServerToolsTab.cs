@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using RimAI.Core.Source.Modules.Server;
@@ -96,7 +98,11 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             // Body list: one row per slot
             int capacity = GetInspectionCapacity(serverLevel);
             float rowH = 30f; float pad = 6f;
-            var bodyOuter = new Rect(inRect.x, bodyTop, inRect.width, inRect.height - (bodyTop - inRect.y));
+            // Reserve footer space for the dev-only manual trigger button
+            float footerH = 28f;
+            bool showFooter = Prefs.DevMode; // only in Dev Mode
+            float reserved = showFooter ? (footerH + 6f) : 0f;
+            var bodyOuter = new Rect(inRect.x, bodyTop, inRect.width, inRect.height - (bodyTop - inRect.y) - reserved);
             var viewH = capacity * (rowH + pad) + 8f;
             var viewRect = new Rect(0f, 0f, bodyOuter.width - 16f, Mathf.Max(bodyOuter.height, viewH));
             Widgets.BeginScrollView(bodyOuter, ref state.Scroll, viewRect);
@@ -108,6 +114,20 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                 y += rowH + pad;
             }
             Widgets.EndScrollView();
+
+            // Footer: Dev-only manual trigger inspection button
+            if (showFooter)
+            {
+                var footerRect = new Rect(inRect.x + 8f, bodyOuter.yMax + 4f, inRect.width - 16f, footerH);
+                // Right-aligned button
+                float btnW = 140f; float btnH = 26f;
+                var btnRect = new Rect(footerRect.xMax - btnW, footerRect.y + (footerRect.height - btnH) / 2f, btnW, btnH);
+                if (Widgets.ButtonText(btnRect, "触发巡检"))
+                {
+                    // Fire-and-forget manual inspection for this server
+                    _ = TriggerInspectionAsync(server, entityId);
+                }
+            }
         }
 
         private static void DrawControlsLine(Rect rect, State state, IServerService server, string entityId)
@@ -118,7 +138,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             Widgets.Label(labRect, "巡检周期：");
             // Move slider 30px to the left (x-30, width+30 to keep right edge)
             // Further shift the whole slider 50px left (keep right edge): x-50, width+50
-            var sliderRect = new Rect(labRect.xMax + 8f - 150f, left.y, (left.width - labRect.width - 12f) + 30f - 80f, left.height);
+            var sliderRect = new Rect(labRect.xMax + 8f - 150f, left.y, (left.width - labRect.width - 12f) + 30f - 70f, left.height);
             int prev = state.IntervalHours;
             float f = state.IntervalHours;
             f = Widgets.HorizontalSlider(sliderRect, f, 6f, 128f, false, state.IntervalHours + "h", null, null, 1f);
@@ -192,6 +212,21 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
         }
 
         private static int GetInspectionCapacity(int level) => level <= 1 ? 3 : (level == 2 ? 5 : 10);
+
+        private static async Task TriggerInspectionAsync(IServerService server, string entityId)
+        {
+            try
+            {
+                if (server == null || string.IsNullOrWhiteSpace(entityId)) return;
+                await server.RunInspectionOnceAsync(entityId, CancellationToken.None).ConfigureAwait(false);
+                // Optional: user feedback in dev console
+                Log.Message($"[RimAI.Core][ServerTools] Manual inspection triggered for {entityId}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[RimAI.Core][ServerTools] Manual inspection failed for {entityId}: {ex.Message}");
+            }
+        }
 
         private static string TryExtractName(string toolJson)
         {

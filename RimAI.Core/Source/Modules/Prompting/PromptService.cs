@@ -102,7 +102,13 @@ namespace RimAI.Core.Source.Modules.Prompting
 			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerInspection));
 			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerInspection));
 			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerInspection));
+			// Ensure system base appears first for inspection
+			_composers.Add(new Composers.Server.ServerInspectionBaseComposer());
 			_composers.Add(new Composers.Server.ServerInspectionSystemComposer());
+			// Append important task suffix at the end of system
+			_composers.Add(new Composers.Server.ServerInspectionTaskSuffixComposer());
+			// Provide user payload for inspection
+			_composers.Add(new Composers.Server.ServerInspectionUserComposer());
 
             // PersonaBiography Scope：仅系统提示 + 单段User（去除世界信息，不引入日志）
             var scopeBio = PromptScope.PersonaBiography;
@@ -195,7 +201,8 @@ namespace RimAI.Core.Source.Modules.Prompting
 			bool mergeBlocks = request.Scope == PromptScope.ChatUI
 				|| request.Scope == PromptScope.ServerChat
 				|| request.Scope == PromptScope.ServerCommand
-				|| request.Scope == PromptScope.ServerInspection;
+				// ServerInspection: do NOT merge ExternalBlocks into System; user composer will include result
+				|| request.Scope == PromptScope.ServerStage; // ensure ServerStage external/context blocks are merged into system
 			if (mergeBlocks && blocks != null && blocks.Count > 0)
 			{
 				foreach (var b in blocks)

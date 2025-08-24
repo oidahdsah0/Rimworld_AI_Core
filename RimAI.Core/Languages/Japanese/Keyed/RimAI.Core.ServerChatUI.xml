@@ -12,8 +12,4 @@
   <RimAI.SCW.Tabs.History>履歴</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>対話</RimAI.ServerChatUI.Button.BackToChat>
-  <RimAI.ServerChatUI.Button.Persona>人格設定</RimAI.ServerChatUI.Button.Persona>
-  <RimAI.ServerChatUI.Button.InterComms>サーバー間通信</RimAI.ServerChatUI.Button.InterComms>
-  <RimAI.ServerChatUI.Button.History>履歴</RimAI.ServerChatUI.Button.History>
-  <RimAI.ServerChatUI.Header.None>サーバー未選択</RimAI.ServerChatUI.Header.None>
 </LanguageData>

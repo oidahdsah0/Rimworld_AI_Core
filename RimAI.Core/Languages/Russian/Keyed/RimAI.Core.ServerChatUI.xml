@@ -12,8 +12,4 @@
   <RimAI.SCW.Tabs.History>История</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>Чат</RimAI.ServerChatUI.Button.BackToChat>
-  <RimAI.ServerChatUI.Button.Persona>Персона</RimAI.ServerChatUI.Button.Persona>
-  <RimAI.ServerChatUI.Button.InterComms>Межсерверные связи</RimAI.ServerChatUI.Button.InterComms>
-  <RimAI.ServerChatUI.Button.History>История</RimAI.ServerChatUI.Button.History>
-  <RimAI.ServerChatUI.Header.None>Сервер не выбран</RimAI.ServerChatUI.Header.None>
 </LanguageData>

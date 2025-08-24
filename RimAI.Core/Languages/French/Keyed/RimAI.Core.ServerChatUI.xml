@@ -12,8 +12,4 @@
   <RimAI.SCW.Tabs.History>Historique</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>Chat</RimAI.ServerChatUI.Button.BackToChat>
-  <RimAI.ServerChatUI.Button.Persona>Persona</RimAI.ServerChatUI.Button.Persona>
-  <RimAI.ServerChatUI.Button.InterComms>Comms inter-serveurs</RimAI.ServerChatUI.Button.InterComms>
-  <RimAI.ServerChatUI.Button.History>Historique</RimAI.ServerChatUI.Button.History>
-  <RimAI.ServerChatUI.Header.None>Aucun serveur sélectionné</RimAI.ServerChatUI.Header.None>
 </LanguageData>

@@ -12,8 +12,4 @@
   <RimAI.SCW.Tabs.History>기록</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>대화</RimAI.ServerChatUI.Button.BackToChat>
-  <RimAI.ServerChatUI.Button.Persona>인격 설정</RimAI.ServerChatUI.Button.Persona>
-  <RimAI.ServerChatUI.Button.InterComms>서버 간 통신</RimAI.ServerChatUI.Button.InterComms>
-  <RimAI.ServerChatUI.Button.History>기록</RimAI.ServerChatUI.Button.History>
-  <RimAI.ServerChatUI.Header.None>서버가 선택되지 않음</RimAI.ServerChatUI.Header.None>
 </LanguageData>

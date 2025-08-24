@@ -94,10 +94,14 @@ namespace RimAI.Core.Source.Modules.Prompting
 			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerChat));
 			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerChat));
 			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerChat));
+			// 让 ServerChat 也能看到最近前情提要（作用域适配）
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.HistoryRecapComposer(), PromptScope.ServerChat, idOverride: "server_history_recap", orderOverride: 90));
 
 			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerCommand));
 			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerCommand));
 			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerCommand));
+			// 让 ServerCommand 也能看到最近前情提要（作用域适配）
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.HistoryRecapComposer(), PromptScope.ServerCommand, idOverride: "servercmd_history_recap", orderOverride: 90));
 
 			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerInspection));
 			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerInspection));

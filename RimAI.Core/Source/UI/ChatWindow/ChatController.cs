@@ -12,6 +12,8 @@ using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Modules.Orchestration;
 using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.Prompting.Models;
+using RimAI.Core.Source.Boot;
+using RimAI.Core.Source.Modules.Server;
 using Verse;
 
 namespace RimAI.Core.Source.UI.ChatWindow
@@ -80,15 +82,33 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						}
 						catch { }
 						// 计算显示名：用户采用当前称谓或玩家名；AI 采用实际小人名
-						string displayName = r.Role == EntryRole.User ? (State.PlayerTitle ?? playerName) : "RimAI.Common.Pawn".Translate().ToString();
-						if (r.Role != EntryRole.User)
+						string displayName;
+						if (r.Role == EntryRole.User)
 						{
-							try
+							displayName = State.PlayerTitle ?? playerName;
+						}
+						else
+						{
+							if (ParticipantsHaveServer())
 							{
-								var nm = await GetPawnDisplayNameAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
-								if (!string.IsNullOrWhiteSpace(nm)) displayName = nm;
+								try
+								{
+									var nm = await GetServerDisplayNameAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+									if (string.IsNullOrWhiteSpace(nm)) nm = "AI Server";
+									displayName = nm;
+								}
+								catch { displayName = "AI Server"; }
 							}
-							catch { }
+							else
+							{
+								displayName = "RimAI.Common.Pawn".Translate().ToString();
+								try
+								{
+									var nm = await GetPawnDisplayNameAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+									if (!string.IsNullOrWhiteSpace(nm)) displayName = nm;
+								}
+								catch { }
+							}
 						}
 						var msg = new ChatMessage
 						{
@@ -143,7 +163,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.Ai,
-				DisplayName = await GetPawnDisplayNameAsync(linked),
+				DisplayName = ParticipantsHaveServer() ? (await GetServerDisplayNameAsync(linked)) : (await GetPawnDisplayNameAsync(linked)),
 				TimestampUtc = DateTime.UtcNow,
 				Text = string.Empty,
 				IsCommand = false
@@ -243,7 +263,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				Id = Guid.NewGuid().ToString("N"),
 				Sender = MessageSender.Ai,
-				DisplayName = "RimAI.Common.Pawn".Translate().ToString(),
+				DisplayName = ParticipantsHaveServer() ? (await GetServerDisplayNameAsync(linked)) : "RimAI.Common.Pawn".Translate().ToString(),
 				TimestampUtc = DateTime.UtcNow,
 				Text = string.Empty,
 				IsCommand = true
@@ -556,6 +576,49 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			}
 			catch { }
 			return null;
+		}
+
+		private bool ParticipantsHaveServer()
+		{
+			try
+			{
+				if (State?.ParticipantIds != null)
+				{
+					foreach (var id in State.ParticipantIds)
+					{
+						if (id != null && (id.StartsWith("server:") || id.StartsWith("thing:"))) return true;
+					}
+				}
+			}
+			catch { }
+			return false;
+		}
+
+		private Task<string> GetServerDisplayNameAsync(CancellationToken ct)
+		{
+			try
+			{
+				int? thingId = null;
+				if (State?.ParticipantIds != null)
+				{
+					foreach (var id in State.ParticipantIds)
+					{
+						if (id == null) continue;
+						if (id.StartsWith("server:") || id.StartsWith("thing:"))
+						{
+							var s = id.Substring(id.IndexOf(':') + 1);
+							if (int.TryParse(s, out var v)) { thingId = v; break; }
+						}
+					}
+				}
+				if (thingId.HasValue)
+				{
+					// 标题要求：AI 抬头显示服务器序列号；用 "SN-{ThingId:X}" 作为序列号样式
+					return Task.FromResult($"SN-{thingId.Value:X}");
+				}
+			}
+			catch { }
+			return Task.FromResult("AI Server");
 		}
 
 		private async Task<string> GetPawnDisplayNameAsync(CancellationToken ct)

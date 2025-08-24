@@ -100,5 +100,8 @@
   "ui.server.env.temp.title": "[机房温度]",
   "RimAI.Common.AIServer": "AI Server",
   "prompt.section.recent_chat": "[最近对话]"
+  ,
+  "recap.system.base": "你是对话前情提要助手。请在{max}字以内，用要点式总结关键信息与进展；保留数字；避免无效赘述。",
+  "recap.system.prev_label": "[上次前情提要]"
 }
 

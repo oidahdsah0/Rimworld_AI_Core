@@ -133,13 +133,27 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 				onBackToChat: RefreshChatForCurrentKey,
 				onSelectServer: OnSelectServer,
 				items: snapshot,
-				isStreaming: false,
+				isStreaming: _controller?.State?.IsStreaming == true,
 				getIcon: GetServerIcon
 			);
 
 			// 右侧标题栏（无生命体征）：展示当前会话服务器标题 + 基本信息（无 RID）
 			var sub = _currentServerThingId.HasValue ? $"ID:{_currentServerThingId.Value}  LV:{_currentServerLevel}" : string.Empty;
-			var name = !string.IsNullOrWhiteSpace(_currentServerTitle) ? _currentServerTitle : (_currentServerThingId.HasValue ? $"AI Server L{_currentServerLevel}" : "AI Server");
+			// 抬头：用户=称谓（来自全局设置）；AI=服务器序列号（以 SN-HEXID 展示）
+			try
+			{
+				var cfg = _container.Resolve<RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService>();
+				var loc = _container.Resolve<ILocalizationService>();
+				var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
+				var title = cfg?.GetPlayerTitleOrDefault();
+				if (string.IsNullOrWhiteSpace(title))
+				{
+					title = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
+				}
+				_controller.State.PlayerTitle = title;
+			}
+			catch { }
+			var name = _currentServerThingId.HasValue ? ($"SN-{_currentServerThingId.Value:X}") : (!string.IsNullOrWhiteSpace(_currentServerTitle) ? _currentServerTitle : "AI Server");
 			ServerConversationHeader.Draw(titleRect, _serverAvatar, name, sub);
 
 			// 右侧主体区域：根据 Tab 渲染

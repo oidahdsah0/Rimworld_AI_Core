@@ -100,5 +100,8 @@
   "ui.server.env.temp.title": "[Server Room Temperature]",
   "RimAI.Common.AIServer": "AI Server",
   "prompt.section.recent_chat": "[Recent Chat]"
+  ,
+  "recap.system.base": "You are a dialogue recap assistant. In {max} chars, summarize key facts and progress as bullet-like lines; keep numbers; avoid filler.",
+  "recap.system.prev_label": "[Previous Recap]"
 }
 

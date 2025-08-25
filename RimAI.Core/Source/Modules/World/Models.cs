@@ -179,6 +179,45 @@ namespace RimAI.Core.Source.Modules.World
 		public float Glow { get; set; }
 	}
 
+	// 气象分析（v1）：当前天气 + 气温短期趋势 + 风/降水 + 条件 + 建议
+	internal sealed class WeatherAnalysisSnapshot
+	{
+		public TimeInfo Time { get; set; }
+		public WeatherNow Weather { get; set; }
+		public TemperatureTrend Temp { get; set; }
+		public string[] ActiveConditions { get; set; }
+		public bool GrowthSeasonNow { get; set; }
+		public bool EnjoyableOutside { get; set; }
+		public string[] Advisories { get; set; }
+	}
+
+	internal sealed class TimeInfo
+	{
+		public int HourOfDay { get; set; }
+		public string Season { get; set; }
+		public string Quadrum { get; set; }
+		public int DayOfQuadrum { get; set; }
+	}
+
+	internal sealed class WeatherNow
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public float RainRate { get; set; } // 0..1
+		public float SnowRate { get; set; } // 0..1
+		public float WindSpeed { get; set; } // map.windManager.WindSpeed
+	}
+
+	internal sealed class TemperatureTrend
+	{
+		public float OutdoorNowC { get; set; }
+		public float SeasonalNowC { get; set; }
+		public System.Collections.Generic.IReadOnlyList<float> NextHoursC { get; set; } // 逐小时（默认 6 个点）
+		public float MinNextC { get; set; }
+		public float MaxNextC { get; set; }
+		public string Trend { get; set; } // rising | falling | steady
+	}
+
 	// 游戏日志项（PlayLog 简化快照）
 	internal sealed class GameLogItem
 	{
@@ -260,6 +299,87 @@ namespace RimAI.Core.Source.Modules.World
 		public string DangerRating { get; set; }
 		public float FireDanger { get; set; }
 		public float LastBigThreatDaysAgo { get; set; }
+	}
+
+	// 仓储饱和度（v1）：各仓库/存放点的占用率
+	internal sealed class StorageSaturationItem
+	{
+		public string Name { get; set; }
+		public float UsedPct { get; set; } // 0..1
+		public bool Critical { get; set; }
+		public string Notes { get; set; }
+	}
+
+	internal sealed class StorageSaturationSnapshot
+	{
+		public System.Collections.Generic.IReadOnlyList<StorageSaturationItem> Storages { get; set; }
+	}
+
+	// 研究选项（v1）：当前研究 + 可立即研究 + 关键受限项 + 殖民地研究能力
+	internal sealed class ResearchOptionsSnapshot
+	{
+		public ResearchCurrentInfo Current { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ResearchOptionItem> AvailableNow { get; set; }
+		public System.Collections.Generic.IReadOnlyList<ResearchLockedItem> LockedKey { get; set; }
+		public ResearchColonyInfo Colony { get; set; }
+	}
+
+	internal sealed class ResearchCurrentInfo
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public float ProgressPct { get; set; } // 0..1
+		public float WorkLeft { get; set; }    // 成本 - 已完成
+		public float EtaDays { get; set; }     // 基于 colony.effectiveSpeed 的粗略估算；<0 表示未知
+	}
+
+	internal sealed class ResearchOptionItem
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public string Desc { get; set; }
+		public float BaseCost { get; set; }
+		public string TechLevel { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> Prereqs { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> Benches { get; set; }
+		public int TechprintsNeeded { get; set; }
+		public float RoughTimeDays { get; set; } // <0 表示无法估算
+	}
+
+	internal sealed class ResearchLockedItem
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> MissingPrereqs { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> BenchesMissing { get; set; }
+		public int TechprintsMissing { get; set; }
+		public string Note { get; set; }
+	}
+
+	internal sealed class ResearchColonyInfo
+	{
+		public int Researchers { get; set; }
+		public float EffectiveSpeed { get; set; } // 研究点/天（粗估）
+	}
+
+	// 施工积压（v1）：蓝图/框架需要的材料缺口汇总
+	internal sealed class ConstructionBacklogSnapshot
+	{
+		public System.Collections.Generic.IReadOnlyList<ConstructionBuildItem> Builds { get; set; }
+	}
+
+	internal sealed class ConstructionBuildItem
+	{
+		public string Thing { get; set; }   // 目标对象（label）
+		public string DefName { get; set; } // 目标 DefName（用于上游对齐，可为空）
+		public int Count { get; set; }      // 实例数量
+		public System.Collections.Generic.IReadOnlyList<ConstructionMissingItem> Missing { get; set; }
+	}
+
+	internal sealed class ConstructionMissingItem
+	{
+		public string Res { get; set; } // 资源 label/defName
+		public int Qty { get; set; }
 	}
 }
 

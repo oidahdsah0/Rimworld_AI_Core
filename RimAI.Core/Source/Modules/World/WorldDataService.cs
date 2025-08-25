@@ -38,8 +38,12 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly Parts.EnvironmentPart _envPart;
 		private readonly Parts.MetaPart _metaPart;
 		private readonly Parts.WeatherPart _weatherPart;
+		private readonly Parts.WeatherStatusPart _weatherStatusPart;
 	private readonly Parts.ResourceOverviewPart _resourcePart;
 	private readonly Parts.PowerStatusPart _powerPart;
+	private readonly Parts.StorageSaturationPart _storagePart;
+		private readonly Parts.ResearchPart _researchPart;
+		private readonly Parts.ConstructionBacklogPart _constructionPart;
 
 		public WorldDataService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -57,8 +61,12 @@ namespace RimAI.Core.Source.Modules.World
 			_envPart = new Parts.EnvironmentPart(_scheduler, _cfg);
 			_metaPart = new Parts.MetaPart(_scheduler, _cfg);
 			_weatherPart = new Parts.WeatherPart(_scheduler, _cfg);
+			_weatherStatusPart = new Parts.WeatherStatusPart(_scheduler, _cfg);
 			_resourcePart = new Parts.ResourceOverviewPart(_scheduler, _cfg);
 			_powerPart = new Parts.PowerStatusPart(_scheduler, _cfg);
+			_storagePart = new Parts.StorageSaturationPart(_scheduler, _cfg);
+			_researchPart = new Parts.ResearchPart(_scheduler, _cfg);
+			_constructionPart = new Parts.ConstructionBacklogPart(_scheduler, _cfg);
 		}
 
 		// 获取玩家名称（派系/殖民地拥有者）
@@ -115,6 +123,9 @@ namespace RimAI.Core.Source.Modules.World
 		// 获取殖民者所在位置的天气状态
 		public Task<WeatherStatus> GetWeatherStatusAsync(int pawnLoadId, CancellationToken ct = default) => _weatherPart.GetWeatherStatusAsync(pawnLoadId, ct);
 
+		// 获取当前地图的气象分析（无参数，v1）
+		public Task<WeatherAnalysisSnapshot> GetWeatherAnalysisAsync(CancellationToken ct = default) => _weatherStatusPart.GetAsync(ct);
+
 		// 获取殖民者当前工作的标签/描述
 		public Task<string> GetCurrentJobLabelAsync(int pawnLoadId, CancellationToken ct = default) => _pawnStatusPart.GetCurrentJobLabelAsync(pawnLoadId, ct);
 
@@ -142,6 +153,15 @@ namespace RimAI.Core.Source.Modules.World
 
 		// 获取电力概览（总发电/用电/净值 + 电池存量与天数）
 		public Task<PowerStatusSnapshot> GetPowerStatusAsync(CancellationToken ct = default) => _powerPart.GetAsync(ct);
+
+		// 获取仓储饱和度（各存放点占用率）
+		public Task<StorageSaturationSnapshot> GetStorageSaturationAsync(CancellationToken ct = default) => _storagePart.GetAsync(ct);
+
+		// 获取研究选项
+		public Task<ResearchOptionsSnapshot> GetResearchOptionsAsync(CancellationToken ct = default) => _researchPart.GetAsync(ct);
+
+		// 获取施工积压（蓝图/框架材料缺口）
+		public Task<ConstructionBacklogSnapshot> GetConstructionBacklogAsync(CancellationToken ct = default) => _constructionPart.GetAsync(ct);
 
 	}
 

@@ -39,6 +39,18 @@ namespace RimAI.Core.Source.Modules.World
 
 		// New: world resource overview (counts from ResourceCounter + simple daily-use estimates)
 		Task<ResourceOverviewSnapshot> GetResourceOverviewAsync(CancellationToken ct = default);
+
+		// New: weather analysis snapshot (time + weather + temp trend + advisories)
+		Task<WeatherAnalysisSnapshot> GetWeatherAnalysisAsync(CancellationToken ct = default);
+
+		// New: storage saturation snapshot (per stockpile/container usage)
+		Task<StorageSaturationSnapshot> GetStorageSaturationAsync(CancellationToken ct = default);
+
+		// New: research options listing (current/available/locked + colony capability)
+		Task<ResearchOptionsSnapshot> GetResearchOptionsAsync(CancellationToken ct = default);
+
+		// New: construction backlog (blueprints/frames and missing materials)
+		Task<ConstructionBacklogSnapshot> GetConstructionBacklogAsync(CancellationToken ct = default);
 	}
 }
 

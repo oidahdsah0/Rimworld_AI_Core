@@ -19,15 +19,17 @@
 3. get_power_status（已实现）
    - 发电/用电/电池电量/断电风险
    - 输出：power{gen, cons, net, batteries{count, stored, days}}
-4. get_temperature_status
-   - 室内/室外温度，异常房间与风险
-   - 输出：temps{outdoor, rooms[{id, temp, target, risk}]}
-5. get_storage_saturation
+4. get_weather_status（已实现）
+   - 时间+天气+风/降水+温度短期趋势+条件+建议（v1）
+   - 输出：{time{}, weather{}, temp{now, seasonal, next[], min, max, trend}, conditions[], growth, enjoyableOutside, advisories[]}
+5. get_storage_saturation（已实现）
    - 各仓库/重要存放点占用率，阻塞风险
    - 输出：storages[{name, usedPct, critical, notes}]
-6. get_research_progress
-   - 当前研究、进度、预计完成时间（粗估）
-   - 输出：research{project, progress, eta}
+   - 备注：critical 阈值 0.85；按 Zone/Building/Group 估算容量；同名合并显示
+6. get_research_options（重设）
+   - 可研究清单（当前可用+关键锁定项）：名称、描述、基础研究点、前置、所需工作台/科技印记、粗略所需时间
+   - 输出：research{current{project, progressPct, workLeft, etaDays}, availableNow[{defName, label, desc, baseCost, techLevel, prereqs[], benches[], techprintsNeeded, roughTimeDays}], lockedKey[{defName, label, missingPrereqs[], benchesMissing[], techprintsMissing, note}], colony{researchers, effectiveSpeed}}
+   - 备注：roughTimeDays 基于“当前有效研究速度”粗估；availableNow 默认限 TopN=12 便于上游提示词消费
 7. get_construction_backlog
    - 待建蓝图、材料缺口、阻塞点
    - 输出：builds[{thing, count, missing[{res, qty}]}]

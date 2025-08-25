@@ -68,7 +68,11 @@ namespace RimAI.Core.Source.Modules.Tooling
 				["get_beauty_average"] = new BeautyAverageExecutor(),
 				["get_terrain_group_counts"] = new TerrainGroupCountsExecutor(),
 				["get_game_logs"] = new GameLogsExecutor(),
-				["get_power_status"] = new PowerStatusExecutor()
+				["get_power_status"] = new PowerStatusExecutor(),
+				["get_weather_status"] = new WeatherStatusExecutor(),
+				["get_storage_saturation"] = new StorageSaturationExecutor(),
+				["get_research_options"] = new ResearchOptionsExecutor(),
+				["get_construction_backlog"] = new ConstructionBacklogExecutor()
 			};
 			foreach (var kv in manual)
 			{

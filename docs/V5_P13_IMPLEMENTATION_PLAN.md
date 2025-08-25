@@ -8,7 +8,6 @@
 
 > 版本：v5.0.0-alpha（P13）
 
----
 
 ## 0. 范围与非目标
 
@@ -23,13 +22,13 @@
   - 新 UI 面板开发（如“服务器管理器/APPs 管理页”）
   - 自动故障恢复/告警升级策略（仅留扩展点）
   - 复杂多服务器编队/租约仲裁（交由 P9 Stage 承担）
-
----
+  void SetBaseServerPersonaPreset(string entityId, string presetKey);
+  void SetBaseServerPersonaOverride(string entityId, string overrideText);
 
 ## 1. 架构总览（与 V5 约束对齐）
-
-- 单一事实源（SSOT）
-  - Server 基础信息、巡检配置与结果只在 ServerService 内维护，持久化通过 P6 Persistence 的快照统一保存
+  void SetServerPersonaSlot(string entityId, int slotIndex, string presetKey, string overrideText = null); // 范围校验与去重
+  void ClearServerPersonaSlot(string entityId, int slotIndex);
+  System.Collections.Generic.IReadOnlyList<ServerPersonaSlot> GetServerPersonaSlots(string entityId);
 
 - 访问边界（强约束）
   - Verse：仅 P3 `IWorldDataService` 与 P6 `IPersistenceService` 触达；ServerService 自身不直接 `using Verse`
@@ -44,7 +43,7 @@
 
 ```mermaid
 graph TD
-  UI["ChatWindow (Server Chat)"] --> P11["Prompting"]
+  System.Threading.Tasks.Task<float> GetRecommendedSamplingTemperatureAsync(string entityId, System.Threading.CancellationToken ct = default);
   Act["Acts (P9)"] --> P11
   P11 --> Server["Server Service (P13)"]
   Server --> World["WorldData (P3)"]
@@ -63,7 +62,6 @@ graph TD
 // RimAI.Core/Source/Modules/Server/IServerService.cs
 namespace RimAI.Core.Source.Modules.Server
 {
-    internal interface IServerService
     {
         // 基础信息
         ServerRecord GetOrCreate(string entityId, int level);
@@ -261,19 +259,20 @@ RimAI.Core/
 ## 6. 等级与槽位约束（与 P4 工具等级对齐）
 
 - 槽位容量：
-  - Lv1：3 槽位（仅可装载 Level=1 工具）
-  - Lv2：5 槽位（仅可装载 Level≤2 工具）
-  - Lv3：10 槽位（仅可装载 Level≤3 工具）
+  - Lv1：1 槽位（仅可装载 Level=1 工具）
+  - Lv2：3 槽位（仅可装载 Level≤2 工具）
+  - Lv3：5 槽位（仅可装载 Level≤3 工具）
   - Level=4 为开发工具（Dev），游戏内一律不可见/不可装载
 
 - 赋值校验：
-  - `AssignSlot(entityId, slotIndex, toolName)`：
-    - 校验 `slotIndex` 在容量范围内
-    - 校验工具存在性：从 `IToolRegistryService.GetClassicToolCallSchema(new { MaxToolLevel=server.Level })` 生成白名单供选择
-    - 禁止重复装载同名工具到多个槽位（可选）
+  - 校验 `slotIndex` 在容量范围内
+  - 校验工具存在性：从 `IToolRegistryService.GetClassicToolCallSchema(new { MaxToolLevel=server.Level })` 生成白名单供选择
+  - 容量符合：Lv1=1、Lv2=3、Lv3=5；槽位越界赋值被拒绝
+  - 禁止重复装载同名工具到多个槽位（可选）
 
-- 执行策略：
-  - 每个槽位代表一项 Tool 的定时调用；到达 `NextDueAbsTicks` 即触发一次串行执行
+- 人格槽位容量：
+  - Lv1：1 个；Lv2：2 个；Lv3：3 个
+  - `SetServerPersonaSlot/ClearServerPersonaSlot` 必须在容量范围内操作；变更 Level 时自动扩容/裁剪（保留低索引优先）
 
 - 人格槽位容量：
   - Lv1：1 个；Lv2：2 个；Lv3：3 个

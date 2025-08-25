@@ -30,6 +30,15 @@ namespace RimAI.Core.Source.Modules.World
 
 		// P14：新增世界时间字符串获取（优先使用游戏内时间/经纬度；失败回退 UTC）
 		Task<string> GetCurrentGameTimeStringAsync(CancellationToken ct = default);
+
+		// Colony assistant extras
+		Task<FoodInventorySnapshot> GetFoodInventoryAsync(CancellationToken ct = default);
+		Task<MedicineInventorySnapshot> GetMedicineInventoryAsync(CancellationToken ct = default);
+		Task<ThreatSnapshot> GetThreatSnapshotAsync(CancellationToken ct = default);
+		Task<PowerStatusSnapshot> GetPowerStatusAsync(CancellationToken ct = default);
+
+		// New: world resource overview (counts from ResourceCounter + simple daily-use estimates)
+		Task<ResourceOverviewSnapshot> GetResourceOverviewAsync(CancellationToken ct = default);
 	}
 }
 

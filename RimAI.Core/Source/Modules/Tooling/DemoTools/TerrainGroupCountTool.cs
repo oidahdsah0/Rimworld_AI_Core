@@ -7,7 +7,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 		public string Name => "get_terrain_group_counts";
 		public string Description => "Count terrain groups within radius N centered at (x,z), grouped by terrain label.";
 		public string DisplayName => "地形统计";
-		public int Level => 1;
+		public int Level => 4;
 		public string ParametersJson => JsonConvert.SerializeObject(new
 		{
 			type = "object",

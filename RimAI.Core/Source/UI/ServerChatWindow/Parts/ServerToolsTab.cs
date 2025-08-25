@@ -211,7 +211,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             }
         }
 
-        private static int GetInspectionCapacity(int level) => level <= 1 ? 3 : (level == 2 ? 5 : 10);
+    private static int GetInspectionCapacity(int level) => level <= 1 ? 1 : (level == 2 ? 3 : 5);
 
         private static async Task TriggerInspectionAsync(IServerService server, string entityId)
         {

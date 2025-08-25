@@ -345,7 +345,7 @@ namespace RimAI.Core.Source.Modules.Server
 		}
 
 		private static int GetPersonaCapacity(int level) => level switch { 1 => 1, 2 => 2, _ => 3 };
-		private static int GetInspectionCapacity(int level) => level switch { 1 => 3, 2 => 5, _ => 10 };
+		private static int GetInspectionCapacity(int level) => level switch { 1 => 1, 2 => 3, _ => 5 };
 
 		private static void EnsureServerPersonaSlots(ServerRecord s, int cap)
 		{

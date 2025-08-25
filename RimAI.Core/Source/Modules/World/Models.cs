@@ -185,6 +185,82 @@ namespace RimAI.Core.Source.Modules.World
 		public string GameTime { get; set; }
 		public string Text { get; set; }
 	}
+
+	// 电力状态
+	internal sealed class BatteryStatus
+	{
+		public int Count { get; set; }
+		public float StoredWd { get; set; }      // 电池当前存量（W-days）
+		public float CapacityWd { get; set; }    // 电池总容量（W-days）
+		public float DaysLeft { get; set; }      // 在净耗电为负时的可用天数；>=0 有效；<0 表示正在充电/不适用
+	}
+
+	internal sealed class PowerStatusSnapshot
+	{
+		public float GenW { get; set; }          // 总发电功率（W）
+		public float ConsW { get; set; }         // 总用电功率（W）
+		public float NetW { get; set; }          // 净功率（W）= GenW - ConsW
+		public BatteryStatus Batteries { get; set; }
+	}
+
+	// 资源概览（通用 CountAsResource 项）
+	internal sealed class ResourceItem
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public int Count { get; set; }
+		public float DailyUse { get; set; } // 估算（基于人口/食物、医疗消耗等），可能为 0
+		public float DaysLeft { get; set; } // Count / DailyUse；当 DailyUse=0 时记为 -1 表示不适用
+	}
+
+	internal sealed class ResourceOverviewSnapshot
+	{
+		public System.Collections.Generic.IReadOnlyList<ResourceItem> Resources { get; set; }
+	}
+
+	// 物资：食品明细
+	internal sealed class FoodItemInfo
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public int Count { get; set; }
+		public float NutritionPer { get; set; }
+		public float TotalNutrition { get; set; }
+		public string Preferability { get; set; }
+	}
+
+	internal sealed class FoodInventorySnapshot
+	{
+		public float TotalNutrition { get; set; }
+		public System.Collections.Generic.IReadOnlyList<FoodItemInfo> Items { get; set; }
+	}
+
+	// 物资：药品明细
+	internal sealed class MedicineItemInfo
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public int Count { get; set; }
+		public float Potency { get; set; }
+	}
+
+	internal sealed class MedicineInventorySnapshot
+	{
+		public int TotalCount { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicineItemInfo> Items { get; set; }
+	}
+
+	// 即时威胁信息
+	internal sealed class ThreatSnapshot
+	{
+		public int HostilePawns { get; set; }
+		public int Manhunters { get; set; }
+		public int Mechanoids { get; set; }
+		public float ThreatPoints { get; set; }
+		public string DangerRating { get; set; }
+		public float FireDanger { get; set; }
+		public float LastBigThreatDaysAgo { get; set; }
+	}
 }
 
 

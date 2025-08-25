@@ -1,13 +1,22 @@
+/*
+ * WorldDataService (WDS) — V5 入口与总组装（Orchestrator / Facade）
+ *
+ * 角色与约束：
+ * - 作为对外唯一入口，聚合并转发世界数据查询；自身不承载具体业务实现。
+ * - 全部具体逻辑下沉至 World/Parts/*（单一职责的 Part 类）；WDS 仅委托调用。
+ * - 任何 Verse/RimWorld API 访问必须经由 ISchedulerService 在游戏主线程执行，并受配置的超时保护。
+ * - 公共方法保持“薄”：表达式体或最小样板；每个方法一行注释描述用途；不得引入状态、缓存或跨线程对象。
+ * - 新增功能流程：先新增 Part，再在 WDS 暴露对应委托方法，保持 API 稳定与一致性。
+ *
+ * 维护提示：如发现实现细节滑入本类，请及时下沉到合适的 Part；本类应始终保持可读、可审计的路由清单。
+ */
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Linq;
-using RimWorld;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Infrastructure.Configuration;
 using RimAI.Core.Source.Infrastructure.Scheduler;
-using Verse;
-using UnityEngine;
 using System.Collections.Generic;
 
 namespace RimAI.Core.Source.Modules.World
@@ -16,737 +25,123 @@ namespace RimAI.Core.Source.Modules.World
 	{
 		private readonly ISchedulerService _scheduler;
 		private readonly ConfigurationService _cfg;
+		// Parts
+		private readonly Parts.FoodInventoryPart _foodPart;
+		private readonly Parts.MedicineInventoryPart _medPart;
+		private readonly Parts.ThreatScanPart _threatPart;
+		private readonly Parts.ColonyPart _colonyPart;
+		private readonly Parts.AIServerPart _aiServerPart;
+		private readonly Parts.PawnHealthPart _pawnHealthPart;
+		private readonly Parts.PawnIdentityPart _pawnIdentityPart;
+		private readonly Parts.PawnSocialPart _pawnSocialPart;
+		private readonly Parts.PawnStatusPart _pawnStatusPart;
+		private readonly Parts.EnvironmentPart _envPart;
+		private readonly Parts.MetaPart _metaPart;
+		private readonly Parts.WeatherPart _weatherPart;
+	private readonly Parts.ResourceOverviewPart _resourcePart;
+	private readonly Parts.PowerStatusPart _powerPart;
 
 		public WorldDataService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
 			_scheduler = scheduler;
 			_cfg = cfg as ConfigurationService ?? throw new InvalidOperationException("WorldDataService requires ConfigurationService");
+			_foodPart = new Parts.FoodInventoryPart(_scheduler, _cfg);
+			_medPart = new Parts.MedicineInventoryPart(_scheduler, _cfg);
+			_threatPart = new Parts.ThreatScanPart(_scheduler, _cfg);
+			_colonyPart = new Parts.ColonyPart(_scheduler, _cfg);
+			_aiServerPart = new Parts.AIServerPart(_scheduler, _cfg);
+			_pawnHealthPart = new Parts.PawnHealthPart(_scheduler, _cfg);
+			_pawnIdentityPart = new Parts.PawnIdentityPart(_scheduler, _cfg);
+			_pawnSocialPart = new Parts.PawnSocialPart(_scheduler, _cfg);
+			_pawnStatusPart = new Parts.PawnStatusPart(_scheduler, _cfg);
+			_envPart = new Parts.EnvironmentPart(_scheduler, _cfg);
+			_metaPart = new Parts.MetaPart(_scheduler, _cfg);
+			_weatherPart = new Parts.WeatherPart(_scheduler, _cfg);
+			_resourcePart = new Parts.ResourceOverviewPart(_scheduler, _cfg);
+			_powerPart = new Parts.PowerStatusPart(_scheduler, _cfg);
 		}
 
-		public Task<string> GetPlayerNameAsync(CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				var name = Faction.OfPlayer?.Name ?? "Player";
-				return name;
-			}, name: "GetPlayerName", ct: cts.Token);
-		}
+		// 获取玩家名称（派系/殖民地拥有者）
+		public Task<string> GetPlayerNameAsync(CancellationToken ct = default) => _colonyPart.GetPlayerNameAsync(ct);
 
-		public Task<int> GetCurrentDayNumberAsync(CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				// 使用绝对 Tick 计算累计天数，避免跨年回绕
-				var abs = Find.TickManager?.TicksAbs ?? 0;
-				int days = abs / 60000; // 60k tick/day
-				return days;
-			}, name: "GetCurrentDayNumber", ct: cts.Token);
-		}
+		// 获取当前绝对天数（按 60k tick/天）
+		public Task<int> GetCurrentDayNumberAsync(CancellationToken ct = default) => _colonyPart.GetCurrentDayNumberAsync(ct);
 
-		public Task<System.Collections.Generic.IReadOnlyList<int>> GetAllColonistLoadIdsAsync(CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				var list = new System.Collections.Generic.List<int>();
-				try
-				{
-					foreach (var map in Find.Maps)
-					{
-						var pawns = map?.mapPawns?.FreeColonists; if (pawns == null) continue;
-						foreach (var p in pawns)
-						{
-							if (p != null && !p.Dead) list.Add(p.thingIDNumber);
-						}
-					}
-				}
-				catch { }
-				return (System.Collections.Generic.IReadOnlyList<int>)list;
-			}, name: "GetAllColonistLoadIds", ct: cts.Token);
-		}
+		// 获取所有在世自由殖民者的 thingIDNumber 列表
+		public Task<System.Collections.Generic.IReadOnlyList<int>> GetAllColonistLoadIdsAsync(CancellationToken ct = default) => _colonyPart.GetAllColonistLoadIdsAsync(ct);
 
-		// 新增：返回通电的 AI 服务器（lv1/2/3，不含终端）的 thingID 列表
-		public Task<System.Collections.Generic.IReadOnlyList<int>> GetPoweredAiServerThingIdsAsync(CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				var ids = new List<int>();
-				try
-				{
-					// 允许的服务器 defName（lv1/2/3），排除终端
-					var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-					{
-						"RimAI_AIServer_Lv1A","RimAI_AIServer_Lv2A","RimAI_AIServer_Lv3A"
-					};
-					foreach (var map in Find.Maps)
-					{
-						if (map == null) continue;
-						var things = map.listerThings?.AllThings;
-						if (things == null) continue;
-						foreach (var t in things)
-						{
-							if (t == null) continue;
-							var defName = t.def?.defName;
-							if (string.IsNullOrEmpty(defName) || !allowed.Contains(defName)) continue;
-							var power = t.TryGetComp<CompPowerTrader>();
-							if (power == null || !power.PowerOn) continue;
-							ids.Add(t.thingIDNumber);
-						}
-					}
-				}
-				catch { }
-				return (System.Collections.Generic.IReadOnlyList<int>)ids;
-			}, name: "GetPoweredAiServerThingIds", ct: cts.Token);
-		}
+		// 获取通电的 AI 服务器（Lv1-3，不含终端）的 thingID 列表
+		public Task<System.Collections.Generic.IReadOnlyList<int>> GetPoweredAiServerThingIdsAsync(CancellationToken ct = default) => _aiServerPart.GetPoweredAiServerThingIdsAsync(ct);
 
-		public Task<AiServerSnapshot> GetAiServerSnapshotAsync(string serverId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				// 从 entityId(期望形如 "thing:<id>") 定位建筑并读取房间/环境温度与供电状态
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				var snap = new AiServerSnapshot { ServerId = serverId, TemperatureC = 37, LoadPercent = 50, PowerOn = false, HasAlarm = false };
-				try
-				{
-					// 解析 thingId
-					int thingId = 0;
-					if (!string.IsNullOrWhiteSpace(serverId))
-					{
-						var idText = serverId;
-						if (idText.StartsWith("thing:", StringComparison.OrdinalIgnoreCase)) idText = idText.Substring(6);
-						else if (idText.StartsWith("server:", StringComparison.OrdinalIgnoreCase)) idText = idText.Substring(7);
-						int.TryParse(idText, out thingId);
-					}
+		// 获取指定 AI 服务器的状态快照
+		public Task<AiServerSnapshot> GetAiServerSnapshotAsync(string serverId, CancellationToken ct = default) => _aiServerPart.GetAiServerSnapshotAsync(serverId, ct);
 
-					Thing found = null;
-					foreach (var map in Find.Maps)
-					{
-						var things = map?.listerThings?.AllThings; if (things == null) continue;
-						foreach (var t in things)
-						{
-							if (t == null) continue;
-							if (thingId != 0)
-							{
-								if (t.thingIDNumber == thingId) { found = t; break; }
-							}
-							else
-							{
-								// 退化路径：若解析失败，尝试按允许的服务器 defName 捕获第一个通电实例
-								var defName = t.def?.defName;
-								if (string.IsNullOrEmpty(defName)) continue;
-								if (defName.StartsWith("RimAI_AIServer_", StringComparison.OrdinalIgnoreCase)) { found = t; break; }
-							}
-						}
-						if (found != null) break;
-					}
+		// 获取指定 AI 服务器的等级
+		public Task<int> GetAiServerLevelAsync(int thingId, CancellationToken ct = default) => _aiServerPart.GetAiServerLevelAsync(thingId, ct);
 
-					if (found != null)
-					{
-						// 电力状态
-						try { var power = found.TryGetComp<CompPowerTrader>(); snap.PowerOn = (power != null && power.PowerOn); } catch { snap.PowerOn = false; }
-						// 房间温度优先，其次格子温度，最后 AmbientTemperature
-						float temp = 37f;
-						try
-						{
-							var map = found.Map;
-							var pos = found.Position;
-							var room = pos.GetRoom(map);
-							if (room != null)
-							{
-								temp = room.Temperature;
-							}
-							else
-							{
-								try { temp = GenTemperature.GetTemperatureForCell(pos, map); } catch { temp = found.AmbientTemperature; }
-							}
-						}
-						catch { try { temp = found.AmbientTemperature; } catch { temp = 37f; } }
-						snap.TemperatureC = Mathf.RoundToInt(temp);
-					}
-				}
-				catch { /* 使用默认值 */ }
-				return snap;
-			}, name: "GetAiServerSnapshot", ct: cts.Token);
-		}
+		// 获取殖民者健康状态快照（生命、伤口、疾病等）
+		public Task<PawnHealthSnapshot> GetPawnHealthSnapshotAsync(int pawnLoadId, CancellationToken ct = default) => _pawnHealthPart.GetPawnHealthSnapshotAsync(pawnLoadId, ct);
 
-		public Task<int> GetAiServerLevelAsync(int thingId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				try
-				{
-					foreach (var map in Find.Maps)
-					{
-						var things = map?.listerThings?.AllThings; if (things == null) continue;
-						foreach (var t in things)
-						{
-							if (t == null || t.thingIDNumber != thingId) continue;
-							var def = t.def?.defName ?? string.Empty;
-							if (def.IndexOf("Lv1", StringComparison.OrdinalIgnoreCase) >= 0) return 1;
-							if (def.IndexOf("Lv2", StringComparison.OrdinalIgnoreCase) >= 0) return 2;
-							if (def.IndexOf("Lv3", StringComparison.OrdinalIgnoreCase) >= 0) return 3;
-							return 1;
-						}
-					}
-				}
-				catch { }
-				return 1;
-			}, name: "GetAiServerLevel", ct: cts.Token);
-		}
+		// 获取殖民者身份摘要（姓名/头衔/年龄/性别等）
+		public Task<PawnPromptSnapshot> GetPawnPromptSnapshotAsync(int pawnLoadId, CancellationToken ct = default) => _pawnIdentityPart.GetPawnPromptSnapshotAsync(pawnLoadId, ct);
 
-		public Task<PawnHealthSnapshot> GetPawnHealthSnapshotAsync(int pawnLoadId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null;
-				foreach (var map in Find.Maps)
-				{
-					foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
-					{
-						if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; }
-					}
-					if (pawn != null) break;
-				}
-				if (pawn == null)
-				{
-					throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				}
-				var dead = pawn.Dead;
-				float Lv(PawnCapacityDef def)
-				{
-					try { return Mathf.Clamp01(pawn.health.capacities.GetLevel(def)); } catch { return 0f; }
-				}
-				var eatingDef = DefDatabase<PawnCapacityDef>.GetNamedSilentFail("Eating");
-				var snap = new PawnHealthSnapshot
-				{
-					PawnLoadId = pawnLoadId,
-					Consciousness = Lv(PawnCapacityDefOf.Consciousness),
-					Moving = Lv(PawnCapacityDefOf.Moving),
-					Manipulation = Lv(PawnCapacityDefOf.Manipulation),
-					Sight = Lv(PawnCapacityDefOf.Sight),
-					Hearing = Lv(PawnCapacityDefOf.Hearing),
-					Talking = Lv(PawnCapacityDefOf.Talking),
-					Breathing = Lv(PawnCapacityDefOf.Breathing),
-					BloodPumping = Lv(PawnCapacityDefOf.BloodPumping),
-					BloodFiltration = Lv(PawnCapacityDefOf.BloodFiltration),
-					Metabolism = eatingDef != null ? Lv(eatingDef) : 0f,
-					IsDead = dead
-				};
-				// 平均数计算交由 Tool 层完成；此处仅提供原始能力值与死亡状态
-				snap.AveragePercent = 0f;
-				// 采集 Hediffs（受伤/疾病/改造/缺失等）
-				try
-				{
-					var list = new System.Collections.Generic.List<HediffItem>();
-					var hediffs = pawn.health?.hediffSet?.hediffs ?? new System.Collections.Generic.List<Hediff>();
-					foreach (var hdf in hediffs)
-					{
-						if (hdf == null) continue;
-						var label = hdf.LabelBaseCap ?? hdf.LabelCap ?? hdf.def?.label ?? hdf.def?.defName ?? string.Empty;
-						var part = hdf.Part?.LabelCap ?? string.Empty;
-						var sev = 0f; try { sev = hdf.Severity; } catch { sev = 0f; }
-						bool perm = false; try { perm = hdf.IsPermanent(); } catch { perm = false; }
-						string cat = "Other";
-						try
-						{
-							if (hdf is Hediff_MissingPart) cat = "MissingPart";
-							else if (hdf is Hediff_AddedPart) cat = "Implant";
-							else if (hdf.def?.injuryProps != null) cat = "Injury";
-							else if (hdf.def?.isBad == true) cat = "Disease";
-						}
-						catch { }
-						list.Add(new HediffItem { Label = label, Part = part, Severity = sev, Permanent = perm, Category = cat });
-					}
-					snap.Hediffs = list;
-				}
-				catch { }
-				return snap;
-			}, name: "GetPawnHealthSnapshot", ct: cts.Token);
-		}
-
-		public Task<PawnPromptSnapshot> GetPawnPromptSnapshotAsync(int pawnLoadId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null;
-				foreach (var map in Find.Maps)
-				{
-					foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
-					{
-						if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; }
-					}
-					if (pawn != null) break;
-				}
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var snap = new PawnPromptSnapshot
-				{
-					Id = new Identity
-					{
-						Name = pawn.Name?.ToStringShort ?? pawn.LabelCap ?? "Pawn",
-						Gender = pawn.gender.ToString(),
-						Age = pawn.ageTracker != null ? (int)UnityEngine.Mathf.Floor(pawn.ageTracker.AgeBiologicalYearsFloat) : 0,
-						Race = pawn.def?.label ?? string.Empty,
-						Belief = null
-					},
-					Story = new Backstory
-					{
-						Childhood = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetBackstoryTitle(pawn, true) ?? string.Empty,
-						Adulthood = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetBackstoryTitle(pawn, false) ?? string.Empty
-					},
-					Traits = new TraitsAndWork
-					{
-						Traits = (pawn.story?.traits?.allTraits ?? new System.Collections.Generic.List<Trait>()).Select(t => t.LabelCap ?? t.Label).ToList(),
-						WorkDisables = (RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetCombinedDisabledWorkTagsCsv(pawn) ?? string.Empty).Split(new[] { ',', ';' }, System.StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList()
-					},
-					Skills = new Skills
-					{
-						Items = (pawn.skills?.skills ?? new System.Collections.Generic.List<SkillRecord>()).Select(s => new SkillItem
-						{
-							Name = s.def?.label ?? s.def?.defName ?? string.Empty,
-							Level = s.Level,
-							Passion = s.passion.ToString(),
-							Normalized = UnityEngine.Mathf.Clamp01(s.Level / 20f)
-						}).ToList()
-					},
-					IsIdeologyAvailable = ModsConfig.IdeologyActive
-				};
-				if (snap.IsIdeologyAvailable)
-				{
-					try
-					{
-						// 尝试读取信仰/意识形态简要（若不可用则跳过）
-						snap.Id.Belief = pawn.Ideo?.name ?? pawn.Ideo?.ToString() ?? null;
-					}
-					catch { snap.Id.Belief = null; }
-				}
-				return snap;
-			}, name: "GetPawnPromptSnapshot", ct: cts.Token);
-		}
-
-		public Task<PawnSocialSnapshot> GetPawnSocialSnapshotAsync(int pawnLoadId, int topRelations, int recentSocialEvents, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null;
-				foreach (var map in Find.Maps)
-				{
-					foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>())
-					{
-						if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; }
-					}
-					if (pawn != null) break;
-				}
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var relations = new System.Collections.Generic.List<SocialRelationItem>();
-				try
-				{
-					var rels = pawn.relations?.DirectRelations ?? new System.Collections.Generic.List<DirectPawnRelation>();
-					foreach (var r in rels)
-					{
-						var other = r.otherPawn;
-						if (other == null) continue;
-						relations.Add(new SocialRelationItem
-						{
-							RelationKind = r.def?.label ?? r.def?.defName ?? string.Empty,
-							OtherName = other.Name?.ToStringShort ?? other.LabelCap ?? "Pawn",
-							OtherEntityId = $"pawn:{other.thingIDNumber}",
-							Opinion = pawn.relations?.OpinionOf(other) ?? 0
-						});
-					}
-				}
-				catch { }
-				var ordered = relations.OrderByDescending(x => x.Opinion).Take(Math.Max(0, topRelations)).ToList();
-				var eventsList = new System.Collections.Generic.List<SocialEventItem>();
-				try
-				{
-					var events = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetRecentSocialEvents(pawn, recentSocialEvents) ?? new System.Collections.Generic.List<SocialEventItem>();
-					eventsList.AddRange(events);
-				}
-				catch { }
-				return new PawnSocialSnapshot { Relations = ordered, RecentEvents = eventsList };
-			}, name: "GetPawnSocialSnapshot", ct: cts.Token);
-		}
+		// 获取殖民者社交摘要（关系与近期社交事件）
+		public Task<PawnSocialSnapshot> GetPawnSocialSnapshotAsync(int pawnLoadId, int topRelations, int recentSocialEvents, CancellationToken ct = default) => _pawnSocialPart.GetPawnSocialSnapshotAsync(pawnLoadId, topRelations, recentSocialEvents, ct);
 
 		// removed GetPawnEnvironmentMatrixAsync: replaced by split APIs below
 
-		public Task<float> GetPawnBeautyAverageAsync(int pawnLoadId, int radius, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var mapRef1 = pawn.Map; if (mapRef1 == null) throw new WorldDataException("Map missing");
-				var center = pawn.Position;
-				int r = System.Math.Max(0, radius);
-				long n = 0; double sum = 0.0;
-				for (int dz = -r; dz <= r; dz++)
-				{
-					for (int dx = -r; dx <= r; dx++)
-					{
-						var cell = center + new IntVec3(dx, 0, dz);
-						if (!cell.InBounds(mapRef1)) continue;
-						float beauty = 0f; try { beauty = BeautyUtility.CellBeauty(cell, mapRef1); } catch { beauty = 0f; }
-						sum += beauty; n++;
-					}
-				}
-				return (float)(n > 0 ? (sum / n) : 0.0);
-			}, name: "GetPawnBeautyAverage", ct: cts.Token);
-		}
+		// 计算以殖民者为中心的美观均值（指定半径）
+		public Task<float> GetPawnBeautyAverageAsync(int pawnLoadId, int radius, CancellationToken ct = default) => _envPart.GetPawnBeautyAverageAsync(pawnLoadId, radius, ct);
 
-		public Task<System.Collections.Generic.IReadOnlyList<TerrainCountItem>> GetPawnTerrainCountsAsync(int pawnLoadId, int radius, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var mapRef2 = pawn.Map; if (mapRef2 == null) throw new WorldDataException("Map missing");
-				var center = pawn.Position;
-				int r = System.Math.Max(0, radius);
-				var counting = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
-				for (int dz = -r; dz <= r; dz++)
-				{
-					for (int dx = -r; dx <= r; dx++)
-					{
-						var cell = center + new IntVec3(dx, 0, dz);
-						if (!cell.InBounds(mapRef2)) continue;
-						var terr = cell.GetTerrain(mapRef2);
-						var key = terr?.label ?? terr?.defName ?? "(unknown)";
-						if (!counting.TryGetValue(key, out var c)) c = 0;
-						counting[key] = c + 1;
-					}
-				}
-				var list = new System.Collections.Generic.List<TerrainCountItem>(counting.Count);
-				foreach (var kv in counting) list.Add(new TerrainCountItem { Terrain = kv.Key, Count = kv.Value });
-				return (System.Collections.Generic.IReadOnlyList<TerrainCountItem>)list;
-			}, name: "GetPawnTerrainCounts", ct: cts.Token);
-		}
+		// 统计以殖民者为中心的地形分布（指定半径）
+		public Task<System.Collections.Generic.IReadOnlyList<TerrainCountItem>> GetPawnTerrainCountsAsync(int pawnLoadId, int radius, CancellationToken ct = default) => _envPart.GetPawnTerrainCountsAsync(pawnLoadId, radius, ct);
 
-		public Task<System.Collections.Generic.IReadOnlyList<GameLogItem>> GetRecentGameLogsAsync(int maxCount, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				var list = new List<GameLogItem>();
-				try
-				{
-					var logs = Find.PlayLog?.AllEntries ?? new List<LogEntry>();
-					for (int i = logs.Count - 1; i >= 0 && list.Count < Mathf.Max(0, maxCount); i--)
-					{
-						var e = logs[i]; if (e == null) continue;
-						string text = string.Empty;
-						try
-						{
-							if (e is PlayLogEntry_Interaction inter)
-							{
-								Pawn pov = null;
-								try { pov = inter.GetConcerns()?.OfType<Pawn>()?.FirstOrDefault(); } catch { }
-								try { text = inter.ToGameStringFromPOV(pov, false); }
-								catch { text = inter.ToString(); }
-							}
-							else
-							{
-								text = e.ToString();
-							}
-						}
-						catch { try { text = e.ToString(); } catch { text = string.Empty; } }
-						if (string.IsNullOrWhiteSpace(text)) continue;
-						string time = string.Empty;
-						try
-						{
-							var abs = Find.TickManager?.TicksAbs ?? 0;
-							int tile = Find.CurrentMap?.Tile ?? 0;
-							var longLat = Find.WorldGrid?.LongLatOf(tile) ?? Vector2.zero;
-							time = GenDate.DateFullStringAt(abs, longLat);
-						}
-						catch { time = System.DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"); }
-						list.Add(new GameLogItem { GameTime = time, Text = text });
-					}
-				}
-				catch { }
-				return (System.Collections.Generic.IReadOnlyList<GameLogItem>)list;
-			}, name: "GetRecentGameLogs", ct: cts.Token);
-		}
+		// 获取最近的游戏日志条目
+		public Task<System.Collections.Generic.IReadOnlyList<GameLogItem>> GetRecentGameLogsAsync(int maxCount, CancellationToken ct = default) => _metaPart.GetRecentGameLogsAsync(maxCount, ct);
 
-		public Task<string> GetCurrentGameTimeStringAsync(CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				try
-				{
-					var abs = Find.TickManager?.TicksAbs ?? 0;
-					int tile = Find.CurrentMap?.Tile ?? 0;
-					var longLat = Find.WorldGrid?.LongLatOf(tile) ?? UnityEngine.Vector2.zero;
-					return GenDate.DateFullStringAt(abs, longLat);
-				}
-				catch
-				{
-					return System.DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
-				}
-			}, name: "GetCurrentGameTimeString", ct: cts.Token);
-		}
+		// 获取当前游戏时间字符串
+		public Task<string> GetCurrentGameTimeStringAsync(CancellationToken ct = default) => _metaPart.GetCurrentGameTimeStringAsync(ct);
 
-		public Task<float> GetBeautyAverageAsync(int centerX, int centerZ, int radius, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				var map = Find.CurrentMap;
-				if (map == null) throw new WorldDataException("Map missing");
-				int r = Math.Max(0, radius);
-				long n = 0;
-				double sum = 0.0;
-				for (int dz = -r; dz <= r; dz++)
-				{
-					for (int dx = -r; dx <= r; dx++)
-					{
-						var cell = new IntVec3(centerX + dx, 0, centerZ + dz);
-						if (!cell.InBounds(map)) continue;
-						float beauty = 0f;
-						try { beauty = BeautyUtility.CellBeauty(cell, map); } catch { beauty = 0f; }
-						sum += beauty;
-						n++;
-					}
-				}
-				return (float)(n > 0 ? (sum / n) : 0.0);
-			}, name: "GetBeautyAverage", ct: cts.Token);
-		}
+		// 计算指定坐标为中心的美观均值（半径）
+		public Task<float> GetBeautyAverageAsync(int centerX, int centerZ, int radius, CancellationToken ct = default) => _envPart.GetBeautyAverageAsync(centerX, centerZ, radius, ct);
 
-		public Task<System.Collections.Generic.IReadOnlyList<TerrainCountItem>> GetTerrainCountsAsync(int centerX, int centerZ, int radius, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				var map = Find.CurrentMap;
-				if (map == null) throw new WorldDataException("Map missing");
-				int r = Math.Max(0, radius);
-				var counting = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
-				for (int dz = -r; dz <= r; dz++)
-				{
-					for (int dx = -r; dx <= r; dx++)
-					{
-						var cell = new IntVec3(centerX + dx, 0, centerZ + dz);
-						if (!cell.InBounds(map)) continue;
-						var terr = cell.GetTerrain(map);
-						var key = terr?.label ?? terr?.defName ?? "(unknown)";
-						if (!counting.TryGetValue(key, out var c)) c = 0;
-						counting[key] = c + 1;
-					}
-				}
-				var list = new System.Collections.Generic.List<TerrainCountItem>(counting.Count);
-				foreach (var kv in counting)
-				{
-					list.Add(new TerrainCountItem { Terrain = kv.Key, Count = kv.Value });
-				}
-				return (System.Collections.Generic.IReadOnlyList<TerrainCountItem>)list;
-			}, name: "GetTerrainCounts", ct: cts.Token);
-		}
+		// 统计指定坐标为中心的地形分布（半径）
+		public Task<System.Collections.Generic.IReadOnlyList<TerrainCountItem>> GetTerrainCountsAsync(int centerX, int centerZ, int radius, CancellationToken ct = default) => _envPart.GetTerrainCountsAsync(centerX, centerZ, radius, ct);
 
-		public Task<ColonySnapshot> GetColonySnapshotAsync(int? pawnLoadId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				var faction = Faction.OfPlayer;
-				var map = Find.CurrentMap;
-				string colonyName = faction?.Name ?? map?.Parent?.Label ?? "Colony";
-				var names = new System.Collections.Generic.List<string>();
-				var records = new System.Collections.Generic.List<ColonistRecord>();
-				int count = 0;
-				foreach (var m in Find.Maps)
-				{
-					var pawns = m?.mapPawns?.PawnsInFaction(faction);
-					if (pawns == null) continue;
-					foreach (var p in pawns)
-					{
-						if (p == null || p.RaceProps == null || p.RaceProps.Humanlike == false) continue;
-						if (p.HostFaction != null) continue; // exclude prisoners/guests of other factions
-						var dispName = p.Name?.ToStringShort ?? p.LabelCap ?? "Pawn";
-						names.Add(dispName);
-						var age = p.ageTracker != null ? (int)UnityEngine.Mathf.Floor(p.ageTracker.AgeBiologicalYearsFloat) : 0;
-						var gender = p.gender.ToString();
-						// 职业/称号：优先 Royalty/Story Title，再回退 Backstory
-						string job = null;
-						try { job = RimAI.Core.Source.Versioned._1_6.World.WorldApiV16.GetPawnTitle(p); } catch { }
-						records.Add(new ColonistRecord { Name = dispName, Age = age, Gender = gender, JobTitle = job ?? string.Empty });
-						count++;
-					}
-				}
-				return new ColonySnapshot { ColonyName = colonyName, ColonistCount = count, ColonistNames = names, Colonists = records };
-			}, name: "GetColonySnapshot", ct: cts.Token);
-		}
+		// 获取殖民地概况快照（名称、人数、清单等）
+		public Task<ColonySnapshot> GetColonySnapshotAsync(int? pawnLoadId, CancellationToken ct = default) => _colonyPart.GetColonySnapshotAsync(pawnLoadId, ct);
 
 
-		public Task<WeatherStatus> GetWeatherStatusAsync(int pawnLoadId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var mapRef = pawn.Map ?? Find.CurrentMap;
-				string weather = string.Empty; try { weather = mapRef?.weatherManager?.curWeather?.label ?? mapRef?.weatherManager?.curWeather?.defName ?? string.Empty; } catch { }
-				float temp = 0f; try { temp = pawn.AmbientTemperature; } catch { }
-				float glow = 0f; try { var pg = mapRef?.glowGrid?.PsychGlowAt(pawn.Position) ?? PsychGlow.Lit; glow = pg == PsychGlow.Dark ? 0f : (pg == PsychGlow.Lit ? 1f : 0.5f); } catch { }
-				return new WeatherStatus { Weather = weather, OutdoorTempC = temp, Glow = glow };
-			}, name: "GetWeatherStatus", ct: cts.Token);
-		}
+		// 获取殖民者所在位置的天气状态
+		public Task<WeatherStatus> GetWeatherStatusAsync(int pawnLoadId, CancellationToken ct = default) => _weatherPart.GetWeatherStatusAsync(pawnLoadId, ct);
 
-		public Task<string> GetCurrentJobLabelAsync(int pawnLoadId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				try
-				{
-					// 优先使用 UI 显示的报告文本（已本地化），例如“闲逛中”
-					var report = pawn.jobs?.curDriver?.GetReport();
-					if (!string.IsNullOrWhiteSpace(report)) return report;
-					// 回退：JobDef 的 label/defName
-					return pawn.CurJobDef != null ? (pawn.CurJobDef.label ?? pawn.CurJobDef.defName) : string.Empty;
-				}
-				catch { return string.Empty; }
-			}, name: "GetCurrentJobLabel", ct: cts.Token);
-		}
+		// 获取殖民者当前工作的标签/描述
+		public Task<string> GetCurrentJobLabelAsync(int pawnLoadId, CancellationToken ct = default) => _pawnStatusPart.GetCurrentJobLabelAsync(pawnLoadId, ct);
 
-		public Task<System.Collections.Generic.IReadOnlyList<ApparelItem>> GetApparelAsync(int pawnLoadId, int maxApparel, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var result = new System.Collections.Generic.List<ApparelItem>();
-				try
-				{
-					var list = pawn.apparel?.WornApparel ?? new System.Collections.Generic.List<Apparel>();
-					foreach (var a in list.Take(System.Math.Max(1, maxApparel)))
-					{
-						int maxHp = a.MaxHitPoints > 0 ? a.MaxHitPoints : 0;
-						int curHp = a.HitPoints;
-						int dp = maxHp > 0 ? UnityEngine.Mathf.Clamp(UnityEngine.Mathf.RoundToInt(curHp * 100f / maxHp), 0, 100) : 100;
-						string qual = string.Empty; try { if (QualityUtility.TryGetQuality(a, out var q)) qual = q.ToString(); } catch { }
-						result.Add(new ApparelItem { Label = a.LabelCap ?? a.Label, Quality = qual, DurabilityPercent = dp });
-					}
-				}
-				catch { }
-				return (System.Collections.Generic.IReadOnlyList<ApparelItem>)result;
-			}, name: "GetApparel", ct: cts.Token);
-		}
+		// 获取殖民者所穿戴的服装清单（限制数量）
+		public Task<System.Collections.Generic.IReadOnlyList<ApparelItem>> GetApparelAsync(int pawnLoadId, int maxApparel, CancellationToken ct = default) => _pawnStatusPart.GetApparelAsync(pawnLoadId, maxApparel, ct);
 
-		public Task<NeedsSnapshot> GetNeedsAsync(int pawnLoadId, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var needs = new NeedsSnapshot();
-				try { needs.Food = pawn.needs?.food?.CurLevelPercentage ?? 0f; } catch { }
-				try { needs.Rest = pawn.needs?.rest?.CurLevelPercentage ?? 0f; } catch { }
-				try { needs.Recreation = pawn.needs?.joy?.CurLevelPercentage ?? 0f; } catch { }
-				try { needs.Beauty = pawn.needs?.beauty?.CurLevelPercentage ?? 0f; } catch { }
-				try { needs.Indoors = pawn.needs?.roomsize?.CurLevelPercentage ?? 0f; } catch { }
-				try { needs.Mood = pawn.needs?.mood?.CurLevelPercentage ?? 0f; } catch { }
-				return needs;
-			}, name: "GetNeeds", ct: cts.Token);
-		}
+		// 获取殖民者需求快照（饥饿、休息等）
+		public Task<NeedsSnapshot> GetNeedsAsync(int pawnLoadId, CancellationToken ct = default) => _pawnStatusPart.GetNeedsAsync(pawnLoadId, ct);
 
-		public Task<System.Collections.Generic.IReadOnlyList<ThoughtItem>> GetMoodThoughtOffsetsAsync(int pawnLoadId, int maxThoughts, CancellationToken ct = default)
-		{
-			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
-			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			cts.CancelAfter(timeoutMs);
-			return _scheduler.ScheduleOnMainThreadAsync(() =>
-			{
-				if (Current.Game == null) throw new WorldDataException("World not loaded");
-				Pawn pawn = null; foreach (var map in Find.Maps) { foreach (var p in map.mapPawns?.AllPawns ?? Enumerable.Empty<Pawn>()) { if (p?.thingIDNumber == pawnLoadId) { pawn = p; break; } } if (pawn != null) break; }
-				if (pawn == null) throw new WorldDataException($"Pawn not found: {pawnLoadId}");
-				var thoughts = new System.Collections.Generic.List<ThoughtItem>();
-				try
-				{
-					var mem = pawn.needs?.mood?.thoughts?.memories?.Memories ?? new System.Collections.Generic.List<Thought_Memory>();
-					var top = mem
-						.Select(t => new ThoughtItem { Label = t?.LabelCap ?? t?.def?.label ?? t?.def?.defName ?? string.Empty, MoodOffset = UnityEngine.Mathf.RoundToInt((t?.MoodOffset() ?? 0f)) })
-						.Where(x => !string.IsNullOrWhiteSpace(x.Label) && x.MoodOffset != 0)
-						.OrderBy(x => x.MoodOffset)
-						.Take(System.Math.Max(1, maxThoughts))
-						.ToList();
-					thoughts.AddRange(top);
-				}
-				catch { }
-				return (System.Collections.Generic.IReadOnlyList<ThoughtItem>)thoughts;
-			}, name: "GetMoodThoughtOffsets", ct: cts.Token);
-		}
+		// 获取殖民者情绪思潮及加成/减益（限制数量）
+		public Task<System.Collections.Generic.IReadOnlyList<ThoughtItem>> GetMoodThoughtOffsetsAsync(int pawnLoadId, int maxThoughts, CancellationToken ct = default) => _pawnStatusPart.GetMoodThoughtOffsetsAsync(pawnLoadId, maxThoughts, ct);
+
+		// 获取食物库存快照（营养、保质等）
+		public Task<FoodInventorySnapshot> GetFoodInventoryAsync(CancellationToken ct = default) => _foodPart.GetAsync(ct);
+
+		// 获取药品库存快照（效能、数量等）
+		public Task<MedicineInventorySnapshot> GetMedicineInventoryAsync(CancellationToken ct = default) => _medPart.GetAsync(ct);
+
+		// 获取威胁概况（敌对数量、威胁点、火灾/危险等级等）
+		public Task<ThreatSnapshot> GetThreatSnapshotAsync(CancellationToken ct = default) => _threatPart.GetAsync(ct);
+
+
+		// 获取资源概览（CountAsResource 的物品清单 + 日耗与天数估算）
+		public Task<ResourceOverviewSnapshot> GetResourceOverviewAsync(CancellationToken ct = default) => _resourcePart.GetAsync(ct);
+
+		// 获取电力概览（总发电/用电/净值 + 电池存量与天数）
+		public Task<PowerStatusSnapshot> GetPowerStatusAsync(CancellationToken ct = default) => _powerPart.GetAsync(ct);
 
 	}
 

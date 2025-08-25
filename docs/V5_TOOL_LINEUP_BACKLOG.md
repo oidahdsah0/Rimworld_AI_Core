@@ -26,13 +26,14 @@
    - 各仓库/重要存放点占用率，阻塞风险
    - 输出：storages[{name, usedPct, critical, notes}]
    - 备注：critical 阈值 0.85；按 Zone/Building/Group 估算容量；同名合并显示
-6. get_research_options（重设）
+6. get_research_options（已实现）
    - 可研究清单（当前可用+关键锁定项）：名称、描述、基础研究点、前置、所需工作台/科技印记、粗略所需时间
    - 输出：research{current{project, progressPct, workLeft, etaDays}, availableNow[{defName, label, desc, baseCost, techLevel, prereqs[], benches[], techprintsNeeded, roughTimeDays}], lockedKey[{defName, label, missingPrereqs[], benchesMissing[], techprintsMissing, note}], colony{researchers, effectiveSpeed}}
    - 备注：roughTimeDays 基于“当前有效研究速度”粗估；availableNow 默认限 TopN=12 便于上游提示词消费
-7. get_construction_backlog
+7. get_construction_backlog（已实现）
    - 待建蓝图、材料缺口、阻塞点
    - 输出：builds[{thing, count, missing[{res, qty}]}]
+   - 备注：扫描当前地图蓝图/框架；按 DefName/Label 归并并聚合缺口；基于 resourceCounter 粗估，不含在途/容器专用投喂。
 8. get_security_posture
    - 炮塔/陷阱/火力覆盖与缺口
    - 输出：security{turrets, traps, coverage, gaps[]}

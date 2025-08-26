@@ -73,8 +73,18 @@ namespace RimAI.Core.Source.Modules.Tooling
 				["get_storage_saturation"] = new StorageSaturationExecutor(),
 				["get_research_options"] = new ResearchOptionsExecutor(),
 				["get_construction_backlog"] = new ConstructionBacklogExecutor(),
-				["get_security_posture"] = new SecurityPostureExecutor()
+				["get_security_posture"] = new SecurityPostureExecutor(),
+				["get_medical_overview"] = new MedicalOverviewExecutor(),
+				["get_wildlife_opportunities"] = new WildlifeOpportunitiesExecutor()
 			};
+			// 扩展注册
+			manual["get_mood_risk_overview"] = new MoodRiskOverviewExecutor();
+			manual["get_trade_readiness"] = new TradeReadinessExecutor();
+			manual["get_animal_management"] = new AnimalManagementExecutor();
+			manual["get_prison_overview"] = new PrisonOverviewExecutor();
+			manual["get_alert_digest"] = new AlertDigestExecutor();
+			manual["get_raid_readiness"] = new RaidReadinessExecutor();
+
 			foreach (var kv in manual)
 			{
 				execMap[kv.Key] = kv.Value; // 手动注册优先级更高

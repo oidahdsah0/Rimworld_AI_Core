@@ -45,6 +45,14 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly Parts.ResearchPart _researchPart;
 		private readonly Parts.ConstructionBacklogPart _constructionPart;
 		private readonly Parts.SecurityPosturePart _securityPart;
+		private readonly Parts.MoodRiskPart _moodRiskPart;
+		private readonly Parts.MedicalOverviewPart _medicalPart;
+		private readonly Parts.WildlifeOpportunitiesPart _wildlifePart;
+		private readonly Parts.TradeReadinessPart _tradePart;
+		private readonly Parts.AnimalManagementPart _animalPart;
+		private readonly Parts.PrisonOverviewPart _prisonPart;
+		private readonly Parts.AlertDigestPart _alertPart;
+		private readonly Parts.RaidReadinessPart _raidPart;
 
 		public WorldDataService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -69,6 +77,14 @@ namespace RimAI.Core.Source.Modules.World
 			_researchPart = new Parts.ResearchPart(_scheduler, _cfg);
 			_constructionPart = new Parts.ConstructionBacklogPart(_scheduler, _cfg);
 			_securityPart = new Parts.SecurityPosturePart(_scheduler, _cfg);
+			_moodRiskPart = new Parts.MoodRiskPart(_scheduler, _cfg);
+			_medicalPart = new Parts.MedicalOverviewPart(_scheduler, _cfg);
+			_wildlifePart = new Parts.WildlifeOpportunitiesPart(_scheduler, _cfg);
+			_tradePart = new Parts.TradeReadinessPart(_scheduler, _cfg);
+			_animalPart = new Parts.AnimalManagementPart(_scheduler, _cfg);
+			_prisonPart = new Parts.PrisonOverviewPart(_scheduler, _cfg);
+			_alertPart = new Parts.AlertDigestPart(_scheduler, _cfg);
+			_raidPart = new Parts.RaidReadinessPart(_scheduler, _cfg);
 		}
 
 		// 获取玩家名称（派系/殖民地拥有者）
@@ -167,6 +183,30 @@ namespace RimAI.Core.Source.Modules.World
 
 		// 获取安防态势（炮塔/陷阱/覆盖/盲区）
 		public Task<SecurityPostureSnapshot> GetSecurityPostureAsync(CancellationToken ct = default) => _securityPart.GetAsync(ct);
+
+		// 获取心情风险概览（均值、分布、主因）
+		public Task<MoodRiskSnapshot> GetMoodRiskOverviewAsync(CancellationToken ct = default) => _moodRiskPart.GetAsync(ct);
+
+		// 获取医疗健康检查（汇总 + 分组 + 明细）
+		public Task<MedicalOverviewSnapshot> GetMedicalOverviewAsync(CancellationToken ct = default) => _medicalPart.GetAsync(ct);
+
+		// 获取野生动物机会（物种聚合）
+		public Task<WildlifeOpportunitiesSnapshot> GetWildlifeOpportunitiesAsync(CancellationToken ct = default) => _wildlifePart.GetAsync(ct);
+
+		// 获取贸易就绪度（银币/信标/通讯台/物资）
+		public Task<TradeReadinessSnapshot> GetTradeReadinessAsync(CancellationToken ct = default) => _tradePart.GetAsync(ct);
+
+		// 获取牲畜管理（数量/训练/口粮）
+		public Task<AnimalManagementSnapshot> GetAnimalManagementAsync(CancellationToken ct = default) => _animalPart.GetAsync(ct);
+
+		// 获取囚犯概览（数量、可招募、风险）
+		public Task<PrisonOverviewSnapshot> GetPrisonOverviewAsync(CancellationToken ct = default) => _prisonPart.GetAsync(ct);
+
+		// 获取警报摘要（聚合与排序）
+		public Task<AlertDigestSnapshot> GetAlertDigestAsync(CancellationToken ct = default) => _alertPart.GetAsync(ct);
+
+		// 获取袭击战备评估（财富/人口/战兽/威胁点/规模）
+		public Task<RaidReadinessSnapshot> GetRaidReadinessAsync(CancellationToken ct = default) => _raidPart.GetAsync(ct);
 
 	}
 

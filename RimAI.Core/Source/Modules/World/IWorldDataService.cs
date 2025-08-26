@@ -54,6 +54,30 @@ namespace RimAI.Core.Source.Modules.World
 
 		// New: security posture (turrets, traps, coverage and gaps)
 		Task<SecurityPostureSnapshot> GetSecurityPostureAsync(CancellationToken ct = default);
+
+		// New: mood risk overview (distribution and top negative causes)
+		Task<MoodRiskSnapshot> GetMoodRiskOverviewAsync(CancellationToken ct = default);
+
+		// New: medical overview (colony health check)
+		Task<MedicalOverviewSnapshot> GetMedicalOverviewAsync(CancellationToken ct = default);
+
+		// New: wildlife opportunities (group by species)
+		Task<WildlifeOpportunitiesSnapshot> GetWildlifeOpportunitiesAsync(CancellationToken ct = default);
+
+		// New: trade readiness (silver, beacons/comms, goods)
+		Task<TradeReadinessSnapshot> GetTradeReadinessAsync(CancellationToken ct = default);
+
+		// New: animal management snapshot
+		Task<AnimalManagementSnapshot> GetAnimalManagementAsync(CancellationToken ct = default);
+
+		// New: prison overview (count, recruitables, risks)
+		Task<PrisonOverviewSnapshot> GetPrisonOverviewAsync(CancellationToken ct = default);
+
+		// New: alert digest (aggregate & sort)
+		Task<AlertDigestSnapshot> GetAlertDigestAsync(CancellationToken ct = default);
+
+		// New: raid readiness (wealth/threat points/size estimates)
+		Task<RaidReadinessSnapshot> GetRaidReadinessAsync(CancellationToken ct = default);
 	}
 }
 

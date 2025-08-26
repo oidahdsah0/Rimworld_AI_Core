@@ -38,35 +38,34 @@
    - 炮塔/陷阱/火力覆盖与缺口
    - 输出：security{turrets[{type,label,x,z,range,minRange,losRequired,flyOverhead,dpsScore,powered,manned,holdFire}], traps[{type,label,x,z,resettable}], coverage{areaPct,strongPct,avgStack,overheadPct,approaches[{entryX,entryZ,avgFire,maxGapLen,trapDensity}]}, gaps[{centerX,centerZ,minX,minZ,maxX,maxZ,area,distToCore,reason}], note}
    - 备注：无炮塔时 note 提示英文说明；领地优先使用家区，回退为殖民建筑扩张；覆盖计算考虑 LOS 与抛射。 
-9. get_mood_risk_overview
+9. get_mood_risk_overview（已实现）
    - 心情分布、即将崩溃人数与主因
-   - 输出：mood{avg, lowCount, topCauses[]}
-10. get_medical_overview
-    - 在治病人、流血速率、手术计划
-    - 输出：medical{patients[], bleeding[], operations[]}
-11. get_wildlife_opportunities
-    - 可安全狩猎目标与收益/风险
-    - 输出：wildlife[{species, pack, manhunterRisk, meat, leather}]
-12. get_trade_readiness
-    - 可交易物资、银币、信标/驿站状态
-    - 输出：trade{silver, beacons, goods[]}
-13. get_animal_management
-    - 牲畜/战兽数量、训练、口粮压力
-    - 输出：animals{counts, training, foodDays}
-14. get_prison_overview
-    - 囚犯概况、叛乱/逃狱风险、招募点
-    - 输出：prison{count, recruitables[], risks[]}
-15. get_alert_digest
-    - 当前 RimWorld 警报聚合与严重度排序
-    - 输出：alerts[{id, label, severity, hint}]
+   - 输出：mood{avgPct, minorCount, majorCount, extremeCount, nearBreakCount, topCauses[{label, totalImpact, pawnsAffected}]}
+   - 备注：思潮聚合使用 ThoughtHandler.GetDistinctMoodThoughtGroups + MoodOffsetOfGroup，确保与 UI 逻辑一致；仅汇总负面项（offset<0）。
+10. get_medical_overview（健康检查 v1）
+   - 殖民地健康总览（优先输出汇总）：健康均值/疼痛均值、需包扎数、出血/感染/生命危险人数、手术计划数 + 轻量风险评分与提示
+   - 输出（汇总优先）：medical{summary{totalColonists, patientsNeedingTend, bleedingCount, infectionCount, operationsPending, lifeThreatCount, avgHealthPct, avgPainPct, riskScore}, groups{bleeding[], infections[], operations[], lifeThreats[]}, pawns[], advisories[]}
+   - 备注：v1 先提供 overall/hediffs；capacities/parts 可在 v1.1 开关展开；按 Thought/Health UI 口径计算 healthPct/pain/bleeding/感染免疫。
+11. get_wildlife_opportunities（已实现 v1）
+   - 野生动物按物种聚合：数量、风险（捕食/群居/复仇/爆炸）与收益（肉/皮革）+ 简短建议
+   - 输出：wildlife[{species, defName, count, predator, herdAnimal, packAnimal, insect, explosive, manhunterOnDamageChance, avgBodySize, avgWildness, meatPer, leatherPer, leatherDef, totalMeat, totalLeather, seasonOk, suggestedApproach, notes[]}]
+12. get_trade_readiness（已实现 v1）
+   - 可交易银币、信标覆盖/电力、通讯台可用性，以及信标覆盖范围内可交易物资清单
+   - 输出：trade{silver, beacons{total, powered, coverageCells, inRangeStacks}, comms{hasConsole, usableNow}, goods[{defName, label, qty, totalValue}]}
+13. get_animal_management（已实现 v1）
+   - 牲畜/战兽数量、训练、口粮压力
+   - 输出：animals{counts{total, species[{defName,label,count}]}, training{obedience{eligible,learned}, release{...}, rescue{...}, haul{...}}, food{totalNutrition, dailyNeed, days, sources[{defName,label,count,nutritionPer,totalNutrition}]}}
+14. get_prison_overview（已实现 v1）
+   - 囚犯概况、叛乱/逃狱风险、招募点
+   - 输出：prison{count, recruitables[{pawn,pawnLoadId,mode}], risks[]}
+15. get_alert_digest（已实现 v1）
+   - 当前 RimWorld 警报聚合与严重度排序
+   - 输出：alerts[{id, label, severity, hint}]
 
 ## Lv2（10）
-1. get_food_forecast
-   - 粮食天数预测（包含作物生长与保质损耗）
-   - 输出：forecast{days, curve[], risks[]}
-2. get_raid_readiness
-   - 战力估计、掩体与集结效率
-   - 输出：combat{points, coverScore, responseTime}
+1. get_raid_readiness（进行中 v1：威胁点与规模估算）
+   - 当前财富/人口/战兽/机仆构成与 Storyteller 因子，估算 DefaultThreatPointsNow 与袭击规模区间，分级风险带
+   - 输出：raid{wealth{total,items,buildings,pawns,playerWealthForStoryteller}, colony{humanCount,armedCount,avgHealthPct}, animals{battleReadyCount,pointsContribution}, mechs{count,combatPowerSum}, points{finalPoints,difficultyScale,adaptationApplied,timeFactor,randomFactorMin,randomFactorMax,daysSinceSettle}, riskBand, sizes[{archetype,min,max}]}
 3. get_workload_balance
    - 工作分配热点、空闲与瓶颈
    - 输出：workload{idlePct, overloadAreas[], suggestions[]}

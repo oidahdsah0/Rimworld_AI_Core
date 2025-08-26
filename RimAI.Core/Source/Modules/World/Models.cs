@@ -447,6 +447,356 @@ namespace RimAI.Core.Source.Modules.World
 		public int DistToCore { get; set; }
 		public string Reason { get; set; }
 	}
+
+	// 心情风险概览（v1）：分布与主因
+	internal sealed class MoodRiskSnapshot
+	{
+		public float AvgPct { get; set; }           // 0..1
+		public int MinorCount { get; set; }
+		public int MajorCount { get; set; }
+		public int ExtremeCount { get; set; }
+		public int NearBreakCount { get; set; }     // 距轻度阈值近的数量
+		public System.Collections.Generic.IReadOnlyList<MoodCauseItem> TopCauses { get; set; }
+	}
+
+	internal sealed class MoodCauseItem
+	{
+		public string Label { get; set; }
+		public float TotalImpact { get; set; }      // 负面强度绝对值累加
+		public int PawnsAffected { get; set; }
+	}
+
+	// 医疗健康检查（v1）：汇总 + 分组 + 全量明细（可裁剪）
+	internal sealed class MedicalOverviewSnapshot
+	{
+		public MedicalSummary Summary { get; set; }
+		public MedicalGroups Groups { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicalPawnItem> Pawns { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> Advisories { get; set; }
+	}
+
+	internal sealed class MedicalSummary
+	{
+		public int TotalColonists { get; set; }
+		public int PatientsNeedingTend { get; set; }
+		public int BleedingCount { get; set; }
+		public int InfectionCount { get; set; }
+		public int OperationsPending { get; set; }
+		public int LifeThreatCount { get; set; }
+		public float AvgHealthPct { get; set; } // 0..1（SummaryHealthPercent）
+		public float AvgPainPct { get; set; }   // 0..1（hediffSet.PainTotal）
+		public int RiskScore { get; set; }      // 0..100 轻量评分
+	}
+
+	internal sealed class MedicalGroups
+	{
+		public System.Collections.Generic.IReadOnlyList<MedicalBleedingItem> Bleeding { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicalInfectionItem> Infections { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicalOperationItem> Operations { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicalLifeThreatItem> LifeThreats { get; set; }
+	}
+
+	internal sealed class MedicalBleedingItem
+	{
+		public string Pawn { get; set; }
+		public int PawnLoadId { get; set; }
+		public float BleedRate { get; set; }     // 每日总流血率（pawn.health.hediffSet.BleedRateTotal）
+		public float TimeToDeathHours { get; set; } // 依据 HealthUtility.TicksUntilDeathDueToBloodLoss 估算（<0 表示不适用）
+		public bool Tended { get; set; }
+		public bool InMedicalBed { get; set; }
+	}
+
+	internal sealed class MedicalInfectionItem
+	{
+		public string Pawn { get; set; }
+		public int PawnLoadId { get; set; }
+		public string Disease { get; set; }
+		public float Severity { get; set; }
+		public float Immunity { get; set; }
+		public float Delta { get; set; }         // Immunity - Severity
+		public bool Tended { get; set; }
+	}
+
+	internal sealed class MedicalOperationItem
+	{
+		public string Pawn { get; set; }
+		public int PawnLoadId { get; set; }
+		public string BillLabel { get; set; }
+		public string PartLabel { get; set; }
+		public bool RequiresMedicine { get; set; }
+		public bool UsesGlitter { get; set; }
+		public bool Anesthetize { get; set; }
+		public string RiskHint { get; set; }
+	}
+
+	internal sealed class MedicalLifeThreatItem
+	{
+		public string Pawn { get; set; }
+		public int PawnLoadId { get; set; }
+		public string Hediff { get; set; }
+		public float Severity { get; set; }
+		public string Reason { get; set; }
+	}
+
+	internal sealed class MedicalPawnItem
+	{
+		public string Pawn { get; set; }
+		public int PawnLoadId { get; set; }
+		public string Map { get; set; }
+		public bool IsDowned { get; set; }
+		public bool InMedicalBed { get; set; }
+		public bool NeedsTending { get; set; }
+		public float HealthPct { get; set; }    // 0..1
+		public float PainPct { get; set; }      // 0..1
+		public float BleedRate { get; set; }
+		public MedicalCapacities Capacities { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicalPartItem> Parts { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicalHediffItem> Hediffs { get; set; }
+		public System.Collections.Generic.IReadOnlyList<MedicalOperationItem> ScheduledOps { get; set; }
+	}
+
+	internal sealed class MedicalCapacities
+	{
+		public float Consciousness { get; set; }
+		public float Moving { get; set; }
+		public float Manipulation { get; set; }
+		public float Sight { get; set; }
+		public float Hearing { get; set; }
+		public float Talking { get; set; }
+		public float Breathing { get; set; }
+		public float BloodPumping { get; set; }
+		public float BloodFiltration { get; set; }
+	}
+
+	internal sealed class MedicalPartItem
+	{
+		public string PartLabel { get; set; }
+		public string Tag { get; set; }
+		public bool IsMissing { get; set; }
+		public float HpPct { get; set; }
+		public string ProstheticTier { get; set; } // none|prosthetic|bionic|archotech|other
+	}
+
+	internal sealed class MedicalHediffItem
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public string Category { get; set; }    // injury|disease|implant|missing|addiction|temperature|other
+		public string StageLabel { get; set; }
+		public float Severity { get; set; }
+		public bool IsBleeding { get; set; }
+		public bool IsTendable { get; set; }
+		public bool Tended { get; set; }
+		public float TendQuality { get; set; }
+		public int TendTicksLeft { get; set; }
+		public bool IsInfection { get; set; }
+		public float Immunity { get; set; }
+		public bool IsPermanent { get; set; }
+		public bool IsAddiction { get; set; }
+		public bool IsDisease { get; set; }
+		public bool IsTemperature { get; set; }
+		public string OnPartLabel { get; set; }
+	}
+
+	// 野生动物机会（v1）：按物种聚合狩猎机会与风险/收益信号
+	internal sealed class WildlifeOpportunitiesSnapshot
+	{
+		public System.Collections.Generic.IReadOnlyList<WildlifeSpeciesGroup> Species { get; set; }
+		public string Note { get; set; }
+	}
+
+	internal sealed class WildlifeSpeciesGroup
+	{
+		public string Species { get; set; }      // 物种中文标签
+		public string DefName { get; set; }      // 物种 DefName
+		public int Count { get; set; }           // 地图上存活数量
+		public bool Predator { get; set; }
+		public bool HerdAnimal { get; set; }
+		public bool PackAnimal { get; set; }
+		public bool IsInsect { get; set; }
+		public bool Explosive { get; set; }      // 如爆炸羊/爆炸鼠
+		public float ManhunterOnDamageChance { get; set; } // 单体受伤复仇几率（0..1）
+		public float AvgBodySize { get; set; }
+		public float AvgWildness { get; set; }   // 0..1
+		public float MeatPer { get; set; }
+		public float LeatherPer { get; set; }
+		public string LeatherDef { get; set; }
+		public float TotalMeat { get; set; }
+		public float TotalLeather { get; set; }
+		public bool SeasonOk { get; set; }
+		public string SuggestedApproach { get; set; } // 简短建议：远程/避免近战/先清群等
+		public string[] Notes { get; set; }
+	}
+
+	// 贸易就绪度（v1）：银币、信标/控制台状态、可交易物资清单（信标覆盖范围内）
+	internal sealed class TradeReadinessSnapshot
+	{
+		public int Silver { get; set; }
+		public TradeBeaconInfo Beacons { get; set; }
+		public TradeCommsInfo Comms { get; set; }
+		public System.Collections.Generic.IReadOnlyList<TradeGoodsItem> Goods { get; set; }
+	}
+
+	internal sealed class TradeBeaconInfo
+	{
+		public int Total { get; set; }
+		public int Powered { get; set; }
+		public int CoverageCells { get; set; }
+		public int InRangeStacks { get; set; }
+	}
+
+	internal sealed class TradeCommsInfo
+	{
+		public bool HasConsole { get; set; }
+		public bool UsableNow { get; set; }
+	}
+
+	internal sealed class TradeGoodsItem
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public int Qty { get; set; }
+		public float TotalValue { get; set; }
+	}
+
+	// 牲畜管理（v1）：数量分布、训练概况、口粮压力
+	internal sealed class AnimalManagementSnapshot
+	{
+		public AnimalCounts Counts { get; set; }
+		public AnimalTrainingSummary Training { get; set; }
+		public AnimalFoodStatus Food { get; set; }
+	}
+
+	internal sealed class AnimalCounts
+	{
+		public int Total { get; set; }
+		public System.Collections.Generic.IReadOnlyList<SpeciesCountItem> Species { get; set; }
+	}
+
+	internal sealed class SpeciesCountItem
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public int Count { get; set; }
+	}
+
+	internal sealed class AnimalTrainingSummary
+	{
+		public TrainableStat Obedience { get; set; }
+		public TrainableStat Release { get; set; }
+		public TrainableStat Rescue { get; set; }
+		public TrainableStat Haul { get; set; }
+	}
+
+	internal sealed class TrainableStat
+	{
+		public int Eligible { get; set; }
+		public int Learned { get; set; }
+	}
+
+	internal sealed class AnimalFoodStatus
+	{
+		public float TotalNutrition { get; set; }
+		public float DailyNeed { get; set; }
+		public float Days { get; set; }
+		public System.Collections.Generic.IReadOnlyList<FoodSourceItem> Sources { get; set; }
+	}
+
+	internal sealed class FoodSourceItem
+	{
+		public string DefName { get; set; }
+		public string Label { get; set; }
+		public int Count { get; set; }
+		public float NutritionPer { get; set; }
+		public float TotalNutrition { get; set; }
+	}
+
+	// 囚犯概览（v1）：数量、潜在可招募清单与风险提示
+	internal sealed class PrisonOverviewSnapshot
+	{
+		public int Count { get; set; }
+		public System.Collections.Generic.IReadOnlyList<PrisonerRecruitItem> Recruitables { get; set; }
+		public System.Collections.Generic.IReadOnlyList<string> Risks { get; set; }
+	}
+
+	internal sealed class PrisonerRecruitItem
+	{
+		public string Pawn { get; set; }
+		public int PawnLoadId { get; set; }
+		public string Mode { get; set; } // Recruit/ReduceResistance/Convert 等
+	}
+
+	// 警报摘要（v1）：聚合当前 RimWorld 警报并按严重度排序
+	internal sealed class AlertDigestSnapshot
+	{
+		public System.Collections.Generic.IReadOnlyList<AlertItem> Alerts { get; set; }
+	}
+
+	internal sealed class AlertItem
+	{
+		public string Id { get; set; }      // 类型名或唯一键
+		public string Label { get; set; }
+		public string Severity { get; set; } // medium|high|critical
+		public string Hint { get; set; }
+	}
+
+	// 袭击风险与战备评估（v1）：财富/人口/战兽与威胁点拆解 + 规模预估
+	internal sealed class RaidReadinessSnapshot
+	{
+		public WealthInfo Wealth { get; set; }
+		public ColonyCombatInfo Colony { get; set; }
+		public AnimalCombatInfo Animals { get; set; }
+		public MechCombatInfo Mechs { get; set; }
+		public ThreatPointBreakdown Points { get; set; }
+		public string RiskBand { get; set; } // low|medium|high|extreme
+		public System.Collections.Generic.IReadOnlyList<RaidSizeEstimate> SizeEstimates { get; set; }
+	}
+
+	internal sealed class WealthInfo
+	{
+		public float Total { get; set; }
+		public float Items { get; set; }
+		public float Buildings { get; set; }
+		public float Pawns { get; set; }
+		public float PlayerWealthForStoryteller { get; set; }
+	}
+
+	internal sealed class ColonyCombatInfo
+	{
+		public int HumanCount { get; set; }
+		public int ArmedCount { get; set; }
+		public float AvgHealthPct { get; set; } // 0..1
+	}
+
+	internal sealed class AnimalCombatInfo
+	{
+		public int BattleReadyCount { get; set; }
+		public float PointsContribution { get; set; } // 估算：Σ(0.08 * combatPower)
+	}
+
+	internal sealed class MechCombatInfo
+	{
+		public int Count { get; set; }
+		public float CombatPowerSum { get; set; }
+	}
+
+	internal sealed class ThreatPointBreakdown
+	{
+		public float FinalPoints { get; set; }
+		public float DifficultyScale { get; set; }
+		public float AdaptationApplied { get; set; } // Mathf.Lerp(1, adaptation, adaptationEffectFactor)
+		public float TimeFactor { get; set; } // 天数因子
+		public float RandomFactorMin { get; set; }
+		public float RandomFactorMax { get; set; }
+		public int DaysSinceSettle { get; set; }
+	}
+
+	internal sealed class RaidSizeEstimate
+	{
+		public string Archetype { get; set; } // humanoids|mixed
+		public int Min { get; set; }
+		public int Max { get; set; }
+	}
 }
 
 

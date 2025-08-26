@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- 研究：引力波通信（解锁引力波天线与未知文明工具） -->
+  <ResearchProjectDef>
+    <defName>RimAI_GW_Communication</defName>
+    <label>gravitational-wave communication</label>
+    <description>Unlocks the construction of a gravitational-wave antenna and the ability to attempt contact with unknown civilizations.</description>
+    <baseCost>1500</baseCost>
+    <prerequisites>
+      <li>RimAI_AI_Level3</li>
+    </prerequisites>
+    <techLevel>Spacer</techLevel>
+    <researchViewX>8</researchViewX>
+    <researchViewY>7</researchViewY>
+    <tags>
+      <li>RimAI</li>
+    </tags>
+  </ResearchProjectDef>
+</Defs>

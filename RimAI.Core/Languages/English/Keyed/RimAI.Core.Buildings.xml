@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <RimAI.Building.LimitReached.Format>At most {0} {1} can be built on this map (currently {2}).</RimAI.Building.LimitReached.Format>
+
+  <RimAI.Tool.RequireAntennaPowered>This tool requires a powered gravitational-wave antenna.</RimAI.Tool.RequireAntennaPowered>
+  <RimAI.UnknownCiv.FavorChanged>Unknown civilization favor changed: {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>The unknown civilization appears to have dropped supplies from orbit.</RimAI.UnknownCiv.GiftIncoming>
+  
 </LanguageData>
+
+  
 
 

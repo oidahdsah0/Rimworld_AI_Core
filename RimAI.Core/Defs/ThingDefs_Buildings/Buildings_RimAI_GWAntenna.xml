@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- 引力波天线（占位实现）：用于未知文明通信工具的前置与供电检测 -->
+  <ThingDef ParentName="BuildingBase">
+    <defName>RimAI_GWAntennaA</defName>
+    <label>gravitational-wave antenna</label>
+    <description>A high-gain gravitational-wave antenna built for long-distance, exotic communications.</description>
+    <thingClass>Building</thingClass>
+    <size>(1,2)</size>
+    <graphicData>
+      <!-- 占位贴图路径，如无贴图游戏会使用默认方块。后续可替换为实际资源 -->
+      <texPath>Things/Building/RimAI/wave_antenna</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(1,2)</drawSize>
+    </graphicData>
+    <altitudeLayer>Building</altitudeLayer>
+    <passability>PassThroughOnly</passability>
+    <pathCost>30</pathCost>
+    <selectable>true</selectable>
+    <useHitPoints>true</useHitPoints>
+    <fillPercent>0.25</fillPercent>
+    <coversFloor>false</coversFloor>
+    <statBases>
+      <WorkToBuild>5000</WorkToBuild>
+      <MaxHitPoints>180</MaxHitPoints>
+      <Flammability>0.4</Flammability>
+      <Beauty>-2</Beauty>
+    </statBases>
+    <costList>
+      <Steel>1200</Steel>
+      <ComponentIndustrial>20</ComponentIndustrial>
+      <ComponentSpacer>10</ComponentSpacer>
+      <Plasteel>500</Plasteel>
+      <Silver>200</Silver>
+      <Gold>100</Gold>
+    </costList>
+    <comps>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>120</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable" />
+      <li Class="CompProperties_Breakdownable" />
+    </comps>
+    <designationCategory>RimAI</designationCategory>
+    <researchPrerequisites>
+      <li>RimAI_GW_Communication</li>
+    </researchPrerequisites>
+    <tickerType>Normal</tickerType>
+    <rotatable>true</rotatable>
+    <selectOverlapping>true</selectOverlapping>
+    <constructEffect>ConstructMetal</constructEffect>
+  </ThingDef>
+</Defs>

@@ -23,10 +23,10 @@
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>240</Steel>
-      <ComponentIndustrial>6</ComponentIndustrial>
+      <Steel>600</Steel>
+      <ComponentIndustrial>10</ComponentIndustrial>
       <Silver>200</Silver>
-      <Gold>10</Gold>
+      <Gold>20</Gold>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>
@@ -79,11 +79,12 @@
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>360</Steel>
-      <ComponentIndustrial>12</ComponentIndustrial>
-      <Plasteel>100</Plasteel>
+      <Steel>1000</Steel>
+      <ComponentIndustrial>35</ComponentIndustrial>
+      <ComponentSpacer>10</ComponentSpacer>
+      <Plasteel>150</Plasteel>
       <Silver>400</Silver>
-      <Gold>25</Gold>
+      <Gold>100</Gold>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>
@@ -139,11 +140,12 @@
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>480</Steel>
-      <ComponentSpacer>16</ComponentSpacer>
-      <Plasteel>240</Plasteel>
+      <Steel>1600</Steel>
+      <ComponentIndustrial>60</ComponentIndustrial>
+      <ComponentSpacer>30</ComponentSpacer>
+      <Plasteel>300</Plasteel>
       <Silver>800</Silver>
-      <Gold>50</Gold>
+      <Gold>200</Gold>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>

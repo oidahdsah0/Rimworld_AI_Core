@@ -53,6 +53,8 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<ISchedulerService, SchedulerService>();
                 Container.Register<IWorldDataService, WorldDataService>();
                 Container.Register<RimAI.Core.Source.Modules.World.IWorldActionService, RimAI.Core.Source.Modules.World.WorldActionService>();
+                // Unknown Civ service (P13 adjunct)
+                Container.Register<RimAI.Core.Source.Modules.Tooling.Execution.IUnknownCivService, RimAI.Core.Source.Modules.World.UnknownCivService>();
                 // P4 + P6 minimal services
                 Container.Register<RimAI.Core.Source.Modules.Persistence.IPersistenceService, RimAI.Core.Source.Modules.Persistence.PersistenceService>();
                 Container.Register<RimAI.Core.Source.Modules.Tooling.IToolRegistryService, RimAI.Core.Source.Modules.Tooling.ToolRegistryService>();
@@ -200,6 +202,12 @@ namespace RimAI.Core.Source.Boot
         public override void DoSettingsWindowContents(UnityEngine.Rect inRect)
         {
             try { _settingsWindow?.DoWindowContents(inRect); } catch { }
+        }
+
+        public static T TryGetService<T>() where T : class
+        {
+            try { return Container.Resolve<T>(); }
+            catch { return null; }
         }
 
         private static string NormalizeLocaleFromRimworld(string folderName)

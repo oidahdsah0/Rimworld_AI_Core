@@ -15,6 +15,15 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public StageRecapState StageRecap { get; set; } = new StageRecapState();
 		// P13: Servers state (AI 服务器建筑数据与巡检计划)
 		public ServerState Servers { get; set; } = new ServerState();
+		// Unknown Civilization relationship state (favor/cooldown etc.)
+		public UnknownCivState UnknownCiv { get; set; } = new UnknownCivState();
+	}
+
+	public sealed class UnknownCivState
+	{
+		public int Favor { get; set; } = 0;
+		public int NextGiftAllowedAbsTicks { get; set; } = 0; // 允许下次赠礼的绝对 Tick（Find.TickManager.TicksAbs）
+		public int LastGiftAtAbsTicks { get; set; } = 0;
 	}
 
 	public sealed class HistoryState

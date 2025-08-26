@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using RimWorld;
 
 namespace RimAI.Core.Source.Modules.World
 {
@@ -38,6 +39,16 @@ namespace RimAI.Core.Source.Modules.World
 		/// 查询会话是否仍然存活。
 		/// </summary>
 		bool IsGroupChatSessionAlive(GroupChatSessionHandle handle);
+
+		/// <summary>
+		/// 在屏幕左上角显示一条消息（Message 框）。
+		/// </summary>
+		Task ShowTopLeftMessageAsync(string text, Verse.MessageTypeDef type, CancellationToken ct = default);
+
+		/// <summary>
+		/// 在最近的贸易落点附近空投一批礼物（由系统生成），数量按系数缩放。
+		/// </summary>
+		Task DropUnknownCivGiftAsync(float quantityCoefficient = 1.0f, CancellationToken ct = default);
 	}
 }
 

@@ -8,6 +8,7 @@ using Verse;
 using RimAI.Core.Source.Modules.Server;
 using RimAI.Core.Source.Modules.Tooling;
 using RimAI.Core.Source.Modules.Persistence.Snapshots;
+using RimWorld;
 
 namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 {
@@ -194,6 +195,18 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                     {
                         string name = TryExtractName(j);
                         if (string.IsNullOrWhiteSpace(name)) continue;
+                        // 需求：仅在研究 RimAI_GW_Communication 完成后，才显示 Lv3 的未知文明工具
+                        if (string.Equals(name, "get_unknown_civ_contact", StringComparison.OrdinalIgnoreCase))
+                        {
+                            bool researchOk = false;
+                            try
+                            {
+                                var def = DefDatabase<ResearchProjectDef>.GetNamedSilentFail("RimAI_GW_Communication");
+                                researchOk = def != null && def.IsFinished;
+                            }
+                            catch { researchOk = false; }
+                            if (!researchOk) continue; // 隐藏该工具
+                        }
                         var disp = tooling?.GetToolDisplayNameOrNull(name) ?? name;
                         if (levelMap != null && levelMap.TryGetValue(name, out var lvl) && lvl >= 1 && lvl <= 3)
                         {
@@ -201,6 +214,21 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                         }
                         menu.Add(new FloatMenuOption(disp, () =>
                         {
+                            // 选择时检查：若是未知文明工具，且无通电的天线，则弹提示并阻止设置
+                            if (string.Equals(name, "get_unknown_civ_contact", StringComparison.OrdinalIgnoreCase))
+                            {
+                                bool powered = HasPoweredAntenna();
+                                if (!powered)
+                                {
+                                    try
+                                    {
+                                        var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
+                                        world?.ShowTopLeftMessageAsync("RimAI.Tool.RequireAntennaPowered".Translate(), RimWorld.MessageTypeDefOf.RejectInput);
+                                    }
+                                    catch { }
+                                    return; // 阻止
+                                }
+                            }
                             try { server?.AssignSlot(entityId, index, name); } catch { }
                             try { if (index >= 0 && index < state.SelectedTools.Count) state.SelectedTools[index] = name; } catch { }
                         }));
@@ -266,6 +294,30 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             }
             catch { }
             return map;
+        }
+
+        private static bool HasPoweredAntenna()
+        {
+            try
+            {
+                foreach (var map in Find.Maps)
+                {
+                    foreach (var b in map.listerBuildings?.allBuildingsColonist ?? Enumerable.Empty<Building>())
+                    {
+                        if (b?.def?.defName == "RimAI_GWAntennaA")
+                        {
+                            try
+                            {
+                                var comp = b.TryGetComp<CompPowerTrader>();
+                                if (comp != null && comp.PowerOn) return true;
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+            catch { }
+            return false;
         }
     }
 }

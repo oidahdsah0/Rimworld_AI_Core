@@ -430,6 +430,44 @@ namespace RimAI.Core.Source.Modules.World
 			if ((System.DateTime.UtcNow - state.StartedUtc) > state.MaxDuration) return false;
 			return true;
 		}
+
+		public Task ShowTopLeftMessageAsync(string text, Verse.MessageTypeDef type, CancellationToken ct = default)
+		{
+			if (string.IsNullOrWhiteSpace(text)) return Task.CompletedTask;
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(timeoutMs);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				try { Messages.Message(text, type ?? MessageTypeDefOf.NeutralEvent); } catch { }
+				return Task.CompletedTask;
+			}, name: "World.ShowTopLeftMessage", ct: cts.Token);
+		}
+
+		public Task DropUnknownCivGiftAsync(float quantityCoefficient = 1.0f, CancellationToken ct = default)
+		{
+			var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+			var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+			cts.CancelAfter(Math.Max(timeoutMs, 3000));
+			quantityCoefficient = Mathf.Max(0.1f, quantityCoefficient);
+			return _scheduler.ScheduleOnMainThreadAsync(() =>
+			{
+				try
+				{
+					var map = Find.Maps?.FirstOrDefault(m => m.IsPlayerHome) ?? Find.CurrentMap ?? Find.Maps?.FirstOrDefault();
+					if (map == null) return Task.CompletedTask;
+					IntVec3 spot = DropCellFinder.TradeDropSpot(map);
+					var things = RimWorld.ThingSetMakerDefOf.ResourcePod.root.Generate();
+					foreach (var t in things)
+					{
+						try { t.stackCount = Mathf.Max(1, Mathf.CeilToInt(t.stackCount * quantityCoefficient)); } catch { }
+					}
+					try { RimWorld.DropPodUtility.DropThingsNear(spot, map, things, 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: true); } catch { }
+				}
+				catch { }
+				return Task.CompletedTask;
+			}, name: "World.DropUnknownCivGift", ct: cts.Token);
+		}
 	}
 }
 

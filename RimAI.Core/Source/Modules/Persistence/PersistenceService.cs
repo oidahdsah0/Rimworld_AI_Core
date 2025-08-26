@@ -11,6 +11,8 @@ using RimAI.Core.Source.Modules.Persistence.ScribeAdapters;
 using RimAI.Core.Source.Modules.Persistence.Snapshots;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Infrastructure.Configuration;
+using RimAI.Core.Source.Modules.Persistence.Parts;
+using RimAI.Core.Source.Modules.Persistence.Parts.Utilities;
 
 namespace RimAI.Core.Source.Modules.Persistence
 {
@@ -22,6 +24,9 @@ namespace RimAI.Core.Source.Modules.Persistence
         private int _maxTextLength = 4000;
         private PersistenceSnapshot _lastSnapshot;
         private PersistenceSnapshot _importBuffer;
+    private readonly object _gate = new object();
+
+        private readonly System.Collections.Generic.List<IPersistenceNode> _nodes = new System.Collections.Generic.List<IPersistenceNode>();
 
         public PersistenceService(IConfigurationService configurationService)
 		{
@@ -35,6 +40,20 @@ namespace RimAI.Core.Source.Modules.Persistence
 			var baseDir = GenFilePaths.SaveDataFolderPath ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 			_root = Path.Combine(baseDir, "RimAI");
 			Directory.CreateDirectory(_root);
+
+            // 注册节点：逐步迁移完成后统一委托
+            _nodes.Add(new ConversationsNode());
+            _nodes.Add(new ConvKeyIndexNode());
+            _nodes.Add(new ParticipantIndexNode());
+            _nodes.Add(new RecapNode(() => _maxTextLength));
+            _nodes.Add(new FixedPromptsNode());
+            _nodes.Add(new PersonaJobNode());
+            _nodes.Add(new BiographiesNode(() => _maxTextLength));
+            _nodes.Add(new PersonaBindingsNode());
+            _nodes.Add(new PersonalBeliefsNode());
+            _nodes.Add(new StageRecapNode());
+            _nodes.Add(new ServersNode());
+            _nodes.Add(new UnknownCivNode());
 		}
 
         private void LoadConfig(ConfigurationService cfg)
@@ -77,281 +96,67 @@ namespace RimAI.Core.Source.Modules.Persistence
 
         public void SaveAll(PersistenceSnapshot snapshot)
         {
-			if (_importBuffer != null)
-			{
-				// 优先写入导入的快照，并在成功后清空缓冲
-				snapshot = _importBuffer;
-				_importBuffer = null;
-			}
+            lock (_gate)
+            {
+                if (_importBuffer != null)
+                {
+                    // 优先写入导入的快照，并在成功后清空缓冲
+                    snapshot = _importBuffer;
+                    _importBuffer = null;
+                }
+            }
             var swAll = System.Diagnostics.Stopwatch.StartNew();
             var stats = new PersistenceStats { Operation = "save" };
-            // v1 实现：仅写入空节点元数据与 schemaVersion；后续迭代填充
+            // v1 实现：部分节点改为委托给 Parts，其余保持内联，逐步迁移
             try
             {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                // ConversationsV2
-                Scribe.EnterNode("RimAI_ConversationsV2");
-                int schemaVersion = 2;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 2);
-				var convs = snapshot?.History?.Conversations ?? new System.Collections.Generic.Dictionary<string, Snapshots.ConversationRecord>();
-				// 在写入前，按“发言条目”为单位进行截断，直到序列化后的单节点字符串长度符合限制
-				try
-				{
-					const int scribeStringNodeMax = 32760; // 与 Scribe_Poco 中的字符串节点上限保持一致
-					const int safetyMargin = 256;          // 预留安全余量，避免边界误差
-					int limit = scribeStringNodeMax - safetyMargin;
-					foreach (var key in convs.Keys.ToList())
-					{
-						var rec = convs[key];
-						if (rec == null) continue;
-						var entries = rec.Entries ?? new System.Collections.Generic.List<Snapshots.ConversationEntry>();
-						// 快速路径：无需截断
-						try
-						{
-							var initialLen = Newtonsoft.Json.JsonConvert.SerializeObject(rec).Length;
-							if (initialLen <= limit) continue;
-						}
-						catch { }
-
-						// 二分保留“最近 mid 条”发言，寻找最大可容纳条数
-						int total = entries.Count;
-						int low = 0, high = total; // 保留区间大小
-						while (low < high)
-						{
-							int mid = (low + high + 1) / 2;
-							var test = new Snapshots.ConversationRecord
-							{
-								ParticipantIds = rec.ParticipantIds?.ToList() ?? new System.Collections.Generic.List<string>(),
-								Entries = mid > 0 ? entries.Skip(total - mid).ToList() : new System.Collections.Generic.List<Snapshots.ConversationEntry>()
-							};
-							int len;
-							try { len = Newtonsoft.Json.JsonConvert.SerializeObject(test).Length; }
-							catch { len = int.MaxValue; }
-							if (len <= limit) low = mid; else high = mid - 1;
-						}
-						if (low < total)
-						{
-							var kept = low > 0 ? entries.Skip(total - low).ToList() : new System.Collections.Generic.List<Snapshots.ConversationEntry>();
-							rec.Entries = kept;
-							var removed = total - low;
-							try { Log.Message($"[RimAI.Core][P6.Persistence] truncate=ConversationsV2 convId={key}, removed={removed}, kept={low}"); } catch { }
-						}
-					}
-				}
-				catch { }
-
-                Scribe_Poco.LookJsonDict(ref convs, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_ConversationsV2", Ok = true, Entries = convs?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
+                // 改为通过 ConversationsNode 统一处理（保留原裁剪逻辑：迁移至该 Node 内部按需实现）
+                var node = _nodes.OfType<ConversationsNode>().FirstOrDefault();
+                if (node != null) node.Save(snapshot ?? new PersistenceSnapshot(), stats.Details);
             }
             catch (Exception ex)
             {
                 stats.Details.Add(new NodeStat { Node = "RimAI_ConversationsV2", Ok = false, Error = ex.Message });
             }
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_ConvKeyIndexV2");
-                int schemaVersion = 2;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 2);
-                var idx = snapshot?.History?.ConvKeyIndex ?? new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
-                Scribe_Dict.Look(ref idx, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_ConvKeyIndexV2", Ok = true, Entries = idx?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_ConvKeyIndexV2", Ok = false, Error = ex.Message });
-            }
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_ParticipantIndexV2");
-                int schemaVersion = 2;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 2);
-                var idx2 = snapshot?.History?.ParticipantIndex ?? new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
-                Scribe_Dict.Look(ref idx2, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_ParticipantIndexV2", Ok = true, Entries = idx2?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_ParticipantIndexV2", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<ConvKeyIndexNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_ConvKeyIndexV2", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<ParticipantIndexNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_ParticipantIndexV2", Ok = false, Error = ex.Message }); }
 			// Recap（按配置最大长度裁剪）
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_RecapV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-				var recaps = snapshot?.Recap?.Recaps ?? new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Snapshots.RecapSnapshotItem>>();
-				if (recaps != null)
-				{
-					foreach (var list in recaps.Values)
-					{
-						if (list == null) continue;
-						for (int i = 0; i < list.Count; i++)
-						{
-							var t = list[i]?.Text ?? string.Empty;
-							if (t.Length > _maxTextLength)
-							{
-								list[i].Text = t.Substring(0, _maxTextLength);
-							}
-						}
-					}
-				}
-                Scribe_Poco.LookJsonDict(ref recaps, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_RecapV1", Ok = true, Entries = recaps?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_RecapV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<RecapNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_RecapV1", Ok = false, Error = ex.Message }); }
             // FixedPrompts
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_FixedPromptsV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-                var fixedPrompts = snapshot?.FixedPrompts?.Items ?? new System.Collections.Generic.Dictionary<string, string>();
-                Scribe_Dict.Look(ref fixedPrompts, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_FixedPromptsV1", Ok = true, Entries = fixedPrompts?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_FixedPromptsV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<FixedPromptsNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_FixedPromptsV1", Ok = false, Error = ex.Message }); }
             // PersonaJob
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_PersonaJobV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-                var jobs = snapshot?.PersonaJob?.Items ?? new System.Collections.Generic.Dictionary<string, Snapshots.PersonaJob>();
-                Scribe_Poco.LookJsonDict(ref jobs, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = true, Entries = jobs?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<PersonaJobNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = false, Error = ex.Message }); }
 			// Biographies（按配置最大长度裁剪）
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_BiographiesV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-				var bios = snapshot?.Biographies?.Items ?? new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Snapshots.BiographyItem>>();
-				if (bios != null)
-				{
-					foreach (var list in bios.Values)
-					{
-						if (list == null) continue;
-						for (int i = 0; i < list.Count; i++)
-						{
-							var t = list[i]?.Text ?? string.Empty;
-							if (t.Length > _maxTextLength)
-							{
-								list[i].Text = t.Substring(0, _maxTextLength);
-							}
-						}
-					}
-				}
-                Scribe_Poco.LookJsonDict(ref bios, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_BiographiesV1", Ok = true, Entries = bios?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_BiographiesV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<BiographiesNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_BiographiesV1", Ok = false, Error = ex.Message }); }
             // Persona Bindings
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_PersonaBindingsV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-                var bindings = snapshot?.PersonaBindings?.Items ?? new System.Collections.Generic.Dictionary<string, string>();
-                Scribe_Dict.Look(ref bindings, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaBindingsV1", Ok = true, Entries = bindings?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_PersonaBindingsV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<PersonaBindingsNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_PersonaBindingsV1", Ok = false, Error = ex.Message }); }
             // PersonalBeliefs
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_PersonalBeliefsV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-                var beliefs = snapshot?.PersonalBeliefs?.Items ?? new System.Collections.Generic.Dictionary<string, Snapshots.PersonalBeliefs>();
-                Scribe_Poco.LookJsonDict(ref beliefs, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_PersonalBeliefsV1", Ok = true, Entries = beliefs?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_PersonalBeliefsV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<PersonalBeliefsNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_PersonalBeliefsV1", Ok = false, Error = ex.Message }); }
             // StageRecap
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_StageRecapV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-                var stage = snapshot?.StageRecap?.Items ?? new System.Collections.Generic.List<Snapshots.ActRecapEntry>();
-                Scribe_Poco.LookJsonList(ref stage, "items");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_StageRecapV1", Ok = true, Entries = stage?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_StageRecapV1", Ok = false, Error = ex.Message });
-            }
-            // P13: Servers
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_ServersV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-                var servers = snapshot?.Servers ?? new Snapshots.ServerState();
-                RimAI.Core.Source.Modules.Persistence.ScribeAdapters.Scribe_Poco.LookJson(ref servers, "state");
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = true, Entries = servers?.Items?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<StageRecapNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_StageRecapV1", Ok = false, Error = ex.Message }); }
+            // P13: Servers → Node
+            try { _nodes.OfType<ServersNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = false, Error = ex.Message }); }
+            // UnknownCiv → Node
+            try { _nodes.OfType<UnknownCivNode>().FirstOrDefault()?.Save(snapshot ?? new PersistenceSnapshot(), stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_UnknownCivV1", Ok = false, Error = ex.Message }); }
             swAll.Stop();
             stats.Nodes = stats.Details.Count;
             stats.ElapsedMs = swAll.ElapsedMilliseconds;
-            _lastStats = stats;
-            _lastSnapshot = snapshot ?? new PersistenceSnapshot();
+            lock (_gate)
+            {
+                _lastStats = stats;
+                _lastSnapshot = snapshot ?? new PersistenceSnapshot();
+            }
             Log.Message($"[RimAI.Core][P6.Persistence] op=save, nodes={stats.Nodes}, elapsed={stats.ElapsedMs}ms");
         }
 
@@ -360,24 +165,26 @@ namespace RimAI.Core.Source.Modules.Persistence
             var swAll = System.Diagnostics.Stopwatch.StartNew();
             var stats = new PersistenceStats { Operation = "load" };
             var result = new PersistenceSnapshot();
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_ConversationsV2");
-                int schemaVersion = 2;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 2);
-                var convs = result.History.Conversations;
-                Scribe_Poco.LookJsonDict(ref convs, "items");
-                convs ??= new System.Collections.Generic.Dictionary<string, Snapshots.ConversationRecord>();
-                result.History.Conversations = convs;
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_ConversationsV2", Ok = true, Entries = convs?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_ConversationsV2", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<ConversationsNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_ConversationsV2", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<ConvKeyIndexNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_ConvKeyIndexV2", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<ParticipantIndexNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_ParticipantIndexV2", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<RecapNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_RecapV1", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<FixedPromptsNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_FixedPromptsV1", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<PersonaJobNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_PersonaJobV1", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<BiographiesNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_BiographiesV1", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<PersonaBindingsNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_PersonaBindingsV1", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<PersonalBeliefsNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_PersonalBeliefsV1", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<StageRecapNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_StageRecapV1", Ok = false, Error = ex.Message }); }
             try
             {
                 var nodeSw = System.Diagnostics.Stopwatch.StartNew();
@@ -547,30 +354,18 @@ namespace RimAI.Core.Source.Modules.Persistence
             {
                 stats.Details.Add(new NodeStat { Node = "RimAI_StageRecapV1", Ok = false, Error = ex.Message });
             }
-            // P13: Servers
-            try
-            {
-                var nodeSw = System.Diagnostics.Stopwatch.StartNew();
-                Scribe.EnterNode("RimAI_ServersV1");
-                int schemaVersion = 1;
-                Scribe_Values.Look(ref schemaVersion, "schemaVersion", 1);
-                var servers = result.Servers;
-                RimAI.Core.Source.Modules.Persistence.ScribeAdapters.Scribe_Poco.LookJson(ref servers, "state");
-                servers ??= new Snapshots.ServerState();
-                result.Servers = servers;
-                Scribe.ExitNode();
-                nodeSw.Stop();
-                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = true, Entries = servers?.Items?.Count ?? 0, BytesApprox = 0, ElapsedMs = nodeSw.ElapsedMilliseconds });
-            }
-            catch (Exception ex)
-            {
-                stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = false, Error = ex.Message });
-            }
+            try { _nodes.OfType<ServersNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_ServersV1", Ok = false, Error = ex.Message }); }
+            try { _nodes.OfType<UnknownCivNode>().FirstOrDefault()?.Load(result, stats.Details); }
+            catch (Exception ex) { stats.Details.Add(new NodeStat { Node = "RimAI_UnknownCivV1", Ok = false, Error = ex.Message }); }
             swAll.Stop();
             stats.Nodes = stats.Details.Count;
             stats.ElapsedMs = swAll.ElapsedMilliseconds;
-            _lastStats = stats;
-            _lastSnapshot = result;
+            lock (_gate)
+            {
+                _lastStats = stats;
+                _lastSnapshot = result;
+            }
             // 读档后索引自检/重建
             try
             {
@@ -590,54 +385,43 @@ namespace RimAI.Core.Source.Modules.Persistence
             return result;
         }
 
-        public PersistenceStats GetLastStats() => _lastStats;
+        public PersistenceStats GetLastStats()
+        {
+            lock (_gate) return _lastStats;
+        }
 
-        public string ExportAllToJson() => JsonConvert.SerializeObject(_lastSnapshot ?? new PersistenceSnapshot(), Formatting.Indented);
+        public string ExportAllToJson()
+        {
+            lock (_gate)
+            {
+                return JsonConvert.SerializeObject(_lastSnapshot ?? new PersistenceSnapshot(), Formatting.Indented);
+            }
+        }
 
         public void ImportAllFromJson(string json)
         {
             if (string.IsNullOrWhiteSpace(json)) throw new ArgumentException("json is empty");
             // 解析并缓存导入的快照，等待下一次 SaveAll（在 ExposeData 内）写入
-            _importBuffer = JsonConvert.DeserializeObject<PersistenceSnapshot>(json) ?? new PersistenceSnapshot();
-            _lastSnapshot = _importBuffer;
+            var parsed = JsonConvert.DeserializeObject<PersistenceSnapshot>(json) ?? new PersistenceSnapshot();
+            lock (_gate)
+            {
+                _importBuffer = parsed;
+                _lastSnapshot = _importBuffer;
+            }
         }
 
-        public PersistenceSnapshot GetLastSnapshotForDebug() => _lastSnapshot ?? new PersistenceSnapshot();
+        public PersistenceSnapshot GetLastSnapshotForDebug()
+        {
+            lock (_gate) return _lastSnapshot ?? new PersistenceSnapshot();
+        }
 
         public void ReplaceLastSnapshotForDebug(PersistenceSnapshot snapshot)
         {
-            _lastSnapshot = snapshot ?? new PersistenceSnapshot();
+            lock (_gate) _lastSnapshot = snapshot ?? new PersistenceSnapshot();
         }
 
         private (int convKeyFixed, int participantFixed) RebuildHistoryIndexesIfNeeded(PersistenceSnapshot snap)
-        {
-            int ck = 0, pk = 0;
-            if (snap?.History == null) return (0, 0);
-            var convs = snap.History.Conversations ?? new System.Collections.Generic.Dictionary<string, Snapshots.ConversationRecord>();
-            if (convs.Count == 0) return (0, 0);
-            var convKeyIdx = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
-            var partIdx = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>();
-            foreach (var kv in convs)
-            {
-                var convId = kv.Key;
-                var cr = kv.Value;
-                if (cr?.ParticipantIds == null || cr.ParticipantIds.Count == 0) continue;
-                var convKey = string.Join("|", cr.ParticipantIds.OrderBy(x => x));
-                if (!convKeyIdx.TryGetValue(convKey, out var list1)) { list1 = new System.Collections.Generic.List<string>(); convKeyIdx[convKey] = list1; }
-                if (!list1.Contains(convId)) list1.Add(convId);
-                foreach (var pid in cr.ParticipantIds)
-                {
-                    if (!partIdx.TryGetValue(pid, out var list2)) { list2 = new System.Collections.Generic.List<string>(); partIdx[pid] = list2; }
-                    if (!list2.Contains(convId)) list2.Add(convId);
-                }
-            }
-            // Compare & assign
-            if (snap.History.ConvKeyIndex == null || snap.History.ConvKeyIndex.Count != convKeyIdx.Count) ck = Math.Abs((snap.History.ConvKeyIndex?.Count ?? 0) - convKeyIdx.Count);
-            if (snap.History.ParticipantIndex == null || snap.History.ParticipantIndex.Count != partIdx.Count) pk = Math.Abs((snap.History.ParticipantIndex?.Count ?? 0) - partIdx.Count);
-            snap.History.ConvKeyIndex = convKeyIdx;
-            snap.History.ParticipantIndex = partIdx;
-            return (ck, pk);
-        }
+            => HistoryIndexRebuilder.Rebuild(snap);
 
 		public async Task WriteTextUnderConfigAsync(string relativePath, string content, CancellationToken ct = default)
 		{

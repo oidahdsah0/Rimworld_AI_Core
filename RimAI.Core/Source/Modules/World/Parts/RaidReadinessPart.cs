@@ -169,7 +169,7 @@ namespace RimAI.Core.Source.Modules.World.Parts
                 {
                     new RaidSizeEstimate { Archetype = "humanoids", Min = HumanoidCount(basePoints*0.8f), Max = HumanoidCount(basePoints*1.2f) },
                     new RaidSizeEstimate { Archetype = "mixed", Min = HumanoidCount(basePoints*0.6f), Max = HumanoidCount(basePoints*1.1f) }
-                };
+                }; 
 
                 return new RaidReadinessSnapshot
                 {

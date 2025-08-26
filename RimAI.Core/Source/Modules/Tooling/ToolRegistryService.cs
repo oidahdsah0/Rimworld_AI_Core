@@ -72,7 +72,8 @@ namespace RimAI.Core.Source.Modules.Tooling
 				["get_weather_status"] = new WeatherStatusExecutor(),
 				["get_storage_saturation"] = new StorageSaturationExecutor(),
 				["get_research_options"] = new ResearchOptionsExecutor(),
-				["get_construction_backlog"] = new ConstructionBacklogExecutor()
+				["get_construction_backlog"] = new ConstructionBacklogExecutor(),
+				["get_security_posture"] = new SecurityPostureExecutor()
 			};
 			foreach (var kv in manual)
 			{

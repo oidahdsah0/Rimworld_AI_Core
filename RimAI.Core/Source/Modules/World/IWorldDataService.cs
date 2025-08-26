@@ -51,6 +51,9 @@ namespace RimAI.Core.Source.Modules.World
 
 		// New: construction backlog (blueprints/frames and missing materials)
 		Task<ConstructionBacklogSnapshot> GetConstructionBacklogAsync(CancellationToken ct = default);
+
+		// New: security posture (turrets, traps, coverage and gaps)
+		Task<SecurityPostureSnapshot> GetSecurityPostureAsync(CancellationToken ct = default);
 	}
 }
 

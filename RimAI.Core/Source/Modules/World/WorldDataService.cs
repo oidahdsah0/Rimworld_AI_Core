@@ -44,6 +44,7 @@ namespace RimAI.Core.Source.Modules.World
 	private readonly Parts.StorageSaturationPart _storagePart;
 		private readonly Parts.ResearchPart _researchPart;
 		private readonly Parts.ConstructionBacklogPart _constructionPart;
+		private readonly Parts.SecurityPosturePart _securityPart;
 
 		public WorldDataService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -67,6 +68,7 @@ namespace RimAI.Core.Source.Modules.World
 			_storagePart = new Parts.StorageSaturationPart(_scheduler, _cfg);
 			_researchPart = new Parts.ResearchPart(_scheduler, _cfg);
 			_constructionPart = new Parts.ConstructionBacklogPart(_scheduler, _cfg);
+			_securityPart = new Parts.SecurityPosturePart(_scheduler, _cfg);
 		}
 
 		// 获取玩家名称（派系/殖民地拥有者）
@@ -162,6 +164,9 @@ namespace RimAI.Core.Source.Modules.World
 
 		// 获取施工积压（蓝图/框架材料缺口）
 		public Task<ConstructionBacklogSnapshot> GetConstructionBacklogAsync(CancellationToken ct = default) => _constructionPart.GetAsync(ct);
+
+		// 获取安防态势（炮塔/陷阱/覆盖/盲区）
+		public Task<SecurityPostureSnapshot> GetSecurityPostureAsync(CancellationToken ct = default) => _securityPart.GetAsync(ct);
 
 	}
 

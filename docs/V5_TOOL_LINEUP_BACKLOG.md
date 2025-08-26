@@ -34,9 +34,10 @@
    - 待建蓝图、材料缺口、阻塞点
    - 输出：builds[{thing, count, missing[{res, qty}]}]
    - 备注：扫描当前地图蓝图/框架；按 DefName/Label 归并并聚合缺口；基于 resourceCounter 粗估，不含在途/容器专用投喂。
-8. get_security_posture
+8. get_security_posture（已实现）
    - 炮塔/陷阱/火力覆盖与缺口
-   - 输出：security{turrets, traps, coverage, gaps[]}
+   - 输出：security{turrets[{type,label,x,z,range,minRange,losRequired,flyOverhead,dpsScore,powered,manned,holdFire}], traps[{type,label,x,z,resettable}], coverage{areaPct,strongPct,avgStack,overheadPct,approaches[{entryX,entryZ,avgFire,maxGapLen,trapDensity}]}, gaps[{centerX,centerZ,minX,minZ,maxX,maxZ,area,distToCore,reason}], note}
+   - 备注：无炮塔时 note 提示英文说明；领地优先使用家区，回退为殖民建筑扩张；覆盖计算考虑 LOS 与抛射。 
 9. get_mood_risk_overview
    - 心情分布、即将崩溃人数与主因
    - 输出：mood{avg, lowCount, topCauses[]}

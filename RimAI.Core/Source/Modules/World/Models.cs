@@ -381,6 +381,72 @@ namespace RimAI.Core.Source.Modules.World
 		public string Res { get; set; } // 资源 label/defName
 		public int Qty { get; set; }
 	}
+
+	// 安防态势（v1）：炮塔/陷阱/覆盖与盲区 + 备注
+	internal sealed class SecurityPostureSnapshot
+	{
+		public System.Collections.Generic.IReadOnlyList<SecurityTurretItem> Turrets { get; set; }
+		public System.Collections.Generic.IReadOnlyList<SecurityTrapItem> Traps { get; set; }
+		public SecurityCoverageInfo Coverage { get; set; }
+		public System.Collections.Generic.IReadOnlyList<SecurityGapItem> Gaps { get; set; }
+		public string Note { get; set; }
+	}
+
+	internal sealed class SecurityTurretItem
+	{
+		public string Type { get; set; }
+		public string Label { get; set; }
+		public int X { get; set; }
+		public int Z { get; set; }
+		public float Range { get; set; }
+		public float MinRange { get; set; }
+		public bool LosRequired { get; set; }
+		public bool FlyOverhead { get; set; }
+		public float DpsScore { get; set; }
+		public bool Powered { get; set; }
+		public bool Manned { get; set; }
+		public bool HoldFire { get; set; }
+	}
+
+	internal sealed class SecurityTrapItem
+	{
+		public string Type { get; set; }
+		public string Label { get; set; }
+		public int X { get; set; }
+		public int Z { get; set; }
+		public bool Resettable { get; set; }
+	}
+
+	internal sealed class SecurityCoverageInfo
+	{
+		public float AreaPct { get; set; }
+		public float StrongPct { get; set; }
+		public float AvgStack { get; set; }
+		public float OverheadPct { get; set; }
+		public System.Collections.Generic.IReadOnlyList<SecurityApproachItem> Approaches { get; set; }
+	}
+
+	internal sealed class SecurityApproachItem
+	{
+		public int EntryX { get; set; }
+		public int EntryZ { get; set; }
+		public float AvgFire { get; set; }
+		public int MaxGapLen { get; set; }
+		public float TrapDensity { get; set; }
+	}
+
+	internal sealed class SecurityGapItem
+	{
+		public int CenterX { get; set; }
+		public int CenterZ { get; set; }
+		public int MinX { get; set; }
+		public int MinZ { get; set; }
+		public int MaxX { get; set; }
+		public int MaxZ { get; set; }
+		public int Area { get; set; }
+		public int DistToCore { get; set; }
+		public string Reason { get; set; }
+	}
 }
 
 

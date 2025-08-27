@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <!-- AI サーバー -->
   <RimAI_AIServer_Lv1A.label>AI サーバー（Lv1）</RimAI_AIServer_Lv1A.label>
   <RimAI_AIServer_Lv1A.description>コロニーに基本的なAIサービスを提供するサーバーです。</RimAI_AIServer_Lv1A.description>
 
@@ -8,6 +9,10 @@
 
   <RimAI_AIServer_Lv3A.label>AI サーバー（Lv3）</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>コロニーに高性能なAIサービスを提供するサーバーです。</RimAI_AIServer_Lv3A.description>
+
+  <!-- 重力波アンテナ -->
+  <RimAI_GWAntennaA.label>重力波アンテナ</RimAI_GWAntennaA.label>
+  <RimAI_GWAntennaA.description>未知の文明との超長距離通信のための高利得重力波アンテナ。電力が必要です。</RimAI_GWAntennaA.description>
 </LanguageData>
 
 

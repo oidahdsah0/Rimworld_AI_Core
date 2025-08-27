@@ -3,8 +3,6 @@
   <RimAI.Building.LimitReached.Format>このマップでは最大 {0} 台の{1}を建設できます（現在 {2} 台）。</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>このツールを使用するには、電力供給された重力波アンテナが必要です。</RimAI.Tool.RequireAntennaPowered>
-  <RimAI.UnknownCiv.FavorChanged>未知の文明の好感度が変化しました：{0}</RimAI.UnknownCiv.FavorChanged>
-  <RimAI.UnknownCiv.GiftIncoming>未知の文明が軌道から物資を投下したようです。</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>
 
 

@@ -3,8 +3,6 @@
   <RimAI.Building.LimitReached.Format>En este mapa se pueden construir como máximo {0} {1} (actualmente {2}).</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>Esta herramienta requiere una antena de ondas gravitacionales con suministro eléctrico.</RimAI.Tool.RequireAntennaPowered>
-  <RimAI.UnknownCiv.FavorChanged>La simpatía de la civilización desconocida ha cambiado: {0}</RimAI.UnknownCiv.FavorChanged>
-  <RimAI.UnknownCiv.GiftIncoming>Parece que la civilización desconocida ha soltado suministros desde órbita.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>
 
 

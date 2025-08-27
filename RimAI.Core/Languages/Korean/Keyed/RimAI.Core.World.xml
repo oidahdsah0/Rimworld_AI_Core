@@ -3,4 +3,11 @@
   <!-- 월드 액션 메시지 -->
   <RimAI.Core.World.Weather.Force.Start>강제 날씨: {0}, {1}일 동안 유지됩니다.</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>강제 날씨가 종료되었습니다: {0}.</RimAI.Core.World.Weather.Force.End>
+  <RimAI.Core.World.Subspace.Invoke.Start>서브스페이스 에코 동요 ({0}등급): {1} 이(가) 현현 중.</RimAI.Core.World.Subspace.Invoke.Start>
+  <RimAI.Core.World.Subspace.Invoke.End>서브스페이스 에코 동요가 진정되었습니다.</RimAI.Core.World.Subspace.Invoke.End>
+  <RimAI.Core.World.Subspace.Invoke.Backfire>서브스페이스 간섭의 반작용! 이상이 급격히 유입됩니다.</RimAI.Core.World.Subspace.Invoke.Backfire>
+
+  <!-- 미지의 문명 상호작용 -->
+  <RimAI.UnknownCiv.FavorChanged>미지의 문명 호감도가 변경되었습니다: {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>미지의 문명이 궤도에서 보급품을 투하한 것으로 보입니다.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>

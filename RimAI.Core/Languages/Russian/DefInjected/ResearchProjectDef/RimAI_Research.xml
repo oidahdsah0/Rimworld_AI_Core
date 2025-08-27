@@ -8,6 +8,14 @@
 
   <RimAI_AI_Level3.label>RimAI - Искусственный интеллект Уровень 3</RimAI_AI_Level3.label>
   <RimAI_AI_Level3.description>Продвинутые алгоритмы и интеграция оборудования. Открывает серверы Ур.3.</RimAI_AI_Level3.description>
+  
+  <!-- Связь на гравитационных волнах -->
+  <RimAI_GW_Communication.label>Связь на гравитационных волнах</RimAI_GW_Communication.label>
+  <RimAI_GW_Communication.description>Открывает строительство антенны гравитационных волн и возможность попытаться связаться с неизвестными цивилизациями.</RimAI_GW_Communication.description>
+  
+  <!-- Гравитационное проникновение в субпространство -->
+  <RimAI_Subspace_Gravitic_Penetration.label>Гравитационное проникновение в субпространство</RimAI_Subspace_Gravitic_Penetration.label>
+  <RimAI_Subspace_Gravitic_Penetration.description>Модулирование гравитационных волн для локального проникновения в субпространство, позволяя кратковременную резонансную связь и формирование эха.</RimAI_Subspace_Gravitic_Penetration.description>
 </LanguageData>
 
 

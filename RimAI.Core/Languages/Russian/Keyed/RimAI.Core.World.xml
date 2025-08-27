@@ -3,4 +3,11 @@
   <!-- Сообщения мировых действий -->
   <RimAI.Core.World.Weather.Force.Start>Принудительная погода: {0} на {1} дн.</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>Принудительная погода закончилась: {0}.</RimAI.Core.World.Weather.Force.End>
+  <RimAI.Core.World.Subspace.Invoke.Start>Возмущение субпространственного эха (ур.{0}): {1} проявляется.</RimAI.Core.World.Subspace.Invoke.Start>
+  <RimAI.Core.World.Subspace.Invoke.End>Возмущение субпространственного эха утихло.</RimAI.Core.World.Subspace.Invoke.End>
+  <RimAI.Core.World.Subspace.Invoke.Backfire>Откат вмешательства субпространства! Аномалии стремительно нарастают.</RimAI.Core.World.Subspace.Invoke.Backfire>
+
+  <!-- Взаимодействие с неизвестной цивилизацией -->
+  <RimAI.UnknownCiv.FavorChanged>Благосклонность неизвестной цивилизации изменилась: {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>Похоже, неизвестная цивилизация сбросила припасы с орбиты.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>

@@ -8,6 +8,14 @@
 
   <RimAI_AI_Level3.label>RimAI - 人工知能 レベル3</RimAI_AI_Level3.label>
   <RimAI_AI_Level3.description>高度なアルゴリズムとハード統合。Lv3サーバーを解放。</RimAI_AI_Level3.description>
+  
+  <!-- 重力波通信 -->
+  <RimAI_GW_Communication.label>重力波通信</RimAI_GW_Communication.label>
+  <RimAI_GW_Communication.description>重力波アンテナの建設と、未知の文明への接触を試みる機能を解放します。</RimAI_GW_Communication.description>
+  
+  <!-- サブスペース重力波貫通 -->
+  <RimAI_Subspace_Gravitic_Penetration.label>サブスペース重力波貫通</RimAI_Subspace_Gravitic_Penetration.label>
+  <RimAI_Subspace_Gravitic_Penetration.description>重力波を変調し、サブスペースへ局所的に侵入する。短時間の共鳴とエコーの成形を可能にする。</RimAI_Subspace_Gravitic_Penetration.description>
 </LanguageData>
 
 

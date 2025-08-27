@@ -3,8 +3,6 @@
   <RimAI.Building.LimitReached.Format>На этой карте можно построить не более {0} {1} (сейчас {2}).</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>Для этого инструмента требуется антенна гравитационных волн с подачей питания.</RimAI.Tool.RequireAntennaPowered>
-  <RimAI.UnknownCiv.FavorChanged>Благосклонность неизвестной цивилизации изменилась: {0}</RimAI.UnknownCiv.FavorChanged>
-  <RimAI.UnknownCiv.GiftIncoming>Похоже, неизвестная цивилизация сбросила припасы с орбиты.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>
 
 

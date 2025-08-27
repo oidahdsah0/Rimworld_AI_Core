@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <!-- Серверы ИИ -->
   <RimAI_AIServer_Lv1A.label>Сервер ИИ (Ур.1)</RimAI_AIServer_Lv1A.label>
   <RimAI_AIServer_Lv1A.description>Предоставляет базовые услуги ИИ для колонии.</RimAI_AIServer_Lv1A.description>
 
@@ -8,6 +9,10 @@
 
   <RimAI_AIServer_Lv3A.label>Сервер ИИ (Ур.3)</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>Предоставляет высокопроизводительные услуги ИИ для колонии.</RimAI_AIServer_Lv3A.description>
+
+  <!-- Антенна гравитационных волн -->
+  <RimAI_GWAntennaA.label>Антенна гравитационных волн</RimAI_GWAntennaA.label>
+  <RimAI_GWAntennaA.description>Мощная антенна для сверхдальней связи на гравитационных волнах с неизвестными цивилизациями. Требуется электропитание.</RimAI_GWAntennaA.description>
 </LanguageData>
 
 

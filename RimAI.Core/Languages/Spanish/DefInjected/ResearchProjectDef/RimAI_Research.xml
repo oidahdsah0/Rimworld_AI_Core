@@ -8,6 +8,14 @@
 
   <RimAI_AI_Level3.label>RimAI - Inteligencia Artificial Nivel 3</RimAI_AI_Level3.label>
   <RimAI_AI_Level3.description>Algoritmos avanzados e integración de hardware. Desbloquea servidores Nv.3.</RimAI_AI_Level3.description>
+  
+  <!-- Comunicación por ondas gravitacionales -->
+  <RimAI_GW_Communication.label>Comunicación por ondas gravitacionales</RimAI_GW_Communication.label>
+  <RimAI_GW_Communication.description>Desbloquea la construcción de una antena de ondas gravitacionales y la posibilidad de intentar contactar con civilizaciones desconocidas.</RimAI_GW_Communication.description>
+  
+  <!-- Penetración gravitacional del subespacio -->
+  <RimAI_Subspace_Gravitic_Penetration.label>Penetración gravitacional del subespacio</RimAI_Subspace_Gravitic_Penetration.label>
+  <RimAI_Subspace_Gravitic_Penetration.description>Modula ondas gravitacionales para penetrar localmente el subespacio, permitiendo una resonancia breve y modelado de ecos.</RimAI_Subspace_Gravitic_Penetration.description>
 </LanguageData>
 
 

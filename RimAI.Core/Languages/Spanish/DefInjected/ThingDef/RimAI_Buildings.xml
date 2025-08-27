@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <!-- Servidores de IA -->
   <RimAI_AIServer_Lv1A.label>Servidor IA (Nv.1)</RimAI_AIServer_Lv1A.label>
   <RimAI_AIServer_Lv1A.description>Proporciona servicios básicos de IA a la colonia.</RimAI_AIServer_Lv1A.description>
 
@@ -8,6 +9,10 @@
 
   <RimAI_AIServer_Lv3A.label>Servidor IA (Nv.3)</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>Proporciona servicios de IA de alto rendimiento a la colonia.</RimAI_AIServer_Lv3A.description>
+
+  <!-- Antena de ondas gravitacionales -->
+  <RimAI_GWAntennaA.label>Antena de ondas gravitacionales</RimAI_GWAntennaA.label>
+  <RimAI_GWAntennaA.description>Antena de gran ganancia para comunicaciones a muy larga distancia mediante ondas gravitacionales con civilizaciones desconocidas. Requiere energía eléctrica.</RimAI_GWAntennaA.description>
 </LanguageData>
 
 

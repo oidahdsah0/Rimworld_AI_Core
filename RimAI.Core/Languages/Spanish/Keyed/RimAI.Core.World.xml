@@ -3,4 +3,11 @@
   <!-- Mensajes de acciones del mundo -->
   <RimAI.Core.World.Weather.Force.Start>Clima forzado: {0} durante {1} día(s).</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>El clima forzado ha terminado: {0}.</RimAI.Core.World.Weather.Force.End>
+  <RimAI.Core.World.Subspace.Invoke.Start>Perturbación del eco subespacial (nivel {0}): {1} se está manifestando.</RimAI.Core.World.Subspace.Invoke.Start>
+  <RimAI.Core.World.Subspace.Invoke.End>La perturbación del eco subespacial se ha calmado.</RimAI.Core.World.Subspace.Invoke.End>
+  <RimAI.Core.World.Subspace.Invoke.Backfire>¡Rebote de la interferencia subespacial! Las anomalías aumentan bruscamente.</RimAI.Core.World.Subspace.Invoke.Backfire>
+
+  <!-- Interacción con civilización desconocida -->
+  <RimAI.UnknownCiv.FavorChanged>La simpatía de la civilización desconocida ha cambiado: {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>Parece que la civilización desconocida ha soltado suministros desde órbita.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>

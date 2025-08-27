@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <RimAI.Building.LimitReached.Format>이 지도에서는 최대 {0}대의 {1}만 건설할 수 있습니다 (현재 {2}대).</RimAI.Building.LimitReached.Format>
+
+  <RimAI.Tool.RequireAntennaPowered>이 도구를 사용하려면 전원이 공급되는 중력파 안테나가 필요합니다.</RimAI.Tool.RequireAntennaPowered>
+  <RimAI.UnknownCiv.FavorChanged>미지의 문명 호감도가 변경되었습니다: {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>미지의 문명이 궤도에서 보급품을 투하한 것으로 보입니다.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>
 
 

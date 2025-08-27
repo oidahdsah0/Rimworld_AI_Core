@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <RimAI.Building.LimitReached.Format>Au maximum {0} {1} peuvent être construits sur cette carte (actuellement {2}).</RimAI.Building.LimitReached.Format>
+
+  <RimAI.Tool.RequireAntennaPowered>Cet outil requiert une antenne à ondes gravitationnelles alimentée.</RimAI.Tool.RequireAntennaPowered>
+  <RimAI.UnknownCiv.FavorChanged>La faveur de la civilisation inconnue a changé : {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>Il semble que la civilisation inconnue ait largué des fournitures depuis l’orbite.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>
 
 

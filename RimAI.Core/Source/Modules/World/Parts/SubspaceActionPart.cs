@@ -87,7 +87,9 @@ namespace RimAI.Core.Source.Modules.World.Parts
                                 if (sh2 != null) list.Add(sh2);
                             }
                             // Always include insects as fallback
-                            var insectKinds = DefDatabase<PawnKindDef>.AllDefsListForReading.Where(k => k?.race?.RaceProps?.Insect == true).ToList();
+                            var insectKinds = DefDatabase<PawnKindDef>.AllDefsListForReading
+                                .Where(k => k?.race?.race?.FleshType == FleshTypeDefOf.Insectoid)
+                                .ToList();
                             if (insectKinds != null && insectKinds.Count > 0)
                             {
                                 // pick some representative insects

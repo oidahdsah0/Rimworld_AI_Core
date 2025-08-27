@@ -17,6 +17,8 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public ServerState Servers { get; set; } = new ServerState();
 		// Unknown Civilization relationship state (favor/cooldown etc.)
 		public UnknownCivState UnknownCiv { get; set; } = new UnknownCivState();
+		// Weather control state (cooldown and bookkeeping)
+		public WeatherControlState WeatherControl { get; set; } = new WeatherControlState();
 	}
 
 	public sealed class UnknownCivState
@@ -24,6 +26,14 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public int Favor { get; set; } = 0;
 		public int NextGiftAllowedAbsTicks { get; set; } = 0; // 允许下次赠礼的绝对 Tick（Find.TickManager.TicksAbs）
 		public int LastGiftAtAbsTicks { get; set; } = 0;
+	}
+
+	public sealed class WeatherControlState
+	{
+		public string LastAppliedWeather { get; set; } = string.Empty;
+		public int LastAppliedAtAbsTicks { get; set; } = 0;
+		public int ExpectedEndAtAbsTicks { get; set; } = 0;
+		public int NextAllowedAtAbsTicks { get; set; } = 0; // cooldown gate
 	}
 
 	public sealed class HistoryState

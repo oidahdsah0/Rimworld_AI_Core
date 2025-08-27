@@ -78,6 +78,8 @@ namespace RimAI.Core.Source.Modules.Tooling
 				["get_medical_overview"] = new MedicalOverviewExecutor(),
 				["get_wildlife_opportunities"] = new WildlifeOpportunitiesExecutor()
 			};
+			// Action tools
+			manual["set_forced_weather"] = new Execution.SetForcedWeatherExecutor();
 			// 扩展注册
 			manual["get_mood_risk_overview"] = new MoodRiskOverviewExecutor();
 			manual["get_trade_readiness"] = new TradeReadinessExecutor();

@@ -334,6 +334,21 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				var idx = Math.Max(1, servers.FindIndex(s => string.Equals(s, m.speaker, StringComparison.OrdinalIgnoreCase)) + 1);
 				var disp = $"服务器{idx}";
 				sb.AppendLine($"【{disp}】{m.content}");
+				try
+				{
+					// m.speaker is like "thing:<id>"
+					if (!string.IsNullOrWhiteSpace(m.speaker) && m.speaker.StartsWith("thing:") && int.TryParse(m.speaker.Substring(6), out var thingId))
+					{
+						// Emit a short bubble above the server Thing
+						try
+						{
+							var worldAction = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
+							await worldAction.ShowThingSpeechTextAsync(thingId, m.content, ct).ConfigureAwait(false);
+						}
+						catch { }
+					}
+				}
+				catch { }
 				try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", m.speaker, "chat", m.content, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
 			}
 			var finalText = sb.ToString().TrimEnd();

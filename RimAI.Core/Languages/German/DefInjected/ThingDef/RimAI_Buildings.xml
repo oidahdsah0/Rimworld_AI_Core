@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <!-- KI-Server -->
   <RimAI_AIServer_Lv1A.label>KI-Server (Stufe 1)</RimAI_AIServer_Lv1A.label>
   <RimAI_AIServer_Lv1A.description>Bietet grundlegende KI-Dienste für die Kolonie.</RimAI_AIServer_Lv1A.description>
 
@@ -8,6 +9,8 @@
 
   <RimAI_AIServer_Lv3A.label>KI-Server (Stufe 3)</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>Bietet hochleistungsfähige KI-Dienste für die Kolonie.</RimAI_AIServer_Lv3A.description>
+
+  <!-- Gravitationswellen-Antenne -->
+  <RimAI_GWAntennaA.label>Gravitationswellen-Antenne</RimAI_GWAntennaA.label>
+  <RimAI_GWAntennaA.description>Eine leistungsstarke Antenne für Gravitationswellen-basierte Fernkommunikation mit unbekannten Zivilisationen. Benötigt Strom.</RimAI_GWAntennaA.description>
 </LanguageData>
-
-

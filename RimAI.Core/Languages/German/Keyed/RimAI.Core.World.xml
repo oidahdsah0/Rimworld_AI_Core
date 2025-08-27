@@ -3,4 +3,8 @@
   <!-- Weltaktions-Nachrichten -->
   <RimAI.Core.World.Weather.Force.Start>Erzwungenes Wetter: {0} für {1} Tag(e).</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>Erzwungenes Wetter beendet: {0}.</RimAI.Core.World.Weather.Force.End>
+  
+  <!-- Interaktionen mit unbekannter Zivilisation -->
+  <RimAI.UnknownCiv.FavorChanged>Die Sympathie der unbekannten Zivilisation hat sich geändert: {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>Die unbekannte Zivilisation scheint Nachschub aus dem Orbit abgeworfen zu haben.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>

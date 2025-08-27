@@ -3,8 +3,6 @@
   <RimAI.Building.LimitReached.Format>Auf dieser Karte können höchstens {0} {1} gebaut werden (derzeit {2}).</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>Dieses Werkzeug erfordert eine mit Strom versorgte Gravitationswellen-Antenne.</RimAI.Tool.RequireAntennaPowered>
-  <RimAI.UnknownCiv.FavorChanged>Die Sympathie der unbekannten Zivilisation hat sich geändert: {0}</RimAI.UnknownCiv.FavorChanged>
-  <RimAI.UnknownCiv.GiftIncoming>Die unbekannte Zivilisation scheint Nachschub aus dem Orbit abgeworfen zu haben.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>
 
 

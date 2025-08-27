@@ -8,6 +8,14 @@
 
   <RimAI_AI_Level3.label>RimAI – Künstliche Intelligenz Stufe 3</RimAI_AI_Level3.label>
   <RimAI_AI_Level3.description>Hochentwickelte Algorithmen und Hardware-Integration. Schaltet Stufe-3-Server frei.</RimAI_AI_Level3.description>
+  
+  <!-- Gravitationswellen-Kommunikation -->
+  <RimAI_GW_Communication.label>Gravitationswellen-Kommunikation</RimAI_GW_Communication.label>
+  <RimAI_GW_Communication.description>Schaltet den Bau einer Gravitationswellen-Antenne frei und erlaubt den Versuch, Kontakt mit unbekannten Zivilisationen aufzunehmen.</RimAI_GW_Communication.description>
+
+  <!-- Gravitative Unterraum-Penetration -->
+  <RimAI_Subspace_Gravitic_Penetration.label>Gravitative Unterraum-Penetration</RimAI_Subspace_Gravitic_Penetration.label>
+  <RimAI_Subspace_Gravitic_Penetration.description>Gravitationswellen modulieren, um den Unterraum lokal zu durchdringen; ermöglicht kurzzeitige Resonanz und Echoformung.</RimAI_Subspace_Gravitic_Penetration.description>
 </LanguageData>
 
 

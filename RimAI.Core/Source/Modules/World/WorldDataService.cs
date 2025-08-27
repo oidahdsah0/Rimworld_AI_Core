@@ -210,19 +210,19 @@ namespace RimAI.Core.Source.Modules.World
 		// 获取袭击战备评估（财富/人口/战兽/威胁点/规模）
 		public Task<RaidReadinessSnapshot> GetRaidReadinessAsync(CancellationToken ct = default) => _raidPart.GetAsync(ct);
 
-	// 研究/设备可用性（统一入口）
-	public Task<bool> IsResearchFinishedAsync(string defName, CancellationToken ct = default) => _researchPart.IsFinishedAsync(defName, ct);
-	public Task<bool> HasPoweredBuildingAsync(string buildingDefName, CancellationToken ct = default) => _buildingPowerPart.HasPoweredBuildingAsync(buildingDefName, ct);
-	public Task<bool> HasPoweredAntennaAsync(CancellationToken ct = default) => _buildingPowerPart.HasPoweredBuildingAsync("RimAI_GWAntennaA", ct);
+		// 研究/设备可用性（统一入口）
+		public Task<bool> IsResearchFinishedAsync(string defName, CancellationToken ct = default) => _researchPart.IsFinishedAsync(defName, ct);
+		public Task<bool> HasPoweredBuildingAsync(string buildingDefName, CancellationToken ct = default) => _buildingPowerPart.HasPoweredBuildingAsync(buildingDefName, ct);
+		public Task<bool> HasPoweredAntennaAsync(CancellationToken ct = default) => _buildingPowerPart.HasPoweredBuildingAsync("RimAI_GWAntennaA", ct);
 
-	// 主线程“Now”便捷方法（UI 使用，避免额外调度）
-	public bool IsResearchFinishedNow(string defName) => _researchPart.IsFinishedNow(defName);
-	public bool HasPoweredBuildingNow(string buildingDefName) => _buildingPowerPart.HasPoweredBuildingNow(buildingDefName);
-	public bool HasPoweredAntennaNow() => _buildingPowerPart.HasPoweredBuildingNow("RimAI_GWAntennaA");
+		// 主线程“Now”便捷方法（UI 使用，避免额外调度）
+		public bool IsResearchFinishedNow(string defName) => _researchPart.IsFinishedNow(defName);
+		public bool HasPoweredBuildingNow(string buildingDefName) => _buildingPowerPart.HasPoweredBuildingNow(buildingDefName);
+		public bool HasPoweredAntennaNow() => _buildingPowerPart.HasPoweredBuildingNow("RimAI_GWAntennaA");
 
-	// 杂项：通过 MetaPart 统一实现
-	public Task<long> GetNowAbsTicksAsync(CancellationToken ct = default) => _metaPart.GetNowAbsTicksAsync(ct);
-	public Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default) => _metaPart.GetCurrentMapCipherSeedAsync(ct);
+		// 杂项：通过 MetaPart 统一实现
+		public Task<long> GetNowAbsTicksAsync(CancellationToken ct = default) => _metaPart.GetNowAbsTicksAsync(ct);
+		public Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default) => _metaPart.GetCurrentMapCipherSeedAsync(ct);
 
 	}
 

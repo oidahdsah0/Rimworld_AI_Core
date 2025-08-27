@@ -39,9 +39,9 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly Parts.MetaPart _metaPart;
 		private readonly Parts.WeatherPart _weatherPart;
 		private readonly Parts.WeatherStatusPart _weatherStatusPart;
-	private readonly Parts.ResourceOverviewPart _resourcePart;
-	private readonly Parts.PowerStatusPart _powerPart;
-	private readonly Parts.StorageSaturationPart _storagePart;
+		private readonly Parts.ResourceOverviewPart _resourcePart;
+		private readonly Parts.PowerStatusPart _powerPart;
+		private readonly Parts.StorageSaturationPart _storagePart;
 		private readonly Parts.ResearchPart _researchPart;
 		private readonly Parts.ConstructionBacklogPart _constructionPart;
 		private readonly Parts.SecurityPosturePart _securityPart;
@@ -53,6 +53,7 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly Parts.PrisonOverviewPart _prisonPart;
 		private readonly Parts.AlertDigestPart _alertPart;
 		private readonly Parts.RaidReadinessPart _raidPart;
+		private readonly Parts.BuildingPowerPart _buildingPowerPart;
 
 		public WorldDataService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -85,6 +86,7 @@ namespace RimAI.Core.Source.Modules.World
 			_prisonPart = new Parts.PrisonOverviewPart(_scheduler, _cfg);
 			_alertPart = new Parts.AlertDigestPart(_scheduler, _cfg);
 			_raidPart = new Parts.RaidReadinessPart(_scheduler, _cfg);
+            _buildingPowerPart = new Parts.BuildingPowerPart(_scheduler, _cfg);
 		}
 
 		// 获取玩家名称（派系/殖民地拥有者）
@@ -207,6 +209,16 @@ namespace RimAI.Core.Source.Modules.World
 
 		// 获取袭击战备评估（财富/人口/战兽/威胁点/规模）
 		public Task<RaidReadinessSnapshot> GetRaidReadinessAsync(CancellationToken ct = default) => _raidPart.GetAsync(ct);
+
+	// 研究/设备可用性（统一入口）
+	public Task<bool> IsResearchFinishedAsync(string defName, CancellationToken ct = default) => _researchPart.IsFinishedAsync(defName, ct);
+	public Task<bool> HasPoweredBuildingAsync(string buildingDefName, CancellationToken ct = default) => _buildingPowerPart.HasPoweredBuildingAsync(buildingDefName, ct);
+	public Task<bool> HasPoweredAntennaAsync(CancellationToken ct = default) => _buildingPowerPart.HasPoweredBuildingAsync("RimAI_GWAntennaA", ct);
+
+	// 主线程“Now”便捷方法（UI 使用，避免额外调度）
+	public bool IsResearchFinishedNow(string defName) => _researchPart.IsFinishedNow(defName);
+	public bool HasPoweredBuildingNow(string buildingDefName) => _buildingPowerPart.HasPoweredBuildingNow(buildingDefName);
+	public bool HasPoweredAntennaNow() => _buildingPowerPart.HasPoweredBuildingNow("RimAI_GWAntennaA");
 
 	}
 

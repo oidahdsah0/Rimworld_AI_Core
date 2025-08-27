@@ -53,8 +53,7 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<ISchedulerService, SchedulerService>();
                 Container.Register<IWorldDataService, WorldDataService>();
                 Container.Register<RimAI.Core.Source.Modules.World.IWorldActionService, RimAI.Core.Source.Modules.World.WorldActionService>();
-                // Unknown Civ service (P13 adjunct)
-                Container.Register<RimAI.Core.Source.Modules.Tooling.Execution.IUnknownCivService, RimAI.Core.Source.Modules.World.UnknownCivService>();
+                // Unknown Civ: logic in executor now uses Persistence + WorldAction directly
                 // P4 + P6 minimal services
                 Container.Register<RimAI.Core.Source.Modules.Persistence.IPersistenceService, RimAI.Core.Source.Modules.Persistence.PersistenceService>();
                 Container.Register<RimAI.Core.Source.Modules.Tooling.IToolRegistryService, RimAI.Core.Source.Modules.Tooling.ToolRegistryService>();

@@ -198,14 +198,14 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                         // 需求：仅在研究 RimAI_GW_Communication 完成后，才显示 Lv3 的未知文明工具
                         if (string.Equals(name, "get_unknown_civ_contact", StringComparison.OrdinalIgnoreCase))
                         {
-                            bool researchOk = false;
+                            // 研究 gate：通过 WDS（主线程查询可走异步缓存；此处采用同步 Now 门面）
                             try
                             {
-                                var def = DefDatabase<ResearchProjectDef>.GetNamedSilentFail("RimAI_GW_Communication");
-                                researchOk = def != null && def.IsFinished;
+                                var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
+                                if (world == null || !world.IsResearchFinishedNow("RimAI_GW_Communication"))
+                                    continue;
                             }
-                            catch { researchOk = false; }
-                            if (!researchOk) continue; // 隐藏该工具
+                            catch { continue; }
                         }
                         var disp = tooling?.GetToolDisplayNameOrNull(name) ?? name;
                         if (levelMap != null && levelMap.TryGetValue(name, out var lvl) && lvl >= 1 && lvl <= 3)
@@ -217,17 +217,18 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                             // 选择时检查：若是未知文明工具，且无通电的天线，则弹提示并阻止设置
                             if (string.Equals(name, "get_unknown_civ_contact", StringComparison.OrdinalIgnoreCase))
                             {
-                                bool powered = HasPoweredAntenna();
-                                if (!powered)
+                                // 设备 gate：通过 WDS Now 门面（UI 在主线程）
+                                try
                                 {
-                                    try
+                                    var wds = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
+                                    if (wds == null || !wds.HasPoweredAntennaNow())
                                     {
-                                        var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
-                                        world?.ShowTopLeftMessageAsync("RimAI.Tool.RequireAntennaPowered".Translate(), RimWorld.MessageTypeDefOf.RejectInput);
+                                        var act = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
+                                        act?.ShowTopLeftMessageAsync("RimAI.Tool.RequireAntennaPowered".Translate(), RimWorld.MessageTypeDefOf.RejectInput);
+                                        return; // 阻止
                                     }
-                                    catch { }
-                                    return; // 阻止
                                 }
+                                catch { return; }
                             }
                             try { server?.AssignSlot(entityId, index, name); } catch { }
                             try { if (index >= 0 && index < state.SelectedTools.Count) state.SelectedTools[index] = name; } catch { }
@@ -296,28 +297,6 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             return map;
         }
 
-        private static bool HasPoweredAntenna()
-        {
-            try
-            {
-                foreach (var map in Find.Maps)
-                {
-                    foreach (var b in map.listerBuildings?.allBuildingsColonist ?? Enumerable.Empty<Building>())
-                    {
-                        if (b?.def?.defName == "RimAI_GWAntennaA")
-                        {
-                            try
-                            {
-                                var comp = b.TryGetComp<CompPowerTrader>();
-                                if (comp != null && comp.PowerOn) return true;
-                            }
-                            catch { }
-                        }
-                    }
-                }
-            }
-            catch { }
-            return false;
-        }
+    // 设备/研究 gate 已迁移至 WorldDataService 门面
     }
 }

@@ -8,10 +8,13 @@ using RimAI.Core.Source.Modules.Server;
 using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Boot;
 using Verse;
+using RimWorld;
+using RimAI.Core.Source.Modules.Persistence;
+using RimAI.Core.Source.Modules.Persistence.Snapshots;
 
 namespace RimAI.Core.Source.Modules.Tooling.Execution
 {
-    internal sealed class UnknownCivContactExecutor : IToolExecutor
+    internal sealed partial class UnknownCivContactExecutor : IToolExecutor
     {
         public string Name => "get_unknown_civ_contact";
 
@@ -19,12 +22,39 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
         {
             try
             {
+                // Runtime self-checks to keep scheduler simple:
+                // 1) Research must be finished (via WDS)
+                var wds = RimAICoreMod.Container.Resolve<IWorldDataService>();
+                if (wds == null || !wds.IsResearchFinishedAsync("RimAI_GW_Communication").ConfigureAwait(false).GetAwaiter().GetResult())
+                {
+                    // Do not perform side effects; return structured failure
+                    return Task.FromResult<object>(new
+                    {
+                        ok = false,
+                        error = "RESEARCH_LOCKED",
+                        require = new { research = "RimAI_GW_Communication" }
+                    });
+                }
+
+                // 2) At least one powered antenna must exist (via WDS)
+                if (!wds.HasPoweredAntennaNow())
+                {
+                    try
+                    {
+                        var worldSvc = RimAICoreMod.Container.Resolve<IWorldActionService>();
+                        worldSvc?.ShowTopLeftMessageAsync("RimAI.Tool.RequireAntennaPowered".Translate(), MessageTypeDefOf.RejectInput);
+                    }
+                    catch { }
+                    return Task.FromResult<object>(new { ok = false, error = "REQUIRE_ANTENNA_POWERED" });
+                }
+
                 // 生成伪加密信息（基于时间和地图的短随机）
                 string cipher = GenerateCipherMessage();
 
-                // 与服务交互以计算本次好感变化、是否触发赠礼及冷却等
-                var svc = RimAICoreMod.TryGetService<IUnknownCivService>();
-                var result = svc?.ApplyContactAndMaybeGift();
+                // 计算本次好感变化、是否触发赠礼及冷却等（直接通过 Persistence + WorldAction 执行）
+                var persistence = RimAICoreMod.Container.Resolve<IPersistenceService>();
+                var action = RimAICoreMod.Container.Resolve<IWorldActionService>();
+                var result = ApplyContactAndMaybeGiftInternal(persistence, action);
 
                 object payload = new
                 {
@@ -60,11 +90,8 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
             }
             return sb.ToString();
         }
-    }
 
-    internal interface IUnknownCivService
-    {
-        UnknownCivContactResult ApplyContactAndMaybeGift();
+    // 研究/设备查询已通过 WorldDataService 统一入口
     }
 
     internal sealed class UnknownCivContactResult
@@ -74,5 +101,57 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
         public int CooldownSeconds { get; set; }
         public bool GiftTriggered { get; set; }
         public string GiftNote { get; set; }
+    }
+
+    // 内联 UnknownCiv 行为：以 Persistence + WorldAction 为唯一依赖
+    internal static class UnknownCivLogic
+    {
+        internal const float GiftCoeff = 2.0f;
+    }
+
+    internal partial class UnknownCivContactExecutor
+    {
+        private UnknownCivContactResult ApplyContactAndMaybeGiftInternal(IPersistenceService persistence, IWorldActionService world)
+        {
+            var snap = persistence?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
+            var uc = snap.UnknownCiv ?? (snap.UnknownCiv = new UnknownCivState());
+
+            var rng = new System.Random();
+            int delta = rng.Next(-5, 16); // [-5, +15]
+            long nowAbs = Find.TickManager?.TicksAbs ?? 0;
+            uc.Favor = Math.Max(-100, Math.Min(100, uc.Favor + delta));
+
+            try { world?.ShowTopLeftMessageAsync("RimAI.UnknownCiv.FavorChanged".Translate(delta), MessageTypeDefOf.NeutralEvent); } catch { }
+
+            bool gift = false; string note = string.Empty; int cooldownSec = 0;
+            int minTicks = 3 * 60000; // 3 天
+            int maxTicks = 5 * 60000; // 5 天
+            int nextWindow = rng.Next(minTicks, maxTicks + 1);
+            if (uc.Favor > 65 && nowAbs >= (uc.NextGiftAllowedAbsTicks <= 0 ? 0 : uc.NextGiftAllowedAbsTicks))
+            {
+                gift = true;
+                uc.LastGiftAtAbsTicks = (int)nowAbs;
+                uc.NextGiftAllowedAbsTicks = (int)(nowAbs + nextWindow);
+                cooldownSec = (int)(nextWindow / 60); // 60 tick ~= 1s（近似）
+                note = "RimAI.UnknownCiv.GiftIncoming".Translate().CapitalizeFirst();
+                try { world?.ShowTopLeftMessageAsync(note, MessageTypeDefOf.PositiveEvent); } catch { }
+                try { _ = world?.DropUnknownCivGiftAsync(UnknownCivLogic.GiftCoeff); } catch { }
+            }
+            else
+            {
+                cooldownSec = (int)(nextWindow / 60);
+            }
+
+            persistence?.ReplaceLastSnapshotForDebug(snap);
+
+            return new UnknownCivContactResult
+            {
+                FavorDelta = delta,
+                FavorTotal = uc.Favor,
+                CooldownSeconds = cooldownSec,
+                GiftTriggered = gift,
+                GiftNote = note
+            };
+        }
     }
 }

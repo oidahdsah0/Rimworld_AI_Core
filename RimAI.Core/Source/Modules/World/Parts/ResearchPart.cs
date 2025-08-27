@@ -112,6 +112,35 @@ namespace RimAI.Core.Source.Modules.World.Parts
             }, name: "ResearchPart.Get", ct: cts.Token);
         }
 
+        public Task<bool> IsFinishedAsync(string defName, CancellationToken ct = default)
+        {
+            var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeoutMs);
+            return _scheduler.ScheduleOnMainThreadAsync(() =>
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(defName)) return false;
+                    var def = DefDatabase<ResearchProjectDef>.GetNamedSilentFail(defName);
+                    return def != null && def.IsFinished;
+                }
+                catch { return false; }
+            }, name: "Research.IsFinished", ct: cts.Token);
+        }
+
+        // 主线程立即查询：调用方需确保在主线程（通常用于 UI gate）
+        public bool IsFinishedNow(string defName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(defName)) return false;
+                var def = DefDatabase<ResearchProjectDef>.GetNamedSilentFail(defName);
+                return def != null && def.IsFinished;
+            }
+            catch { return false; }
+        }
+
         private static ResearchOptionItem ToOption(ResearchProjectDef p, float effPerDay)
         {
             float cost = p.Cost;

@@ -78,6 +78,16 @@ namespace RimAI.Core.Source.Modules.World
 
 		// New: raid readiness (wealth/threat points/size estimates)
 		Task<RaidReadinessSnapshot> GetRaidReadinessAsync(CancellationToken ct = default);
+
+		// New: research/device availability (single official entry)
+		Task<bool> IsResearchFinishedAsync(string defName, CancellationToken ct = default);
+		Task<bool> HasPoweredBuildingAsync(string buildingDefName, CancellationToken ct = default);
+		Task<bool> HasPoweredAntennaAsync(CancellationToken ct = default);
+
+		// Now helpers (must be called on main thread; for UI gating)
+		bool IsResearchFinishedNow(string defName);
+		bool HasPoweredBuildingNow(string buildingDefName);
+		bool HasPoweredAntennaNow();
 	}
 }
 

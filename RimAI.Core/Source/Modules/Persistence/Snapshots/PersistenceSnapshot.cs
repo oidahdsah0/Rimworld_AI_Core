@@ -19,6 +19,8 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public UnknownCivState UnknownCiv { get; set; } = new UnknownCivState();
 		// Weather control state (cooldown and bookkeeping)
 		public WeatherControlState WeatherControl { get; set; } = new WeatherControlState();
+		// Subspace invocation state (cooldown and bookkeeping)
+		public SubspaceInvocationState SubspaceInvocation { get; set; } = new SubspaceInvocationState();
 	}
 
 	public sealed class UnknownCivState
@@ -34,6 +36,15 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public int LastAppliedAtAbsTicks { get; set; } = 0;
 		public int ExpectedEndAtAbsTicks { get; set; } = 0;
 		public int NextAllowedAtAbsTicks { get; set; } = 0; // cooldown gate
+	}
+
+	public sealed class SubspaceInvocationState
+	{
+		public int LastInvokedAtAbsTicks { get; set; } = 0;
+		public int NextAllowedAtAbsTicks { get; set; } = 0; // cooldown gate
+		public string LastTier { get; set; } = string.Empty; // low|mid|high|apex
+		public string LastComposition { get; set; } = string.Empty; // insects|shamblers|revenant|mixed
+		public int LastCount { get; set; } = 0;
 	}
 
 	public sealed class HistoryState

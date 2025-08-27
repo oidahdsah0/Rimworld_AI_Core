@@ -9,7 +9,7 @@
 
 ---
 
-## Lv1（15）
+## Lv1（12）
 1. get_colony_status（已实现）
    - 概览：人物清单、食物、药品、威胁四块
    - 输出：people[], food{}, medicine{}, threats{}
@@ -52,6 +52,8 @@
 12. get_trade_readiness（已实现 v1）
    - 可交易银币、信标覆盖/电力、通讯台可用性，以及信标覆盖范围内可交易物资清单
    - 输出：trade{silver, beacons{total, powered, coverageCells, inRangeStacks}, comms{hasConsole, usableNow}, goods[{defName, label, qty, totalValue}]}
+
+## Lv2（6）
 13. get_animal_management（已实现 v1）
    - 牲畜/战兽数量、训练、口粮压力
    - 输出：animals{counts{total, species[{defName,label,count}]}, training{obedience{eligible,learned}, release{...}, rescue{...}, haul{...}}, food{totalNutrition, dailyNeed, days, sources[{defName,label,count,nutritionPer,totalNutrition}]}}
@@ -61,31 +63,29 @@
 15. get_alert_digest（已实现 v1）
    - 当前 RimWorld 警报聚合与严重度排序
    - 输出：alerts[{id, label, severity, hint}]
-
-## Lv2（10）
 16. get_raid_readiness（进行中 v1：威胁点与规模估算）
    - 当前财富/人口/战兽/机仆构成与 Storyteller 因子，估算 DefaultThreatPointsNow 与袭击规模区间，分级风险带
    - 输出：raid{wealth{total,items,buildings,pawns,playerWealthForStoryteller}, colony{humanCount,armedCount,avgHealthPct}, animals{battleReadyCount,pointsContribution}, mechs{count,combatPowerSum}, points{finalPoints,difficultyScale,adaptationApplied,timeFactor,randomFactorMin,randomFactorMax,daysSinceSettle}, riskBand, sizes[{archetype,min,max}]}
 17. 
 18. 
-19. 
-20. 
-21. 
-22. 
-23. 
-24. 
-25. 
 
-## Lv3（5）
-26. get_unknown_civ_contact（已实现 v1）
+## Lv3（3）
+19. get_unknown_civ_contact（已实现 v1）
    - 研究完成后出现在 Lv3 工具下拉；选择/执行需已供电的“引力波天线”，未满足时给出本地化提示
    - 输出：{cipher_message, favor_delta, favor_total, cooldown_seconds, gift_triggered, gift_note}
    - 行为：好感变动范围 -5..+15；当 favor_total>65 且冷却到期，触发来自未知文明的赠礼（资源投放，数量系数 2.0），并在顶栏提示；赠礼冷却 3–5 天；工具本身只读（P4），落地写入由 WorldActionService 在主线程调度（P3）
-27. set_forced_weather（已实现 v1）
+20. set_forced_weather（已实现 v1）
    - 在当前地图强制指定天气 1–3 天；需 Lv3 服务器、通讯研究完成、天线通电；操作有 5 天冷却
    - 输入：server_id（thing:<id>），weather_name（从枚举中模糊匹配），map_id（可选）
    - 输出：成功 { ok:true, weather, duration_days, cooldown_days }；失败 { ok:false, error, ... }
    - 规则：允许天气枚举（Clear, Fog, Rain, DryThunderstorm, RainyThunderstorm, FoggyRain, SnowHard, SnowGentle）；模糊匹配阈值 0.65；开始/结束会在左上角显示本地化提示；实际改动通过 WAS 在主线程施加 GameCondition，并记录冷却到持久化
-28. 
-29. 
-30. 
+21. invoke_subspace_entity（已实现 v1）
+    - 触发一次“亚空间回声显化”；编排可对强烈“召唤词”直连命中；内部根据 llm_score(0–100) 计算强度分层与敌对组成
+    - 输入：server_id（thing:<id>），llm_score（0–100）
+    - 输出：成功 { ok:true, tier, composition, count, cooldown_days }；失败 { ok:false, error, ... }
+    - 规则：
+       - 准入：需 Lv3 服务器、研究“亚空间引力波穿透”(RimAI_Subspace_Gravitic_Penetration) 完成、引力波天线通电
+       - 冷却：2 天；将最近一次与下次可用写入持久化（SubspaceInvocationState）
+       - 组成优先：徘徊者(Anomaly: Revenant)/僵尸(Shambler)；缺失则回退虫群；若存在对应 Incident（如 Revenant）则优先用 Incident 触发，否则直接在主线程生成敌对单位
+       - 强度分层：low/mid/high/apex（由 llm_score 划分）
+       - 提示：开始时在左上角显示本地化提示；触发方式与天气控制器相似，均通过 WAS 在主线程执行，失败快速返回

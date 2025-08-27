@@ -15,6 +15,17 @@
     <researchViewY>8</researchViewY>
   </ResearchProjectDef>
 
+  <ResearchProjectDef>
+    <defName>RimAI_Subspace_Gravitic_Penetration</defName>
+    <label>亚空间引力波穿透</label>
+    <description>通过调制引力波对亚空间进行定域穿透，允许短时呼应并塑形微弱回声。</description>
+    <baseCost>1800</baseCost>
+    <techLevel>Spacer</techLevel>
+    <prerequisites>
+      <li>RimAI_AI_Level3</li>
+    </prerequisites>
+  </ResearchProjectDef>
+
   <!-- RimAI - Level 2 AI -->
   <ResearchProjectDef>
     <defName>RimAI_AI_Level2</defName>

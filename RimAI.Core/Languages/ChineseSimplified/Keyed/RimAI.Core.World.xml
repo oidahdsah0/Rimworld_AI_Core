@@ -3,4 +3,11 @@
   <!-- 世界动作消息 -->
   <RimAI.Core.World.Weather.Force.Start>已强制天气：{0}，持续 {1} 天。</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>强制天气已结束：{0}。</RimAI.Core.World.Weather.Force.End>
+  <RimAI.Core.World.Subspace.Invoke.Start>亚空间回声扰动（{0}级）：{1} 正在显化。</RimAI.Core.World.Subspace.Invoke.Start>
+  <RimAI.Core.World.Subspace.Invoke.End>亚空间回声扰动平息。</RimAI.Core.World.Subspace.Invoke.End>
+  <RimAI.Core.World.Subspace.Invoke.Backfire>亚空间干涉反噬！异常急剧涌入。</RimAI.Core.World.Subspace.Invoke.Backfire>
+  
+  <!-- 未知文明交互 -->
+  <RimAI.UnknownCiv.FavorChanged>未知文明好感度变化：{0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>未知文明似乎在轨道上投放了补给。</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>

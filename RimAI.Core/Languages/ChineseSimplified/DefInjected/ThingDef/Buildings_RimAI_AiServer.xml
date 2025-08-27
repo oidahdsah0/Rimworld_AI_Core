@@ -1,13 +1,2 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LanguageData>
-  <RimAI_AIServer_Lv1A.label>AI 服务器（Lv1）</RimAI_AIServer_Lv1A.label>
-  <RimAI_AIServer_Lv1A.description>为殖民地提供基础 AI 服务的服务器。</RimAI_AIServer_Lv1A.description>
-
-  <RimAI_AIServer_Lv2A.label>AI 服务器（Lv2）</RimAI_AIServer_Lv2A.label>
-  <RimAI_AIServer_Lv2A.description>为殖民地提供增强 AI 服务的服务器。</RimAI_AIServer_Lv2A.description>
-
-  <RimAI_AIServer_Lv3A.label>AI 服务器（Lv3）</RimAI_AIServer_Lv3A.label>
-  <RimAI_AIServer_Lv3A.description>为殖民地提供高性能 AI 服务的服务器。</RimAI_AIServer_Lv3A.description>
-</LanguageData>
-
+ 
 

@@ -9,6 +9,13 @@ namespace RimAI.Core.Source.Modules.World
 		public string Id { get; set; }
 	}
 
+	internal sealed class SubspaceInvocationOutcome
+	{
+		public string Tier { get; set; } // e.g., "low|mid|high|apex"
+		public string Composition { get; set; } // e.g., "insects", "shamblers", "revenant", "mixed"
+		public int Count { get; set; } // estimated spawned pawn count (if applicable)
+	}
+
 	/// <summary>
 	/// 世界写入操作（WAS: WorldActionService）的接口门面。
 	/// 所有对 Verse/RimWorld 的“写操作”必须经由本接口实现，且由实现确保在主线程执行。
@@ -103,6 +110,17 @@ namespace RimAI.Core.Source.Modules.World
 		/// <param name="ct">取消令牌（可选）。</param>
 		/// <returns>提交成功与否（若地图/WeatherDef 无效通常返回 false）。</returns>
 		Task<bool> TryForceWeatherAsync(string weatherDefName, int durationTicks, CancellationToken ct = default);
+
+		/// <summary>
+		/// 尝试在当前地图触发一次“亚空间召唤/侵蚀”效果：
+		/// - 根据传入的评分（0..100）判定强度与构成；
+		/// - 若存在对应 DLC/事件，则优先调用 Incident；否则回退为直接生成虫族单位；
+		/// - 在主线程执行，失败不抛异常。
+		/// </summary>
+		/// <param name="llmScore">强度评分（0..100）。</param>
+		/// <param name="ct">取消令牌（可选）。</param>
+		/// <returns>执行结果（包含强度分层/构成/数量统计）；失败返回 null。</returns>
+		Task<SubspaceInvocationOutcome> TryInvokeSubspaceAsync(int llmScore, CancellationToken ct = default);
 	}
 }
 

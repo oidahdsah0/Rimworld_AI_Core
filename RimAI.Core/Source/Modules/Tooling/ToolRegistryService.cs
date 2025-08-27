@@ -80,6 +80,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 			};
 			// Action tools
 			manual["set_forced_weather"] = new Execution.SetForcedWeatherExecutor();
+			manual["invoke_subspace_entity"] = new Execution.InvokeSubspaceEntityExecutor();
 			// 扩展注册
 			manual["get_mood_risk_overview"] = new MoodRiskOverviewExecutor();
 			manual["get_trade_readiness"] = new TradeReadinessExecutor();

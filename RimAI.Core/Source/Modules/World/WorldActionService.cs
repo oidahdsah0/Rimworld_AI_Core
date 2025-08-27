@@ -29,6 +29,7 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly GroupChatActionPart _groupChatPart;
 		private readonly MiscActionPart _miscPart;
 		private readonly UnknownCivActionPart _unknownCivPart;
+		private readonly SubspaceActionPart _subspacePart;
 
 		public WorldActionService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -38,6 +39,7 @@ namespace RimAI.Core.Source.Modules.World
 			_groupChatPart = new GroupChatActionPart(_scheduler, _cfg);
 			_miscPart = new MiscActionPart(_scheduler, _cfg);
 			_unknownCivPart = new UnknownCivActionPart(_scheduler, _cfg);
+			_subspacePart = new SubspaceActionPart(_scheduler, _cfg);
 		}
 
 	/// <summary>
@@ -124,6 +126,15 @@ namespace RimAI.Core.Source.Modules.World
 	/// <returns>提交成功与否（地图/Def 无效将返回 false）。</returns>
 	public Task<bool> TryForceWeatherAsync(string weatherDefName, int durationTicks, CancellationToken ct = default)
 			=> _miscPart.TryForceWeatherAsync(weatherDefName, durationTicks, ct);
+
+	/// <summary>
+	/// 在当前地图尝试触发一次“亚空间召唤/侵蚀”。
+	/// </summary>
+	/// <param name="llmScore">强度评分（0..100）。</param>
+	/// <param name="ct">取消令牌。</param>
+	/// <returns>结果或 null。</returns>
+	public Task<SubspaceInvocationOutcome> TryInvokeSubspaceAsync(int llmScore, CancellationToken ct = default)
+			=> _subspacePart.TryInvokeAsync(llmScore, ct);
 	}
 }
 

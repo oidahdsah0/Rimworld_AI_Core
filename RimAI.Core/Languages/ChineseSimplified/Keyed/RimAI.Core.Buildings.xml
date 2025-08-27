@@ -3,8 +3,6 @@
   <RimAI.Building.LimitReached.Format>本地图最多可建 {0} 台 {1}（已存在 {2} 台）。</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>该工具需要建造引力波天线并通电。</RimAI.Tool.RequireAntennaPowered>
-  <RimAI.UnknownCiv.FavorChanged>未知文明好感度变化：{0}</RimAI.UnknownCiv.FavorChanged>
-  <RimAI.UnknownCiv.GiftIncoming>未知文明似乎在轨道上投放了补给。</RimAI.UnknownCiv.GiftIncoming>
   
 </LanguageData>
 

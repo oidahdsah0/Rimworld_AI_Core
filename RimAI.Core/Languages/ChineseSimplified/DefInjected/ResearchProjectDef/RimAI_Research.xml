@@ -8,6 +8,16 @@
 
   <RimAI_AI_Level3.label>RimAI-3级人工智能</RimAI_AI_Level3.label>
   <RimAI_AI_Level3.description>高阶算法与硬件整合，解锁 Lv3 服务器。</RimAI_AI_Level3.description>
+
+  <!-- 引力波通信 -->
+  <RimAI_GW_Communication.label>引力波通信</RimAI_GW_Communication.label>
+  <RimAI_GW_Communication.description>解锁建造引力波天线，并允许尝试与未知文明建立联系。</RimAI_GW_Communication.description>
+
+  <!-- 亚空间引力波穿透 -->
+  <RimAI_Subspace_Gravitic_Penetration.label>亚空间引力波穿透</RimAI_Subspace_Gravitic_Penetration.label>
+  <RimAI_Subspace_Gravitic_Penetration.description>通过调制引力波对亚空间进行定域穿透，允许短时呼应并塑形微弱回声。</RimAI_Subspace_Gravitic_Penetration.description>
 </LanguageData>
+
+
 
 

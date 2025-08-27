@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- AI 服务器 -->
+  <RimAI_AIServer_Lv1A.label>AI 服务器（Lv1）</RimAI_AIServer_Lv1A.label>
+  <RimAI_AIServer_Lv1A.description>为殖民地提供基础 AI 服务的服务器。</RimAI_AIServer_Lv1A.description>
+
+  <RimAI_AIServer_Lv2A.label>AI 服务器（Lv2）</RimAI_AIServer_Lv2A.label>
+  <RimAI_AIServer_Lv2A.description>为殖民地提供增强 AI 服务的服务器。</RimAI_AIServer_Lv2A.description>
+
+  <RimAI_AIServer_Lv3A.label>AI 服务器（Lv3）</RimAI_AIServer_Lv3A.label>
+  <RimAI_AIServer_Lv3A.description>为殖民地提供高性能 AI 服务的服务器。</RimAI_AIServer_Lv3A.description>
+
+  <!-- 引力波天线 -->
+  <RimAI_GWAntennaA.label>引力波天线</RimAI_GWAntennaA.label>
+  <RimAI_GWAntennaA.description>用于进行超远距离与未知文明的引力波通信。需要持续供电。</RimAI_GWAntennaA.description>
+</LanguageData>

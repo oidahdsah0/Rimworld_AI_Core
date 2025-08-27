@@ -23,6 +23,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 		private readonly ToolIndexManager _index;
 		private readonly ConfigurationService _cfgService;
 		private readonly ILocalizationService _loc;
+        private readonly IWorldDataService _world;
         private readonly bool _topkAvailable;
 
 		// 简化：先用内存中的演示工具列表；后续可加 ToolDiscovery 反射扫描
@@ -104,6 +105,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 			// 读取内部配置（构造函数注入，禁止 Service Locator）
 			_cfgService = configurationService as ConfigurationService;
 			_loc = localization;
+            try { _world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<IWorldDataService>(); } catch { _world = null; }
 			// Embedding 总开关：由 LLMService 桥接 Framework 的 IsEmbeddingEnabled
 			try { _topkAvailable = _llm?.IsEmbeddingEnabled() ?? false; } catch { _topkAvailable = false; }
 			var tooling = _cfgService?.GetToolingConfig();
@@ -159,6 +161,26 @@ namespace RimAI.Core.Source.Modules.Tooling
 			// 等级过滤：默认 maxLevel=3；硬过滤掉 Level>=4 的开发级工具
 			int maxLevel = Math.Max(1, options?.MaxToolLevel ?? 3);
 			var toolList = tools.Where(t => (t?.Level ?? 1) <= maxLevel && (t?.Level ?? 1) <= 3).ToList();
+			// 研究过滤（同步、面向 UI 调用路径）：若工具实现 IResearchGatedTool，则要求其 RequiredResearchDefNames 全部完成
+			if (_world != null)
+			{
+				toolList = toolList.Where(t =>
+				{
+					try
+					{
+						if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
+						{
+							foreach (var def in g.RequiredResearchDefNames)
+							{
+								if (string.IsNullOrWhiteSpace(def)) continue;
+								if (!_world.IsResearchFinishedNow(def)) return false;
+							}
+						}
+						return true;
+					}
+					catch { return false; }
+				}).ToList();
+			}
 			var json = toolList.Select(t => t.BuildToolJson());
 			return new ToolClassicResult { ToolsJson = json.ToList() };
 		}
@@ -188,11 +210,31 @@ namespace RimAI.Core.Source.Modules.Tooling
 			IReadOnlyList<ToolScore> scores = RankTopK(q, snapshot, k, minScore);
 			var topNames = new HashSet<string>(scores.Select(s => s.ToolName), StringComparer.OrdinalIgnoreCase);
 			int maxLevel2 = Math.Max(1, options?.MaxToolLevel ?? 3);
-			var selected = _allTools
+			var selectedTools = _allTools
 				.Where(t => topNames.Contains(t.Name ?? string.Empty))
 				.Where(t => (t?.Level ?? 1) <= maxLevel2 && (t?.Level ?? 1) <= 3)
-				.Select(t => t.BuildToolJson())
 				.ToList();
+			// 研究过滤（同步 Now 变体用于 UI 路径；若未来需要后台线程，则在 BuildToolsAsync 中统一异步筛）
+			if (_world != null)
+			{
+				selectedTools = selectedTools.Where(t =>
+				{
+					try
+					{
+						if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
+						{
+							foreach (var def in g.RequiredResearchDefNames)
+							{
+								if (string.IsNullOrWhiteSpace(def)) continue;
+								if (!_world.IsResearchFinishedNow(def)) return false;
+							}
+						}
+						return true;
+					}
+					catch { return false; }
+				}).ToList();
+			}
+			var selected = selectedTools.Select(t => t.BuildToolJson()).ToList();
 			return new ToolNarrowTopKResult { ToolsJson = selected, Scores = scores };
 		}
 
@@ -322,7 +364,28 @@ namespace RimAI.Core.Source.Modules.Tooling
 				{
 					var res = await GetNarrowTopKToolCallSchemaAsync(userInput ?? string.Empty, Math.Max(1, k ?? 5), minScore, options, ct).ConfigureAwait(false);
 					var scores = res.Scores?.Select(s => (s.ToolName ?? string.Empty, s.Score)).ToList() ?? new List<(string,double)>();
-					return (res.ToolsJson ?? Array.Empty<string>(), scores, null);
+
+						// 返回前做一次异步研究过滤兜底（即使 _world 为空或 Now 过滤已做，此处也不坏）
+						var tools = res.ToolsJson?.ToList() ?? new List<string>();
+						if (_world != null)
+						{
+							// 将 JSON 名称映射回工具对象以验证门槛（简化：从已注册集合按 name 关联）
+							var nameSet = new HashSet<string>(tools.Select(ExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
+							var gated = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty)).ToList();
+							foreach (var t in gated)
+							{
+								if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
+								{
+									foreach (var def in g.RequiredResearchDefNames)
+									{
+										if (string.IsNullOrWhiteSpace(def)) continue;
+										if (!await _world.IsResearchFinishedAsync(def, ct).ConfigureAwait(false)) { nameSet.Remove(t.Name); break; }
+									}
+								}
+							}
+							tools = tools.Where(j => nameSet.Contains(ExtractName(j) ?? string.Empty)).ToList();
+						}
+						return (tools, scores, null);
 				}
 				catch (ToolIndexNotReadyException ex)
 				{
@@ -332,8 +395,27 @@ namespace RimAI.Core.Source.Modules.Tooling
 			else
 			{
 				var res = GetClassicToolCallSchema(options);
-				var names = res.ToolsJson?.Take(5).Select(j => ExtractName(j)).Where(n => !string.IsNullOrEmpty(n)).Select(n => (n, 1.0)).ToList() ?? new List<(string,double)>();
-				return (res.ToolsJson ?? Array.Empty<string>(), names, null);
+					var tools = res.ToolsJson?.ToList() ?? new List<string>();
+					// 兜底：异步再过滤一次研究门槛，防止不在主线程时 Now 变体不可用
+					if (_world != null)
+					{
+						var nameSet = new HashSet<string>(tools.Select(ExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
+						var gated = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty)).ToList();
+						foreach (var t in gated)
+						{
+							if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
+							{
+								foreach (var def in g.RequiredResearchDefNames)
+								{
+									if (string.IsNullOrWhiteSpace(def)) continue;
+									if (!await _world.IsResearchFinishedAsync(def, ct).ConfigureAwait(false)) { nameSet.Remove(t.Name); break; }
+								}
+							}
+						}
+						tools = tools.Where(j => nameSet.Contains(ExtractName(j) ?? string.Empty)).ToList();
+					}
+					var names = tools.Take(5).Select(j => ExtractName(j)).Where(n => !string.IsNullOrEmpty(n)).Select(n => (n, 1.0)).ToList() ?? new List<(string,double)>();
+					return (tools, names, null);
 			}
 		}
 

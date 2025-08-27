@@ -81,7 +81,11 @@
    - 研究完成后出现在 Lv3 工具下拉；选择/执行需已供电的“引力波天线”，未满足时给出本地化提示
    - 输出：{cipher_message, favor_delta, favor_total, cooldown_seconds, gift_triggered, gift_note}
    - 行为：好感变动范围 -5..+15；当 favor_total>65 且冷却到期，触发来自未知文明的赠礼（资源投放，数量系数 2.0），并在顶栏提示；赠礼冷却 3–5 天；工具本身只读（P4），落地写入由 WorldActionService 在主线程调度（P3）
-27. 
+27. set_forced_weather（已实现 v1）
+   - 在当前地图强制指定天气 1–3 天；需 Lv3 服务器、通讯研究完成、天线通电；操作有 5 天冷却
+   - 输入：server_id（thing:<id>），weather_name（从枚举中模糊匹配），map_id（可选）
+   - 输出：成功 { ok:true, weather, duration_days, cooldown_days }；失败 { ok:false, error, ... }
+   - 规则：允许天气枚举（Clear, Fog, Rain, DryThunderstorm, RainyThunderstorm, FoggyRain, SnowHard, SnowGentle）；模糊匹配阈值 0.65；开始/结束会在左上角显示本地化提示；实际改动通过 WAS 在主线程施加 GameCondition，并记录冷却到持久化
 28. 
 29. 
 30. 

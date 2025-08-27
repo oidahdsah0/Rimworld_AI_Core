@@ -18,26 +18,28 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
     {
         public string Name => "get_unknown_civ_contact";
 
-        public Task<object> ExecuteAsync(Dictionary<string, object> args, CancellationToken ct = default)
+        public async Task<object> ExecuteAsync(Dictionary<string, object> args, CancellationToken ct = default)
         {
             try
             {
                 // Runtime self-checks to keep scheduler simple:
-                // 1) Research must be finished (via WDS)
+                // 1) Research must be finished (via WDS, async to ensure main-thread scheduling)
                 var wds = RimAICoreMod.Container.Resolve<IWorldDataService>();
-                if (wds == null || !wds.IsResearchFinishedAsync("RimAI_GW_Communication").ConfigureAwait(false).GetAwaiter().GetResult())
+                var researchOk = wds != null && await wds.IsResearchFinishedAsync("RimAI_GW_Communication", ct).ConfigureAwait(false);
+                if (!researchOk)
                 {
                     // Do not perform side effects; return structured failure
-                    return Task.FromResult<object>(new
+                    return new
                     {
                         ok = false,
                         error = "RESEARCH_LOCKED",
                         require = new { research = "RimAI_GW_Communication" }
-                    });
+                    };
                 }
 
-                // 2) At least one powered antenna must exist (via WDS)
-                if (!wds.HasPoweredAntennaNow())
+                // 2) At least one powered antenna must exist (via WDS async; executor may run on background thread)
+                var antennaOk = wds != null && await wds.HasPoweredAntennaAsync(ct).ConfigureAwait(false);
+                if (!antennaOk)
                 {
                     try
                     {
@@ -45,7 +47,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                         worldSvc?.ShowTopLeftMessageAsync("RimAI.Tool.RequireAntennaPowered".Translate(), MessageTypeDefOf.RejectInput);
                     }
                     catch { }
-                    return Task.FromResult<object>(new { ok = false, error = "REQUIRE_ANTENNA_POWERED" });
+                    return new { ok = false, error = "REQUIRE_ANTENNA_POWERED" };
                 }
 
                 // 生成伪加密信息（基于时间和地图的短随机）
@@ -66,11 +68,11 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                     should_gift = result?.GiftTriggered ?? false,
                     gift_note = result?.GiftNote ?? string.Empty
                 };
-                return Task.FromResult(payload);
+                return payload;
             }
             catch (Exception ex)
             {
-                return Task.FromResult<object>(new { ok = false, error = ex.Message });
+                return new { ok = false, error = ex.Message };
             }
         }
 

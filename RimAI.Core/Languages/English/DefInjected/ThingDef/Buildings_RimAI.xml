@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- AI Servers -->
+  <RimAI_AIServer_Lv1A.label>AI Server (Lv1)</RimAI_AIServer_Lv1A.label>
+  <RimAI_AIServer_Lv1A.description>Provides baseline AI services for the colony.</RimAI_AIServer_Lv1A.description>
+
+  <RimAI_AIServer_Lv2A.label>AI Server (Lv2)</RimAI_AIServer_Lv2A.label>
+  <RimAI_AIServer_Lv2A.description>Provides enhanced AI services for the colony.</RimAI_AIServer_Lv2A.description>
+
+  <RimAI_AIServer_Lv3A.label>AI Server (Lv3)</RimAI_AIServer_Lv3A.label>
+  <RimAI_AIServer_Lv3A.description>Provides high-performance AI services for the colony.</RimAI_AIServer_Lv3A.description>
+
+  <!-- Gravitational-wave antenna -->
+  <RimAI_GWAntennaA.label>gravitational-wave antenna</RimAI_GWAntennaA.label>
+  <RimAI_GWAntennaA.description>A powerful antenna for gravitational-wave based communication with unknown civilizations. Requires power.</RimAI_GWAntennaA.description>
+</LanguageData>

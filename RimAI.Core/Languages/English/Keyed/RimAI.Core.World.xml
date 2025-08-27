@@ -6,4 +6,8 @@
   <RimAI.Core.World.Subspace.Invoke.Start>Subspace echo disturbance ({0} tier): {1} manifesting.</RimAI.Core.World.Subspace.Invoke.Start>
   <RimAI.Core.World.Subspace.Invoke.End>Subspace disturbance has subsided.</RimAI.Core.World.Subspace.Invoke.End>
   <RimAI.Core.World.Subspace.Invoke.Backfire>Subspace interference backfired! Anomalies surging.</RimAI.Core.World.Subspace.Invoke.Backfire>
+  
+  <!-- Unknown civilization interactions -->
+  <RimAI.UnknownCiv.FavorChanged>Unknown civilization favor changed: {0}</RimAI.UnknownCiv.FavorChanged>
+  <RimAI.UnknownCiv.GiftIncoming>The unknown civilization appears to have dropped supplies from orbit.</RimAI.UnknownCiv.GiftIncoming>
 </LanguageData>

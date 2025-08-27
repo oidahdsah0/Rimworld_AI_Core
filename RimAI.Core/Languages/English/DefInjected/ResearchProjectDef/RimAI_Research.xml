@@ -8,6 +8,14 @@
 
   <RimAI_AI_Level3.label>RimAI - Level 3 Artificial Intelligence</RimAI_AI_Level3.label>
   <RimAI_AI_Level3.description>High-level algorithms and hardware integration. Unlock Lv3 servers.</RimAI_AI_Level3.description>
+  
+  <!-- Gravitational-wave communication -->
+  <RimAI_GW_Communication.label>gravitational-wave communication</RimAI_GW_Communication.label>
+  <RimAI_GW_Communication.description>Unlocks the construction of a gravitational-wave antenna and attempts to contact unknown civilizations.</RimAI_GW_Communication.description>
+
+  <!-- Subspace gravitic penetration -->
+  <RimAI_Subspace_Gravitic_Penetration.label>Subspace gravitic penetration</RimAI_Subspace_Gravitic_Penetration.label>
+  <RimAI_Subspace_Gravitic_Penetration.description>Modulate gravity waves to locally penetrate subspace, allowing short-lived resonance and echo shaping.</RimAI_Subspace_Gravitic_Penetration.description>
 </LanguageData>
 
 

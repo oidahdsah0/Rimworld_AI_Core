@@ -3,8 +3,16 @@
   <!-- Weltaktions-Nachrichten -->
   <RimAI.Core.World.Weather.Force.Start>Erzwungenes Wetter: {0} für {1} Tag(e).</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>Erzwungenes Wetter beendet: {0}.</RimAI.Core.World.Weather.Force.End>
+  <RimAI.Core.World.Subspace.Invoke.Start>Störung des Subraum-Echos (Stufe {0}): {1} manifestiert sich.</RimAI.Core.World.Subspace.Invoke.Start>
+  <RimAI.Core.World.Subspace.Invoke.End>Die Störung des Subraum-Echos hat sich gelegt.</RimAI.Core.World.Subspace.Invoke.End>
+  <RimAI.Core.World.Subspace.Invoke.Backfire>Rückschlag der Subraum-Interferenz! Anomalien nehmen stark zu.</RimAI.Core.World.Subspace.Invoke.Backfire>
   
   <!-- Interaktionen mit unbekannter Zivilisation -->
   <RimAI.UnknownCiv.FavorChanged>Die Sympathie der unbekannten Zivilisation hat sich geändert: {0}</RimAI.UnknownCiv.FavorChanged>
   <RimAI.UnknownCiv.GiftIncoming>Die unbekannte Zivilisation scheint Nachschub aus dem Orbit abgeworfen zu haben.</RimAI.UnknownCiv.GiftIncoming>
+
+  <!-- Diplomatie -->
+  <RimAI.Core.World.Diplomacy.GoodwillChanged>Diplomatische Kontaktaufnahme: Gesinnung {0} mit {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
+  <RimAI.Core.World.Diplomacy.ApplyFailed>Diplomatische Kontaktaufnahme fehlgeschlagen.</RimAI.Core.World.Diplomacy.ApplyFailed>
+  <RimAI.Core.World.Diplomacy.NoEligibleFaction>Keine geeignete Fraktion für Diplomatie.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
 </LanguageData>

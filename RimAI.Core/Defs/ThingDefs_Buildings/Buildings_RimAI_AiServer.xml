@@ -190,7 +190,7 @@
     <selectable>true</selectable>
     <designationCategory>RimAI</designationCategory>
     <researchPrerequisites>
-      <li>RimAI_AI_Level1</li>
+      <li>RimAI_AI_Level2</li>
     </researchPrerequisites>
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
@@ -221,7 +221,7 @@
       <li Class="CompProperties_Breakdownable">
         <compClass>CompBreakdownable</compClass>
       </li>
-      <li Class="RimAI.Core.Source.UI.Gizmos.CompProperties_AIServerInfoSendGizmo" />
+      <!-- 移除终端上的对话入口 Gizmo -->
     </comps>
     <passability>PassThroughOnly</passability>
     <fillPercent>0.7</fillPercent>

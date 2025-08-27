@@ -12,4 +12,7 @@
   <RimAI.SCW.Tabs.History>Historique</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>Chat</RimAI.ServerChatUI.Button.BackToChat>
+
+  <!-- Noms d'outils -->
+  <RimAI.Tool.DisplayName.ai_diplomat>Diplomate IA</RimAI.Tool.DisplayName.ai_diplomat>
 </LanguageData>

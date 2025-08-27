@@ -10,4 +10,9 @@
   <!-- 미지의 문명 상호작용 -->
   <RimAI.UnknownCiv.FavorChanged>미지의 문명 호감도가 변경되었습니다: {0}</RimAI.UnknownCiv.FavorChanged>
   <RimAI.UnknownCiv.GiftIncoming>미지의 문명이 궤도에서 보급품을 투하한 것으로 보입니다.</RimAI.UnknownCiv.GiftIncoming>
+
+  <!-- 외교 -->
+  <RimAI.Core.World.Diplomacy.GoodwillChanged>외교 접촉: {1}와(과)의 호감도 {0}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
+  <RimAI.Core.World.Diplomacy.ApplyFailed>외교 접촉에 실패했습니다.</RimAI.Core.World.Diplomacy.ApplyFailed>
+  <RimAI.Core.World.Diplomacy.NoEligibleFaction>외교가 가능한 세력이 없습니다.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
 </LanguageData>

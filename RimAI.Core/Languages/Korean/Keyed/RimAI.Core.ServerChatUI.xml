@@ -12,4 +12,7 @@
   <RimAI.SCW.Tabs.History>기록</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>대화</RimAI.ServerChatUI.Button.BackToChat>
+
+  <!-- 도구 표시 이름 -->
+  <RimAI.Tool.DisplayName.ai_diplomat>AI 외교관</RimAI.Tool.DisplayName.ai_diplomat>
 </LanguageData>

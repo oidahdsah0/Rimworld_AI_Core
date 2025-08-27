@@ -12,6 +12,9 @@
   <RimAI.SCW.Tabs.History>历史</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>对话</RimAI.ServerChatUI.Button.BackToChat>
+
+  <!-- 工具显示名 -->
+  <RimAI.Tool.DisplayName.ai_diplomat>AI 外交官</RimAI.Tool.DisplayName.ai_diplomat>
 </LanguageData>
 
 

@@ -10,4 +10,9 @@
   <!-- Interacción con civilización desconocida -->
   <RimAI.UnknownCiv.FavorChanged>La simpatía de la civilización desconocida ha cambiado: {0}</RimAI.UnknownCiv.FavorChanged>
   <RimAI.UnknownCiv.GiftIncoming>Parece que la civilización desconocida ha soltado suministros desde órbita.</RimAI.UnknownCiv.GiftIncoming>
+
+  <!-- Diplomacia -->
+  <RimAI.Core.World.Diplomacy.GoodwillChanged>Acercamiento diplomático: buena voluntad {0} con {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
+  <RimAI.Core.World.Diplomacy.ApplyFailed>Falló el acercamiento diplomático.</RimAI.Core.World.Diplomacy.ApplyFailed>
+  <RimAI.Core.World.Diplomacy.NoEligibleFaction>No hay facciones elegibles para diplomacia.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
 </LanguageData>

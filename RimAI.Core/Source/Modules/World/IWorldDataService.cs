@@ -89,6 +89,9 @@ namespace RimAI.Core.Source.Modules.World
 		bool HasPoweredBuildingNow(string buildingDefName);
 		bool HasPoweredAntennaNow();
 
+		// New: eligible factions for diplomacy (non-player, non-hidden, humanlike, not permanent enemy)
+		Task<System.Collections.Generic.IReadOnlyList<int>> GetEligibleFactionLoadIdsAsync(CancellationToken ct = default);
+
 		// Misc tiny reads (main-thread scheduled by implementation)
 		Task<long> GetNowAbsTicksAsync(CancellationToken ct = default);
 		Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default);

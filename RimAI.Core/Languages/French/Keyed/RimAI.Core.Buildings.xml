@@ -3,6 +3,9 @@
   <RimAI.Building.LimitReached.Format>Au maximum {0} {1} peuvent être construits sur cette carte (actuellement {2}).</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>Cet outil requiert une antenne à ondes gravitationnelles alimentée.</RimAI.Tool.RequireAntennaPowered>
+  <RimAI.Tool.RequireTerminalPowered>Cet outil requiert un terminal IA alimenté.</RimAI.Tool.RequireTerminalPowered>
+  <RimAI.Tool.RequireServerLevel2>Cet outil requiert un serveur IA de niveau 2 ou supérieur.</RimAI.Tool.RequireServerLevel2>
+  <RimAI.Tool.RequireResearch.Level2>Cet outil requiert la recherche : RimAI - Intelligence artificielle niveau 2.</RimAI.Tool.RequireResearch.Level2>
 </LanguageData>
 
 

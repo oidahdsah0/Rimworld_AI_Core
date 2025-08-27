@@ -12,4 +12,8 @@
   <RimAI.SCW.Tabs.History>Verlauf</RimAI.SCW.Tabs.History>
 
   <RimAI.ServerChatUI.Button.BackToChat>Chat</RimAI.ServerChatUI.Button.BackToChat>
+
+  <!-- Tool display names -->
+  <RimAI.Tool.DisplayName.ai_diplomat>KI-Diplomat</RimAI.Tool.DisplayName.ai_diplomat>
+  
 </LanguageData>

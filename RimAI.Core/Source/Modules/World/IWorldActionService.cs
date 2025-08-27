@@ -121,6 +121,16 @@ namespace RimAI.Core.Source.Modules.World
 		/// <param name="ct">取消令牌（可选）。</param>
 		/// <returns>执行结果（包含强度分层/构成/数量统计）；失败返回 null。</returns>
 		Task<SubspaceInvocationOutcome> TryInvokeSubspaceAsync(int llmScore, CancellationToken ct = default);
+
+		/// <summary>
+		/// 调整一个派系与玩家派系之间的好感度（-100..100 范围剪裁），并返回前后值与派系信息。
+		/// </summary>
+		/// <param name="factionLoadId">目标派系的稳定 loadID。</param>
+		/// <param name="delta">增量（负值减少好感，正值增加）。</param>
+		/// <param name="reason">记录原因（用于日志/历史）。</param>
+		/// <param name="ct">取消令牌。</param>
+		/// <returns>结果对象或 null（失败）。</returns>
+		Task<FactionGoodwillAdjustResult> TryAdjustFactionGoodwillAsync(int factionLoadId, int delta, string reason, CancellationToken ct = default);
 	}
 }
 

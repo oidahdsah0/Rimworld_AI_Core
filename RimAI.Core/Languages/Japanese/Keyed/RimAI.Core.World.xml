@@ -10,4 +10,9 @@
   <!-- 未知文明のインタラクション -->
   <RimAI.UnknownCiv.FavorChanged>未知の文明の好感度が変化しました：{0}</RimAI.UnknownCiv.FavorChanged>
   <RimAI.UnknownCiv.GiftIncoming>未知の文明が軌道から物資を投下したようです。</RimAI.UnknownCiv.GiftIncoming>
+
+  <!-- 外交 -->
+  <RimAI.Core.World.Diplomacy.GoodwillChanged>外交アプローチ：{1} への好感度 {0}。</RimAI.Core.World.Diplomacy.GoodwillChanged>
+  <RimAI.Core.World.Diplomacy.ApplyFailed>外交アプローチに失敗しました。</RimAI.Core.World.Diplomacy.ApplyFailed>
+  <RimAI.Core.World.Diplomacy.NoEligibleFaction>外交可能な派閥がありません。</RimAI.Core.World.Diplomacy.NoEligibleFaction>
 </LanguageData>

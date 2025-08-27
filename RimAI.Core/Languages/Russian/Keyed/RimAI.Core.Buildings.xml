@@ -3,6 +3,9 @@
   <RimAI.Building.LimitReached.Format>На этой карте можно построить не более {0} {1} (сейчас {2}).</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>Для этого инструмента требуется антенна гравитационных волн с подачей питания.</RimAI.Tool.RequireAntennaPowered>
+  <RimAI.Tool.RequireTerminalPowered>Для этого инструмента требуется терминал ИИ с подачей питания.</RimAI.Tool.RequireTerminalPowered>
+  <RimAI.Tool.RequireServerLevel2>Для этого инструмента требуется сервер ИИ уровня 2 или выше.</RimAI.Tool.RequireServerLevel2>
+  <RimAI.Tool.RequireResearch.Level2>Для этого инструмента требуется исследование: RimAI - Искусственный интеллект Уровень 2.</RimAI.Tool.RequireResearch.Level2>
 </LanguageData>
 
 

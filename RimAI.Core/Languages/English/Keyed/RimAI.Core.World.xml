@@ -10,4 +10,9 @@
   <!-- Unknown civilization interactions -->
   <RimAI.UnknownCiv.FavorChanged>Unknown civilization favor changed: {0}</RimAI.UnknownCiv.FavorChanged>
   <RimAI.UnknownCiv.GiftIncoming>The unknown civilization appears to have dropped supplies from orbit.</RimAI.UnknownCiv.GiftIncoming>
+
+  <!-- Diplomacy -->
+  <RimAI.Core.World.Diplomacy.GoodwillChanged>Diplomatic outreach: goodwill {0} with {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
+  <RimAI.Core.World.Diplomacy.ApplyFailed>Diplomatic outreach failed.</RimAI.Core.World.Diplomacy.ApplyFailed>
+  <RimAI.Core.World.Diplomacy.NoEligibleFaction>No eligible faction for diplomacy.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
 </LanguageData>

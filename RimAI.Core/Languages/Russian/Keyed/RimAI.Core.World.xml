@@ -10,4 +10,9 @@
   <!-- Взаимодействие с неизвестной цивилизацией -->
   <RimAI.UnknownCiv.FavorChanged>Благосклонность неизвестной цивилизации изменилась: {0}</RimAI.UnknownCiv.FavorChanged>
   <RimAI.UnknownCiv.GiftIncoming>Похоже, неизвестная цивилизация сбросила припасы с орбиты.</RimAI.UnknownCiv.GiftIncoming>
+
+  <!-- Дипломатия -->
+  <RimAI.Core.World.Diplomacy.GoodwillChanged>Дипломатический контакт: отношение {0} с {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
+  <RimAI.Core.World.Diplomacy.ApplyFailed>Не удалось установить дипломатический контакт.</RimAI.Core.World.Diplomacy.ApplyFailed>
+  <RimAI.Core.World.Diplomacy.NoEligibleFaction>Нет подходящих фракций для дипломатии.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
 </LanguageData>

@@ -54,7 +54,8 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly Parts.AlertDigestPart _alertPart;
 		private readonly Parts.RaidReadinessPart _raidPart;
 		private readonly Parts.BuildingPowerPart _buildingPowerPart;
-
+		private readonly Parts.FactionPart _factionPart;
+		
 		public WorldDataService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
 			_scheduler = scheduler;
@@ -87,6 +88,7 @@ namespace RimAI.Core.Source.Modules.World
 			_alertPart = new Parts.AlertDigestPart(_scheduler, _cfg);
 			_raidPart = new Parts.RaidReadinessPart(_scheduler, _cfg);
             _buildingPowerPart = new Parts.BuildingPowerPart(_scheduler, _cfg);
+            _factionPart = new Parts.FactionPart(_scheduler, _cfg);
 		}
 
 		// 获取玩家名称（派系/殖民地拥有者）
@@ -220,10 +222,12 @@ namespace RimAI.Core.Source.Modules.World
 		public bool HasPoweredBuildingNow(string buildingDefName) => _buildingPowerPart.HasPoweredBuildingNow(buildingDefName);
 		public bool HasPoweredAntennaNow() => _buildingPowerPart.HasPoweredBuildingNow("RimAI_GWAntennaA");
 
+		// Diplomacy helpers
+		public Task<System.Collections.Generic.IReadOnlyList<int>> GetEligibleFactionLoadIdsAsync(CancellationToken ct = default) => _factionPart.GetEligibleFactionLoadIdsAsync(ct);
+
 		// 杂项：通过 MetaPart 统一实现
 		public Task<long> GetNowAbsTicksAsync(CancellationToken ct = default) => _metaPart.GetNowAbsTicksAsync(ct);
 		public Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default) => _metaPart.GetCurrentMapCipherSeedAsync(ct);
-
 	}
 
 	internal sealed class WorldDataException : Exception

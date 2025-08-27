@@ -10,4 +10,9 @@
   <!-- 未知文明交互 -->
   <RimAI.UnknownCiv.FavorChanged>未知文明好感度变化：{0}</RimAI.UnknownCiv.FavorChanged>
   <RimAI.UnknownCiv.GiftIncoming>未知文明似乎在轨道上投放了补给。</RimAI.UnknownCiv.GiftIncoming>
+
+  <!-- 外交 -->
+  <RimAI.Core.World.Diplomacy.GoodwillChanged>外交接触：与 {1} 的好感 {0}。</RimAI.Core.World.Diplomacy.GoodwillChanged>
+  <RimAI.Core.World.Diplomacy.ApplyFailed>外交接触失败。</RimAI.Core.World.Diplomacy.ApplyFailed>
+  <RimAI.Core.World.Diplomacy.NoEligibleFaction>无可进行外交的目标派系。</RimAI.Core.World.Diplomacy.NoEligibleFaction>
 </LanguageData>

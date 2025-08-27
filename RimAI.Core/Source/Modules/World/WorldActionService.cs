@@ -30,6 +30,7 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly MiscActionPart _miscPart;
 		private readonly UnknownCivActionPart _unknownCivPart;
 		private readonly SubspaceActionPart _subspacePart;
+		private readonly FactionActionPart _factionActionPart;
 
 		public WorldActionService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -40,6 +41,7 @@ namespace RimAI.Core.Source.Modules.World
 			_miscPart = new MiscActionPart(_scheduler, _cfg);
 			_unknownCivPart = new UnknownCivActionPart(_scheduler, _cfg);
 			_subspacePart = new SubspaceActionPart(_scheduler, _cfg);
+			_factionActionPart = new FactionActionPart(_scheduler, _cfg);
 		}
 
 	/// <summary>
@@ -135,7 +137,9 @@ namespace RimAI.Core.Source.Modules.World
 	/// <returns>结果或 null。</returns>
 	public Task<SubspaceInvocationOutcome> TryInvokeSubspaceAsync(int llmScore, CancellationToken ct = default)
 			=> _subspacePart.TryInvokeAsync(llmScore, ct);
-	}
+
+	public Task<FactionGoodwillAdjustResult> TryAdjustFactionGoodwillAsync(int factionLoadId, int delta, string reason, CancellationToken ct = default)
+			=> _factionActionPart.TryAdjustGoodwillAsync(factionLoadId, delta, reason, ct);
 }
 
 

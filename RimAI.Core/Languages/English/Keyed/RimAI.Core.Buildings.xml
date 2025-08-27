@@ -3,6 +3,9 @@
   <RimAI.Building.LimitReached.Format>At most {0} {1} can be built on this map (currently {2}).</RimAI.Building.LimitReached.Format>
 
   <RimAI.Tool.RequireAntennaPowered>This tool requires a powered gravitational-wave antenna.</RimAI.Tool.RequireAntennaPowered>
+  <RimAI.Tool.RequireTerminalPowered>This tool requires a powered AI terminal.</RimAI.Tool.RequireTerminalPowered>
+  <RimAI.Tool.RequireServerLevel2>This tool requires an AI server of level 2 or higher.</RimAI.Tool.RequireServerLevel2>
+  <RimAI.Tool.RequireResearch.Level2>This tool requires research: RimAI - Level 2 Artificial Intelligence.</RimAI.Tool.RequireResearch.Level2>
   
 </LanguageData>
 

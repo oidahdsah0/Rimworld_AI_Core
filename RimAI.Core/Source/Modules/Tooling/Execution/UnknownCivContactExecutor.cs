@@ -11,6 +11,7 @@ using Verse;
 using RimWorld;
 using RimAI.Core.Source.Modules.Persistence;
 using RimAI.Core.Source.Modules.Persistence.Snapshots;
+using RimAI.Core.Source.Infrastructure.Scheduler;
 
 namespace RimAI.Core.Source.Modules.Tooling.Execution
 {
@@ -50,13 +51,16 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                     return new { ok = false, error = "REQUIRE_ANTENNA_POWERED" };
                 }
 
-                // 生成伪加密信息（基于时间和地图的短随机）
-                string cipher = GenerateCipherMessage();
+                // 生成伪加密信息（基于时间和地图的短随机）— Verse 访问放到主线程调度
+                string cipher = await GenerateCipherMessageAsync(wds, ct).ConfigureAwait(false);
 
                 // 计算本次好感变化、是否触发赠礼及冷却等（直接通过 Persistence + WorldAction 执行）
                 var persistence = RimAICoreMod.Container.Resolve<IPersistenceService>();
                 var action = RimAICoreMod.Container.Resolve<IWorldActionService>();
-                var result = ApplyContactAndMaybeGiftInternal(persistence, action);
+                // 读取当前绝对 tick（Verse）放到主线程
+                long nowAbs = 0;
+                try { nowAbs = await wds.GetNowAbsTicksAsync(ct).ConfigureAwait(false); } catch { }
+                var result = ApplyContactAndMaybeGiftInternal(persistence, action, nowAbs);
 
                 object payload = new
                 {
@@ -76,11 +80,15 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
             }
         }
 
-        private static string GenerateCipherMessage()
+    private static async Task<string> GenerateCipherMessageAsync(IWorldDataService wds, CancellationToken ct)
         {
-            var map = Find.CurrentMap;
-            int seed = (int)(Find.TickManager.TicksGame ^ 0x5F3759DF);
-            if (map != null) seed ^= Gen.HashCombineInt(map.uniqueID, map.Tile);
+            int seed = 0;
+            try
+            {
+        seed = await wds.GetCurrentMapCipherSeedAsync(ct).ConfigureAwait(false);
+            }
+            catch { }
+
             var rng = new System.Random(seed);
             int len = rng.Next(28, 56);
             const string glyphs = "⡀⡈⡐⡠⡢⡤⡨⡪⡬⣀⣂⣄⣆⣈⣊⣌⣎⣐⣒⣔⣖⣘⣚⣜⣞⣠⣡⣢⣣⣤⣥⣦⣧⣨⣩⣪⣫⣬⣭⣮⣯⣰⣱⣲⣳⣴⣵⣶⣷⣸⣹⣺⣻⣼⣽⣾⣿";
@@ -113,14 +121,13 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 
     internal partial class UnknownCivContactExecutor
     {
-        private UnknownCivContactResult ApplyContactAndMaybeGiftInternal(IPersistenceService persistence, IWorldActionService world)
+    private UnknownCivContactResult ApplyContactAndMaybeGiftInternal(IPersistenceService persistence, IWorldActionService world, long nowAbs)
         {
             var snap = persistence?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
             var uc = snap.UnknownCiv ?? (snap.UnknownCiv = new UnknownCivState());
 
             var rng = new System.Random();
             int delta = rng.Next(-5, 16); // [-5, +15]
-            long nowAbs = Find.TickManager?.TicksAbs ?? 0;
             uc.Favor = Math.Max(-100, Math.Min(100, uc.Favor + delta));
 
             try { world?.ShowTopLeftMessageAsync("RimAI.UnknownCiv.FavorChanged".Translate(delta), MessageTypeDefOf.NeutralEvent); } catch { }

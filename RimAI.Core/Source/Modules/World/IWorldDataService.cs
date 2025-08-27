@@ -88,6 +88,10 @@ namespace RimAI.Core.Source.Modules.World
 		bool IsResearchFinishedNow(string defName);
 		bool HasPoweredBuildingNow(string buildingDefName);
 		bool HasPoweredAntennaNow();
+
+		// Misc tiny reads (main-thread scheduled by implementation)
+		Task<long> GetNowAbsTicksAsync(CancellationToken ct = default);
+		Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default);
 	}
 }
 

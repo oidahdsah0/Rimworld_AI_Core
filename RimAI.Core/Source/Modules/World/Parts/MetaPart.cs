@@ -17,6 +17,30 @@ namespace RimAI.Core.Source.Modules.World.Parts
         public MetaPart(ISchedulerService scheduler, ConfigurationService cfg)
         { _scheduler = scheduler; _cfg = cfg; }
 
+        // 杂项：当前绝对 tick（安全在主线程读取）
+        public Task<long> GetNowAbsTicksAsync(CancellationToken ct = default)
+        {
+            var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeoutMs);
+            return _scheduler.ScheduleOnMainThreadAsync(() => (long)(Find.TickManager?.TicksAbs ?? 0), name: "Meta.NowAbs", ct: cts.Token);
+        }
+
+        // 杂项：当前地图的“密文种子”（用于生成短伪加密串）
+        public Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default)
+        {
+            var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeoutMs);
+            return _scheduler.ScheduleOnMainThreadAsync(() =>
+            {
+                var map = Find.CurrentMap;
+                int s = (int)(Find.TickManager?.TicksGame ?? 0) ^ 0x5F3759DF;
+                try { if (map != null) unchecked { s ^= (map.uniqueID * 397) ^ map.Tile; } } catch { }
+                return s;
+            }, name: "Meta.CipherSeed", ct: cts.Token);
+        }
+
         public Task<string> GetCurrentGameTimeStringAsync(CancellationToken ct = default)
         {
             var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;

@@ -220,6 +220,10 @@ namespace RimAI.Core.Source.Modules.World
 	public bool HasPoweredBuildingNow(string buildingDefName) => _buildingPowerPart.HasPoweredBuildingNow(buildingDefName);
 	public bool HasPoweredAntennaNow() => _buildingPowerPart.HasPoweredBuildingNow("RimAI_GWAntennaA");
 
+	// 杂项：通过 MetaPart 统一实现
+	public Task<long> GetNowAbsTicksAsync(CancellationToken ct = default) => _metaPart.GetNowAbsTicksAsync(ct);
+	public Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default) => _metaPart.GetCurrentMapCipherSeedAsync(ct);
+
 	}
 
 	internal sealed class WorldDataException : Exception

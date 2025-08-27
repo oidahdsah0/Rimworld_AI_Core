@@ -23,16 +23,9 @@ namespace RimAI.Core.Source.Modules.Orchestration.Modes
 			ToolOrchestrationOptions options,
 			CancellationToken ct)
 		{
-			try
-			{
-				var res = await _tooling.GetNarrowTopKToolCallSchemaAsync(userInput, options?.NarrowTopK ?? 5, options?.MinScoreThreshold, null, ct).ConfigureAwait(false);
-				var pairs = res.Scores?.Select(s => (s.ToolName ?? string.Empty, s.Score)).ToList() ?? new List<(string,double)>();
-				return (res.ToolsJson ?? Array.Empty<string>(), pairs, null);
-			}
-			catch (ToolIndexNotReadyException ex)
-			{
-				return (Array.Empty<string>(), Array.Empty<(string,double)>(), ex.Message ?? "index_not_ready");
-			}
+			// 统一入口：由 ToolRegistryService.BuildToolsAsync 负责等级/研究过滤 + TopK 召回
+			var res = await _tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.TopK, userInput, options?.NarrowTopK, options?.MinScoreThreshold, new ToolQueryOptions(), ct).ConfigureAwait(false);
+			return res;
 		}
 	}
 }

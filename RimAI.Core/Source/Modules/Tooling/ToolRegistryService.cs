@@ -147,6 +147,8 @@ namespace RimAI.Core.Source.Modules.Tooling
 
 		public ToolClassicResult GetClassicToolCallSchema(ToolQueryOptions options = null)
 		{
+			// Scheme A：此方法仅做“原始集合”构建与可选黑白名单裁剪；
+			// 不负责任何等级/研究过滤。单点鉴权集中在 BuildToolsAsync。
 			var tools = _allTools.AsEnumerable();
 			if (options?.IncludeWhitelist != null && options.IncludeWhitelist.Count > 0)
 			{
@@ -158,30 +160,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 				var set = new HashSet<string>(options.ExcludeBlacklist, StringComparer.OrdinalIgnoreCase);
 				tools = tools.Where(t => !set.Contains(t.Name ?? string.Empty));
 			}
-			// 等级过滤：默认 maxLevel=3；硬过滤掉 Level>=4 的开发级工具
-			int maxLevel = Math.Max(1, options?.MaxToolLevel ?? 3);
-			var toolList = tools.Where(t => (t?.Level ?? 1) <= maxLevel && (t?.Level ?? 1) <= 3).ToList();
-			// 研究过滤（同步、面向 UI 调用路径）：若工具实现 IResearchGatedTool，则要求其 RequiredResearchDefNames 全部完成
-			if (_world != null)
-			{
-				toolList = toolList.Where(t =>
-				{
-					try
-					{
-						if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
-						{
-							foreach (var def in g.RequiredResearchDefNames)
-							{
-								if (string.IsNullOrWhiteSpace(def)) continue;
-								if (!_world.IsResearchFinishedNow(def)) return false;
-							}
-						}
-						return true;
-					}
-					catch { return false; }
-				}).ToList();
-			}
-			var json = toolList.Select(t => t.BuildToolJson());
+			var json = tools.Select(t => t.BuildToolJson());
 			return new ToolClassicResult { ToolsJson = json.ToList() };
 		}
 
@@ -209,30 +188,18 @@ namespace RimAI.Core.Source.Modules.Tooling
 
 			IReadOnlyList<ToolScore> scores = RankTopK(q, snapshot, k, minScore);
 			var topNames = new HashSet<string>(scores.Select(s => s.ToolName), StringComparer.OrdinalIgnoreCase);
-			int maxLevel2 = Math.Max(1, options?.MaxToolLevel ?? 3);
-			var selectedTools = _allTools
-				.Where(t => topNames.Contains(t.Name ?? string.Empty))
-				.Where(t => (t?.Level ?? 1) <= maxLevel2 && (t?.Level ?? 1) <= 3)
-				.ToList();
-			// 研究过滤（同步 Now 变体用于 UI 路径；若未来需要后台线程，则在 BuildToolsAsync 中统一异步筛）
-			if (_world != null)
+			// Scheme A：TopK 仅负责召回；不在此做等级/研究过滤。
+			var selectedTools = _allTools.Where(t => topNames.Contains(t.Name ?? string.Empty));
+			// 可选：应用黑白名单裁剪（非权限过滤，仅场景裁剪）
+			if (options?.IncludeWhitelist != null && options.IncludeWhitelist.Count > 0)
 			{
-				selectedTools = selectedTools.Where(t =>
-				{
-					try
-					{
-						if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
-						{
-							foreach (var def in g.RequiredResearchDefNames)
-							{
-								if (string.IsNullOrWhiteSpace(def)) continue;
-								if (!_world.IsResearchFinishedNow(def)) return false;
-							}
-						}
-						return true;
-					}
-					catch { return false; }
-				}).ToList();
+				var set = new HashSet<string>(options.IncludeWhitelist, StringComparer.OrdinalIgnoreCase);
+				selectedTools = selectedTools.Where(t => set.Contains(t.Name ?? string.Empty));
+			}
+			if (options?.ExcludeBlacklist != null && options.ExcludeBlacklist.Count > 0)
+			{
+				var set = new HashSet<string>(options.ExcludeBlacklist, StringComparer.OrdinalIgnoreCase);
+				selectedTools = selectedTools.Where(t => !set.Contains(t.Name ?? string.Empty));
 			}
 			var selected = selectedTools.Select(t => t.BuildToolJson()).ToList();
 			return new ToolNarrowTopKResult { ToolsJson = selected, Scores = scores };
@@ -365,27 +332,35 @@ namespace RimAI.Core.Source.Modules.Tooling
 					var res = await GetNarrowTopKToolCallSchemaAsync(userInput ?? string.Empty, Math.Max(1, k ?? 5), minScore, options, ct).ConfigureAwait(false);
 					var scores = res.Scores?.Select(s => (s.ToolName ?? string.Empty, s.Score)).ToList() ?? new List<(string,double)>();
 
-						// 返回前做一次异步研究过滤兜底（即使 _world 为空或 Now 过滤已做，此处也不坏）
-						var tools = res.ToolsJson?.ToList() ?? new List<string>();
-						if (_world != null)
+					// 单点鉴权（TopK）：统一在此执行“等级 + 研究”过滤（异步安全）。
+					var tools = res.ToolsJson?.ToList() ?? new List<string>();
+					var nameSet = new HashSet<string>(tools.Select(ExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
+					// 等级过滤
+					int maxLv = Math.Max(1, options?.MaxToolLevel ?? 3);
+					var candidates = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty))
+						.Where(t => (t?.Level ?? 1) <= 3 && (t?.Level ?? 1) <= maxLv)
+						.ToList();
+					// 研究过滤（异步）
+					if (_world != null)
+					{
+						foreach (var t in candidates)
 						{
-							// 将 JSON 名称映射回工具对象以验证门槛（简化：从已注册集合按 name 关联）
-							var nameSet = new HashSet<string>(tools.Select(ExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
-							var gated = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty)).ToList();
-							foreach (var t in gated)
+							if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
 							{
-								if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
+								foreach (var def in g.RequiredResearchDefNames)
 								{
-									foreach (var def in g.RequiredResearchDefNames)
-									{
-										if (string.IsNullOrWhiteSpace(def)) continue;
-										if (!await _world.IsResearchFinishedAsync(def, ct).ConfigureAwait(false)) { nameSet.Remove(t.Name); break; }
-									}
+									if (string.IsNullOrWhiteSpace(def)) continue;
+									var ok = await _world.IsResearchFinishedAsync(def, ct).ConfigureAwait(false);
+									if (!ok) { nameSet.Remove(t.Name); break; }
 								}
 							}
-							tools = tools.Where(j => nameSet.Contains(ExtractName(j) ?? string.Empty)).ToList();
 						}
-						return (tools, scores, null);
+					}
+					// 应用最终集合
+					tools = tools.Where(j => nameSet.Contains(ExtractName(j) ?? string.Empty)).ToList();
+					// 过滤分数，仅保留仍然可见的工具
+					scores = scores.Where(p => nameSet.Contains(p.Item1)).ToList();
+					return (tools, scores, null);
 				}
 				catch (ToolIndexNotReadyException ex)
 				{
@@ -395,27 +370,34 @@ namespace RimAI.Core.Source.Modules.Tooling
 			else
 			{
 				var res = GetClassicToolCallSchema(options);
-					var tools = res.ToolsJson?.ToList() ?? new List<string>();
-					// 兜底：异步再过滤一次研究门槛，防止不在主线程时 Now 变体不可用
-					if (_world != null)
+				var tools = res.ToolsJson?.ToList() ?? new List<string>();
+				// 单点鉴权（Classic）：统一在此执行“等级 + 研究”过滤（异步安全）。
+				var nameSet = new HashSet<string>(tools.Select(ExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
+				// 等级过滤
+				int maxLv = Math.Max(1, options?.MaxToolLevel ?? 3);
+				var candidates = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty))
+					.Where(t => (t?.Level ?? 1) <= 3 && (t?.Level ?? 1) <= maxLv)
+					.ToList();
+				// 研究过滤（异步）
+				if (_world != null)
+				{
+					foreach (var t in candidates)
 					{
-						var nameSet = new HashSet<string>(tools.Select(ExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
-						var gated = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty)).ToList();
-						foreach (var t in gated)
+						if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
 						{
-							if (t is IResearchGatedTool g && g.RequiredResearchDefNames != null)
+							foreach (var def in g.RequiredResearchDefNames)
 							{
-								foreach (var def in g.RequiredResearchDefNames)
-								{
-									if (string.IsNullOrWhiteSpace(def)) continue;
-									if (!await _world.IsResearchFinishedAsync(def, ct).ConfigureAwait(false)) { nameSet.Remove(t.Name); break; }
-								}
+								if (string.IsNullOrWhiteSpace(def)) continue;
+								var ok = await _world.IsResearchFinishedAsync(def, ct).ConfigureAwait(false);
+								if (!ok) { nameSet.Remove(t.Name); break; }
 							}
 						}
-						tools = tools.Where(j => nameSet.Contains(ExtractName(j) ?? string.Empty)).ToList();
 					}
-					var names = tools.Take(5).Select(j => ExtractName(j)).Where(n => !string.IsNullOrEmpty(n)).Select(n => (n, 1.0)).ToList() ?? new List<(string,double)>();
-					return (tools, names, null);
+				}
+				// 应用最终集合
+				tools = tools.Where(j => nameSet.Contains(ExtractName(j) ?? string.Empty)).ToList();
+				var names = tools.Take(5).Select(j => ExtractName(j)).Where(n => !string.IsNullOrEmpty(n)).Select(n => (n, 1.0)).ToList() ?? new List<(string,double)>();
+				return (tools, names, null);
 			}
 		}
 

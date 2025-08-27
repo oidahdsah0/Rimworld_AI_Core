@@ -123,9 +123,9 @@ namespace RimAI.Core.Source.Modules.Server
 			var cap = GetInspectionCapacity(s.Level);
 			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
 			EnsureInspectionSlots(s, cap);
-			// 等级过滤：工具等级必须 <= server.Level，且 Level>=4 工具不可见
-			var classic = _tooling.GetClassicToolCallSchema(new ToolQueryOptions { MaxToolLevel = s.Level });
-			bool allowed = (classic?.ToolsJson ?? new List<string>()).Any(j => j != null && j.IndexOf($"\"name\":\"{toolName}\"", StringComparison.OrdinalIgnoreCase) >= 0);
+			// 等级/研究过滤：统一在 ToolRegistryService.BuildToolsAsync
+			var tuple = _tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = s.Level }, CancellationToken.None).GetAwaiter().GetResult();
+			bool allowed = (tuple.toolsJson ?? new List<string>()).Any(j => j != null && j.IndexOf("\"name\":\"" + toolName + "\"", StringComparison.OrdinalIgnoreCase) >= 0);
 			if (!allowed) throw new InvalidOperationException("tool not allowed for this server level");
 			s.InspectionSlots[slotIndex] = new InspectionSlot { Index = slotIndex, ToolName = toolName, Enabled = true };
 		}

@@ -346,6 +346,12 @@ V5 对外最小面仅限配置：
   - 典型点：索引构建/重建、`GetNarrowTopKToolCallSchemaAsync`、Embedding 批量、索引文件读写（经 Persistence）。
   - 要求：构建/重建在后台任务执行；文件 IO 使用 `IPersistenceService` 的异步 API；TopK 查询使用 Task 防止 UI 卡顿。
 
+  - Scheme A（单点鉴权）：
+    - 列表阶段的权限控制（等级/研究）在 `ToolRegistryService.BuildToolsAsync(...)` 统一执行；
+    - `GetClassicToolCallSchema`/`GetNarrowTopKToolCallSchemaAsync` 仅产出“原始集合”（全集/TopK 召回）+ 黑白名单裁剪；
+    - 任何上游（UI/Server/编排）不再自行做等级/研究过滤；执行器仅做运行时自检（设备/状态等）；
+    - 线程安全：研究校验走 `IWorldDataService.IsResearchFinishedAsync`，禁止在后台路径使用 `.Result/.Wait()` 阻塞主线程。
+
 - P5 Orchestration（必须异步）
   - 典型点：`IOrchestrationService.ExecuteAsync`、逐条 `ExecuteToolAsync`。
   - 要求：一次非流式 LLM 决策 + 串行执行均为异步；全链支持取消与超时；禁止阻塞主线程。

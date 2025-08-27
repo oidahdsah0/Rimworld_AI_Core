@@ -144,7 +144,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 						levels.Add(Math.Max(1, Math.Min(3, lv)));
 					}
 				}
-				maxLevel = levels.Count == 0 ? 1 : levels.Min();
+				maxLevel = levels.Count == 0 ? 1 : levels.Max();
 			}
 			catch { maxLevel = 1; }
 

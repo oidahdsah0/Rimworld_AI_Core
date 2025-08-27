@@ -131,13 +131,22 @@ namespace RimAI.Core.Modules.Tooling {
 
 > 执行契约 `IRimAITool`/`ToolSandbox` 保持原有：参数校验/主线程/速率/超时/互斥，本文不再重复。
 
-增量（工具等级与筛选）：
+增量（工具等级与筛选 — Scheme A 单点鉴权）：
 
 - 工具等级（Level）：在 `IRimAITool` 增加 `int Level { get; }`
   - 取值：1/2/3 为“游戏可用等级”；4 为“开发级（Dev）”，只供开发/测试，游戏内一律隐藏
-- 工具清单筛选：在 `ToolQueryOptions` 增加 `int? MaxToolLevel`
-  - `GetClassicToolCallSchema` 与 `GetNarrowTopKToolCallSchemaAsync` 均按 `Level <= min(MaxToolLevel ?? 3, 3)` 过滤；同时硬过滤 `Level >= 4`
-  - 目的：便于“服务器巡检槽位”等调用方按服务器等级选择“向下兼容”的工具，不必在上游手动做等级判断
+- 研究门槛（Research Gate）：新增可选接口 `IResearchGatedTool`
+  - 字段：`string[] RequiredResearchDefNames`，要求声明的研究全部“已完成”方可出现在列表
+  - 访问：通过 `IWorldDataService.IsResearchFinishedAsync(def, ct)` 检查；线程安全
+- 单点鉴权：所有“等级/研究”过滤均集中在 `ToolRegistryService.BuildToolsAsync(...)` 的返回列表阶段执行（Classic/TopK 一致）
+  - `GetClassicToolCallSchema(...)` 与 `GetNarrowTopKToolCallSchemaAsync(...)` 仅产出“原始集合”（全集或TopK召回）+ 黑白名单裁剪，不包含等级/研究过滤
+  - `BuildToolsAsync(mode, userInput, k, minScore, options, ct)` 的过滤顺序：
+    1) 取得原始集合（Classic=全集；TopK=召回结果）
+    2) 等级过滤：`tool.Level <= min(options.MaxToolLevel ?? 3, 3)`（Level>=4 一律隐藏）
+    3) 研究过滤：若实现 `IResearchGatedTool`，其 `RequiredResearchDefNames` 需全部满足 `IsResearchFinishedAsync`
+  - 执行阶段不再做“终端等级”鉴权；各工具执行器仍保留自身“运行时自检”（设备/状态/安全等）
+  - TopK 与 Classic 共享完全一致的过滤规则，确保 UI 与 Embedding 路径一致性
+  - 调用方仅需传入 `options.MaxToolLevel`（如服务器/群聊使用者的最大等级），不必上游重复过滤
 
 ---
 

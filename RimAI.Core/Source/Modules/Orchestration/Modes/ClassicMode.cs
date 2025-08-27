@@ -22,11 +22,9 @@ namespace RimAI.Core.Source.Modules.Orchestration.Modes
 			ToolOrchestrationOptions options,
 			CancellationToken ct)
 		{
-			var res = _tooling.GetClassicToolCallSchema(new ToolQueryOptions());
-			var names = new List<(string, double)>();
-			// 仅用于日志：从 JSON 粗略抓取 name 字段，避免引用 Framework 类型
-			var topNames = res.ToolsJson?.Take(5).Select(j => ExtractName(j)).Where(n => !string.IsNullOrEmpty(n)).Select(n => (n, 1.0)).ToList() ?? new List<(string,double)>();
-			return Task.FromResult(((IReadOnlyList<string>)res.ToolsJson, (IReadOnlyList<(string,double)>)topNames, (string)null));
+			// 统一入口：由 ToolRegistryService.BuildToolsAsync 负责等级/研究过滤
+			var t = _tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, userInput, null, null, new ToolQueryOptions(), ct);
+			return t;
 		}
 
 		private static string ExtractName(string toolJson)

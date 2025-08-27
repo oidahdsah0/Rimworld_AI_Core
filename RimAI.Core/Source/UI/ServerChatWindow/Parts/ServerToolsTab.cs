@@ -186,8 +186,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                 {
                     var rec = server?.Get(entityId);
                     int level = rec?.Level ?? 1;
-                    var classic = tooling?.GetClassicToolCallSchema(new ToolQueryOptions { MaxToolLevel = level });
-                    var list = classic?.ToolsJson ?? Array.Empty<string>();
+                    var tuple = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = level }, CancellationToken.None).GetAwaiter().GetResult();
+                    var list = tuple.toolsJson ?? Array.Empty<string>();
 
                     // 构建一次 “工具名→等级(Lv1/2/3)” 映射，用于展示标注
                     var levelMap = BuildLevelMap(tooling);
@@ -195,18 +195,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                     {
                         string name = TryExtractName(j);
                         if (string.IsNullOrWhiteSpace(name)) continue;
-                        // 需求：仅在研究 RimAI_GW_Communication 完成后，才显示 Lv3 的未知文明工具
-                        if (string.Equals(name, "get_unknown_civ_contact", StringComparison.OrdinalIgnoreCase))
-                        {
-                            // 研究 gate：通过 WDS（主线程查询可走异步缓存；此处采用同步 Now 门面）
-                            try
-                            {
-                                var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
-                                if (world == null || !world.IsResearchFinishedNow("RimAI_GW_Communication"))
-                                    continue;
-                            }
-                            catch { continue; }
-                        }
+                        // 研究/等级 gate 已集中在 BuildToolsAsync，此处无需重复过滤
                         var disp = tooling?.GetToolDisplayNameOrNull(name) ?? name;
                         if (levelMap != null && levelMap.TryGetValue(name, out var lvl) && lvl >= 1 && lvl <= 3)
                         {
@@ -276,14 +265,17 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
         }
 
         // 通过三次查询（MaxToolLevel = 1/2/3）推断每个工具的等级，用于 UI 展示。
-        private static Dictionary<string, int> BuildLevelMap(IToolRegistryService tooling)
+    private static Dictionary<string, int> BuildLevelMap(IToolRegistryService tooling)
         {
             var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                var l1 = tooling?.GetClassicToolCallSchema(new ToolQueryOptions { MaxToolLevel = 1 })?.ToolsJson ?? Array.Empty<string>();
-                var l2 = tooling?.GetClassicToolCallSchema(new ToolQueryOptions { MaxToolLevel = 2 })?.ToolsJson ?? Array.Empty<string>();
-                var l3 = tooling?.GetClassicToolCallSchema(new ToolQueryOptions { MaxToolLevel = 3 })?.ToolsJson ?? Array.Empty<string>();
+        var t1 = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 1 }, CancellationToken.None).GetAwaiter().GetResult();
+        var t2 = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 2 }, CancellationToken.None).GetAwaiter().GetResult();
+        var t3 = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 3 }, CancellationToken.None).GetAwaiter().GetResult();
+        var l1 = t1.toolsJson ?? Array.Empty<string>();
+        var l2 = t2.toolsJson ?? Array.Empty<string>();
+        var l3 = t3.toolsJson ?? Array.Empty<string>();
                 var s1 = new HashSet<string>(l1.Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
                 var s2 = new HashSet<string>(l2.Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
                 var s3 = new HashSet<string>(l3.Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);

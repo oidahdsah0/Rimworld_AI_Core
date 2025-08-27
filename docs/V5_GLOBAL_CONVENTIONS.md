@@ -218,6 +218,11 @@ RimAI.Core.Contracts/
 - 调度：周期任务最小间隔 6 小时；读档/导入后重置 NextDue；错峰注册。
 - 工具等级：仅允许 `tool.Level <= server.Level`；Level=4 工具在游戏内不可见。
 
+ - 列表鉴权（与 P4 对齐）：
+   - 任何“工具清单”的等级/研究过滤均由 `ToolRegistryService.BuildToolsAsync` 在列表返回阶段统一执行；
+   - 上游（UI/Act/Server）仅传入 `MaxToolLevel`，不再自行做过滤；
+   - 工具执行阶段不再进行“终端等级”鉴权，避免双重校验导致不一致；工具执行器保留自身运行时自检（研究/设备/状态）。
+
 ## 8. 新工具添加规范（Tool Authoring Conventions）
 
 - 基本目标：保持“单一事实源、最小访问面、可索引可执行”。工具的 Tool JSON 由 `IToolRegistryService` 统一产出；执行统一经 `IToolRegistryService.ExecuteToolAsync` 入口。
@@ -241,6 +246,7 @@ RimAI.Core.Contracts/
 - 索引与检索（P4）：
   - 索引文本来源为工具的 `Name/Description/Parameters`；由 `ToolIndexManager` 构建，持久化为设置文件（JSON），不入存档。
   - TopK 检索由 `GetNarrowTopKToolCallSchemaAsync` 提供；索引未就绪时不得自动降级，按 V5 Gate 报告错误。
+  - Scheme A：Classic/TopK 的“等级/研究”过滤不在上述两个方法中执行，统一在 `BuildToolsAsync` 完成，保证一致性。
 
 - 日志与 Gate：
   - 工具实现应使用统一日志前缀 `[RimAI.Core][P4]`（或调用方所在阶段的前缀）并避免输出敏感正文。

@@ -17,6 +17,8 @@ internal sealed class ToolOrchestrationOptions
 	public int NarrowTopK { get; set; } = 5;
 	public double? MinScoreThreshold { get; set; }
 	public string Locale { get; set; } = "zh-Hans";
+	// 由编排层注入的“最大工具等级”限制（例如：若存在 pawn: 则强制为 1）。
+	public int? MaxToolLevel { get; set; }
 }
 
 internal sealed class ToolCallRecord

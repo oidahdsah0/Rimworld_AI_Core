@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Weltaktions-Nachrichten -->
+  <RimAI.Core.World.Weather.Force.Start>Erzwungenes Wetter: {0} für {1} Tag(e).</RimAI.Core.World.Weather.Force.Start>
+  <RimAI.Core.World.Weather.Force.End>Erzwungenes Wetter beendet: {0}.</RimAI.Core.World.Weather.Force.End>
+</LanguageData>

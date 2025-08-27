@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- 世界动作消息 -->
+  <RimAI.Core.World.Weather.Force.Start>已强制天气：{0}，持续 {1} 天。</RimAI.Core.World.Weather.Force.Start>
+  <RimAI.Core.World.Weather.Force.End>强制天气已结束：{0}。</RimAI.Core.World.Weather.Force.End>
+</LanguageData>

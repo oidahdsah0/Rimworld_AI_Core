@@ -55,9 +55,19 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				catch { }
 			}
 			var start = DateTime.UtcNow;
+			// 这里统一注入“最大工具等级”：若参与者包含小人（pawn: 前缀），则限制为 1，否则保持默认（3）
+			var injected = options ?? new ToolOrchestrationOptions();
+			try
+			{
+				if (participantIds != null && participantIds.Any(id => (id ?? string.Empty).StartsWith("pawn:", StringComparison.OrdinalIgnoreCase)))
+				{
+					injected.MaxToolLevel = 1;
+				}
+			}
+			catch { }
 			var toolsTuple = mode == OrchestrationMode.Classic
-				? await _classic.GetToolsAsync(userInput, participantIds, mode, options, ct).ConfigureAwait(false)
-				: await _narrow.GetToolsAsync(userInput, participantIds, mode, options, ct).ConfigureAwait(false);
+				? await _classic.GetToolsAsync(userInput, participantIds, mode, injected, ct).ConfigureAwait(false)
+				: await _narrow.GetToolsAsync(userInput, participantIds, mode, injected, ct).ConfigureAwait(false);
 
 			if (toolsTuple.toolsJson == null || toolsTuple.toolsJson.Count == 0)
 			{

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Messages d'action du monde -->
+  <RimAI.Core.World.Weather.Force.Start>Météo forcée : {0} pendant {1} jour(s).</RimAI.Core.World.Weather.Force.Start>
+  <RimAI.Core.World.Weather.Force.End>Météo forcée terminée : {0}.</RimAI.Core.World.Weather.Force.End>
+</LanguageData>

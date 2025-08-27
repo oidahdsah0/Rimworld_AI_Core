@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Сообщения мировых действий -->
+  <RimAI.Core.World.Weather.Force.Start>Принудительная погода: {0} на {1} дн.</RimAI.Core.World.Weather.Force.Start>
+  <RimAI.Core.World.Weather.Force.End>Принудительная погода закончилась: {0}.</RimAI.Core.World.Weather.Force.End>
+</LanguageData>

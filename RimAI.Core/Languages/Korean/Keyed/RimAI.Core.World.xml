@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- 월드 액션 메시지 -->
+  <RimAI.Core.World.Weather.Force.Start>강제 날씨: {0}, {1}일 동안 유지됩니다.</RimAI.Core.World.Weather.Force.Start>
+  <RimAI.Core.World.Weather.Force.End>강제 날씨가 종료되었습니다: {0}.</RimAI.Core.World.Weather.Force.End>
+</LanguageData>

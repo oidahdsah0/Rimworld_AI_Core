@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- ワールドアクションのメッセージ -->
+  <RimAI.Core.World.Weather.Force.Start>強制天候: {0} を {1} 日間。</RimAI.Core.World.Weather.Force.Start>
+  <RimAI.Core.World.Weather.Force.End>強制天候が終了しました: {0}。</RimAI.Core.World.Weather.Force.End>
+</LanguageData>

@@ -9,6 +9,7 @@ using RimAI.Core.Source.Modules.Orchestration.Modes;
 using RimAI.Core.Source.Modules.Tooling;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.History.Models;
+using RimAI.Core.Source.Modules.World;
 using RimAI.Core.Source.Infrastructure.Localization;
 
 namespace RimAI.Core.Source.Modules.Orchestration
@@ -21,8 +22,9 @@ namespace RimAI.Core.Source.Modules.Orchestration
 		private readonly IToolMatchMode _narrow;
 		private readonly IHistoryService _history;
 		private readonly ILocalizationService _loc;
+        private readonly IWorldDataService _world;
 
-		public OrchestrationService(ILLMService llm, IToolRegistryService tooling, IHistoryService history, ILocalizationService localization)
+		public OrchestrationService(ILLMService llm, IToolRegistryService tooling, IHistoryService history, ILocalizationService localization, IWorldDataService world)
 		{
 			_llm = llm;
 			_tooling = tooling;
@@ -30,6 +32,7 @@ namespace RimAI.Core.Source.Modules.Orchestration
 			_narrow = new NarrowTopKMode(tooling);
 			_history = history;
 			_loc = localization;
+            _world = world;
 		}
 
 		public async Task<ToolCallsResult> ExecuteAsync(string userInput, IReadOnlyList<string> participantIds, ToolOrchestrationOptions options, CancellationToken ct = default)
@@ -55,14 +58,41 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				catch { }
 			}
 			var start = DateTime.UtcNow;
-			// 这里统一注入“最大工具等级”：若参与者包含小人（pawn: 前缀），则限制为 1，否则保持默认（3）
+			// 统一注入“最大工具等级”：混合参与者时取最大等级为门槛（pawn 视为 Lv1；server/thing 查询真实等级）。
 			var injected = options ?? new ToolOrchestrationOptions();
 			try
 			{
-				if (participantIds != null && participantIds.Any(id => (id ?? string.Empty).StartsWith("pawn:", StringComparison.OrdinalIgnoreCase)))
+				int computedMax = 1; // 基线
+				if (participantIds != null)
 				{
-					injected.MaxToolLevel = 1;
+					foreach (var pid in participantIds)
+					{
+						if (string.IsNullOrWhiteSpace(pid)) continue;
+						var id = pid.Trim();
+						if (id.StartsWith("pawn:", StringComparison.OrdinalIgnoreCase))
+						{
+							computedMax = Math.Max(computedMax, 1);
+							continue;
+						}
+						if (id.StartsWith("server:", StringComparison.OrdinalIgnoreCase) || id.StartsWith("thing:", StringComparison.OrdinalIgnoreCase))
+						{
+							try
+							{
+								// 解析 server/thing 的数值 ID 并查询服务器等级
+								string s = id.StartsWith("thing:", StringComparison.OrdinalIgnoreCase) ? id.Substring(6) : id.Substring(7);
+								if (int.TryParse(s, out var thingId) && _world != null)
+								{
+									var lv = await _world.GetAiServerLevelAsync(thingId, ct).ConfigureAwait(false);
+									lv = Math.Max(1, Math.Min(3, lv));
+									computedMax = Math.Max(computedMax, lv);
+								}
+							}
+							catch { }
+						}
+					}
 				}
+				// 注入最终门槛（1..3）
+				injected.MaxToolLevel = Math.Max(1, Math.Min(3, computedMax));
 			}
 			catch { }
 			var toolsTuple = mode == OrchestrationMode.Classic

@@ -169,6 +169,9 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 				case ServerTab.Tools:
 					DrawToolsBody(bodyRect);
 					break;
+				case ServerTab.InspectionHistory:
+					DrawInspectionHistoryBody(bodyRect);
+					break;
 				case ServerTab.AiLog:
 					ServerAiLogTab.Draw(bodyRect, _aiLogState, _history, _stage);
 					break;
@@ -264,6 +267,19 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 			var entityId = $"thing:{_currentServerThingId.Value}";
 			int lvl = _currentServerLevel <= 0 ? 1 : _currentServerLevel;
 			Parts.ServerToolsTab.Draw(rect, _toolsState, entityId, lvl, _server, _tooling);
+		}
+
+		private void DrawInspectionHistoryBody(Rect rect)
+		{
+			if (!_currentServerThingId.HasValue)
+			{
+				var info = new Rect(rect.x + 8f, rect.y + 8f, rect.width - 16f, 24f);
+				Text.Font = GameFont.Small;
+				Widgets.Label(info, "请先在左侧选择一个服务器");
+				return;
+			}
+			var entityId = $"thing:{_currentServerThingId.Value}";
+			Parts.ServerInspectionHistoryTab.Draw(rect, entityId, _history);
 		}
 
 		private void OnSelectPersonaPreset(string key, string name, string content)

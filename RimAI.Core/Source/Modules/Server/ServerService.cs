@@ -225,10 +225,10 @@ namespace RimAI.Core.Source.Modules.Server
 				slot.NextDueAbsTicks = next;
 			}
 
-			// Append to AI Log history (server hub convKey)
+			// Append to inspection history (per-server convKey)
 			try
 			{
-				var convKey = BuildServerHubConvKey();
+				var convKey = BuildServerInspectionConvKey(entityId);
 				var content = string.IsNullOrWhiteSpace(summary) ? (toolResult?.ToString() ?? string.Empty) : summary;
 				await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", content, advanceTurn: false, ct: ct).ConfigureAwait(false);
 			}
@@ -345,6 +345,51 @@ namespace RimAI.Core.Source.Modules.Server
 				return string.Join("|", list);
 			}
 			catch { return "agent:server_hub|player:servers"; }
+		}
+
+		// 巡检专属对话键：每台服务器独立线程
+		// 规范：convKey = join('|', sort({ "agent:server_inspection", "server_inspection:<thingId>" }))
+		private static string BuildServerInspectionConvKey(string entityId)
+		{
+			try
+			{
+				int? id = TryParseThingId(entityId);
+				var p1 = "agent:server_inspection";
+				var p2 = id.HasValue ? ($"server_inspection:{id.Value}") : ($"server_inspection:{(entityId ?? "unknown")}");
+				var list = new List<string> { p1, p2 };
+				list.Sort(StringComparer.Ordinal);
+				return string.Join("|", list);
+			}
+			catch { return "agent:server_inspection|server_inspection:unknown"; }
+		}
+
+		private static int? TryParseThingId(string entityId)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(entityId)) return null;
+				var s = entityId.Trim();
+				if (int.TryParse(s, out var pure)) return pure;
+				var lastIdx = s.LastIndexOf(':');
+				if (lastIdx >= 0 && lastIdx + 1 < s.Length)
+				{
+					var tail = s.Substring(lastIdx + 1);
+					if (int.TryParse(tail, out var id2)) return id2;
+				}
+				int end = s.Length - 1;
+				while (end >= 0 && !char.IsDigit(s[end])) end--;
+				if (end < 0) return null;
+				int start = end;
+				while (start >= 0 && char.IsDigit(s[start])) start--;
+				start++;
+				if (start <= end)
+				{
+					var numStr = s.Substring(start, end - start + 1);
+					if (int.TryParse(numStr, out var id3)) return id3;
+				}
+			}
+			catch { }
+			return null;
 		}
 
 		private static int GetPersonaCapacity(int level) => level switch { 1 => 1, 2 => 2, _ => 3 };

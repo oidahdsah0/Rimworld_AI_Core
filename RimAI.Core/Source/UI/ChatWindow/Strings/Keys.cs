@@ -5,6 +5,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Strings
 		public const string OpenChatWindow = "信息传输";
 		public const string SystemBase = ""; // 已由本地化服务提供
 		public const string UserPrefix = ""; // 已由本地化服务提供
+		public const string ScwTabsInspectionHistory = "RimAI.SCW.Tabs.InspectionHistory";
+		public const string ScwInspectionHistoryHeader = "RimAI.SCW.InspectionHistory.Header";
+		public const string ScwInspectionHistoryClear = "RimAI.SCW.InspectionHistory.Clear";
 	}
 }
 

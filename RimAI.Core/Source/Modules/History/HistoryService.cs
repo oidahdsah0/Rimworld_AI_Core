@@ -198,6 +198,23 @@ namespace RimAI.Core.Source.Modules.History
 			return _store.Keys.ToList();
 		}
 
+		public async Task<bool> ClearThreadAsync(string convKey, CancellationToken ct = default)
+		{
+			if (string.IsNullOrWhiteSpace(convKey)) return false;
+			var gate = _locks.GetOrAdd(convKey, _ => new SemaphoreSlim(1, 1));
+			await gate.WaitAsync(ct).ConfigureAwait(false);
+			try
+			{
+				_store.TryRemove(convKey, out _);
+				_nextTurnOrdinal.TryRemove(convKey, out _);
+				_participantsByConvKey.TryRemove(convKey, out _);
+				// 释放锁对象自身以减小内存；无强一致性需求
+				_locks.TryRemove(convKey, out _);
+				return true;
+			}
+			finally { try { gate.Release(); } catch { } }
+		}
+
 		public bool TryGetEntry(string convKey, string entryId, out HistoryEntry entry)
 		{
 			entry = null;

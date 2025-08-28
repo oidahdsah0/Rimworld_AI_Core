@@ -32,6 +32,9 @@ namespace RimAI.Core.Source.Modules.History
 		Task UpsertParticipantsAsync(string convKey, IReadOnlyList<string> participantIds, CancellationToken ct = default);
 		IReadOnlyList<string> GetParticipantsOrEmpty(string convKey);
 		IReadOnlyList<string> GetAllConvKeys();
+
+		// 清空整个会话（真实删除所有条目与元数据）
+		Task<bool> ClearThreadAsync(string convKey, CancellationToken ct = default);
 	}
 }
 

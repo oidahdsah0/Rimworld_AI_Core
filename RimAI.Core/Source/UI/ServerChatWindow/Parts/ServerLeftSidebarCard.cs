@@ -26,7 +26,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 
 			float buttonH = 28f;
 			float spacing = 4f;
-			int buttonCount = 4;   // 下面的网格按钮数量（对话/人格/AI Log/历史）
+			int buttonCount = 5;   // 下面的网格按钮数量（对话/人格/巡检历史/AI Log/历史）
 			int columns = 2;
 			int rows = (buttonCount + columns - 1) / columns;
 			float colSpacing = 6f;
@@ -116,23 +116,32 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 							}
 							break;
 						case 2:
-							{
-								var btnRect2 = new Rect(bx, y, btnW, buttonH);
-								var prevEnabled2 = GUI.enabled;
-								GUI.enabled = !isStreaming;
-								if (Widgets.ButtonText(btnRect2, "RimAI.SCW.Tabs.AiLog".Translate())) activeTab = ServerTab.AiLog;
-								GUI.enabled = prevEnabled2;
-							}
-							break;
+						{
+							var btnRect2 = new Rect(bx, y, btnW, buttonH);
+							var prevEnabled2 = GUI.enabled;
+							GUI.enabled = !isStreaming;
+							if (Widgets.ButtonText(btnRect2, "RimAI.SCW.Tabs.InspectionHistory".Translate())) activeTab = ServerTab.InspectionHistory;
+							GUI.enabled = prevEnabled2;
+						}
+						break;
 						case 3:
-							{
-								var btnRect3 = new Rect(bx, y, btnW, buttonH);
-								var prevEnabled3 = GUI.enabled;
-								GUI.enabled = !isStreaming;
-								if (Widgets.ButtonText(btnRect3, "RimAI.SCW.Tabs.History".Translate())) activeTab = ServerTab.History;
-								GUI.enabled = prevEnabled3;
-							}
-							break;
+						{
+							var btnRect3 = new Rect(bx, y, btnW, buttonH);
+							var prevEnabled3 = GUI.enabled;
+							GUI.enabled = !isStreaming;
+							if (Widgets.ButtonText(btnRect3, "RimAI.SCW.Tabs.AiLog".Translate())) activeTab = ServerTab.AiLog;
+							GUI.enabled = prevEnabled3;
+						}
+						break;
+						case 4:
+						{
+							var btnRect4 = new Rect(bx, y, btnW, buttonH);
+							var prevEnabled4 = GUI.enabled;
+							GUI.enabled = !isStreaming;
+							if (Widgets.ButtonText(btnRect4, "RimAI.SCW.Tabs.History".Translate())) activeTab = ServerTab.History;
+							GUI.enabled = prevEnabled4;
+						}
+						break;
 					}
 				}
 				y += buttonH + spacing;

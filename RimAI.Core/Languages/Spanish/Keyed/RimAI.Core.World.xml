@@ -15,4 +15,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>Acercamiento diplomático: buena voluntad {0} con {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>Falló el acercamiento diplomático.</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>No hay facciones elegibles para diplomacia.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+  
+  <!-- Bombardeo orbital (consejos) -->
+  <RimAI.Bombardment.Start>Suplantación del enlace satelital exitosa, ¡proyectil orbital en camino!</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>Bombardeo finalizado.</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>No se encontraron objetivos hostiles. Bombardeo cancelado.</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>El cañón satelital se está enfriando, quedan {0} s.</RimAI.Bombardment.Cooldown>
 </LanguageData>

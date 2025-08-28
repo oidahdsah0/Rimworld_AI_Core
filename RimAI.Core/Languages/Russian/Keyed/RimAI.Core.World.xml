@@ -15,4 +15,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>Дипломатический контакт: отношение {0} с {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>Не удалось установить дипломатический контакт.</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>Нет подходящих фракций для дипломатии.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+  
+  <!-- Орбитальная бомбардировка (подсказки) -->
+  <RimAI.Bombardment.Start>Спуфинг спутникового канала успешен, орбитальный снаряд на подлёте!</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>Бомбардировка завершена.</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>Целей не обнаружено, бомбардировка отменена.</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>Спутниковое орудие охлаждается, осталось {0} сек.</RimAI.Bombardment.Cooldown>
 </LanguageData>

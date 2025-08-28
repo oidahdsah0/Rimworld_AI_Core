@@ -15,4 +15,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>Diplomatische Kontaktaufnahme: Gesinnung {0} mit {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>Diplomatische Kontaktaufnahme fehlgeschlagen.</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>Keine geeignete Fraktion für Diplomatie.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+  
+  <!-- Orbitale Bombardierung (Hinweis) -->
+  <RimAI.Bombardment.Start>Satellitenverbindung erfolgreich getäuscht, Orbitalkanonen-Geschoss im Anflug!</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>Bombardement beendet.</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>Keine feindlichen Ziele gefunden, Bombardement abgebrochen.</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>Satellitenkanone kühlt ab, verbleibende {0} Sek.</RimAI.Bombardment.Cooldown>
 </LanguageData>

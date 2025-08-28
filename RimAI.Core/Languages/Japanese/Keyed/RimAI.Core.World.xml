@@ -15,4 +15,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>外交アプローチ：{1} への好感度 {0}。</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>外交アプローチに失敗しました。</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>外交可能な派閥がありません。</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+  
+  <!-- 軌道爆撃（ヒント） -->
+  <RimAI.Bombardment.Start>衛星リンクの偽装に成功。軌道砲弾が接近中！</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>砲撃終了。</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>敵対目標が見つからず、砲撃は中止されました。</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>衛星砲は冷却中、残り {0} 秒。</RimAI.Bombardment.Cooldown>
 </LanguageData>

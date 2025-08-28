@@ -15,4 +15,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>외교 접촉: {1}와(과)의 호감도 {0}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>외교 접촉에 실패했습니다.</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>외교가 가능한 세력이 없습니다.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+  
+  <!-- 궤도 폭격 (힌트) -->
+  <RimAI.Bombardment.Start>위성 링크 위장에 성공, 궤도 포탄이 접근 중!</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>폭격이 종료되었습니다.</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>적대 대상이 없어 폭격이 취소되었습니다.</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>위성 포가 냉각 중입니다. 남은 시간 {0}초.</RimAI.Bombardment.Cooldown>
 </LanguageData>

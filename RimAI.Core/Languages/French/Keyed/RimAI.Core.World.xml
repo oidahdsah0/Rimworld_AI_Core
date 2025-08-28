@@ -17,4 +17,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>Ouverture diplomatique : bonne volonté {0} avec {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>Échec de l'ouverture diplomatique.</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>Aucune faction éligible pour la diplomatie.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+  
+  <!-- Bombardement orbital (conseils) -->
+  <RimAI.Bombardment.Start>Leurre de la liaison satellite réussi, obus orbital en approche !</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>Bombardement terminé.</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>Aucune cible hostile détectée, bombardement annulé.</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>Canon satellite en refroidissement, {0} secondes restantes.</RimAI.Bombardment.Cooldown>
 </LanguageData>

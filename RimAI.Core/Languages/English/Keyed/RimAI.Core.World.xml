@@ -15,4 +15,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>Diplomatic outreach: goodwill {0} with {1}.</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>Diplomatic outreach failed.</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>No eligible faction for diplomacy.</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+  
+  <!-- Orbital bombardment (tips) -->
+  <RimAI.Bombardment.Start>Satellite link spoof successful, orbital shell inbound!</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>Bombardment ended.</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>No hostile targets found. Bombardment canceled.</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>Satellite cannon cooling down, {0} seconds remaining.</RimAI.Bombardment.Cooldown>
 </LanguageData>

@@ -6,12 +6,12 @@
     <label>gravitational-wave antenna</label>
     <description>A high-gain gravitational-wave antenna built for long-distance, exotic communications.</description>
     <thingClass>Building</thingClass>
-    <size>(1,2)</size>
+    <size>(4,4)</size>
     <graphicData>
-      <!-- 占位贴图路径，如无贴图游戏会使用默认方块。后续可替换为实际资源 -->
+      <!-- 使用四向贴图，路径基名与 _north/_south/_east/_west 对应 -->
       <texPath>Things/Building/RimAI/wave_antenna</texPath>
-      <graphicClass>Graphic_Single</graphicClass>
-      <drawSize>(1,2)</drawSize>
+      <graphicClass>Graphic_Multi</graphicClass>
+      <drawSize>(4,4)</drawSize>
     </graphicData>
     <altitudeLayer>Building</altitudeLayer>
     <passability>PassThroughOnly</passability>
@@ -48,7 +48,6 @@
     </researchPrerequisites>
     <tickerType>Normal</tickerType>
     <rotatable>true</rotatable>
-    <selectOverlapping>true</selectOverlapping>
     <constructEffect>ConstructMetal</constructEffect>
   </ThingDef>
 </Defs>

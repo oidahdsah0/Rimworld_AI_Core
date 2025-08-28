@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
+  <!-- 研究标签定义：供 tags 引用使用（如 defName=RimAI） -->
+  <ResearchProjectTagDef>
+    <defName>RimAI</defName>
+    <label>RimAI</label>
+  </ResearchProjectTagDef>
   <!-- RimAI - Level 1 AI -->
   <ResearchProjectDef>
     <defName>RimAI_AI_Level1</defName>

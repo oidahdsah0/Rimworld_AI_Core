@@ -5,7 +5,6 @@
     <label>RimAI</label>
     <order>901</order>
     <description>RimAI 相关建筑。</description>
-  <iconPath>UI/Designators/RimAI</iconPath>
   </DesignationCategoryDef>
 </Defs>
 

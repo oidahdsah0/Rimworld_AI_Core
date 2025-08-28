@@ -4,10 +4,11 @@
   <RimAI.ChatUI.Server.Name>服务器列表</RimAI.ChatUI.Server.Name>
 
   <RimAI.SCW.Left.Header>服务器列表</RimAI.SCW.Left.Header>
-  <RimAI.SCW.Tools.ManagerButton>服务器工具加载</RimAI.SCW.Tools.ManagerButton>
+  <RimAI.SCW.Tools.ManagerButton>工具加载</RimAI.SCW.Tools.ManagerButton>
 
   <RimAI.SCW.Tabs.Chat>对话</RimAI.SCW.Tabs.Chat>
   <RimAI.SCW.Tabs.Persona>人格</RimAI.SCW.Tabs.Persona>
+  <RimAI.SCW.Tabs.InspectionHistory>巡检记录</RimAI.SCW.Tabs.InspectionHistory>
   <RimAI.SCW.Tabs.AiLog>AI 日志</RimAI.SCW.Tabs.AiLog>
   <RimAI.SCW.Tabs.History>历史</RimAI.SCW.Tabs.History>
 

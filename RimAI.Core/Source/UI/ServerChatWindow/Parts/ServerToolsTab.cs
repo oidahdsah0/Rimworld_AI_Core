@@ -23,6 +23,11 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             public double NextRefreshRealtime;
             public int IntervalHours; // 6-128
             public bool Enabled;
+
+            // 新增：缓存可用工具 JSON 与等级映射，避免 UI 线程阻塞
+            public List<string> AvailableToolsJson; // BuildToolsAsync(Classic) 结果缓存
+            public Dictionary<string, int> LevelMap; // 工具名 -> 等级（1..3）
+            public bool IsLoadingTools;
         }
 
         public static void Draw(Rect inRect, State state, string entityId, int serverLevel, IServerService server, IToolRegistryService tooling)
@@ -64,6 +69,9 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                             state.SelectedTools[s.Index] = (s.Enabled && !string.IsNullOrWhiteSpace(s.ToolName)) ? s.ToolName : null;
                         }
                     }
+
+                    // 首次载入：异步刷新工具缓存
+                    TryStartToolsRefreshAsync(tooling, serverLevel, state);
                 }
                 else
                 {
@@ -86,6 +94,12 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                             {
                                 state.SelectedTools[s.Index] = (s.Enabled && !string.IsNullOrWhiteSpace(s.ToolName)) ? s.ToolName : null;
                             }
+                        }
+
+                        // 周期性轻量刷新：如缓存为空且未在加载，则触发一次异步刷新
+                        if ((state.AvailableToolsJson == null || state.LevelMap == null) && !state.IsLoadingTools)
+                        {
+                            TryStartToolsRefreshAsync(tooling, serverLevel, state);
                         }
                     }
                 }
@@ -181,32 +195,63 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                     try { server?.RemoveSlot(entityId, index); } catch { }
                     try { if (index >= 0 && index < state.SelectedTools.Count) state.SelectedTools[index] = null; } catch { }
                 }));
-                // Build allowed tools by server level
-                try
+                // 使用缓存的工具列表/等级映射，避免 UI 线程阻塞
+                var cachedList = state.AvailableToolsJson;
+                var cachedLevels = state.LevelMap;
+                if (cachedList == null || cachedList.Count == 0)
                 {
-                    var rec = server?.Get(entityId);
-                    int level = rec?.Level ?? 1;
-                    var tuple = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = level }, CancellationToken.None).GetAwaiter().GetResult();
-                    var list = tuple.toolsJson ?? Array.Empty<string>();
-
-                    // 构建一次 “工具名→等级(Lv1/2/3)” 映射，用于展示标注
-                    var levelMap = BuildLevelMap(tooling);
-                    foreach (var j in list)
+                    // 若尚未准备好，提示加载中，并触发一次异步刷新
+                    menu.Add(new FloatMenuOption("(加载中...)", () => { }));
+                    TryStartToolsRefreshAsync(tooling, server?.Get(entityId)?.Level ?? 1, state);
+                }
+                else
+                {
+                    // 排序：优先级按等级降序，再按显示名升序
+                    var items = new List<(string json, string name, string disp, int level)>();
+                    foreach (var j in cachedList)
                     {
                         string name = TryExtractName(j);
                         if (string.IsNullOrWhiteSpace(name)) continue;
-                        // 研究/等级 gate 已集中在 BuildToolsAsync，此处无需重复过滤
                         var disp = tooling?.GetToolDisplayNameOrNull(name) ?? name;
-                        if (levelMap != null && levelMap.TryGetValue(name, out var lvl) && lvl >= 1 && lvl <= 3)
+                        int lvl = 1; if (cachedLevels != null && cachedLevels.TryGetValue(name, out var lv)) lvl = lv;
+                        items.Add((j, name, disp, lvl));
+                    }
+                    items = items
+                        .OrderByDescending(t => t.level)
+                        .ThenBy(t => t.disp, System.StringComparer.CurrentCultureIgnoreCase)
+                        .ToList();
+
+                    // 构建“已被任意服务器占用”的集合，用于排除重复加载
+                    var taken = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+                    try
+                    {
+                        var listAll = server?.List() ?? new System.Collections.Generic.List<RimAI.Core.Source.Modules.Persistence.Snapshots.ServerRecord>();
+                        foreach (var rec in listAll)
                         {
-                            disp = $"{disp} (Lv{lvl})";
-                        }
-                        menu.Add(new FloatMenuOption(disp, () =>
-                        {
-                            // 选择时检查：若是未知文明工具，且无通电的天线，则弹提示并阻止设置
-                            if (string.Equals(name, "get_unknown_civ_contact", StringComparison.OrdinalIgnoreCase))
+                            foreach (var sl in (rec?.InspectionSlots ?? new System.Collections.Generic.List<RimAI.Core.Source.Modules.Persistence.Snapshots.InspectionSlot>()))
                             {
-                                // 设备 gate：通过 WDS Now 门面（UI 在主线程）
+                                if (sl == null || !sl.Enabled) continue;
+                                if (!string.IsNullOrWhiteSpace(sl.ToolName)) taken.Add(sl.ToolName);
+                            }
+                        }
+                    }
+                    catch { }
+
+                    foreach (var it in items)
+                    {
+                        // 排除已经被任意服务器占用的工具（允许本服务器本槽位幂等重选）
+                        bool occupied = taken.Contains(it.name);
+                        if (occupied)
+                        {
+                            // 若当前槽位已是该工具，则允许显示（便于取消/切换）
+                            if (!string.Equals(state.SelectedTools[index], it.name, System.StringComparison.OrdinalIgnoreCase))
+                                continue;
+                        }
+                        var label = it.disp + $" (Lv{it.level})" + (occupied ? " [已占用]" : string.Empty);
+                        menu.Add(new FloatMenuOption(label, () =>
+                        {
+                            if (string.Equals(it.name, "get_unknown_civ_contact", System.StringComparison.OrdinalIgnoreCase))
+                            {
                                 try
                                 {
                                     var wds = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
@@ -214,17 +259,16 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                                     {
                                         var act = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
                                         act?.ShowTopLeftMessageAsync("RimAI.Tool.RequireAntennaPowered".Translate(), RimWorld.MessageTypeDefOf.RejectInput);
-                                        return; // 阻止
+                                        return;
                                     }
                                 }
                                 catch { return; }
                             }
-                            try { server?.AssignSlot(entityId, index, name); } catch { }
-                            try { if (index >= 0 && index < state.SelectedTools.Count) state.SelectedTools[index] = name; } catch { }
+                            try { server?.AssignSlot(entityId, index, it.name); } catch { }
+                            try { if (index >= 0 && index < state.SelectedTools.Count) state.SelectedTools[index] = it.name; } catch { }
                         }));
                     }
                 }
-                catch { }
                 Find.WindowStack.Add(new FloatMenu(menu));
             }
         }
@@ -265,28 +309,40 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
         }
 
         // 通过三次查询（MaxToolLevel = 1/2/3）推断每个工具的等级，用于 UI 展示。
-    private static Dictionary<string, int> BuildLevelMap(IToolRegistryService tooling)
+        // 异步刷新工具缓存（Classic 全量 + LevelMap 预估），避免在主线程阻塞
+        private static void TryStartToolsRefreshAsync(IToolRegistryService tooling, int serverLevel, State state)
         {
-            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            try
+            if (tooling == null || state == null) return;
+            if (state.IsLoadingTools) return;
+            state.IsLoadingTools = true;
+            System.Threading.Tasks.Task.Run(async () =>
             {
-        var t1 = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 1 }, CancellationToken.None).GetAwaiter().GetResult();
-        var t2 = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 2 }, CancellationToken.None).GetAwaiter().GetResult();
-        var t3 = tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 3 }, CancellationToken.None).GetAwaiter().GetResult();
-        var l1 = t1.toolsJson ?? Array.Empty<string>();
-        var l2 = t2.toolsJson ?? Array.Empty<string>();
-        var l3 = t3.toolsJson ?? Array.Empty<string>();
-                var s1 = new HashSet<string>(l1.Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
-                var s2 = new HashSet<string>(l2.Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
-                var s3 = new HashSet<string>(l3.Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
-                foreach (var n in s3)
+                try
                 {
-                    int lvl = s1.Contains(n) ? 1 : (s2.Contains(n) ? 2 : 3);
-                    map[n] = lvl;
+                    var res = await tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = serverLevel }, System.Threading.CancellationToken.None).ConfigureAwait(false);
+                    var list = res.toolsJson?.ToList() ?? new List<string>();
+
+                    // 估算 Level 映射（通过三次 MaxToolLevel 调用）
+                    var t1 = await tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 1 }, System.Threading.CancellationToken.None).ConfigureAwait(false);
+                    var t2 = await tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 2 }, System.Threading.CancellationToken.None).ConfigureAwait(false);
+                    var t3 = await tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = 3 }, System.Threading.CancellationToken.None).ConfigureAwait(false);
+                    var s1 = new System.Collections.Generic.HashSet<string>((t1.toolsJson ?? System.Array.Empty<string>()).Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), System.StringComparer.OrdinalIgnoreCase);
+                    var s2 = new System.Collections.Generic.HashSet<string>((t2.toolsJson ?? System.Array.Empty<string>()).Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), System.StringComparer.OrdinalIgnoreCase);
+                    var s3 = new System.Collections.Generic.HashSet<string>((t3.toolsJson ?? System.Array.Empty<string>()).Select(TryExtractName).Where(n => !string.IsNullOrWhiteSpace(n)), System.StringComparer.OrdinalIgnoreCase);
+                    var map = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+                    foreach (var n in s3)
+                    {
+                        int lvl = s1.Contains(n) ? 1 : (s2.Contains(n) ? 2 : 3);
+                        map[n] = lvl;
+                    }
+
+                    // 回写缓存（无需主线程）
+                    state.AvailableToolsJson = list;
+                    state.LevelMap = map;
                 }
-            }
-            catch { }
-            return map;
+                catch { }
+                finally { state.IsLoadingTools = false; }
+            });
         }
 
     // 设备/研究 gate 已迁移至 WorldDataService 门面

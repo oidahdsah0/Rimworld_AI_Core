@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Globalization;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Modules.Persistence;
@@ -345,6 +346,9 @@ namespace RimAI.Core.Source.Modules.Tooling
 					var candidates = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty))
 						.Where(t => (t?.Level ?? 1) <= 3 && (t?.Level ?? 1) <= maxLv)
 						.ToList();
+					// 将 nameSet 与“允许的等级集合”求交，防止 Lv4 工具泄漏
+					var allowedByLevel = new HashSet<string>(candidates.Select(t => t?.Name ?? string.Empty).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
+					nameSet.IntersectWith(allowedByLevel);
 					// 研究过滤（异步）
 					if (_world != null)
 					{
@@ -383,6 +387,9 @@ namespace RimAI.Core.Source.Modules.Tooling
 				var candidates = _allTools.Where(t => nameSet.Contains(t?.Name ?? string.Empty))
 					.Where(t => (t?.Level ?? 1) <= 3 && (t?.Level ?? 1) <= maxLv)
 					.ToList();
+				// 将 nameSet 与“允许的等级集合”求交，防止 Lv4 工具泄漏
+				var allowedByLevel2 = new HashSet<string>(candidates.Select(t => t?.Name ?? string.Empty).Where(n => !string.IsNullOrWhiteSpace(n)), StringComparer.OrdinalIgnoreCase);
+				nameSet.IntersectWith(allowedByLevel2);
 				// 研究过滤（异步）
 				if (_world != null)
 				{
@@ -408,15 +415,27 @@ namespace RimAI.Core.Source.Modules.Tooling
 
 		private static string ExtractName(string toolJson)
 		{
-			if (string.IsNullOrEmpty(toolJson)) return null;
+			if (string.IsNullOrWhiteSpace(toolJson)) return null;
+			// 首选：解析 OpenAI 风格 { type:"function", function:{ name,... } }
+			try
+			{
+				var jo = JObject.Parse(toolJson);
+				var n = jo.SelectToken("$.function.name")?.ToString();
+				if (!string.IsNullOrWhiteSpace(n)) return n;
+				// 兼容：根级 key 支持 name/Name
+				n = jo.SelectToken("$.name")?.ToString() ?? jo.SelectToken("$.Name")?.ToString();
+				if (!string.IsNullOrWhiteSpace(n)) return n;
+			}
+			catch { /* 回退到快速字符串搜索 */ }
+			// 回退：兼容旧式 JSON 中的大写 "Name" 键
 			var key = "\"Name\":";
-			var idx = toolJson.IndexOf(key);
+			var idx = toolJson.IndexOf(key, StringComparison.Ordinal);
 			if (idx < 0) return null;
 			idx += key.Length;
 			while (idx < toolJson.Length && (toolJson[idx] == ' ' || toolJson[idx] == '\t' || toolJson[idx] == '"' || toolJson[idx] == '\'' || toolJson[idx] == ':')) idx++;
 			var end = idx;
 			while (end < toolJson.Length && toolJson[end] != '"' && toolJson[end] != '\'' && toolJson[end] != ',' && toolJson[end] != '}') end++;
-			return toolJson.Substring(idx, end - idx).Trim('"','\'',' ');
+			return toolJson.Substring(idx, Math.Max(0, end - idx)).Trim('"', '\'', ' ');
 		}
 
 		private Task<List<ToolEmbeddingRecord>> BuildRecordsAsync(CancellationToken ct)

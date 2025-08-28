@@ -26,12 +26,12 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 
 			float buttonH = 28f;
 			float spacing = 4f;
-			int buttonCount = 5;   // 下面的网格按钮数量（对话/人格/巡检历史/AI Log/历史）
+			int buttonCount = 6;   // 下面的网格按钮数量（对话/人格/巡检历史/工具/AI Log/历史）
 			int columns = 2;
 			int rows = (buttonCount + columns - 1) / columns;
 			float colSpacing = 6f;
 			// 额外在网格按钮区域顶部添加一个“工具管理”按钮（独占整行）
-			bool hasToolManagerButton = true;
+			bool hasToolManagerButton = false;
 			float extraTopButtonH = hasToolManagerButton ? (buttonH + spacing) : 0f;
 			float totalButtonsH = extraTopButtonH + rows * buttonH + (rows - 1) * spacing;
 			float buttonsStartY = rect.yMax - 8f - totalButtonsH;
@@ -129,7 +129,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 							var btnRect3 = new Rect(bx, y, btnW, buttonH);
 							var prevEnabled3 = GUI.enabled;
 							GUI.enabled = !isStreaming;
-							if (Widgets.ButtonText(btnRect3, "RimAI.SCW.Tabs.AiLog".Translate())) activeTab = ServerTab.AiLog;
+							// 工具管理并入网格，与“巡检历史”并排
+							if (Widgets.ButtonText(btnRect3, "RimAI.SCW.Tools.ManagerButton".Translate())) activeTab = ServerTab.Tools;
 							GUI.enabled = prevEnabled3;
 						}
 						break;
@@ -138,8 +139,17 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 							var btnRect4 = new Rect(bx, y, btnW, buttonH);
 							var prevEnabled4 = GUI.enabled;
 							GUI.enabled = !isStreaming;
-							if (Widgets.ButtonText(btnRect4, "RimAI.SCW.Tabs.History".Translate())) activeTab = ServerTab.History;
+							if (Widgets.ButtonText(btnRect4, "RimAI.SCW.Tabs.AiLog".Translate())) activeTab = ServerTab.AiLog;
 							GUI.enabled = prevEnabled4;
+						}
+						break;
+						case 5:
+						{
+							var btnRect5 = new Rect(bx, y, btnW, buttonH);
+							var prevEnabled5 = GUI.enabled;
+							GUI.enabled = !isStreaming;
+							if (Widgets.ButtonText(btnRect5, "RimAI.SCW.Tabs.History".Translate())) activeTab = ServerTab.History;
+							GUI.enabled = prevEnabled5;
 						}
 						break;
 					}

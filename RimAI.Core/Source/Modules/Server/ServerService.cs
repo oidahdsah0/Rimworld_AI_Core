@@ -123,6 +123,23 @@ namespace RimAI.Core.Source.Modules.Server
 			var cap = GetInspectionCapacity(s.Level);
 			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
 			EnsureInspectionSlots(s, cap);
+			// 全局唯一：任意服务器仅允许加载一次相同工具（同一服务器同一槽位重选视为幂等允许）
+			foreach (var kv in _servers)
+			{
+				var other = kv.Value;
+				if (other?.InspectionSlots == null) continue;
+				for (int i = 0; i < other.InspectionSlots.Count; i++)
+				{
+					var sl = other.InspectionSlots[i];
+					if (sl == null || !sl.Enabled) continue;
+					if (!string.IsNullOrWhiteSpace(sl.ToolName) && string.Equals(sl.ToolName, toolName, StringComparison.OrdinalIgnoreCase))
+					{
+						// 若已被占用，且不是“本服务器的同一槽位”则拒绝
+						bool sameSlot = string.Equals(other.EntityId, entityId, StringComparison.OrdinalIgnoreCase) && i == slotIndex;
+						if (!sameSlot) throw new InvalidOperationException("tool already assigned to another slot/server");
+					}
+				}
+			}
 			// 等级/研究过滤：统一在 ToolRegistryService.BuildToolsAsync
 			var tuple = _tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = s.Level }, CancellationToken.None).GetAwaiter().GetResult();
 			bool allowed = (tuple.toolsJson ?? new List<string>()).Any(j => j != null && j.IndexOf("\"name\":\"" + toolName + "\"", StringComparison.OrdinalIgnoreCase) >= 0);

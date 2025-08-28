@@ -209,6 +209,13 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					if (args == null) continue;
 					try
 					{
+						// 注入最大工具等级，供工具执行期间核对
+						try
+						{
+							if (args == null) args = new Dictionary<string, object>();
+							args["server_level"] = Math.Max(1, Math.Min(3, maxLevel));
+						}
+						catch { }
 						var result = await _tooling.ExecuteToolAsync(tool, args, ct).ConfigureAwait(false);
 						topicJson = JsonConvert.SerializeObject(result);
 						topicTitle = _tooling.GetToolDisplayNameOrNull(tool) ?? tool;

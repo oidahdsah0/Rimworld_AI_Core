@@ -19,6 +19,8 @@ internal sealed class ToolOrchestrationOptions
 	public string Locale { get; set; } = "zh-Hans";
 	// 由编排层注入的“最大工具等级”限制（例如：若存在 pawn: 则强制为 1）。
 	public int? MaxToolLevel { get; set; }
+	// 新增：工具槽白名单（服务器命令模式下，仅允许已装载的工具名）
+	public IReadOnlyList<string> IncludeWhitelist { get; set; }
 }
 
 internal sealed class ToolCallRecord

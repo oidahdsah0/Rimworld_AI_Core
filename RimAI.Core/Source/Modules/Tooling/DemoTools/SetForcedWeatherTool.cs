@@ -21,7 +21,8 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
             type = "object",
             properties = new
             {
-                server_id = new { type = "string", description = "Target AI server entity id (Lv3)." },
+                // Pre-resolved level injected by caller (1..3)
+                server_level = new { type = "integer", minimum = 1, maximum = 3, description = "Pre-resolved max tool level from caller (1..3)." },
                 weather_name = new
                 {
                     type = "string",
@@ -31,7 +32,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
                 // optional future extension: map_id
                 map_id = new { type = "integer", description = "Optional map thingIdNumber. Defaults to current map.", @default = (int?)null }
             },
-            required = new[] { "server_id", "weather_name" }
+            required = new[] { "weather_name" }
         }).Replace("\"enum_\"", "\"enum\"");
 
         public string BuildToolJson()

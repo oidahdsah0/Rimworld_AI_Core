@@ -19,10 +19,11 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
             type = "object",
             properties = new
             {
-                server_id = new { type = "string", description = "目标 AI 服务器实体 ID (Lv3)" },
+                // 由上游注入的已判定服务器等级（pawn=1；server=其等级）
+                server_level = new { type = "integer", minimum = 1, maximum = 3, description = "Pre-resolved max tool level from caller (1..3)." },
                 llm_score = new { type = "integer", minimum = 0, maximum = 100, description = "由 LLM 打分的强度 (0-100)。" }
             },
-            required = new[] { "server_id", "llm_score" }
+            required = new[] { "llm_score" }
         });
 
         public string BuildToolJson()

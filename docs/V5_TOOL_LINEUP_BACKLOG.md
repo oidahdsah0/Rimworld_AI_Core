@@ -66,8 +66,15 @@
 16. get_raid_readiness（进行中 v1：威胁点与规模估算）
    - 当前财富/人口/战兽/机仆构成与 Storyteller 因子，估算 DefaultThreatPointsNow 与袭击规模区间，分级风险带
    - 输出：raid{wealth{total,items,buildings,pawns,playerWealthForStoryteller}, colony{humanCount,armedCount,avgHealthPct}, animals{battleReadyCount,pointsContribution}, mechs{count,combatPowerSum}, points{finalPoints,difficultyScale,adaptationApplied,timeFactor,randomFactorMin,randomFactorMax,daysSinceSettle}, riskBand, sizes[{archetype,min,max}]}
-17. 
-18. 
+17. ai_diplomat（已实现 v1）
+   - 在巡检/命令执行时，若有通电 AI 终端且满足研究门槛，随机选择一个可进行外交的派系并调整好感度（-5..+15），用于周期性微调关系
+   - 输出：{ ok, faction{ id, name, defName }, goodwill_before, delta, goodwill_after, note }
+   - 备注：等级校验基于调用方传入的 server_level（需 ≥2）；运行时自检包括研究“RimAI_AI_Level2”与通电终端；派系清单取自世界服务（排除隐藏/永久敌对）
+18. ai_orbital_bombardment（已实现 v1）
+   - 旧卫星火炮破解：在敌对目标附近随机位置执行 5–15 次多类型爆炸（开发者式 Explosion），用于紧急火力支援；命令模式触发；触发前需装载在服务器工具槽
+   - 输入：server_level（可选，1..3，调用方注入），radius（默认9），max_strikes（默认9，范围5–15）
+   - 输出：成功 { ok:true, strikes_executed, radius, cooldown_days:3 }；失败 { ok:false, error, seconds_left? }
+   - 备注：Lv2 工具；设备门槛为通电 AI 终端；无敌对则拒绝并提示；执行开始/结束均有提示；冷却 3 天；巡检仅返回冷却与引导“可在命令模式触发”
 
 ## Lv3（3）
 19. get_unknown_civ_contact（已实现 v1）
@@ -76,12 +83,12 @@
    - 行为：好感变动范围 -5..+15；当 favor_total>65 且冷却到期，触发来自未知文明的赠礼（资源投放，数量系数 2.0），并在顶栏提示；赠礼冷却 3–5 天；工具本身只读（P4），落地写入由 WorldActionService 在主线程调度（P3）
 20. set_forced_weather（已实现 v1）
    - 在当前地图强制指定天气 1–3 天；需 Lv3 服务器、通讯研究完成、天线通电；操作有 5 天冷却
-   - 输入：server_id（thing:<id>），weather_name（从枚举中模糊匹配），map_id（可选）
+   - 输入：weather_name（从枚举中模糊匹配），map_id（可选）
    - 输出：成功 { ok:true, weather, duration_days, cooldown_days }；失败 { ok:false, error, ... }
    - 规则：允许天气枚举（Clear, Fog, Rain, DryThunderstorm, RainyThunderstorm, FoggyRain, SnowHard, SnowGentle）；模糊匹配阈值 0.65；开始/结束会在左上角显示本地化提示；实际改动通过 WAS 在主线程施加 GameCondition，并记录冷却到持久化
 21. invoke_subspace_entity（已实现 v1）
     - 触发一次“亚空间回声显化”；编排可对强烈“召唤词”直连命中；内部根据 llm_score(0–100) 计算强度分层与敌对组成
-    - 输入：server_id（thing:<id>），llm_score（0–100）
+    - 输入：llm_score（0–100）
     - 输出：成功 { ok:true, tier, composition, count, cooldown_days }；失败 { ok:false, error, ... }
     - 规则：
        - 准入：需 Lv3 服务器、研究“亚空间引力波穿透”(RimAI_Subspace_Gravitic_Penetration) 完成、引力波天线通电

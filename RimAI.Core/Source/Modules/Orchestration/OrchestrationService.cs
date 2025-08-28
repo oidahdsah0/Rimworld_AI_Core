@@ -63,6 +63,7 @@ namespace RimAI.Core.Source.Modules.Orchestration
 			try
 			{
 				int computedMax = 1; // 基线
+				var include = new List<string>();
 				if (participantIds != null)
 				{
 					foreach (var pid in participantIds)
@@ -85,6 +86,21 @@ namespace RimAI.Core.Source.Modules.Orchestration
 									var lv = await _world.GetAiServerLevelAsync(thingId, ct).ConfigureAwait(false);
 									lv = Math.Max(1, Math.Min(3, lv));
 									computedMax = Math.Max(computedMax, lv);
+									// 构建工具槽白名单（仅服务器命令模式下需要）
+									try
+									{
+										var server = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>();
+										var entityId = $"thing:{thingId}";
+										var slots = server?.GetSlots(entityId);
+										if (slots != null)
+										{
+											foreach (var sl in slots)
+											{
+												if (sl != null && sl.Enabled && !string.IsNullOrWhiteSpace(sl.ToolName)) include.Add(sl.ToolName);
+											}
+										}
+									}
+									catch { }
 								}
 							}
 							catch { }
@@ -93,6 +109,16 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				}
 				// 注入最终门槛（1..3）
 				injected.MaxToolLevel = Math.Max(1, Math.Min(3, computedMax));
+				// 若存在服务器参与者，则透传“工具槽白名单”以限制命令模式仅能调用已装载工具
+				try
+				{
+					if (include.Count > 0)
+					{
+						var distinct = new HashSet<string>(include, StringComparer.OrdinalIgnoreCase);
+						injected.IncludeWhitelist = new List<string>(distinct);
+					}
+				}
+				catch { }
 			}
 			catch { }
 			var toolsTuple = mode == OrchestrationMode.Classic
@@ -204,6 +230,9 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				var t0 = DateTime.UtcNow;
 				try
 				{
+					// 注入由编排层计算的最大可用工具等级，供工具在执行期进行向下兼容的等级核对
+					if (args == null) args = new Dictionary<string, object>();
+					try { args["server_level"] = injected?.MaxToolLevel ?? 1; } catch { args["server_level"] = 1; }
 					var result = await _tooling.ExecuteToolAsync(toolName, args, ct).ConfigureAwait(false);
 					execs.Add(new ToolExecutionRecord
 					{

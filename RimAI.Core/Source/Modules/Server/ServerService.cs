@@ -161,7 +161,10 @@ namespace RimAI.Core.Source.Modules.Server
 			object toolResult = null; string toolName = chosen.ToolName;
 			try
 			{
-				toolResult = await _tooling.ExecuteToolAsync(toolName, new Dictionary<string, object>(), ct).ConfigureAwait(false);
+				var args = new Dictionary<string, object>();
+				try { args["server_level"] = Math.Max(1, Math.Min(3, s.Level)); } catch { args["server_level"] = 1; }
+				try { args["inspection"] = true; } catch { }
+				toolResult = await _tooling.ExecuteToolAsync(toolName, args, ct).ConfigureAwait(false);
 			}
 			catch (OperationCanceledException) { throw; }
 			catch (Exception ex)

@@ -15,4 +15,10 @@
   <RimAI.Core.World.Diplomacy.GoodwillChanged>外交接触：与 {1} 的好感 {0}。</RimAI.Core.World.Diplomacy.GoodwillChanged>
   <RimAI.Core.World.Diplomacy.ApplyFailed>外交接触失败。</RimAI.Core.World.Diplomacy.ApplyFailed>
   <RimAI.Core.World.Diplomacy.NoEligibleFaction>无可进行外交的目标派系。</RimAI.Core.World.Diplomacy.NoEligibleFaction>
+
+  <!-- 旧卫星火炮破解（提示） -->
+  <RimAI.Bombardment.Start>卫星链路欺骗成功，轨道炮弹入场！</RimAI.Bombardment.Start>
+  <RimAI.Bombardment.End>轰击结束。</RimAI.Bombardment.End>
+  <RimAI.Bombardment.NoHostile>未发现敌对目标，已取消轰击。</RimAI.Bombardment.NoHostile>
+  <RimAI.Bombardment.Cooldown>卫星火炮冷却中，剩余 {0} 秒。</RimAI.Bombardment.Cooldown>
 </LanguageData>

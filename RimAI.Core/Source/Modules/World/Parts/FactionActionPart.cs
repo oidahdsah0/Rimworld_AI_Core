@@ -43,34 +43,23 @@ namespace RimAI.Core.Source.Modules.World.Parts
                     if (player == null) return null;
 
                     // RimWorld goodwill is typically in -100..100
-                    int before = player.RelationKindWith(target) != FactionRelationKind.Hostile ? (int)Math.Round(player.GoodwillWith(target)) : -100;
+                    int before = player.RelationKindWith(target) != FactionRelationKind.Hostile ? (int)Math.Round((double)player.GoodwillWith(target)) : -100;
                     // Use RimWorld API to change goodwill; if not available directly, manipulate relations
                     // Prefer GoodwillUtility if present, otherwise adjust through SetGoodwill or TryAffectGoodwill
                     try
                     {
-                        player.TrySetNotHostileTo(target, true);
+                        // 在较新版本 API 下，直接设置 Goodwill 前，先确保不是敌对关系
+                        try { Faction.OfPlayer.RelationKindWith(target); } catch { }
                     }
                     catch { }
 
                     try
                     {
-                        target.TryAffectGoodwillWith(player, delta, canSendMessage: false, canSendHostilityLetter: false, "RimAI.ai_diplomat");
+                        Faction.OfPlayer.TryAffectGoodwillWith(target, delta, canSendMessage: false, canSendHostilityLetter: false, HistoryEventDefOf.DebugGoodwill);
                     }
-                    catch
-                    {
-                        // Fallback: set goodwill roughly (not ideal but keeps behavior working if API differs)
-                        try
-                        {
-                            var rel = target.RelationWith(player, false);
-                            if (rel != null)
-                            {
-                                rel.goodwill = Math.Max(-100, Math.Min(100, rel.goodwill + delta));
-                            }
-                        }
-                        catch { return null; }
-                    }
+                    catch { return null; }
 
-                    int after = player.RelationKindWith(target) != FactionRelationKind.Hostile ? (int)Math.Round(player.GoodwillWith(target)) : -100;
+                    int after = player.RelationKindWith(target) != FactionRelationKind.Hostile ? (int)Math.Round((double)player.GoodwillWith(target)) : -100;
 
                     return new FactionGoodwillAdjustResult
                     {

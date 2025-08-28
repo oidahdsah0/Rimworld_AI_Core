@@ -31,6 +31,7 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly UnknownCivActionPart _unknownCivPart;
 		private readonly SubspaceActionPart _subspacePart;
 		private readonly FactionActionPart _factionActionPart;
+		private readonly DevExplosionPart _devExplosionPart;
 
 		public WorldActionService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -42,6 +43,7 @@ namespace RimAI.Core.Source.Modules.World
 			_unknownCivPart = new UnknownCivActionPart(_scheduler, _cfg);
 			_subspacePart = new SubspaceActionPart(_scheduler, _cfg);
 			_factionActionPart = new FactionActionPart(_scheduler, _cfg);
+			_devExplosionPart = new DevExplosionPart(_scheduler, _cfg);
 		}
 
 	/// <summary>
@@ -140,6 +142,12 @@ namespace RimAI.Core.Source.Modules.World
 
 	public Task<FactionGoodwillAdjustResult> TryAdjustFactionGoodwillAsync(int factionLoadId, int delta, string reason, CancellationToken ct = default)
 			=> _factionActionPart.TryAdjustGoodwillAsync(factionLoadId, delta, reason, ct);
+
+		public Task<int> TryDevExplosionsNearEnemiesAsync(int strikes, int radius, CancellationToken ct = default)
+		{
+			return _devExplosionPart.TryExplodeNearEnemiesAsync(strikes, radius, ct);
+		}
+	}
 }
 
 

@@ -18,11 +18,10 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
             type = "object",
             properties = new
             {
-                server_id = new { type = "string", description = "Target AI server entity id (Lv2 or above). Format: thing:<id>" },
-                // optional future extension: map_id
-                map_id = new { type = "integer", description = "Optional map thingIdNumber. Defaults to current map.", @default = (int?)null }
+                // 由上游注入的已判定服务器等级（pawn 视为 1，服务器取其等级）
+                server_level = new { type = "integer", minimum = 1, maximum = 3, description = "Pre-resolved max tool level from caller (1..3)." }
             },
-            required = new[] { "server_id" }
+            required = new string[] { }
         });
 
         public string BuildToolJson()

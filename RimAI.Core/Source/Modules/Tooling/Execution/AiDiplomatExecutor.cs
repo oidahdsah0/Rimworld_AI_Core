@@ -24,26 +24,24 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var action = RimAICoreMod.Container.Resolve<IWorldActionService>();
                 if (world == null || action == null) return new { ok = false, error = "world_services_unavailable" };
 
-                // Parse args
-                var serverId = args != null && args.TryGetValue("server_id", out var sv) ? (sv?.ToString() ?? string.Empty) : string.Empty;
-                if (string.IsNullOrWhiteSpace(serverId)) return new { ok = false, error = "missing_server_id" };
+                // Parse args: server_level injected by callers (pawn=1, server=its level)
+                int serverLevel = 1;
+                try
+                {
+                    if (args != null && args.TryGetValue("server_level", out var lvObj))
+                    {
+                        int.TryParse(lvObj?.ToString() ?? "1", NumberStyles.Integer, CultureInfo.InvariantCulture, out serverLevel);
+                    }
+                }
+                catch { serverLevel = 1; }
 
                 // Research gate self-check (defensive; list gating also applies earlier)
                 var researchOk = await world.IsResearchFinishedAsync("RimAI_AI_Level2", ct).ConfigureAwait(false);
                 if (!researchOk) return new { ok = false, error = "research_locked", require = new { research = "RimAI_AI_Level2" } };
 
-                // Server level check (>=2)
-                int lv = 1;
-                try
-                {
-                    var idPart = serverId.Split(':').LastOrDefault();
-                    if (int.TryParse(idPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out var thingId))
-                    {
-                        lv = await world.GetAiServerLevelAsync(thingId, ct).ConfigureAwait(false);
-                    }
-                }
-                catch { lv = 1; }
-                if (lv < 2) return new { ok = false, error = "require_server_level2" };
+                // Level check (>=2), using injected server_level
+                serverLevel = Math.Max(1, Math.Min(3, serverLevel));
+                if (serverLevel < 2) return new { ok = false, error = "require_server_level2" };
 
                 // Powered AI terminal required
                 var terminalPowered = await world.HasPoweredBuildingAsync("RimAI_AITerminalA", ct).ConfigureAwait(false);
@@ -60,7 +58,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 }
 
                 // Pick one randomly; delta in [-5, +15]
-                int seed = unchecked((serverId?.GetHashCode() ?? 0) ^ (int)(DateTime.UtcNow.Ticks & 0xFFFFFFFF));
+                int seed = unchecked((serverLevel.GetHashCode()) ^ (int)(DateTime.UtcNow.Ticks & 0xFFFFFFFF));
                 var rng = new Random(seed);
                 var pick = factions[rng.Next(factions.Count)];
                 int delta = rng.Next(-5, 16);

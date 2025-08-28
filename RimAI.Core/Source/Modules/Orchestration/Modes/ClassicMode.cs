@@ -22,8 +22,14 @@ namespace RimAI.Core.Source.Modules.Orchestration.Modes
 			ToolOrchestrationOptions options,
 			CancellationToken ct)
 		{
-			// 统一入口：由 ToolRegistryService.BuildToolsAsync 负责等级/研究过滤；最大等级从 options 透传
-			var t = _tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, userInput, null, null, new ToolQueryOptions { MaxToolLevel = options?.MaxToolLevel ?? 3 }, ct);
+			// 统一入口：由 ToolRegistryService.BuildToolsAsync 负责等级/研究过滤；最大等级与白名单从 options 透传
+			var t = _tooling.BuildToolsAsync(
+				RimAI.Core.Contracts.Config.ToolCallMode.Classic,
+				userInput,
+				null,
+				null,
+				new ToolQueryOptions { MaxToolLevel = options?.MaxToolLevel ?? 3, IncludeWhitelist = options?.IncludeWhitelist },
+				ct);
 			return t;
 		}
 

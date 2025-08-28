@@ -29,6 +29,9 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var persistence = RimAICoreMod.Container.Resolve<IPersistenceService>();
                 if (world == null || action == null) return new { ok = false, error = "world_services_unavailable" };
 
+                // 巡检提示模式：不执行，仅返回冷却与提示
+                bool inspection = false; try { if (args != null && args.TryGetValue("inspection", out var ins)) bool.TryParse(ins?.ToString() ?? "false", out inspection); } catch { }
+
                 // Centralized config
                 var cooldownDays = WeatherControlConfig.CooldownDays;
                 var minDays = WeatherControlConfig.MinDurationDays;
@@ -36,10 +39,17 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var allowed = WeatherControlConfig.AllowedWeathers ?? Array.Empty<string>();
                 var fuzzy = WeatherControlConfig.FuzzyMinScore;
 
-                // Parse args
-                var serverId = args != null && args.TryGetValue("server_id", out var sv) ? (sv?.ToString() ?? string.Empty) : string.Empty;
+                // Parse args (new): server_level injected by callers; weather_name required
+                int serverLevel = 1;
+                try
+                {
+                    if (args != null && args.TryGetValue("server_level", out var lvObj))
+                    {
+                        int.TryParse(lvObj?.ToString() ?? "1", NumberStyles.Integer, CultureInfo.InvariantCulture, out serverLevel);
+                    }
+                }
+                catch { serverLevel = 1; }
                 var weatherInput = args != null && args.TryGetValue("weather_name", out var wn) ? (wn?.ToString() ?? string.Empty) : string.Empty;
-                if (string.IsNullOrWhiteSpace(serverId)) return new { ok = false, error = "missing_server_id" };
                 if (string.IsNullOrWhiteSpace(weatherInput)) return new { ok = false, error = "missing_weather_name" };
 
                 // Research gate (executor self-check): Communication + climate implied; we rely on communication for now
@@ -50,25 +60,21 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var antennaOk = await world.HasPoweredAntennaAsync(ct).ConfigureAwait(false);
                 if (!antennaOk) return new { ok = false, error = "require_antenna_powered" };
 
-                // Server level check (lv3)
-                int lv = 1;
-                try
-                {
-                    // serverId format expected: thing:<id>
-                    var idPart = serverId.Split(':').LastOrDefault();
-                    if (int.TryParse(idPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out var thingId))
-                    {
-                        lv = await world.GetAiServerLevelAsync(thingId, ct).ConfigureAwait(false);
-                    }
-                }
-                catch { lv = 1; }
-                if (lv < 3) return new { ok = false, error = "require_server_level3" };
+                // Level check (lv3) using injected
+                serverLevel = Math.Max(1, Math.Min(3, serverLevel));
+                if (serverLevel < 3) return new { ok = false, error = "require_server_level3" };
 
                 // Cooldown check (persistence per-map global)
                 var snap = persistence?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
                 snap.WeatherControl ??= new WeatherControlState();
                 long nowAbs = await world.GetNowAbsTicksAsync(ct).ConfigureAwait(false);
                 int cooldownTicks = cooldownDays * 60000;
+                if (inspection)
+                {
+                    var remaining = (int)Math.Max(0, (snap.WeatherControl.NextAllowedAtAbsTicks - nowAbs) / 60);
+                    return new { ok = true, inspection = true, cooldown_seconds = remaining, tip = "RimAI.Weather.InspectionHint" };
+                }
+
                 if (snap.WeatherControl.NextAllowedAtAbsTicks > 0 && nowAbs < snap.WeatherControl.NextAllowedAtAbsTicks)
                 {
                     var remaining = (int)((snap.WeatherControl.NextAllowedAtAbsTicks - nowAbs) / 60); // seconds
@@ -86,7 +92,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 // Biome compatibility: rely on game filters; we let the condition apply, but report a soft warning is not done to stay simple
 
                 // Randomize duration and schedule
-                var rng = new Random(unchecked(serverId.GetHashCode() ^ nowAbs.GetHashCode()));
+                var rng = new Random(unchecked(serverLevel.GetHashCode() ^ nowAbs.GetHashCode()));
                 int durDays = rng.Next(Math.Max(1, minDays), Math.Max(minDays, maxDays) + 1);
                 int durationTicks = durDays * 60000;
 

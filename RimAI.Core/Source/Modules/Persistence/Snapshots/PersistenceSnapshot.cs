@@ -21,6 +21,8 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public WeatherControlState WeatherControl { get; set; } = new WeatherControlState();
 		// Subspace invocation state (cooldown and bookkeeping)
 		public SubspaceInvocationState SubspaceInvocation { get; set; } = new SubspaceInvocationState();
+		// Orbital bombardment spoof state (cooldown)
+		public OrbitalBombardmentState OrbitalBombardment { get; set; } = new OrbitalBombardmentState();
 	}
 
 	public sealed class UnknownCivState
@@ -45,6 +47,12 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		public string LastTier { get; set; } = string.Empty; // low|mid|high|apex
 		public string LastComposition { get; set; } = string.Empty; // insects|shamblers|revenant|mixed
 		public int LastCount { get; set; } = 0;
+	}
+
+	public sealed class OrbitalBombardmentState
+	{
+		public int LastAtAbsTicks { get; set; } = 0;
+		public int NextAllowedAtAbsTicks { get; set; } = 0;
 	}
 
 	public sealed class HistoryState

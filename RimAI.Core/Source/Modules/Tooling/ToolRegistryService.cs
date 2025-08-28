@@ -89,6 +89,7 @@ namespace RimAI.Core.Source.Modules.Tooling
 			manual["get_alert_digest"] = new AlertDigestExecutor();
 			manual["get_raid_readiness"] = new RaidReadinessExecutor();
 			manual["ai_diplomat"] = new AiDiplomatExecutor();
+			manual["ai_orbital_bombardment"] = new AiOrbitalBombardmentExecutor();
 
 			foreach (var kv in manual)
 			{

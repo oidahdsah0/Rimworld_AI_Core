@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using RimWorld;
+using RimAI.Core.Source.Modules.World.Parts;
 
 namespace RimAI.Core.Source.Modules.World
 {
@@ -121,6 +122,15 @@ namespace RimAI.Core.Source.Modules.World
 		/// <param name="ct">取消令牌（可选）。</param>
 		/// <returns>执行结果（包含强度分层/构成/数量统计）；失败返回 null。</returns>
 		Task<SubspaceInvocationOutcome> TryInvokeSubspaceAsync(int llmScore, CancellationToken ct = default);
+
+		/// <summary>
+		/// 在敌对单位附近随机位置执行若干次“开发者式爆炸”（随机伤害类型），用于演示或特殊工具效果。
+		/// </summary>
+		/// <param name="strikes">爆炸次数（建议 5–15）。</param>
+		/// <param name="radius">围绕敌对聚类中心的随机偏移半径（格）。</param>
+		/// <param name="ct">取消令牌。</param>
+		/// <returns>实际执行的爆炸次数（可能小于请求值）。</returns>
+		Task<int> TryDevExplosionsNearEnemiesAsync(int strikes, int radius, CancellationToken ct = default);
 
 		/// <summary>
 		/// 调整一个派系与玩家派系之间的好感度（-100..100 范围剪裁），并返回前后值与派系信息。

@@ -3,6 +3,8 @@
   <!-- ワールドアクションのメッセージ -->
   <RimAI.Core.World.Weather.Force.Start>強制天候: {0} を {1} 日間。</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>強制天候が終了しました: {0}。</RimAI.Core.World.Weather.Force.End>
+
+  <!-- Subspace echo -->
   <RimAI.Core.World.Subspace.Invoke.Start>サブスペースエコー擾乱（{0}級）：{1} が顕現中。</RimAI.Core.World.Subspace.Invoke.Start>
   <RimAI.Core.World.Subspace.Invoke.End>サブスペースエコー擾乱が沈静化しました。</RimAI.Core.World.Subspace.Invoke.End>
   <RimAI.Core.World.Subspace.Invoke.Backfire>サブスペース干渉の反動！異常が急激に流入。</RimAI.Core.World.Subspace.Invoke.Backfire>

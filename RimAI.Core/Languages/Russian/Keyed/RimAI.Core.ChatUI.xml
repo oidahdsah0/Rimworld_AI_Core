@@ -31,6 +31,7 @@
   <RimAI.ChatUI.Tabs.Persona>Персона</RimAI.ChatUI.Tabs.Persona>
   <RimAI.ChatUI.Tabs.Job>Должности</RimAI.ChatUI.Tabs.Job>
   <RimAI.ChatUI.Tabs.FixedPrompt>Фиксированный промпт</RimAI.ChatUI.Tabs.FixedPrompt>
+  <RimAI.ChatUI.Tabs.Test>Тест</RimAI.ChatUI.Tabs.Test>
 
   <!-- Header / vitals -->
   <RimAI.ChatUI.Header.Vitals>Показатели:</RimAI.ChatUI.Header.Vitals>
@@ -89,5 +90,13 @@
   <RimAI.ChatUI.Job.History.Removed>Вы освобождены от должности</RimAI.ChatUI.Job.History.Removed>
   <RimAI.ChatUI.Job.History.Transferred>Вас перевели на должность {0}</RimAI.ChatUI.Job.History.Transferred>
   <RimAI.ChatUI.Job.History.Assigned>Вы назначены на должность {0}</RimAI.ChatUI.Job.History.Assigned>
+  
+  <!-- Test Tab -->
+  <RimAI.ChatUI.Test.TriggerGroupChat>Запустить групповой чат</RimAI.ChatUI.Test.TriggerGroupChat>
+  <RimAI.ChatUI.Test.Working>Выполняется...</RimAI.ChatUI.Test.Working>
+  <RimAI.ChatUI.Test.GroupChat.NotEnough>Недостаточно участников, требуется минимум 2 колониста</RimAI.ChatUI.Test.GroupChat.NotEnough>
+  <RimAI.ChatUI.Test.GroupChat.Failed>Не удалось запустить</RimAI.ChatUI.Test.GroupChat.Failed>
+  <RimAI.ChatUI.Test.GroupChat.Done>Групповой чат запущен ({0} участников)</RimAI.ChatUI.Test.GroupChat.Done>
+  <RimAI.ChatUI.Test.GroupChat.Error>Ошибка: {0}</RimAI.ChatUI.Test.GroupChat.Error>
 </LanguageData>
 

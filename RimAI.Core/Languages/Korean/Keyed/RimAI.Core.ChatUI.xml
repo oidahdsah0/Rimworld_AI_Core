@@ -31,6 +31,7 @@
   <RimAI.ChatUI.Tabs.Persona>페르소나</RimAI.ChatUI.Tabs.Persona>
   <RimAI.ChatUI.Tabs.Job>직무</RimAI.ChatUI.Tabs.Job>
   <RimAI.ChatUI.Tabs.FixedPrompt>고정 프롬프트</RimAI.ChatUI.Tabs.FixedPrompt>
+  <RimAI.ChatUI.Tabs.Test>테스트</RimAI.ChatUI.Tabs.Test>
 
   <!-- Header / vitals -->
   <RimAI.ChatUI.Header.Vitals>생체 신호:</RimAI.ChatUI.Header.Vitals>
@@ -89,5 +90,13 @@
   <RimAI.ChatUI.Job.History.Removed>당신은 면직되었습니다</RimAI.ChatUI.Job.History.Removed>
   <RimAI.ChatUI.Job.History.Transferred>당신은 {0}(으)로 전근되었습니다</RimAI.ChatUI.Job.History.Transferred>
   <RimAI.ChatUI.Job.History.Assigned>당신은 {0}(으)로 임명되었습니다</RimAI.ChatUI.Job.History.Assigned>
+  
+  <!-- Test Tab -->
+  <RimAI.ChatUI.Test.TriggerGroupChat>그룹 채팅 트리거</RimAI.ChatUI.Test.TriggerGroupChat>
+  <RimAI.ChatUI.Test.Working>실행 중...</RimAI.ChatUI.Test.Working>
+  <RimAI.ChatUI.Test.GroupChat.NotEnough>참가자가 부족합니다. 최소 2명의 정착민이 필요합니다</RimAI.ChatUI.Test.GroupChat.NotEnough>
+  <RimAI.ChatUI.Test.GroupChat.Failed>트리거 실패</RimAI.ChatUI.Test.GroupChat.Failed>
+  <RimAI.ChatUI.Test.GroupChat.Done>그룹 채팅 트리거됨 ({0}명)</RimAI.ChatUI.Test.GroupChat.Done>
+  <RimAI.ChatUI.Test.GroupChat.Error>오류: {0}</RimAI.ChatUI.Test.GroupChat.Error>
 </LanguageData>
 

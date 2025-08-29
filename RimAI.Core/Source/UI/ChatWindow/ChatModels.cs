@@ -11,7 +11,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		Job,
 		FixedPrompt,
 		HistoryAdmin,
-		Title
+		Title,
+		Test
 	}
 
 	internal enum MessageSender

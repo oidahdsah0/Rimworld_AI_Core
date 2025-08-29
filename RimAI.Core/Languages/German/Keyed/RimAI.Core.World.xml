@@ -3,6 +3,8 @@
   <!-- Weltaktions-Nachrichten -->
   <RimAI.Core.World.Weather.Force.Start>Erzwungenes Wetter: {0} für {1} Tag(e).</RimAI.Core.World.Weather.Force.Start>
   <RimAI.Core.World.Weather.Force.End>Erzwungenes Wetter beendet: {0}.</RimAI.Core.World.Weather.Force.End>
+
+  <!-- Subspace echo -->
   <RimAI.Core.World.Subspace.Invoke.Start>Störung des Subraum-Echos (Stufe {0}): {1} manifestiert sich.</RimAI.Core.World.Subspace.Invoke.Start>
   <RimAI.Core.World.Subspace.Invoke.End>Die Störung des Subraum-Echos hat sich gelegt.</RimAI.Core.World.Subspace.Invoke.End>
   <RimAI.Core.World.Subspace.Invoke.Backfire>Rückschlag der Subraum-Interferenz! Anomalien nehmen stark zu.</RimAI.Core.World.Subspace.Invoke.Backfire>

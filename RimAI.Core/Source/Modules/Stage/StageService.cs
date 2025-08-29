@@ -147,7 +147,6 @@ namespace RimAI.Core.Source.Modules.Stage
 			{
 				var leaseTtlMs = _cfg.GetInternal().Stage?.LeaseTtlMs ?? 10000;
 				var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-				var maxMs = _cfg.GetInternal().Stage?.Acts?.GroupChat?.MaxLatencyMsPerTurn ?? 8000;
 				var leaseTtl = TimeSpan.FromMilliseconds(leaseTtlMs);
 				var renewTask = Task.Run(async () =>
 				{
@@ -162,24 +161,12 @@ namespace RimAI.Core.Source.Modules.Stage
 				Exception execError = null;
 				try
 				{
-					var execTask = act.ExecuteAsync(req, cts.Token);
-					var timeoutTask = Task.Delay(maxMs, CancellationToken.None);
-					var finished = await Task.WhenAny(execTask, timeoutTask);
-					if (finished == execTask)
-					{
-						result = await execTask; // observe result/exception
-					}
-					else
-					{
-						// Hard timeout: signal cancel and return a timeout result without awaiting the hanging task
-						try { cts.Cancel(); } catch { }
-						_log.Warn($"ActTimeout act={actName} convKey={req?.Ticket?.ConvKey} maxMs={maxMs}");
-						result = new ActResult { Completed = false, Reason = "Timeout", FinalText = "（本轮对话失败或超时，已跳过）" };
-					}
+					// 由 Act 内部自行负责兜底/超时与清理；Stage 不再强制结束
+					result = await act.ExecuteAsync(req, cts.Token);
 				}
 				catch (OperationCanceledException)
 				{
-					result = new ActResult { Completed = false, Reason = "Timeout", FinalText = "（本轮对话失败或超时，已跳过）" };
+					result = new ActResult { Completed = false, Reason = "Cancelled", FinalText = "（本轮对话被取消）" };
 				}
 				catch (Exception ex)
 				{

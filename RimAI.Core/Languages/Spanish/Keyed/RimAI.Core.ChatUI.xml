@@ -31,6 +31,7 @@
   <RimAI.ChatUI.Tabs.Persona>Persona</RimAI.ChatUI.Tabs.Persona>
   <RimAI.ChatUI.Tabs.Job>Trabajos</RimAI.ChatUI.Tabs.Job>
   <RimAI.ChatUI.Tabs.FixedPrompt>Prompt fijo</RimAI.ChatUI.Tabs.FixedPrompt>
+  <RimAI.ChatUI.Tabs.Test>Test</RimAI.ChatUI.Tabs.Test>
 
   <!-- Header / vitals -->
   <RimAI.ChatUI.Header.Vitals>Signos vitales:</RimAI.ChatUI.Header.Vitals>
@@ -89,5 +90,13 @@
   <RimAI.ChatUI.Job.History.Removed>Ha sido destituido de su cargo</RimAI.ChatUI.Job.History.Removed>
   <RimAI.ChatUI.Job.History.Transferred>Ha sido transferido a {0}</RimAI.ChatUI.Job.History.Transferred>
   <RimAI.ChatUI.Job.History.Assigned>Ha sido nombrado {0}</RimAI.ChatUI.Job.History.Assigned>
+  
+  <!-- Test Tab -->
+  <RimAI.ChatUI.Test.TriggerGroupChat>Activar chat grupal</RimAI.ChatUI.Test.TriggerGroupChat>
+  <RimAI.ChatUI.Test.Working>En proceso...</RimAI.ChatUI.Test.Working>
+  <RimAI.ChatUI.Test.GroupChat.NotEnough>No hay suficientes participantes; se requieren al menos 2 colonos</RimAI.ChatUI.Test.GroupChat.NotEnough>
+  <RimAI.ChatUI.Test.GroupChat.Failed>Error al activar</RimAI.ChatUI.Test.GroupChat.Failed>
+  <RimAI.ChatUI.Test.GroupChat.Done>Chat grupal activado ({0} participantes)</RimAI.ChatUI.Test.GroupChat.Done>
+  <RimAI.ChatUI.Test.GroupChat.Error>Error: {0}</RimAI.ChatUI.Test.GroupChat.Error>
 </LanguageData>
 

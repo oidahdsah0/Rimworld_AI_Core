@@ -31,6 +31,7 @@
   <RimAI.ChatUI.Tabs.Persona>人格信息</RimAI.ChatUI.Tabs.Persona>
   <RimAI.ChatUI.Tabs.Job>职务管理</RimAI.ChatUI.Tabs.Job>
   <RimAI.ChatUI.Tabs.FixedPrompt>固定提示词</RimAI.ChatUI.Tabs.FixedPrompt>
+  <RimAI.ChatUI.Tabs.Test>测试页</RimAI.ChatUI.Tabs.Test>
 
   <!-- Header / vitals -->
   <RimAI.ChatUI.Header.Vitals>生命体征：</RimAI.ChatUI.Header.Vitals>
@@ -89,6 +90,14 @@
   <RimAI.ChatUI.Job.History.Removed>你已被撤职</RimAI.ChatUI.Job.History.Removed>
   <RimAI.ChatUI.Job.History.Transferred>你已被调任为{0}</RimAI.ChatUI.Job.History.Transferred>
   <RimAI.ChatUI.Job.History.Assigned>你已被任命为{0}</RimAI.ChatUI.Job.History.Assigned>
+  
+  <!-- Test Tab -->
+  <RimAI.ChatUI.Test.TriggerGroupChat>群聊触发</RimAI.ChatUI.Test.TriggerGroupChat>
+  <RimAI.ChatUI.Test.Working>执行中...</RimAI.ChatUI.Test.Working>
+  <RimAI.ChatUI.Test.GroupChat.NotEnough>参与者不足，至少需要 2 名殖民者</RimAI.ChatUI.Test.GroupChat.NotEnough>
+  <RimAI.ChatUI.Test.GroupChat.Failed>触发失败</RimAI.ChatUI.Test.GroupChat.Failed>
+  <RimAI.ChatUI.Test.GroupChat.Done>已触发群聊（{0}人）</RimAI.ChatUI.Test.GroupChat.Done>
+  <RimAI.ChatUI.Test.GroupChat.Error>发生错误：{0}</RimAI.ChatUI.Test.GroupChat.Error>
 </LanguageData>
 
 

@@ -27,7 +27,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			// Tabs（靠底部排列），先计算占用高度（两列布局）
 			float buttonH = 28f;
 			float spacing = 4f;
-			int buttonCount = 6;
+			int buttonCount = Prefs.DevMode ? 7 : 6;
 			int columns = 2;
 			int rows = (buttonCount + columns - 1) / columns;
 			float colSpacing = 6f;
@@ -156,6 +156,16 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 								GUI.enabled = !isStreaming;
 								if (Widgets.ButtonText(btnRect5, "RimAI.ChatUI.Tabs.FixedPrompt".Translate())) activeTab = ChatTab.FixedPrompt;
 								GUI.enabled = prevEnabled5;
+							}
+							break;
+						case 6:
+							{
+								if (!Prefs.DevMode) break;
+								var btnRect6 = new Rect(bx, y, btnW, buttonH);
+								var prevEnabled6 = GUI.enabled;
+								GUI.enabled = !isStreaming;
+								if (Widgets.ButtonText(btnRect6, "RimAI.ChatUI.Tabs.Test".Translate())) activeTab = ChatTab.Test;
+								GUI.enabled = prevEnabled6;
 							}
 							break;
 					}

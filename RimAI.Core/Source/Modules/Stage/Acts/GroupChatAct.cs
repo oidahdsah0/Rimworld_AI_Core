@@ -51,13 +51,14 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             {
                 return new ActResult { Completed = false, Reason = "TooFewParticipants", FinalText = "（参与者不足，跳过本次群聊）" };
             }
-            // 解析轮数（从 ScenarioText 提示里读不到就用配置默认的 1）
+            // 确保历史服务已登记该会话的参与者映射，便于“关联对话”查询
+            try { if (_history != null) await _history.UpsertParticipantsAsync(conv, participants, ct).ConfigureAwait(false); } catch { }
+            // 解析轮数：优先 ScenarioText；否则随机 1..3
             int rounds = 1;
             try
             {
                 if (!string.IsNullOrWhiteSpace(req?.ScenarioText))
                 {
-                    // 尝试从“预期轮数=数字”中提取
                     var idx = req.ScenarioText.IndexOf("预期轮数=");
                     if (idx >= 0)
                     {
@@ -65,11 +66,11 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                         var numStr = new string(tail.TakeWhile(ch => char.IsDigit(ch)).ToArray());
                         if (int.TryParse(numStr, out var n)) rounds = Math.Max(1, Math.Min(3, n));
                     }
+                    else { rounds = 1 + new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, 3); }
                 }
+                else { rounds = 1 + new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, 3); }
             }
-            catch { rounds = 1; }
-
-            try { rounds = Math.Max(1, Math.Min(3, _cfg?.GetInternal()?.Stage?.Acts?.GroupChat?.Rounds ?? rounds)); } catch { }
+            catch { rounds = 1 + new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, 3); }
 
             // 启动“群聊任务”：移动并下发 Wait；会话最长 60s（可配置）
             GroupChatSessionHandle session = null;
@@ -97,11 +98,44 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             catch (Exception ex) { try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"startSessionError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
 
             int actualRounds = 0;
-            var bubbleDelayMs = Math.Max(0, _cfg?.GetInternal()?.Stage?.Acts?.GroupChat?.BubbleDelayMs ?? 1000);
             var rnd = new Random(unchecked(Environment.TickCount ^ conv.GetHashCode()));
 
             string finalTranscript = string.Empty;
             var transcript = new System.Text.StringBuilder();
+            // 为后续轮次构建“前几轮对白”的 assist 消息块（每轮一个块，内部按“姓名: 台词”逐行）
+            var priorRoundAssistantBlocks = new List<string>();
+
+            // 生产-消费模型：将所有轮次消息放入 FIFO 队列，按 1 秒间隔出队
+            var outQueue = new System.Collections.Concurrent.ConcurrentQueue<(string speaker, string content, bool end)>();
+            var actStartUtc = DateTime.UtcNow; // Act 现实时间兜底计时
+            var enqueueDeadlineUtc = actStartUtc.AddSeconds(10);
+            // 10 秒硬兜底计时器（最高执行级别）：任何情况下达到 10 秒立即取消
+            using var hardCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            hardCts.CancelAfter(TimeSpan.FromSeconds(10));
+            var hard = hardCts.Token;
+
+            // 统一结束清理（Act 内兜底）：结束世界会话 + 可选历史记录
+            async Task TryEndSessionAsync(string reason, bool completed)
+            {
+                try
+                {
+                    if (session != null)
+                    {
+                        await _worldAction.EndGroupChatDutyAsync(session, completed ? "Completed" : (string.IsNullOrWhiteSpace(reason) ? "Aborted" : reason), ct).ConfigureAwait(false);
+                    }
+                }
+                catch { }
+                try
+                {
+                    if (_history != null)
+                    {
+                        await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"end:{(completed ? "Completed" : reason ?? "Aborted")}", false, ct).ConfigureAwait(false);
+                    }
+                }
+                catch { }
+                // 左上角提示（Act 结束）
+                try { await _worldAction.ShowTopLeftMessageAsync("[GroupChat] End", RimWorld.MessageTypeDefOf.TaskCompletion, ct).ConfigureAwait(false); } catch { }
+            }
 
             // 预取：在播放本轮气泡时并发请求下一轮
             Func<int, CancellationToken, Task<string>> startRequest = async (round, token) =>
@@ -128,40 +162,73 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
                 // 用户段提示：精简为轮次指示，具体 JSON 合约已在系统提示中给出
                 string userLocal = $"现在，生成第{round}轮群聊。";
+                var msgs = new List<RimAI.Framework.Contracts.ChatMessage>();
+                msgs.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemLocal });
+                // 将前几轮对白作为 assist 块加入（每轮一个消息，内部是多行“姓名: 台词”）
+                if (priorRoundAssistantBlocks.Count > 0)
+                {
+                    foreach (var block in priorRoundAssistantBlocks)
+                    {
+                        if (!string.IsNullOrWhiteSpace(block))
+                        {
+                            msgs.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "assistant", Content = block });
+                        }
+                    }
+                }
+                msgs.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "user", Content = userLocal });
                 var chatReqLocal = new RimAI.Framework.Contracts.UnifiedChatRequest
                 {
                     ConversationId = conv,
-                    Messages = new List<RimAI.Framework.Contracts.ChatMessage>
-                    {
-                        new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=systemLocal },
-                        new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=userLocal }
-                    },
+                    Messages = msgs,
                     Stream = false,
                     ForceJsonOutput = true
                 };
+                try { await _worldAction.ShowTopLeftMessageAsync($"[GroupChat] Round {round} Begin", RimWorld.MessageTypeDefOf.NeutralEvent, token).ConfigureAwait(false); } catch { }
                 var respLocal = await _llm.GetResponseAsync(chatReqLocal, token).ConfigureAwait(false);
                 if (!respLocal.IsSuccess) return null;
                 return respLocal.Value?.Message?.Content ?? string.Empty;
             };
 
-            Task<string> currentTask = startRequest(1, ct);
+            // 启动消费者：每 1 秒出队 1 条，遇到结束标记则停止
+            var consumeTask = Task.Run(async () =>
+            {
+                while (!hard.IsCancellationRequested)
+                {
+                    if (outQueue.TryDequeue(out var item))
+                    {
+                        if (item.end) break;
+                        var pidStr = item.speaker;
+                        var text = item.content;
+                        int pid;
+                        if (!string.IsNullOrWhiteSpace(pidStr) && pidStr.StartsWith("pawn:") && int.TryParse(pidStr.Substring(5), out pid))
+                        {
+                            try { await _worldAction.ShowSpeechTextAsync(pid, text, hard).ConfigureAwait(false); } catch { }
+                        }
+                        try { await Task.Delay(1000, hard).ConfigureAwait(false); } catch { break; }
+                    }
+                    else
+                    {
+                        try { await Task.Delay(100, hard).ConfigureAwait(false); } catch { break; }
+                    }
+                }
+                // drain: 如果结束标记先到，但队列里还有残余（理论不应发生），尽量清空避免下一轮串扰
+                while (outQueue.TryDequeue(out _)) { }
+            }, hard);
+
+            // 生产者：顺序请求每一轮，将消息随机顺序入队；超出 10 秒门限直接入队结束标记
             bool aborted = false;
-            for (int r = 1; r <= rounds && !ct.IsCancellationRequested; r++)
+            bool deadlineHit = false;
+            for (int r = 1; r <= rounds && !hard.IsCancellationRequested; r++)
             {
                 if (session != null && !_worldAction.IsGroupChatSessionAlive(session)) { aborted = true; break; }
-                var json = await currentTask.ConfigureAwait(false);
+                var requestStartUtc = DateTime.UtcNow;
+                string json = null;
+                try { json = await startRequest(r, hard).ConfigureAwait(false); }
+                catch (OperationCanceledException) { aborted = true; break; }
                 if (string.IsNullOrWhiteSpace(json)) { aborted = true; break; }
-
-                // 提前预取下一轮
-                Task<string> nextTask = null;
-                if (r < rounds)
-                {
-                    nextTask = startRequest(r + 1, ct);
-                }
 
                 try
                 {
-                    // 解析新契约：仅允许 JSON 数组 [{"speaker":"pawn:<id>","content":"..."}, ...]
                     var arr = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(json);
                     var messages = new List<(string speaker, string content)>();
                     if (arr != null && arr.Count > 0)
@@ -175,7 +242,6 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                             var spk = hasSpk ? spkObj?.ToString() : null;
                             var txt = hasTxt ? txtObj?.ToString() : null;
                             if (string.IsNullOrWhiteSpace(spk) || string.IsNullOrWhiteSpace(txt)) continue;
-                            // 白名单校验：speaker 必须在参与者列表内
                             if (!participants.Contains(spk)) continue;
                             messages.Add((spk.Trim(), txt.Trim()));
                         }
@@ -184,67 +250,64 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                     if (messages.Count > 0)
                     {
                         actualRounds++;
-
-                        // 解析显示名映射（pawn:<id> -> name）
-                        var nameMap = new Dictionary<string, string>();
+                        // 打乱顺序后入队：若本轮请求在门限之前发起（requestStartUtc <= deadline），保证整批消息完整入队
+                        bool allowBatchBeyondDeadline = requestStartUtc <= enqueueDeadlineUtc;
+                        var shuffled = messages.OrderBy(_ => rnd.Next()).ToList();
+                        foreach (var msg in shuffled)
+                        {
+                            if (!allowBatchBeyondDeadline && DateTime.UtcNow > enqueueDeadlineUtc) { deadlineHit = true; break; }
+                            outQueue.Enqueue((msg.speaker, msg.content, false));
+                            // 同步构建简单文本记录（用于结果文本）
+                            transcript.AppendLine($"【{msg.speaker}】{msg.content}");
+                            try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", msg.speaker, "chat", msg.content, advanceTurn: false, ct: hard).ConfigureAwait(false); } catch { }
+                        }
+                        transcript.AppendLine();
+                        // 为下一轮构建 assist 块：姓名: 台词（按本轮顺序）
                         try
                         {
-                            var ids = messages.Select(m => m.speaker).Distinct().Where(x => x != null && x.StartsWith("pawn:")).ToList();
-                            foreach (var id in ids)
+                            var distinctIds = shuffled.Select(m => m.speaker).Where(s => s != null && s.StartsWith("pawn:")).Distinct().ToList();
+                            var nameMap = new Dictionary<string, string>();
+                            foreach (var id in distinctIds)
                             {
                                 try
                                 {
                                     var s = id.Substring(5);
                                     if (int.TryParse(s, out var pid))
                                     {
-                                        var snap = await _worldData.GetPawnPromptSnapshotAsync(pid, ct).ConfigureAwait(false);
-                                        var name = snap?.Id?.Name;
-                                        nameMap[id] = string.IsNullOrWhiteSpace(name) ? id : name;
+                                        var snap = await _worldData.GetPawnPromptSnapshotAsync(pid, hard).ConfigureAwait(false);
+                                        var nm = snap?.Id?.Name;
+                                        nameMap[id] = string.IsNullOrWhiteSpace(nm) ? id : nm;
                                     }
                                 }
                                 catch { nameMap[id] = id; }
                             }
+                            var sbRound = new System.Text.StringBuilder();
+                            foreach (var msg in shuffled)
+                            {
+                                var who = nameMap.TryGetValue(msg.speaker, out var nm) ? nm : (msg.speaker ?? "?");
+                                sbRound.AppendLine($"{who}: {msg.content}");
+                            }
+                            priorRoundAssistantBlocks.Add(sbRound.ToString().TrimEnd());
                         }
                         catch { }
-
-                        // 播放气泡并拼接文本，并逐句写入历史（P14 JSON）
-                        transcript.AppendLine($"第{r}轮");
-                        foreach (var msg in messages)
-                        {
-                            var pidStr = msg.speaker;
-                            var text = msg.content;
-                            int pid;
-                            if (!string.IsNullOrWhiteSpace(pidStr) && pidStr.StartsWith("pawn:") && int.TryParse(pidStr.Substring(5), out pid))
-                            {
-                                try { await _worldAction.ShowSpeechTextAsync(pid, text, ct).ConfigureAwait(false); } catch { }
-                                try { await Task.Delay(bubbleDelayMs, ct).ConfigureAwait(false); } catch { }
-                            }
-                            var disp = nameMap.TryGetValue(pidStr, out var nm) ? nm : pidStr;
-                            transcript.AppendLine($"【{disp}】{text}");
-                            try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", pidStr, "chat", text, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
-                        }
-                        transcript.AppendLine();
                     }
                     else { aborted = true; break; }
                 }
-                catch (Exception ex) { aborted = true; try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"parseError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } break; }
+                catch (Exception ex) { aborted = true; try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"parseError:{ex.GetType().Name}", false, hard).ConfigureAwait(false); } catch { } break; }
 
-                // 轮次间隔（0-1 秒）
-                var minMs = Math.Max(0, _cfg?.GetInternal()?.Stage?.Acts?.GroupChat?.RoundIntervalMinMs ?? 0);
-                var maxMs = Math.Max(minMs, _cfg?.GetInternal()?.Stage?.Acts?.GroupChat?.RoundIntervalMaxMs ?? 1000);
-                var delay = (minMs == maxMs) ? minMs : (minMs + rnd.Next(0, (maxMs - minMs + 1)));
-                if (delay > 0)
-                {
-                    try { await Task.Delay(delay, ct).ConfigureAwait(false); } catch { }
-                }
-                if (session != null && !_worldAction.IsGroupChatSessionAlive(session)) { aborted = true; break; }
-                if (nextTask == null) break;
-                currentTask = nextTask;
+                // 轮次间隔固定 1 秒
+                if (deadlineHit) { break; }
+                try { await Task.Delay(1000, hard).ConfigureAwait(false); } catch { }
+                if (DateTime.UtcNow > enqueueDeadlineUtc) { deadlineHit = true; break; }
             }
 
-            // 结束世界会话
-            try { if (session != null) await _worldAction.EndGroupChatDutyAsync(session, (!aborted && actualRounds >= rounds) ? "Completed" : "Aborted", ct).ConfigureAwait(false); }
-            catch (Exception ex) { try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"endSessionError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
+            // 入队结束标记（若门限命中则立即标记结束）
+            outQueue.Enqueue((null, null, true));
+            try { await consumeTask.ConfigureAwait(false); } catch { }
+
+            // 统一结束：根据是否完整完成来决定 Completed/Aborted
+            var completedAll = (!aborted && actualRounds >= rounds);
+            await TryEndSessionAsync(completedAll ? null : "Aborted", completedAll).ConfigureAwait(false);
 
             if (aborted || actualRounds < rounds)
             {

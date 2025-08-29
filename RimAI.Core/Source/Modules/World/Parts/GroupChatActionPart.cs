@@ -118,6 +118,7 @@ namespace RimAI.Core.Source.Modules.World.Parts
             _sessions[state.Id] = state;
 
             var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+            // 现实时间兜底：从 Start 起最多 30 秒；此处令牌门限仅用于启动提交阶段
             cts.CancelAfter(Math.Max(timeoutMs, 3000));
             return _scheduler.ScheduleOnMainThreadAsync(() =>
             {
@@ -134,6 +135,17 @@ namespace RimAI.Core.Source.Modules.World.Parts
                     }
                     if (initiator == null || map == null) return (GroupChatSessionHandle)null;
 
+                    // 统一落点（3x3，半径=1）：为发起者与所有参与者下发 Goto+Wait
+                    int gatherRadius = 1;
+                    try
+                    {
+                        var center = CellFinder.RandomClosewalkCellNear(initiator.Position, initiator.Map, gatherRadius);
+                        try { if (initiator.drafter != null) initiator.drafter.Drafted = false; } catch { }
+                        initiator.jobs?.StartJob(new Job(JobDefOf.Goto, center), JobCondition.InterruptForced, null, resumeCurJobAfterwards: false);
+                        initiator.jobs?.jobQueue?.EnqueueLast(new Job(JobDefOf.Wait));
+                    }
+                    catch { }
+
                     foreach (var pid in state.ParticipantLoadIds)
                     {
                         try
@@ -146,7 +158,7 @@ namespace RimAI.Core.Source.Modules.World.Parts
                                 if (pawn != null) break;
                             }
                             if (pawn == null) continue;
-                            var dest = CellFinder.RandomClosewalkCellNear(initiator.Position, initiator.Map, state.Radius);
+                            var dest = CellFinder.RandomClosewalkCellNear(initiator.Position, initiator.Map, gatherRadius);
                             try
                             {
                                 try { if (pawn.drafter != null) pawn.drafter.Drafted = false; } catch { }
@@ -158,11 +170,14 @@ namespace RimAI.Core.Source.Modules.World.Parts
                         catch { }
                     }
 
+                    var startedUtc = DateTime.UtcNow;
                     state.Periodic = _scheduler.SchedulePeriodic("World.GroupChatGuard." + state.Id, guardEveryTicks, async token =>
                     {
                         bool abort = false;
                         try
                         {
+                            // 现实时间兜底：超过 30 秒强制结束
+                            if ((DateTime.UtcNow - startedUtc) > TimeSpan.FromSeconds(30)) abort = true;
                             // 实时硬限制：3 个游戏内小时（3 * 2500 ticks）
                             int gameTicks = 0;
                             try { gameTicks = Find.TickManager?.TicksGame ?? 0; } catch { gameTicks = 0; }
@@ -238,7 +253,7 @@ namespace RimAI.Core.Source.Modules.World.Parts
                                     {
                                         if (pawn.CurJobDef != JobDefOf.Wait && pawn.CurJobDef != JobDefOf.Goto)
                                         {
-                                            var dest = CellFinder.RandomClosewalkCellNear(initiator.Position, initiator.Map, state.Radius);
+                                            var dest = CellFinder.RandomClosewalkCellNear(initiator.Position, initiator.Map, 1);
                                             pawn.jobs?.StartJob(new Job(JobDefOf.Goto, dest), JobCondition.InterruptForced, null, resumeCurJobAfterwards: false);
                                             pawn.jobs?.jobQueue?.EnqueueLast(new Job(JobDefOf.Wait));
                                         }
@@ -294,6 +309,13 @@ namespace RimAI.Core.Source.Modules.World.Parts
                                 // 强制打断当前 Job，且不启动队列中的下一个；然后清空队列，确保 Goto/Wait 均被清除
                                 pawn.jobs?.EndCurrentJob(JobCondition.InterruptForced, startNewJob: false);
                                 pawn.jobs?.ClearQueuedJobs();
+                                // 进入默认闲逛（Wander）
+                                try
+                                {
+                                    var wander = new Job(JobDefOf.GotoWander);
+                                    pawn.jobs?.StartJob(wander, JobCondition.InterruptOptional, null, resumeCurJobAfterwards: false);
+                                }
+                                catch { }
                             }
                             catch { }
                         }

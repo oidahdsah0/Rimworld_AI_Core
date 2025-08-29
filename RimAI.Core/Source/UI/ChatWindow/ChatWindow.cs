@@ -137,6 +137,11 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				DrawPersonaTab(layout.rightRectOuter, layout.titleRect);
 				return;
 			}
+			if (_activeTab == ChatTab.Test)
+			{
+				Parts.TestTab.Draw(new Rect(layout.rightRectOuter.x, layout.rightRectOuter.y + 32f, layout.rightRectOuter.width, layout.rightRectOuter.height - 32f), _controller, _world, _container);
+				return;
+			}
 
 			// 聊天主界面
 			DrawChatMain(layout.titleRect, layout.transcriptRect, layout.indicatorRect, layout.inputRect, layout.rightRectOuter);

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using RimWorld;
 using Verse;
+using RimAI.Core.Source.Modules.Server;
 
 namespace RimAI.Core.Source.Modules.World.Comps
 {
@@ -30,6 +31,36 @@ namespace RimAI.Core.Source.Modules.World.Comps
 		public override void PostExposeData() => base.PostExposeData();
 
 	// 随机属性加成逻辑在 StatPart 中处理，这里无需状态与保存
+
+		public override void PostDeSpawn(Map map, DestroyMode mode = DestroyMode.Vanish)
+		{
+			base.PostDeSpawn(map, mode);
+			TryCleanupServerHistory();
+		}
+
+		public override void PostDestroy(DestroyMode mode, Map previousMap)
+		{
+			base.PostDestroy(mode, previousMap);
+			TryCleanupServerHistory();
+		}
+
+		private void TryCleanupServerHistory()
+		{
+			try
+			{
+				var server = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<IServerService>();
+				int id = 0; try { id = parent?.thingIDNumber ?? 0; } catch { id = 0; }
+				if (server != null && id > 0)
+				{
+					// 后台触发清理：停止巡检并清空巡检/1v1 历史会话
+					_ = System.Threading.Tasks.Task.Run(async () =>
+					{
+						try { await server.RemoveAsync($"thing:{id}", clearInspectionHistory: true).ConfigureAwait(false); } catch { }
+					});
+				}
+			}
+			catch { }
+		}
 
 		public override string CompInspectStringExtra()
 		{

@@ -30,7 +30,7 @@ namespace RimAI.Core.Source.Modules.Server
 		// 运行与调度
 		Task RunInspectionOnceAsync(string entityId, CancellationToken ct = default);
 		void StartAllSchedulers(CancellationToken appRootCt);
-		void RestartScheduler(string entityId);
+		void RestartScheduler(string entityId, int initialDelayTicks = 0);
 
 		// 提示词与温度
 		Task<ServerPromptPack> BuildPromptAsync(string entityId, string locale, CancellationToken ct = default);

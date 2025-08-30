@@ -138,7 +138,8 @@ namespace RimAI.Core.Source.Modules.Server
 		{
 			var s = GetOrThrow(entityId);
 			s.InspectionIntervalHours = Math.Max(6, hours);
-			RestartScheduler(entityId);
+			// 重启调度：首轮先经历完整冷却
+			RestartScheduler(entityId, initialDelayTicks: s.InspectionIntervalHours * 2500);
 		}
 
 		public void SetInspectionEnabled(string entityId, bool enabled)
@@ -157,7 +158,7 @@ namespace RimAI.Core.Source.Modules.Server
 			// 取消全局唯一限制：允许不同服务器加载相同工具；权限校验仍在列表阶段
 			s.InspectionSlots[slotIndex] = new InspectionSlot { Index = slotIndex, ToolName = toolName, Enabled = true };
 			// 若之前未注册周期任务且巡检启用，则启动定时器
-			try { if (s.InspectionEnabled && !_periodics.ContainsKey(entityId)) StartOneScheduler(entityId, s.InspectionIntervalHours, CancellationToken.None); } catch { }
+			try { if (s.InspectionEnabled && !_periodics.ContainsKey(entityId)) StartOneScheduler(entityId, s.InspectionIntervalHours, CancellationToken.None, initialDelayTicks: 0); } catch { }
 		}
 
 		public void RemoveSlot(string entityId, int slotIndex)
@@ -358,19 +359,20 @@ namespace RimAI.Core.Source.Modules.Server
 			{
 				if (s?.InspectionEnabled == true)
 				{
-					StartOneScheduler(s.EntityId, s.InspectionIntervalHours, appRootCt);
+					// 启动时不强制初始冷却，保持原有体验
+					StartOneScheduler(s.EntityId, s.InspectionIntervalHours, appRootCt, initialDelayTicks: 0);
 				}
 			}
 		}
 
-		public void RestartScheduler(string entityId)
+		public void RestartScheduler(string entityId, int initialDelayTicks = 0)
 		{
 			if (string.IsNullOrWhiteSpace(entityId)) return;
 			if (_periodics.TryRemove(entityId, out var d)) { try { d.Dispose(); } catch { } }
 			var rec = GetOrThrow(entityId);
 			if (rec.InspectionEnabled)
 			{
-				StartOneScheduler(entityId, rec.InspectionIntervalHours, CancellationToken.None);
+				StartOneScheduler(entityId, rec.InspectionIntervalHours, CancellationToken.None, initialDelayTicks);
 			}
 		}
 
@@ -434,7 +436,7 @@ namespace RimAI.Core.Source.Modules.Server
 			}
 		}
 
-		private void StartOneScheduler(string entityId, int hours, CancellationToken appRootCt)
+		private void StartOneScheduler(string entityId, int hours, CancellationToken appRootCt, int initialDelayTicks = 0)
 		{
 			if (string.IsNullOrWhiteSpace(entityId)) return;
 			if (_periodics.ContainsKey(entityId)) return; // 幂等保护：避免重复注册
@@ -460,7 +462,7 @@ namespace RimAI.Core.Source.Modules.Server
 					try { await RunInspectionOnceAsync(entityId, ct).ConfigureAwait(false); }
 					catch (OperationCanceledException) { }
 					catch (Exception ex) { Verse.Log.Error($"[RimAI.Core][P13.Server] periodic failed: {ex.Message}"); }
-				}, appRootCt);
+				}, appRootCt, initialDelayTicks);
 				_periodics[entityId] = disp;
 			}
 			catch { }

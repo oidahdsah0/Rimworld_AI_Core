@@ -93,6 +93,9 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 			public int LastRunTick;
 			public Func<CancellationToken, Task> Work;
 			public CancellationTokenSource LinkedCts;
+			public int InitialDelayTicks;
+			public int FirstRunAtTick;
+			public bool FirstInitialized;
 			public void Dispose()
 			{
 				try { LinkedCts?.Cancel(); } catch { }
@@ -162,10 +165,10 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 			return tcs.Task;
 		}
 
-		public IDisposable SchedulePeriodic(string name, int everyTicks, Func<CancellationToken, Task> work, CancellationToken ct = default)
+		public IDisposable SchedulePeriodic(string name, int everyTicks, Func<CancellationToken, Task> work, CancellationToken ct = default, int initialDelayTicks = 0)
 		{
 			var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
-			var p = new PeriodicTaskItem { Name = name, EveryTicks = everyTicks, LastRunTick = 0, Work = work, LinkedCts = linked };
+			var p = new PeriodicTaskItem { Name = name, EveryTicks = everyTicks, LastRunTick = 0, Work = work, LinkedCts = linked, InitialDelayTicks = Math.Max(0, initialDelayTicks), FirstRunAtTick = 0, FirstInitialized = false };
 			lock (_periodicLock) { _periodics.Add(p); }
 			return p;
 		}
@@ -203,7 +206,23 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 				{
 					var p = _periodics[i];
 					if (p.LinkedCts.IsCancellationRequested) continue;
-					if (p.LastRunTick == 0 || currentTick - p.LastRunTick >= p.EveryTicks)
+					// 首次：若设置了 InitialDelayTicks，则在注册时记录 FirstRunAtTick = currentTick + InitialDelayTicks
+					if (p.LastRunTick == 0)
+					{
+						if (!p.FirstInitialized)
+						{
+							p.FirstRunAtTick = currentTick + Math.Max(0, p.InitialDelayTicks);
+							p.FirstInitialized = true;
+						}
+						if (currentTick >= p.FirstRunAtTick)
+						{
+							p.LastRunTick = currentTick;
+							var localP = p; // capture
+							_queue.Enqueue(new FuncTaskWorkItem(p.Name ?? "Periodic", () => localP.Work(localP.LinkedCts.Token), new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously), localP.LinkedCts.Token));
+
+						}
+					}
+					else if (currentTick - p.LastRunTick >= p.EveryTicks)
 					{
 						p.LastRunTick = currentTick;
 						var localP = p; // capture

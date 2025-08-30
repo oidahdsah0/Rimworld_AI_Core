@@ -23,8 +23,8 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 		// 主线程延迟（按 Tick）
 		Task DelayOnMainThreadAsync(int ticks, CancellationToken ct = default);
 
-		// 周期任务（按游戏 Tick 周期），返回取消句柄
-		IDisposable SchedulePeriodic(string name, int everyTicks, Func<CancellationToken, Task> work, CancellationToken ct = default);
+		// 周期任务（按游戏 Tick 周期），返回取消句柄；initialDelayTicks>0 时，首次执行会在该延迟后发生
+		IDisposable SchedulePeriodic(string name, int everyTicks, Func<CancellationToken, Task> work, CancellationToken ct = default, int initialDelayTicks = 0);
 	}
 }
 

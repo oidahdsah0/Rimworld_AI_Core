@@ -109,6 +109,9 @@ namespace RimAI.Core.Source.Modules.World
 		// 获取指定 AI 服务器的等级
 		public Task<int> GetAiServerLevelAsync(int thingId, CancellationToken ct = default) => _aiServerPart.GetAiServerLevelAsync(thingId, ct);
 
+		// 检测指定服务器是否仍存在（被摧毁/移除则返回 false）
+		public Task<bool> ExistsAiServerAsync(int thingId, CancellationToken ct = default) => _aiServerPart.ExistsAsync(thingId, ct);
+
 		// 获取殖民者健康状态快照（生命、伤口、疾病等）
 		public Task<PawnHealthSnapshot> GetPawnHealthSnapshotAsync(int pawnLoadId, CancellationToken ct = default) => _pawnHealthPart.GetPawnHealthSnapshotAsync(pawnLoadId, ct);
 

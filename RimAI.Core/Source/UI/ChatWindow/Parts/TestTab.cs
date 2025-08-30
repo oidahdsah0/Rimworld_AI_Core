@@ -8,6 +8,7 @@ using Verse;
 using RimAI.Core.Source.Modules.Stage;
 using RimAI.Core.Source.Modules.Stage.Models;
 using RimAI.Core.Source.Modules.World;
+using RimAI.Core.Source.Modules.History;
 
 namespace RimAI.Core.Source.UI.ChatWindow.Parts
 {
@@ -70,10 +71,28 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			}
 			GUI.enabled = true;
 
+			// Second button: Dump all history convKeys (always enabled)
+			var btnRect2 = new Rect(inRect.x + 170f, y, 220f, 28f);
+			if (Widgets.ButtonText(btnRect2, "输出历史服务所有键"))
+			{
+				try
+				{
+					var history = container.Resolve<IHistoryService>();
+					var keys = history?.GetAllConvKeys() ?? new List<string>();
+					var preview = string.Join("\n", keys);
+					_status = $"历史键（{keys.Count}）:\n{preview}";
+					try { GUIUtility.systemCopyBuffer = _status; } catch { }
+				}
+				catch (Exception ex)
+				{
+					_status = $"获取失败: {ex.GetType().Name}";
+				}
+			}
+
 			// Status line
 			if (!string.IsNullOrEmpty(_status))
 			{
-				Widgets.Label(new Rect(inRect.x, btnRect.yMax + 6f, inRect.width, 24f), _status);
+				Widgets.Label(new Rect(inRect.x, Mathf.Max(btnRect.yMax, btnRect2.yMax) + 6f, inRect.width, 400f), _status);
 			}
 		}
 	}

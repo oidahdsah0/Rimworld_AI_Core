@@ -32,6 +32,9 @@ namespace RimAI.Core.Source.Modules.Server
 		void StartAllSchedulers(CancellationToken appRootCt);
 		void RestartScheduler(string entityId, int initialDelayTicks = 0);
 
+		// 服务器销毁/移除：停止巡检、清空槽位、移除记录，并清理巡检会话历史（可选）
+		Task RemoveAsync(string entityId, bool clearInspectionHistory = true, CancellationToken ct = default);
+
 		// 提示词与温度
 		Task<ServerPromptPack> BuildPromptAsync(string entityId, string locale, CancellationToken ct = default);
 		Task<float> GetRecommendedSamplingTemperatureAsync(string entityId, CancellationToken ct = default);

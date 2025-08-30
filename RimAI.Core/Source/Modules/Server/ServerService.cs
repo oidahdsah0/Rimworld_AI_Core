@@ -28,6 +28,9 @@ namespace RimAI.Core.Source.Modules.Server
 	private readonly ILLMService _llm;
 	private readonly ILocalizationService _loc;
 
+		// 巡检历史条目上限（每台服务器独立会话）
+		private const int MaxInspectionHistoryEntries = 20;
+
 		private readonly ConcurrentDictionary<string, ServerRecord> _servers = new ConcurrentDictionary<string, ServerRecord>(StringComparer.OrdinalIgnoreCase);
 		private readonly ConcurrentDictionary<string, IDisposable> _periodics = new ConcurrentDictionary<string, IDisposable>(StringComparer.OrdinalIgnoreCase);
 
@@ -180,6 +183,21 @@ namespace RimAI.Core.Source.Modules.Server
 		public async Task RunInspectionOnceAsync(string entityId, CancellationToken ct = default)
 		{
 			var s = GetOrThrow(entityId);
+			// 若实体已在世界被摧毁/移除，则进行自清理并返回
+			try
+			{
+				int? id = TryParseThingId(entityId);
+				if (id.HasValue)
+				{
+					bool exists = await _world.ExistsAiServerAsync(id.Value, ct).ConfigureAwait(false);
+					if (!exists)
+					{
+						await RemoveAsync(entityId, clearInspectionHistory: true, ct: ct).ConfigureAwait(false);
+						return;
+					}
+				}
+			}
+			catch { }
 			// 全局关闭则直接返回
 			try { var cfg = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService>(); if (cfg != null && !cfg.GetServerConfig().GlobalInspectionEnabled) return; } catch { }
 			if (!(s.InspectionEnabled)) return;
@@ -203,6 +221,8 @@ namespace RimAI.Core.Source.Modules.Server
 						var sn = string.IsNullOrWhiteSpace(s.SerialHex12) ? "SN-UNKNOWN" : ($"SN-{s.SerialHex12}");
 						var prefix = string.IsNullOrWhiteSpace(gameTime) ? ($"[{sn}] ") : ($"[{sn}] {gameTime} ");
 						await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", prefix + msg, advanceTurn: false, ct: ct).ConfigureAwait(false);
+						// 写入后修剪会话历史至上限
+						try { await PruneInspectionHistoryIfNeededAsync(convKey, ct).ConfigureAwait(false); } catch { }
 						s.LastNoToolsNoticeAtAbsTicks = now;
 					}
 				}
@@ -344,6 +364,8 @@ namespace RimAI.Core.Source.Modules.Server
 					var sn = string.IsNullOrWhiteSpace(s.SerialHex12) ? "SN-UNKNOWN" : ($"SN-{s.SerialHex12}");
 					var prefix = string.IsNullOrWhiteSpace(gameTime) ? ($"[{sn}] ") : ($"[{sn}] {gameTime} ");
 					await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", prefix + core, advanceTurn: false, ct: ct).ConfigureAwait(false);
+					// 写入后修剪会话历史至上限
+					try { await PruneInspectionHistoryIfNeededAsync(convKey, ct).ConfigureAwait(false); } catch { }
 				}
 			}
 			catch { }
@@ -382,6 +404,72 @@ namespace RimAI.Core.Source.Modules.Server
 			{
 				StartOneScheduler(entityId, rec.InspectionIntervalHours, CancellationToken.None, initialDelayTicks);
 			}
+		}
+
+		public async Task RemoveAsync(string entityId, bool clearInspectionHistory = true, CancellationToken ct = default)
+		{
+			if (string.IsNullOrWhiteSpace(entityId)) return;
+			// 1) 停止周期巡检任务
+			if (_periodics.TryRemove(entityId, out var disp)) { try { disp.Dispose(); } catch { } }
+			// 2) 构造巡检会话键
+			var convKey = BuildServerInspectionConvKey(entityId);
+			// 3) 清空槽位并移除记录
+			if (_servers.TryRemove(entityId, out var s) && s != null)
+			{
+				try { s.InspectionSlots?.Clear(); } catch { }
+				try { s.ServerPersonaSlots?.Clear(); } catch { }
+			}
+			// 4) 可选：清空巡检会话历史，避免残留继续触发 UI
+			if (clearInspectionHistory)
+			{
+				try { await _history.ClearThreadAsync(convKey, ct).ConfigureAwait(false); } catch { }
+			}
+
+			// 5) 额外清理：删除该服务器与玩家的所有 1v1 聊天线程（包含 server:<id>/thing:<id> + player:*）
+			try
+			{
+				int? id = TryParseThingId(entityId);
+				if (id.HasValue)
+				{
+					var serverPid1 = $"server:{id.Value}";
+					var serverPid2 = $"thing:{id.Value}";
+					var allKeys = _history.GetAllConvKeys() ?? new List<string>();
+					foreach (var ck in allKeys)
+					{
+						if (string.IsNullOrWhiteSpace(ck)) continue;
+						var parts = _history.GetParticipantsOrEmpty(ck) ?? Array.Empty<string>();
+						bool hasServer = false, hasPlayer = false;
+						try
+						{
+							foreach (var p in parts)
+							{
+								if (string.IsNullOrWhiteSpace(p)) continue;
+								if (!hasServer && (string.Equals(p, serverPid1, StringComparison.Ordinal) || string.Equals(p, serverPid2, StringComparison.Ordinal))) hasServer = true;
+								if (!hasPlayer && p.StartsWith("player:", StringComparison.Ordinal)) hasPlayer = true;
+								if (hasServer && hasPlayer) break;
+							}
+							// 参与者列表可能为空（某些历史未注册参与者），回退到从 convKey 文本解析
+							if (!(hasServer && hasPlayer))
+							{
+								var tokens = ck.Split('|');
+								foreach (var t in tokens)
+								{
+									var x = t?.Trim(); if (string.IsNullOrEmpty(x)) continue;
+									if (!hasServer && (string.Equals(x, serverPid1, StringComparison.Ordinal) || string.Equals(x, serverPid2, StringComparison.Ordinal))) hasServer = true;
+									if (!hasPlayer && x.StartsWith("player:", StringComparison.Ordinal)) hasPlayer = true;
+									if (hasServer && hasPlayer) break;
+								}
+							}
+						}
+						catch { }
+						if (hasServer && hasPlayer)
+						{
+							try { await _history.ClearThreadAsync(ck, ct).ConfigureAwait(false); } catch { }
+						}
+					}
+				}
+			}
+			catch { }
 		}
 
 		public async Task<ServerPromptPack> BuildPromptAsync(string entityId, string locale, CancellationToken ct = default)
@@ -644,6 +732,25 @@ namespace RimAI.Core.Source.Modules.Server
 		{
 			if (string.IsNullOrEmpty(s)) return string.Empty;
 			return s.Length <= max ? s : s.Substring(0, max);
+		}
+
+		// 将指定巡检会话(convKey)的历史条目裁剪为不超过 MaxInspectionHistoryEntries
+		private async Task PruneInspectionHistoryIfNeededAsync(string convKey, CancellationToken ct)
+		{
+			try
+			{
+				var all = await _history.GetAllEntriesRawAsync(convKey, ct).ConfigureAwait(false);
+				var list = (all ?? Array.Empty<RimAI.Core.Source.Modules.History.Models.HistoryEntry>()).Where(e => e != null && !e.Deleted).OrderBy(e => e.Timestamp).ToList();
+				if (list.Count <= MaxInspectionHistoryEntries) return;
+				int surplus = list.Count - MaxInspectionHistoryEntries;
+				for (int i = 0; i < surplus; i++)
+				{
+					var victim = list[i];
+					if (victim == null) continue;
+					try { await _history.DeleteEntryAsync(convKey, victim.Id, ct).ConfigureAwait(false); } catch { }
+				}
+			}
+			catch { }
 		}
 	}
 }

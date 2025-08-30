@@ -86,6 +86,31 @@ namespace RimAI.Core.Source.Modules.World.Parts
             }, name: "GetAiServerLevel", ct: cts.Token);
         }
 
+        public Task<bool> ExistsAsync(int thingId, CancellationToken ct = default)
+        {
+            var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeoutMs);
+            return _scheduler.ScheduleOnMainThreadAsync(() =>
+            {
+                if (Current.Game == null) throw new WorldDataException("World not loaded");
+                try
+                {
+                    foreach (var map in Find.Maps)
+                    {
+                        var things = map?.listerThings?.AllThings; if (things == null) continue;
+                        foreach (var t in things)
+                        {
+                            if (t == null) continue;
+                            if (t.thingIDNumber == thingId) return true;
+                        }
+                    }
+                }
+                catch { }
+                return false;
+            }, name: "AiServerExists", ct: cts.Token);
+        }
+
         public Task<AiServerSnapshot> GetAiServerSnapshotAsync(string serverId, CancellationToken ct = default)
         {
             var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;

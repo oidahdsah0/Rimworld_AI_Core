@@ -278,8 +278,9 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 				Widgets.Label(info, "请先在左侧选择一个服务器");
 				return;
 			}
-			var entityId = $"thing:{_currentServerThingId.Value}";
-			Parts.ServerInspectionHistoryTab.Draw(rect, entityId, _history);
+			// 传入当前 UI 的服务器会话键，使巡检记录页基于该键计算巡检线程键
+			var uiConvKey = _currentConvKey;
+			Parts.ServerInspectionHistoryTab.Draw(rect, uiConvKey, _history);
 		}
 
 		private void OnSelectPersonaPreset(string key, string name, string content)

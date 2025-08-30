@@ -9,34 +9,49 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 {
 	internal static class ServerInspectionHistoryTab
 	{
-		private static string BuildInspectionConvKey(string entityId)
+		private static string BuildInspectionConvKeyFromUiConvKey(string uiConvKey, IHistoryService history)
 		{
 			try
 			{
-				int? id = TryParseThingId(entityId);
-				var list = new List<string> { "agent:server_inspection", id.HasValue ? ($"server_inspection:{id.Value}") : ($"server_inspection:{(entityId ?? "unknown")}" ) };
+				// 从当前 UI 会话键中解析参与者，提取 server:<id>
+				int? thingId = null;
+				try
+				{
+					var parts = history?.GetParticipantsOrEmpty(uiConvKey) ?? new List<string>();
+					foreach (var p in parts)
+					{
+						if (string.IsNullOrWhiteSpace(p)) continue;
+						if (p.StartsWith("server:", StringComparison.OrdinalIgnoreCase))
+						{
+							var tail = p.Substring("server:".Length);
+							if (int.TryParse(tail, out var idv)) { thingId = idv; break; }
+						}
+					}
+				}
+				catch { }
+				// 退路：直接从会话键文本中解析 server:<id>
+				if (!thingId.HasValue && !string.IsNullOrWhiteSpace(uiConvKey))
+				{
+					try
+					{
+						var tokens = uiConvKey.Split('|');
+						foreach (var t in tokens)
+						{
+							var s = t?.Trim(); if (string.IsNullOrEmpty(s)) continue;
+							if (s.StartsWith("server:", StringComparison.OrdinalIgnoreCase))
+							{
+								var tail = s.Substring("server:".Length);
+								if (int.TryParse(tail, out var id2)) { thingId = id2; break; }
+							}
+						}
+					}
+					catch { }
+				}
+				var list = new List<string> { "agent:server_inspection", thingId.HasValue ? ($"server_inspection:{thingId.Value}") : "server_inspection:unknown" };
 				list.Sort(StringComparer.Ordinal);
 				return string.Join("|", list);
 			}
 			catch { return "agent:server_inspection|server_inspection:unknown"; }
-		}
-
-		private static int? TryParseThingId(string entityId)
-		{
-			try
-			{
-				if (string.IsNullOrWhiteSpace(entityId)) return null;
-				var s = entityId.Trim();
-				if (int.TryParse(s, out var pure)) return pure;
-				var lastIdx = s.LastIndexOf(':');
-				if (lastIdx >= 0 && lastIdx + 1 < s.Length)
-				{
-					var tail = s.Substring(lastIdx + 1);
-					if (int.TryParse(tail, out var id2)) return id2;
-				}
-			}
-			catch { }
-			return null;
 		}
 
 		private sealed class State
@@ -45,15 +60,17 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 			public bool Clearing;
 			public string LoadedConvKey;
 			public List<RimAI.Core.Source.Modules.History.Models.HistoryEntry> Entries;
+			public double NextRefreshRealtime; // 节流自动刷新
 		}
 
 		private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, State> _stateByEntity = new System.Collections.Concurrent.ConcurrentDictionary<string, State>(StringComparer.OrdinalIgnoreCase);
 
-		public static void Draw(Rect inRect, string entityId, IHistoryService history)
+		public static void Draw(Rect inRect, string uiServerConvKey, IHistoryService history)
 		{
-			if (string.IsNullOrWhiteSpace(entityId)) return;
-			var state = _stateByEntity.GetOrAdd(entityId, _ => new State());
-			var convKey = BuildInspectionConvKey(entityId);
+			if (string.IsNullOrWhiteSpace(uiServerConvKey)) return;
+			// 以 UI 会话键为分组键缓存状态
+			var state = _stateByEntity.GetOrAdd(uiServerConvKey ?? string.Empty, _ => new State());
+			var convKey = BuildInspectionConvKeyFromUiConvKey(uiServerConvKey, history);
 			if (!string.Equals(state.LoadedConvKey, convKey, StringComparison.Ordinal))
 			{
 				state.LoadedConvKey = convKey;
@@ -64,6 +81,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 			var btnRect = new Rect(inRect.xMax - 140f, inRect.y + 2f, 130f, 26f);
 			Text.Font = GameFont.Medium;
 			Widgets.Label(headerRect, "RimAI.SCW.InspectionHistory.Header".Translate());
+			// ...
 			var prev = GUI.enabled; GUI.enabled = !state.Clearing;
 			if (Widgets.ButtonText(btnRect, "RimAI.SCW.InspectionHistory.Clear".Translate()))
 			{
@@ -82,10 +100,12 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 			DrawEntries(contentRect, state);
 		}
 
-		private static void EnsureLoaded(IHistoryService history, State state, string convKey)
+	private static void EnsureLoaded(IHistoryService history, State state, string convKey)
 		{
-			if (state.Entries != null) return;
-			try { state.Entries = new List<RimAI.Core.Source.Modules.History.Models.HistoryEntry>(history.GetAllEntriesAsync(convKey).GetAwaiter().GetResult()); }
+			// 自动刷新：首次或到期都重新拉取，避免“触发后不出现”的观感问题
+			var now = Time.realtimeSinceStartup;
+			if (state.Entries != null && now < state.NextRefreshRealtime) return;
+			try { state.Entries = new List<RimAI.Core.Source.Modules.History.Models.HistoryEntry>(history.GetAllEntriesAsync(convKey).GetAwaiter().GetResult()); state.NextRefreshRealtime = now + 1.0f; }
 			catch { state.Entries = new List<RimAI.Core.Source.Modules.History.Models.HistoryEntry>(); }
 		}
 

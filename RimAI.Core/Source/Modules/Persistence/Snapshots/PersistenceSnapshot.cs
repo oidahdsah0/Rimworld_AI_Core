@@ -192,6 +192,9 @@ namespace RimAI.Core.Source.Modules.Persistence.Snapshots
 		// 最近一次汇总
 		public string LastSummaryText { get; set; }
 		public int? LastSummaryAtAbsTicks { get; set; }
+
+		// 反噪音：上次记录“未配置工具”的时间（绝对 Tick），用于限流该提示
+		public int? LastNoToolsNoticeAtAbsTicks { get; set; }
 	}
 
 	public sealed class InspectionSlot

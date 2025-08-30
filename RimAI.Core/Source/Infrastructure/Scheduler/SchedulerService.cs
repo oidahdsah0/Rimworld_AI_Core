@@ -113,6 +113,8 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 		private double _lastFrameMs;
 		private int _longTaskCount;
 		private long _totalProcessed;
+		// simple rate-limit for long task warnings: task name -> last warn tick
+		private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _lastWarnTickByTask = new();
 
 		public SchedulerService(IConfigurationService cfg)
 		{
@@ -233,8 +235,14 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 					lastItemMs = swTask.ElapsedMilliseconds;
 					if (swTask.ElapsedMilliseconds > longWarnMs)
 					{
-						_interlockedLongTaskInc();
-						logWarn?.Invoke($"[RimAI.Core][P3][Scheduler] Long task '{item.Name}' took {swTask.ElapsedMilliseconds} ms");
+						// rate-limit: only warn again for the same task name if >= 250 ticks passed
+						int lastWarnTick = 0; _lastWarnTickByTask.TryGetValue(item?.Name ?? "(unknown)", out lastWarnTick);
+						if (currentTick - lastWarnTick >= 250)
+						{
+							_lastWarnTickByTask[item?.Name ?? "(unknown)"] = currentTick;
+							_interlockedLongTaskInc();
+							logWarn?.Invoke($"[RimAI.Core][P3][Scheduler] Long task '{item.Name}' took {swTask.ElapsedMilliseconds} ms");
+						}
 					}
 				}
 				catch (OperationCanceledException)

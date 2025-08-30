@@ -14,6 +14,7 @@ using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.LLM;
 using RimAI.Core.Source.Infrastructure.Localization;
+using Newtonsoft.Json;
 
 namespace RimAI.Core.Source.Modules.Server
 {
@@ -45,7 +46,7 @@ namespace RimAI.Core.Source.Modules.Server
 		{
 			if (string.IsNullOrWhiteSpace(entityId)) throw new ArgumentNullException(nameof(entityId));
 			if (level < 1 || level > 3) throw new ArgumentOutOfRangeException(nameof(level));
-			return _servers.AddOrUpdate(entityId,
+			var result = _servers.AddOrUpdate(entityId,
 				id => new ServerRecord
 				{
 					EntityId = id,
@@ -53,6 +54,7 @@ namespace RimAI.Core.Source.Modules.Server
 					SerialHex12 = GenerateSerial(),
 					BuiltAtAbsTicks = GetTicks(),
 					InspectionIntervalHours = 24,
+					InspectionEnabled = true, // 默认开启巡检以提升易用性
 					InspectionSlots = new List<InspectionSlot>(),
 					ServerPersonaSlots = new List<ServerPersonaSlot>()
 				},
@@ -67,6 +69,7 @@ namespace RimAI.Core.Source.Modules.Server
 							SerialHex12 = GenerateSerial(),
 							BuiltAtAbsTicks = GetTicks(),
 							InspectionIntervalHours = 24,
+							InspectionEnabled = true,
 							InspectionSlots = new List<InspectionSlot>(),
 							ServerPersonaSlots = new List<ServerPersonaSlot>()
 						};
@@ -80,6 +83,9 @@ namespace RimAI.Core.Source.Modules.Server
 					}
 					return existing;
 				});
+			// 确保至少初始化一个槽位（按等级容量）
+			try { EnsureInspectionSlots(result, GetInspectionCapacity(result.Level)); } catch { }
+			return result;
 		}
 
 		public ServerRecord Get(string entityId)
@@ -148,25 +154,10 @@ namespace RimAI.Core.Source.Modules.Server
 			var cap = GetInspectionCapacity(s.Level);
 			if (slotIndex < 0 || slotIndex >= cap) throw new ArgumentOutOfRangeException(nameof(slotIndex));
 			EnsureInspectionSlots(s, cap);
-			// 全局唯一：任意服务器仅允许加载一次相同工具（同一服务器同一槽位重选视为幂等允许）
-			foreach (var kv in _servers)
-			{
-				var other = kv.Value;
-				if (other?.InspectionSlots == null) continue;
-				for (int i = 0; i < other.InspectionSlots.Count; i++)
-				{
-					var sl = other.InspectionSlots[i];
-					if (sl == null || !sl.Enabled) continue;
-					if (!string.IsNullOrWhiteSpace(sl.ToolName) && string.Equals(sl.ToolName, toolName, StringComparison.OrdinalIgnoreCase))
-					{
-						// 若已被占用，且不是“本服务器的同一槽位”则拒绝
-						bool sameSlot = string.Equals(other.EntityId, entityId, StringComparison.OrdinalIgnoreCase) && i == slotIndex;
-						if (!sameSlot) throw new InvalidOperationException("tool already assigned to another slot/server");
-					}
-				}
-			}
-			// 取消在分配阶段的等级/研究过滤：依据 V5 规范，权限校验集中在列表阶段
+			// 取消全局唯一限制：允许不同服务器加载相同工具；权限校验仍在列表阶段
 			s.InspectionSlots[slotIndex] = new InspectionSlot { Index = slotIndex, ToolName = toolName, Enabled = true };
+			// 若之前未注册周期任务且巡检启用，则启动定时器
+			try { if (s.InspectionEnabled && !_periodics.ContainsKey(entityId)) StartOneScheduler(entityId, s.InspectionIntervalHours, CancellationToken.None); } catch { }
 		}
 
 		public void RemoveSlot(string entityId, int slotIndex)
@@ -188,10 +179,32 @@ namespace RimAI.Core.Source.Modules.Server
 		public async Task RunInspectionOnceAsync(string entityId, CancellationToken ct = default)
 		{
 			var s = GetOrThrow(entityId);
+			// 全局关闭则直接返回
+			try { var cfg = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService>(); if (cfg != null && !cfg.GetServerConfig().GlobalInspectionEnabled) return; } catch { }
 			if (!(s.InspectionEnabled)) return;
 			// 巡检时排除空槽位与无工具名的槽位
 			var enabled = (s.InspectionSlots ?? new List<InspectionSlot>()).Where(x => x != null && x.Enabled && !string.IsNullOrWhiteSpace(x.ToolName)).OrderBy(x => x.Index).ToList();
-			if (enabled.Count == 0) return;
+			if (enabled.Count == 0)
+			{
+				// 限流“未配置工具”提示：12 小时内仅记一次，避免刷屏
+				try
+				{
+					int now = GetTicks();
+					int gap = 12 * 2500; // 12 小时
+					var convKey = BuildServerInspectionConvKey(entityId);
+					bool threadEmpty = false;
+					try { var all = await _history.GetAllEntriesRawAsync(convKey, ct).ConfigureAwait(false); threadEmpty = (all == null || all.Count == 0); } catch { threadEmpty = false; }
+					if (threadEmpty || !s.LastNoToolsNoticeAtAbsTicks.HasValue || now - s.LastNoToolsNoticeAtAbsTicks.Value >= gap)
+					{
+						try { await _history.UpsertParticipantsAsync(convKey, new List<string> { "agent:server_inspection", TryMakeInspectionParticipant(entityId) }, ct).ConfigureAwait(false); } catch { }
+						var msg = _loc?.Get(_loc?.GetDefaultLocale() ?? "en", "RimAI.Server.Inspection.NoTools", "No tools configured for inspection.") ?? "No tools configured for inspection.";
+						await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", msg, advanceTurn: false, ct: ct).ConfigureAwait(false);
+						s.LastNoToolsNoticeAtAbsTicks = now;
+					}
+				}
+				catch { }
+				return;
+			}
 			// pick one slot by rotation pointer
 			if (s.NextSlotPointer < 0) s.NextSlotPointer = 0;
 			if (s.NextSlotPointer >= enabled.Count) s.NextSlotPointer = 0;
@@ -217,14 +230,32 @@ namespace RimAI.Core.Source.Modules.Server
 			try
 			{
 				var locale = _loc?.GetDefaultLocale() ?? "en";
-				var conv = BuildServerHubConvKey();
+				// 使用每台服务器独立的巡检会话键，避免混入群聊线程
+				var conv = BuildServerInspectionConvKey(entityId);
 				var external = new List<RimAI.Core.Source.Modules.Prompting.Models.ContextBlock>();
 				try
 				{
-					var jsonText = toolResult?.ToString() ?? string.Empty;
+					string jsonText;
+					try
+					{
+						if (toolResult is string strVal)
+						{
+							var st = strVal?.Trim() ?? string.Empty;
+							// 若已是 JSON 形态，直接使用；否则包装为 JSON 字符串
+							if ((st.StartsWith("{") && st.EndsWith("}")) || (st.StartsWith("[") && st.EndsWith("]"))) jsonText = st;
+							else jsonText = JsonConvert.SerializeObject(new { value = strVal });
+						}
+						else
+						{
+							jsonText = JsonConvert.SerializeObject(toolResult);
+						}
+					}
+					catch { jsonText = toolResult?.ToString() ?? string.Empty; }
+					var dispName = _tooling?.GetToolDisplayNameOrNull(toolName) ?? toolName ?? "tool";
 					external.Add(new RimAI.Core.Source.Modules.Prompting.Models.ContextBlock
 					{
-						Title = _loc?.Get(locale, "RimAI.ChatUI.Tools.ResultTitle", "Tool Result") ?? "Tool Result",
+						// 标题携带工具名，方便 UserComposer 提取 app 名称
+						Title = dispName,
 						Text = TrimToBudget(jsonText, 1800)
 					});
 				}
@@ -233,7 +264,8 @@ namespace RimAI.Core.Source.Modules.Server
 				{
 					Scope = RimAI.Core.Source.Modules.Prompting.Models.PromptScope.ServerInspection,
 					ConvKey = conv,
-					ParticipantIds = new List<string> { entityId, "player:servers" },
+					// 与巡检会话键保持一致的参与者集合
+					ParticipantIds = new List<string> { "agent:server_inspection", TryMakeInspectionParticipant(entityId) },
 					PawnLoadId = null,
 					IsCommand = false,
 					Locale = locale,
@@ -243,19 +275,73 @@ namespace RimAI.Core.Source.Modules.Server
 				var prompt = await RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Prompting.IPromptService>().BuildAsync(promptReq, ct).ConfigureAwait(false);
 				var sys = prompt?.SystemPrompt ?? string.Empty;
 				var user = prompt?.UserPrefixedInput ?? string.Empty;
+				// 将上下文块（含工具 JSON）拼接到 user 文本，避免非 UI 路径丢失 RAG 内容
+				try
+				{
+					var blocks = prompt?.ContextBlocks ?? external;
+					if (blocks != null && blocks.Count > 0)
+					{
+						var sb = new StringBuilder();
+						for (int i = 0; i < Math.Min(3, blocks.Count); i++)
+						{
+							var b = blocks[i]; if (b == null) continue;
+							if (!string.IsNullOrWhiteSpace(b.Title)) sb.AppendLine(b.Title);
+							if (!string.IsNullOrWhiteSpace(b.Text)) sb.AppendLine(TrimToBudget(b.Text, 1800));
+							sb.AppendLine();
+						}
+						user = string.IsNullOrWhiteSpace(user) ? sb.ToString() : (user + "\n\n" + sb.ToString());
+					}
+				}
+				catch { }
 				if (string.IsNullOrWhiteSpace(user)) user = $"tool={toolName}"; // fallback
 				var messages = new List<RimAI.Framework.Contracts.ChatMessage>
 				{
 					new RimAI.Framework.Contracts.ChatMessage{ Role="system", Content=sys },
 					new RimAI.Framework.Contracts.ChatMessage{ Role="user", Content=user }
 				};
-				var resp = await _llm.GetResponseAsync(new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = conv, Messages = messages, Stream = false }, ct).ConfigureAwait(false);
+				// 为了避免框架缓存命中导致“无请求/延迟返回”，会话ID追加一次性 run 标识；历史仍按稳定的 convKey 写入
+				var runConv = conv + "|run:" + GetTicks().ToString(System.Globalization.CultureInfo.InvariantCulture);
+				var resp = await _llm.GetResponseAsync(new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = runConv, Messages = messages, Stream = false }, ct).ConfigureAwait(false);
 				summary = resp.IsSuccess ? (resp.Value?.Message?.Content ?? string.Empty) : null;
 			}
 			catch { summary = null; }
 
-			// Update snapshot & next due
-			s.LastSummaryText = TrimToBudget(summary ?? (toolResult?.ToString() ?? string.Empty), 1600);
+			// 先生成 fallbackJson，基于“之前的摘要状态”进行去重判断并写历史，再更新快照
+			string fallbackJson;
+			try
+			{
+				if (toolResult is string strVal)
+				{
+					var st = strVal?.Trim() ?? string.Empty;
+					fallbackJson = ((st.StartsWith("{") && st.EndsWith("}")) || (st.StartsWith("[") && st.EndsWith("]"))) ? st : JsonConvert.SerializeObject(new { value = strVal });
+				}
+				else fallbackJson = JsonConvert.SerializeObject(toolResult);
+			}
+			catch { fallbackJson = toolResult?.ToString() ?? string.Empty; }
+
+			var prevSummary = s.LastSummaryText;
+			var prevAt = s.LastSummaryAtAbsTicks;
+
+			// Append to inspection history (per-server convKey)，并去重相邻重复（基于旧状态）
+			try
+			{
+				var convKey = BuildServerInspectionConvKey(entityId);
+				// 写入参与者元数据，便于 UI 侧通过 participants 推导出 server id
+				try { await _history.UpsertParticipantsAsync(convKey, new List<string> { "agent:server_inspection", TryMakeInspectionParticipant(entityId) }, ct).ConfigureAwait(false); } catch { }
+				var content = string.IsNullOrWhiteSpace(summary) ? fallbackJson : summary;
+				var trimmed = TrimToBudget(content, 1600);
+				int now = GetTicks();
+				bool isDuplicate = false;
+				try { isDuplicate = (!string.IsNullOrWhiteSpace(prevSummary) && string.Equals(TrimToBudget(prevSummary, 1600), trimmed, StringComparison.Ordinal)) && prevAt.HasValue && (now - prevAt.Value) <= 600; } catch { isDuplicate = false; }
+				if (!isDuplicate)
+				{
+					await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", trimmed, advanceTurn: false, ct: ct).ConfigureAwait(false);
+				}
+			}
+			catch { }
+
+			// Update snapshot & next due（最后再更新）
+			s.LastSummaryText = TrimToBudget(summary ?? fallbackJson, 1600);
 			s.LastSummaryAtAbsTicks = GetTicks();
 			var next = GetTicks() + Math.Max(6, s.InspectionIntervalHours) * 2500;
 			foreach (var slot in s.InspectionSlots)
@@ -264,15 +350,6 @@ namespace RimAI.Core.Source.Modules.Server
 				slot.LastRunAbsTicks = GetTicks();
 				slot.NextDueAbsTicks = next;
 			}
-
-			// Append to inspection history (per-server convKey)
-			try
-			{
-				var convKey = BuildServerInspectionConvKey(entityId);
-				var content = string.IsNullOrWhiteSpace(summary) ? (toolResult?.ToString() ?? string.Empty) : summary;
-				await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", content, advanceTurn: false, ct: ct).ConfigureAwait(false);
-			}
-			catch { }
 		}
 
 		public void StartAllSchedulers(CancellationToken appRootCt)
@@ -361,6 +438,19 @@ namespace RimAI.Core.Source.Modules.Server
 		{
 			if (string.IsNullOrWhiteSpace(entityId)) return;
 			if (_periodics.ContainsKey(entityId)) return; // 幂等保护：避免重复注册
+			// 全局关闭则不注册周期任务
+			try { var cfg = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService>(); if (cfg != null && !cfg.GetServerConfig().GlobalInspectionEnabled) return; } catch { }
+			// 若当前服务器没有任何工具已配置，跳过注册，等首次分配工具时再启动
+			try
+			{
+				var s = Get(entityId);
+				if (s != null)
+				{
+					var anyTool = (s.InspectionSlots ?? new List<InspectionSlot>()).Any(x => x != null && x.Enabled && !string.IsNullOrWhiteSpace(x.ToolName));
+					if (!anyTool) return;
+				}
+			}
+			catch { }
 			int everyTicks = Math.Max(6, hours) * 2500;
 			var name = $"server:{entityId}:inspection";
 			try
@@ -401,6 +491,16 @@ namespace RimAI.Core.Source.Modules.Server
 				return string.Join("|", list);
 			}
 			catch { return "agent:server_inspection|server_inspection:unknown"; }
+		}
+
+		private static string TryMakeInspectionParticipant(string entityId)
+		{
+			try
+			{
+				int? id = TryParseThingId(entityId);
+				return id.HasValue ? ($"server_inspection:{id.Value}") : ($"server_inspection:{(entityId ?? "unknown")}");
+			}
+			catch { return "server_inspection:unknown"; }
 		}
 
 		private static int? TryParseThingId(string entityId)

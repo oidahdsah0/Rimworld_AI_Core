@@ -32,6 +32,9 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		// P7 internal config node for Persona（仅内部使用，不暴露到 Snapshot）
 		public PersonaSection Persona { get; set; } = new();
 
+		// P13: Server-wide settings (internal)
+		public ServerSection Server { get; set; } = new();
+
         public sealed class GeneralSection
         {
             public string Locale { get; set; } = "en";
@@ -200,6 +203,12 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public sealed class PersonaUiSection
 		{
 			public bool EnableExtractFixedFromExisting { get; set; } = true;
+		}
+
+		public sealed class ServerSection
+		{
+			// Global master switch for all AI server inspections. When false, periodic and manual inspections are effectively disabled.
+			public bool GlobalInspectionEnabled { get; set; } = true;
 		}
 
         // P8 internal config node for History (仅内部使用，不暴露到 Snapshot)

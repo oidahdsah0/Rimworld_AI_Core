@@ -127,6 +127,7 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 		public CoreConfig.SchedulerSection GetSchedulerConfig() => _current.Scheduler;
 		public CoreConfig.WorldDataSection GetWorldDataConfig() => _current.WorldData;
 		public CoreConfig.ToolingSection GetToolingConfig() => _current.Tooling;
+        public CoreConfig.ServerSection GetServerConfig() => _current.Server;
 		public CoreConfig GetInternal() => _current;
 
 		// Prompt locale override helpers
@@ -152,6 +153,16 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 				catch { }
 			}
 		}
+
+        // Server global toggles
+        public void SetGlobalInspectionEnabled(bool enabled)
+        {
+            if (_current?.Server != null)
+            {
+                _current.Server.GlobalInspectionEnabled = enabled;
+                var handler = OnConfigurationChanged; if (handler != null) handler.Invoke(MapToSnapshot(_current));
+            }
+        }
     }
 }
 

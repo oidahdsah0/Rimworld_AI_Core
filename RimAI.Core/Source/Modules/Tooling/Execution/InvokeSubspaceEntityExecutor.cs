@@ -42,30 +42,46 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 catch { serverLevel = 1; }
                 score = Math.Max(0, Math.Min(100, score));
 
-                // Parity with weather-controller validations, except research:
+                // Parity with weather-controller validations, but for inspection we always return a structured diagnostic JSON
                 // 1) Research gate (new): RimAI_Subspace_Gravitic_Penetration
                 var researchOk = await world.IsResearchFinishedAsync("RimAI_Subspace_Gravitic_Penetration", ct).ConfigureAwait(false);
-                if (!researchOk) return new { ok = false, error = "research_locked", require = new { research = "RimAI_Subspace_Gravitic_Penetration" } };
-
                 // 2) Antenna powered check (reuse)
                 var antennaOk = await world.HasPoweredAntennaAsync(ct).ConfigureAwait(false);
-                if (!antennaOk) return new { ok = false, error = "require_antenna_powered" };
-
                 // 3) Server level check (Lv3) using injected
                 serverLevel = Math.Max(1, Math.Min(3, serverLevel));
-                if (serverLevel < 3) return new { ok = false, error = "require_server_level3" };
 
-                // 4) Cooldown check
+                // 4) Cooldown readout
                 var snap = persistence?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
                 snap.SubspaceInvocation ??= new SubspaceInvocationState();
                 long nowAbs = await world.GetNowAbsTicksAsync(ct).ConfigureAwait(false);
-                // Cooldown: reuse weather controller’s default 2 in-game days unless we have a dedicated knob later
-                int cooldownTicks = 2 * 60000; // 2 days
+                int cooldownTicks = 2 * 60000; // 2 in-game days
+                var remain2 = (int)Math.Max(0, (snap.SubspaceInvocation.NextAllowedAtAbsTicks - nowAbs) / 60); // seconds
+
                 if (inspection)
                 {
-                    var remain2 = (int)Math.Max(0, (snap.SubspaceInvocation.NextAllowedAtAbsTicks - nowAbs) / 60);
-                    return new { ok = true, inspection = true, cooldown_seconds = remain2, tip = "RimAI.Subspace.InspectionHint" };
+                    // Return diagnostic JSON without enforcing gates
+                    return new
+                    {
+                        ok = true,
+                        inspection = true,
+                        cooldown_seconds = remain2,
+                        gates = new
+                        {
+                            research_ok = researchOk,
+                            require_research = researchOk ? null : "RimAI_Subspace_Gravitic_Penetration",
+                            antenna_ok = antennaOk,
+                            level_ok = serverLevel >= 3,
+                            server_level = serverLevel,
+                            require_level = 3
+                        },
+                        tip = "RimAI.Subspace.InspectionHint"
+                    };
                 }
+
+                // Enforce gates for actual invocation
+                if (!researchOk) return new { ok = false, error = "research_locked", require = new { research = "RimAI_Subspace_Gravitic_Penetration" } };
+                if (!antennaOk) return new { ok = false, error = "require_antenna_powered" };
+                if (serverLevel < 3) return new { ok = false, error = "require_server_level3" };
 
                 if (snap.SubspaceInvocation.NextAllowedAtAbsTicks > 0 && nowAbs < snap.SubspaceInvocation.NextAllowedAtAbsTicks)
                 {

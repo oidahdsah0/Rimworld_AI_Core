@@ -199,7 +199,10 @@ namespace RimAI.Core.Source.Modules.Server
 					{
 						try { await _history.UpsertParticipantsAsync(convKey, new List<string> { "agent:server_inspection", TryMakeInspectionParticipant(entityId) }, ct).ConfigureAwait(false); } catch { }
 						var msg = _loc?.Get(_loc?.GetDefaultLocale() ?? "en", "RimAI.Server.Inspection.NoTools", "No tools configured for inspection.") ?? "No tools configured for inspection.";
-						await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", msg, advanceTurn: false, ct: ct).ConfigureAwait(false);
+						string gameTime = null; try { gameTime = await _world.GetCurrentGameTimeStringAsync(ct).ConfigureAwait(false); } catch { gameTime = null; }
+						var sn = string.IsNullOrWhiteSpace(s.SerialHex12) ? "SN-UNKNOWN" : ($"SN-{s.SerialHex12}");
+						var prefix = string.IsNullOrWhiteSpace(gameTime) ? ($"[{sn}] ") : ($"[{sn}] {gameTime} ");
+						await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", prefix + msg, advanceTurn: false, ct: ct).ConfigureAwait(false);
 						s.LastNoToolsNoticeAtAbsTicks = now;
 					}
 				}
@@ -330,18 +333,22 @@ namespace RimAI.Core.Source.Modules.Server
 				// 写入参与者元数据，便于 UI 侧通过 participants 推导出 server id
 				try { await _history.UpsertParticipantsAsync(convKey, new List<string> { "agent:server_inspection", TryMakeInspectionParticipant(entityId) }, ct).ConfigureAwait(false); } catch { }
 				var content = string.IsNullOrWhiteSpace(summary) ? fallbackJson : summary;
-				var trimmed = TrimToBudget(content, 1600);
+				var core = TrimToBudget(content, 1600);
 				int now = GetTicks();
 				bool isDuplicate = false;
-				try { isDuplicate = (!string.IsNullOrWhiteSpace(prevSummary) && string.Equals(TrimToBudget(prevSummary, 1600), trimmed, StringComparison.Ordinal)) && prevAt.HasValue && (now - prevAt.Value) <= 600; } catch { isDuplicate = false; }
+				try { isDuplicate = (!string.IsNullOrWhiteSpace(prevSummary) && string.Equals(TrimToBudget(prevSummary, 1600), core, StringComparison.Ordinal)) && prevAt.HasValue && (now - prevAt.Value) <= 600; } catch { isDuplicate = false; }
 				if (!isDuplicate)
 				{
-					await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", trimmed, advanceTurn: false, ct: ct).ConfigureAwait(false);
+					string gameTime = null; try { gameTime = await _world.GetCurrentGameTimeStringAsync(ct).ConfigureAwait(false); } catch { gameTime = null; }
+					var sn = string.IsNullOrWhiteSpace(s.SerialHex12) ? "SN-UNKNOWN" : ($"SN-{s.SerialHex12}");
+					var prefix = string.IsNullOrWhiteSpace(gameTime) ? ($"[{sn}] ") : ($"[{sn}] {gameTime} ");
+					await _history.AppendRecordAsync(convKey, "P13.Server", entityId, "log", prefix + core, advanceTurn: false, ct: ct).ConfigureAwait(false);
 				}
 			}
 			catch { }
 
 			// Update snapshot & next due（最后再更新）
+			// 仅将未加前缀的核心文本写入快照用于去重
 			s.LastSummaryText = TrimToBudget(summary ?? fallbackJson, 1600);
 			s.LastSummaryAtAbsTicks = GetTicks();
 			var next = GetTicks() + Math.Max(6, s.InspectionIntervalHours) * 2500;

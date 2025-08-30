@@ -39,6 +39,17 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var allowed = WeatherControlConfig.AllowedWeathers ?? Array.Empty<string>();
                 var fuzzy = WeatherControlConfig.FuzzyMinScore;
 
+                // 先处理巡检模式：仅回报冷却/提示，不要求 weather_name
+                if (inspection)
+                {
+                    var snapI = persistence?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
+                    snapI.WeatherControl ??= new WeatherControlState();
+                    long nowAbsI = await world.GetNowAbsTicksAsync(ct).ConfigureAwait(false);
+                    // cooldownDays 目前用于执行路径；巡检仅回报剩余秒数，按快照计算
+                    var remaining = (int)Math.Max(0, (snapI.WeatherControl.NextAllowedAtAbsTicks - nowAbsI) / 60);
+                    return new { ok = true, inspection = true, cooldown_seconds = remaining, tip = "RimAI.Weather.InspectionHint" };
+                }
+
                 // Parse args (new): server_level injected by callers; weather_name required
                 int serverLevel = 1;
                 try
@@ -69,11 +80,6 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 snap.WeatherControl ??= new WeatherControlState();
                 long nowAbs = await world.GetNowAbsTicksAsync(ct).ConfigureAwait(false);
                 int cooldownTicks = cooldownDays * 60000;
-                if (inspection)
-                {
-                    var remaining = (int)Math.Max(0, (snap.WeatherControl.NextAllowedAtAbsTicks - nowAbs) / 60);
-                    return new { ok = true, inspection = true, cooldown_seconds = remaining, tip = "RimAI.Weather.InspectionHint" };
-                }
 
                 if (snap.WeatherControl.NextAllowedAtAbsTicks > 0 && nowAbs < snap.WeatherControl.NextAllowedAtAbsTicks)
                 {

@@ -282,7 +282,8 @@ namespace RimAI.Core.Source.Modules.Server
 				// 将上下文块（含工具 JSON）拼接到 user 文本，避免非 UI 路径丢失 RAG 内容
 				try
 				{
-					var blocks = prompt?.ContextBlocks ?? external;
+					// 仅使用外部块（工具 JSON）以避免与作曲器返回的复制块造成重复
+					var blocks = external;
 					if (blocks != null && blocks.Count > 0)
 					{
 						var sb = new StringBuilder();

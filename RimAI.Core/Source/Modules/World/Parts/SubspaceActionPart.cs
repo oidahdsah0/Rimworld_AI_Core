@@ -40,14 +40,43 @@ namespace RimAI.Core.Source.Modules.World.Parts
                     bool hasRevenant = DefDatabase<PawnKindDef>.GetNamedSilentFail("Revenant") != null;
                     bool hasShambler = DefDatabase<PawnKindDef>.GetNamedSilentFail("ShamblerSoldier") != null || DefDatabase<PawnKindDef>.GetNamedSilentFail("ShamblerSwarmer") != null;
 
-                    // Choose composition: prefer mixed insects+revenant when revenant exists; else insects+shamblers if shambler exists; else insects only
+                    // Choose composition label（实际直投仅使用昆虫；人形单位优先用 Incident 触发，避免背包/背景故事报错）
                     string composition = hasRevenant ? "mixed" : hasShambler ? "shamblers" : "insects";
 
                     // Build spawn plan
                     var pawns = new List<Pawn>();
-                    int targetCount = tier switch { "apex" => 8, "high" => 6, "mid" => 4, _ => 2 };
+                    // Adjust count range to 10–50 per tier
+                    int targetCount = tier switch { "apex" => 50, "high" => 35, "mid" => 20, _ => 10 };
                     int spawned = 0;
-                    IntVec3 dropCenter = DropCellFinder.TradeDropSpot(map);
+
+                    // Preferred spawn center: hostile cluster center -> colony center -> map center
+                    IntVec3 center = map.Center;
+                    try
+                    {
+                        var hostiles = map.mapPawns?.AllPawnsSpawned?.Where(p => p != null && p.Spawned && p.HostileTo(Faction.OfPlayer))?.ToList();
+                        if (hostiles != null && hostiles.Count > 0)
+                        {
+                            // 简化：随机选取一个敌人的当前位置作为中心
+                            var idx = Verse.Rand.Range(0, hostiles.Count);
+                            center = hostiles[idx].Position;
+                        }
+                        else
+                        {
+                            // 回退：随机选一个殖民者位置；再不行用地图中心
+                            var colonists = map.mapPawns?.FreeColonistsSpawned?.ToList();
+                            if (colonists != null && colonists.Count > 0)
+                            {
+                                var idx2 = Verse.Rand.Range(0, colonists.Count);
+                                center = colonists[idx2].Position;
+                            }
+                        }
+                    }
+                    catch { center = map.Center; }
+
+                    IntVec3 dropCenter;
+                    if (!CellFinder.TryFindRandomCellNear(center, map, 12, c => c.Standable(map) && !c.Fogged(map), out dropCenter))
+                        dropCenter = DropCellFinder.TradeDropSpot(map);
+
                     Faction hostileFaction = Find.FactionManager?.FirstFactionOfDef(FactionDefOf.Insect) ?? Faction.OfInsects;
 
                     // Try incidents first when DLC present (simple attempts, silent failures)
@@ -69,31 +98,33 @@ namespace RimAI.Core.Source.Modules.World.Parts
 
                     if (!incidentTriggered)
                     {
-                        // Fallback: direct spawn pawns
+                        // Fallback: direct spawn pawns（仅昆虫类且非人形，避免背景故事相关报错）
                         IEnumerable<PawnKindDef> kinds = Enumerable.Empty<PawnKindDef>();
                         try
                         {
                             var list = new List<PawnKindDef>();
-                            if (hasRevenant)
-                            {
-                                var rev = DefDatabase<PawnKindDef>.GetNamedSilentFail("Revenant");
-                                if (rev != null) list.Add(rev);
-                            }
-                            if (hasShambler)
-                            {
-                                var sh1 = DefDatabase<PawnKindDef>.GetNamedSilentFail("ShamblerSoldier");
-                                var sh2 = DefDatabase<PawnKindDef>.GetNamedSilentFail("ShamblerSwarmer");
-                                if (sh1 != null) list.Add(sh1);
-                                if (sh2 != null) list.Add(sh2);
-                            }
-                            // Always include insects as fallback
+                            // Direct-spawn only insects (non-humanlike) and hard-exclude shambler/revenant families by name/label to avoid humanlike backstories
                             var insectKinds = DefDatabase<PawnKindDef>.AllDefsListForReading
-                                .Where(k => k?.race?.race?.FleshType == FleshTypeDefOf.Insectoid)
+                                .Where(k => k != null && k.race != null && k.race.race != null && !k.race.race.Humanlike && k.race.race.FleshType == FleshTypeDefOf.Insectoid)
+                                .Where(k =>
+                                {
+                                    try
+                                    {
+                                        var dn = k.defName ?? string.Empty;
+                                        var lb = k.label ?? string.Empty;
+                                        if (dn.IndexOf("Shambler", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+                                        if (dn.IndexOf("Revenant", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+                                        if (lb.IndexOf("Shambler", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+                                        if (lb.IndexOf("Revenant", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+                                        if (lb.IndexOf("蹒跚", StringComparison.OrdinalIgnoreCase) >= 0) return false; // CN label hint
+                                    }
+                                    catch { }
+                                    return true;
+                                })
                                 .ToList();
                             if (insectKinds != null && insectKinds.Count > 0)
                             {
-                                // pick some representative insects
-                                foreach (var k in insectKinds.Take(4)) list.Add(k);
+                                foreach (var k in insectKinds.Take(8)) list.Add(k);
                             }
                             kinds = list.Where(k => k != null).ToList();
                         }
@@ -106,6 +137,8 @@ namespace RimAI.Core.Source.Modules.World.Parts
                             {
                                 var kind = kinds.OrderBy(_ => rand.Next()).FirstOrDefault();
                                 if (kind == null) break;
+                                // 保险：过滤掉任何人形单位
+                                try { if (kind.race?.race?.Humanlike == true) continue; } catch { }
                                 if (!CellFinder.TryFindRandomCellNear(dropCenter, map, 12, c => c.Standable(map) && !c.Fogged(map), out var cell)) cell = dropCenter;
                                 var pawn = PawnGenerator.GeneratePawn(new PawnGenerationRequest(kind, hostileFaction, PawnGenerationContext.NonPlayer, map.Tile, forceGenerateNewPawn: true));
                                 if (GenSpawn.Spawn(pawn, cell, map, WipeMode.Vanish) != null)

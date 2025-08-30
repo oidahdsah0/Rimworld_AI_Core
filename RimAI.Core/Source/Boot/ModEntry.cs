@@ -81,7 +81,6 @@ namespace RimAI.Core.Source.Boot
                 try { Container.RegisterInstance<IStageKernel>(new StageKernel(Container.Resolve<IConfigurationService>())); }
                 catch { Container.Register<IStageKernel, StageKernel>(); }
                 Container.Register<StageLogging, StageLogging>();
-                Container.Register<StageHistorySink, StageHistorySink>();
                 Container.Register<IStageService, StageService>();
 
                 // Register Prompting (P11)

@@ -334,32 +334,33 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = "（无白名单内有效输出）" };
 			}
 
-			var sb = new System.Text.StringBuilder();
-			sb.AppendLine("第1轮");
-			foreach (var m in msgs)
+			try
 			{
-				var idx = Math.Max(1, servers.FindIndex(s => string.Equals(s, m.speaker, StringComparison.OrdinalIgnoreCase)) + 1);
-				var disp = $"服务器{idx}";
-				sb.AppendLine($"【{disp}】{m.content}");
-				try
+				var jsonItems = new List<object>();
+				foreach (var m in msgs)
 				{
-					// m.speaker is like "thing:<id>"
-					if (!string.IsNullOrWhiteSpace(m.speaker) && m.speaker.StartsWith("thing:") && int.TryParse(m.speaker.Substring(6), out var thingId))
+					jsonItems.Add(new { speaker = m.speaker, content = m.content });
+					try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", m.speaker, "chat", m.content, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
+					try
 					{
-						// Emit a short bubble above the server Thing
-						try
+						if (!string.IsNullOrWhiteSpace(m.speaker) && m.speaker.StartsWith("thing:") && int.TryParse(m.speaker.Substring(6), out var thingId))
 						{
 							var worldAction = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
 							await worldAction.ShowThingSpeechTextAsync(thingId, m.content, ct).ConfigureAwait(false);
 						}
-						catch { }
 					}
+					catch { }
 				}
-				catch { }
-				try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", m.speaker, "chat", m.content, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
+				var finalJson = JsonConvert.SerializeObject(jsonItems);
+				return new ActResult { Completed = true, Reason = "Completed", FinalText = finalJson, Rounds = 1 };
 			}
-			var finalText = sb.ToString().TrimEnd();
-			return new ActResult { Completed = true, Reason = "Completed", FinalText = finalText, Rounds = 1 };
+			catch
+			{
+				var sb = new System.Text.StringBuilder();
+				foreach (var m in msgs) sb.AppendLine($"{m.speaker}: {m.content}");
+				var finalText = sb.ToString().TrimEnd();
+				return new ActResult { Completed = true, Reason = "Completed", FinalText = finalText, Rounds = 1 };
+			}
 		}
 
 		private static List<string> ParseServersFromScenario(string scenario)

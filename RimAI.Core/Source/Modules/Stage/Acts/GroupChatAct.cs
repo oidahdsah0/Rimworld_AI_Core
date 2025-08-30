@@ -45,7 +45,16 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
         public async Task<ActResult> ExecuteAsync(StageExecutionRequest req, CancellationToken ct)
         {
-            var conv = req?.Ticket?.ConvKey ?? ("agent:stage|" + (DateTime.UtcNow.Ticks));
+            // 强制将群聊写入 Stage 专属会话，避免污染玩家-小人对话历史
+            var conv = req?.Ticket?.ConvKey;
+            if (string.IsNullOrWhiteSpace(conv) || !conv.StartsWith("agent:stage|", StringComparison.Ordinal))
+            {
+                string participantsKey = string.Join("|", (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).OrderBy(x => x, StringComparer.Ordinal));
+                var seed = req?.Seed ?? DateTime.UtcNow.Ticks.ToString();
+                conv = string.IsNullOrWhiteSpace(participantsKey)
+                    ? ($"agent:stage|group|{seed}")
+                    : ($"agent:stage|group|{participantsKey}|{seed}");
+            }
             var participants = (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).ToList();
             if (participants.Count < 2)
             {
@@ -108,10 +117,12 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             // 生产-消费模型：将所有轮次消息放入 FIFO 队列，按 1 秒间隔出队
             var outQueue = new System.Collections.Concurrent.ConcurrentQueue<(string speaker, string content, bool end)>();
             var actStartUtc = DateTime.UtcNow; // Act 现实时间兜底计时
-            var enqueueDeadlineUtc = actStartUtc.AddSeconds(10);
-            // 10 秒硬兜底计时器（最高执行级别）：任何情况下达到 10 秒立即取消
+            // 动态时间窗：允许多轮完成（至少 20s，或按轮数放宽）
+            var hardTimeout = TimeSpan.FromSeconds(Math.Max(20, rounds * 8));
+            var enqueueDeadlineUtc = actStartUtc.Add(hardTimeout);
+            // 硬兜底计时器：达到时间窗立即取消
             using var hardCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            hardCts.CancelAfter(TimeSpan.FromSeconds(10));
+            hardCts.CancelAfter(hardTimeout);
             var hard = hardCts.Token;
 
             // 统一结束清理（Act 内兜底）：结束世界会话 + 可选历史记录
@@ -129,6 +140,8 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 {
                     if (_history != null)
                     {
+                        // 在日志记录之前，显式写入一条用户可见的结束语句
+                        try { await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "chat", "该轮闲聊已结束。", false, ct).ConfigureAwait(false); } catch { }
                         await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"end:{(completed ? "Completed" : reason ?? "Aborted")}", false, ct).ConfigureAwait(false);
                     }
                 }
@@ -160,8 +173,20 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                     systemLocal = $"仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。";
                 }
 
-                // 用户段提示：精简为轮次指示，具体 JSON 合约已在系统提示中给出
-                string userLocal = $"现在，生成第{round}轮群聊。";
+                // 用户段提示：本地化 + 重复关键 JSON 合约与白名单，强化模型遵循度
+                var whitelistForUser = string.Join(", ", participants.Select((id, i) => $"{i + 1}:{id}"));
+                string userLocal;
+                try
+                {
+                    var args = new Dictionary<string, string> { { "round", round.ToString() }, { "whitelist", whitelistForUser } };
+                    userLocal = _loc?.Format(locale ?? "en", "stage.groupchat.user", args,
+                        $"现在，生成第{round}轮群聊。仅输出 JSON 数组，每个元素形如 {{\\\"speaker\\\":\\\"pawn:<id>\\\",\\\"content\\\":\\\"...\\\"}}；发言者必须在白名单内：[{whitelistForUser}]；不得输出解释文本或额外内容。")
+                        ?? $"现在，生成第{round}轮群聊。仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelistForUser}]；不得输出解释文本或额外内容。";
+                }
+                catch
+                {
+                    userLocal = $"现在，生成第{round}轮群聊。仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelistForUser}]；不得输出解释文本或额外内容。";
+                }
                 var msgs = new List<RimAI.Framework.Contracts.ChatMessage>();
                 msgs.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemLocal });
                 // 将前几轮对白作为 assist 块加入（每轮一个消息，内部是多行“姓名: 台词”）
@@ -185,6 +210,14 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 };
                 try { await _worldAction.ShowTopLeftMessageAsync($"[GroupChat] Round {round} Begin", RimWorld.MessageTypeDefOf.NeutralEvent, token).ConfigureAwait(false); } catch { }
                 var respLocal = await _llm.GetResponseAsync(chatReqLocal, token).ConfigureAwait(false);
+                // 控制台输出原始 LLM 返回内容（截断以防日志过长）
+                try
+                {
+                    var raw = respLocal?.Value?.Message?.Content ?? string.Empty;
+                    if (raw.Length > 4000) raw = raw.Substring(0, 4000) + "...";
+                    Verse.Log.Message($"[RimAI.Core][P9] GroupChat LLM raw (round={round})\nconv={conv}\n{raw}");
+                }
+                catch { }
                 if (!respLocal.IsSuccess) return null;
                 return respLocal.Value?.Message?.Content ?? string.Empty;
             };
@@ -262,32 +295,16 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                             try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", msg.speaker, "chat", msg.content, advanceTurn: false, ct: hard).ConfigureAwait(false); } catch { }
                         }
                         transcript.AppendLine();
-                        // 为下一轮构建 assist 块：姓名: 台词（按本轮顺序）
+                        // 为下一轮构建 assist 块：使用上一轮的原始 JSON 数组，强化模型对 JSON 输出的遵循
                         try
                         {
-                            var distinctIds = shuffled.Select(m => m.speaker).Where(s => s != null && s.StartsWith("pawn:")).Distinct().ToList();
-                            var nameMap = new Dictionary<string, string>();
-                            foreach (var id in distinctIds)
-                            {
-                                try
-                                {
-                                    var s = id.Substring(5);
-                                    if (int.TryParse(s, out var pid))
-                                    {
-                                        var snap = await _worldData.GetPawnPromptSnapshotAsync(pid, hard).ConfigureAwait(false);
-                                        var nm = snap?.Id?.Name;
-                                        nameMap[id] = string.IsNullOrWhiteSpace(nm) ? id : nm;
-                                    }
-                                }
-                                catch { nameMap[id] = id; }
-                            }
-                            var sbRound = new System.Text.StringBuilder();
+                            var jsonItems = new List<object>();
                             foreach (var msg in shuffled)
                             {
-                                var who = nameMap.TryGetValue(msg.speaker, out var nm) ? nm : (msg.speaker ?? "?");
-                                sbRound.AppendLine($"{who}: {msg.content}");
+                                jsonItems.Add(new { speaker = msg.speaker, content = msg.content });
                             }
-                            priorRoundAssistantBlocks.Add(sbRound.ToString().TrimEnd());
+                            var jsonBlock = JsonConvert.SerializeObject(jsonItems);
+                            if (!string.IsNullOrWhiteSpace(jsonBlock)) priorRoundAssistantBlocks.Add(jsonBlock);
                         }
                         catch { }
                     }

@@ -214,18 +214,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		{
 			// 重定向到 Parts.HistoryManagerTabView，保持主类精简
 			if (_historyView == null) _historyView = new Parts.HistoryManagerTabView();
-			_historyView.Draw(inRect, _controller.State, _history, _recap, convKey =>
-			{
-				try
-				{
-					var parts = _history.GetParticipantsOrEmpty(convKey) ?? new System.Collections.Generic.List<string>();
-					var ids = new System.Collections.Generic.List<string>(parts); ids.Sort(System.StringComparer.Ordinal);
-					_controller = new ChatController(_llm, _history, _world, _orchestration, _prompting, convKey, ids);
-					_controller.State.Messages.Clear(); _historyWritten = false; _ = _controller.StartAsync();
-					BackToChatAndRefresh();
-				}
-				catch { }
-			});
+			_historyView.Draw(inRect, _controller.State, _history, _recap);
 		}
 
 		

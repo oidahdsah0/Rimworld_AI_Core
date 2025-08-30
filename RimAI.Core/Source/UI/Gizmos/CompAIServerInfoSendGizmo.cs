@@ -28,9 +28,7 @@ namespace RimAI.Core.Source.UI.Gizmos
                     {
                         var id = parent?.thingIDNumber ?? 0;
                         var entityId = $"thing:{id}";
-                        // 初始化服务器记录，以便周期任务与提示词使用
-                        try { var server = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>(); server?.GetOrCreate(entityId, 1); } catch { }
-                        // 打开 ServerChatWindow 针对该服务器的会话
+                        // 打开 ServerChatWindow 针对该服务器的会话（让窗口在后台解析真实等级并更新记录）
                         Find.WindowStack.Add(new RimAI.Core.Source.UI.ServerChatWindow.ServerChatWindow(entityId));
                     }
                     catch { }

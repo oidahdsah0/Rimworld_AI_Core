@@ -8,7 +8,6 @@ using RimAI.Core.Source.Infrastructure.Configuration;
 using RimAI.Core.Contracts.Config;
 using RimAI.Core.Source.Modules.Stage.Diagnostics;
 using RimAI.Core.Source.Modules.Stage.Acts;
-using RimAI.Core.Source.Modules.Stage.History;
 using RimAI.Core.Source.Modules.Stage.Kernel;
 using RimAI.Core.Source.Modules.Stage.Models;
 
@@ -17,7 +16,6 @@ namespace RimAI.Core.Source.Modules.Stage
 	internal sealed class StageService : IStageService
 	{
 		private readonly IStageKernel _kernel;
-		private readonly StageHistorySink _history;
 		private readonly StageLogging _log;
 		private readonly ConfigurationService _cfg;
 
@@ -25,10 +23,9 @@ namespace RimAI.Core.Source.Modules.Stage
 		private readonly ConcurrentDictionary<string, (IStageTrigger trigger, bool enabled)> _triggers = new();
 		private readonly ConcurrentDictionary<string, string> _ticketToActName = new();
 
-		public StageService(IStageKernel kernel, StageHistorySink history, StageLogging log, IConfigurationService cfg)
+		public StageService(IStageKernel kernel, StageLogging log, IConfigurationService cfg)
 		{
 			_kernel = kernel;
-			_history = history;
 			_log = log;
 			_cfg = cfg as ConfigurationService ?? throw new InvalidOperationException("StageService requires ConfigurationService");
 		}
@@ -242,12 +239,7 @@ namespace RimAI.Core.Source.Modules.Stage
 		{
 			try
 			{
-				if (!_acts.TryGetValue(intent.ActName ?? string.Empty, out var act))
-				{
-					_history.TryWrite(new ActResult { Completed = false, Reason = "ActNotFound", FinalText = "（未找到指定 Act）" }, intent.ActName, convKey);
-					_kernel.Release(ticket);
-					return;
-				}
+				if (!_acts.TryGetValue(intent.ActName ?? string.Empty, out var act)) { _kernel.Release(ticket); return; }
 				_log.Info($"ActStarted act={intent.ActName} convKey={convKey} ticket={ticket.Id}");
 				_ticketToActName[ticket.Id] = intent.ActName ?? string.Empty;
 				var req = new StageExecutionRequest { Ticket = ticket, ScenarioText = intent.ScenarioText, Origin = intent.Origin, Locale = intent.Locale, Seed = intent.Seed };
@@ -259,12 +251,7 @@ namespace RimAI.Core.Source.Modules.Stage
 					var reason = result?.Reason ?? "Unknown";
 					_log.Warn($"ActResultNotCompleted act={intent.ActName} convKey={convKey} reason={reason} latencyMs={result?.LatencyMs}");
 				}
-				// 仅当 GroupChat 成功完成时写入；其他 Act 按原逻辑全部写入
-				bool isGroupChat = string.Equals(intent.ActName, "GroupChat", StringComparison.OrdinalIgnoreCase);
-				if (!isGroupChat || (result?.Completed ?? false))
-				{
-					_history.TryWrite(result, intent.ActName, convKey);
-				}
+				// 移除 Stage 总线历史写入：不再写入 Stage 汇总会话，由各 Act 自己处理（群聊/服务器群聊保留逐条写入）
 				// 幂等缓存
 				var idemKey = Kernel.StageKernel.ComputeIdempotencyKey(intent.ActName ?? string.Empty, convKey, intent.ScenarioText ?? string.Empty, intent.Seed ?? string.Empty);
 				var idemTtl = TimeSpan.FromMilliseconds(_cfg.GetInternal().Stage?.IdempotencyTtlMs ?? 60000);

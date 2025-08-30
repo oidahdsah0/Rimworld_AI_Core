@@ -65,7 +65,7 @@
   "orchestration.plantrace.hit_tool": "{pawn}从随身设备中找到了合适的APP：{displayName}，软件已经显示结果。",
   
   "stage.groupchat.system": "你是殖民地的临时通讯协调员，负责促成参与者之间进行一轮简短群聊。保持口语化与简洁，不要输出解释文本。",
-  "stage.groupchat.user": "现在，生成第{round}轮群聊。仅输出 JSON 数组：每个元素为{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}，不得输出解释文本。",
+  "stage.groupchat.user": "现在，生成第{round}轮群聊。仅输出 JSON 数组，每个元素形如{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}；发言者必须在白名单内：[ {whitelist} ]；不得输出解释文本或额外内容。",
   "stage.serverchat.system": "你是服务器集群的运维协调助手，负责让服务器之间进行一轮简短群聊（状态同步/互相建议）。保持简洁、口语化，不要输出解释文本。",
   "stage.serverchat.user": "现在，生成第{round}轮服务器群聊。仅输出 JSON 数组：每个元素为{\"speaker\":\"thing:<id>\",\"content\":\"...\"}，不得输出解释文本。",
   "stage.serverchat.random_topics": "供电故障备援|机房散热|日志瘦身|备份策略|风暴来袭|入侵防护|升级调度|应急演练|风扇积灰|电池健康|磁盘碎片化|电缆老化|UPS 报警|突发断电演练|猝不及防的热浪",

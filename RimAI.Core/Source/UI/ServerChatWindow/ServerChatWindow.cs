@@ -533,6 +533,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 			{
 				var lvl = await _world.GetAiServerLevelAsync(thingId).ConfigureAwait(false);
 				_currentServerLevel = lvl <= 0 ? 1 : lvl;
+				// 同步到 ServerService 以修正早期记录的默认等级（并调整槽位容量）
+				try { _server?.GetOrCreate($"thing:{thingId}", _currentServerLevel); } catch { }
 			}
 			catch { }
 		}

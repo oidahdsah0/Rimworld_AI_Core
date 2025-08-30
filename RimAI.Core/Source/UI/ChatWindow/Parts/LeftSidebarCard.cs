@@ -27,11 +27,14 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			// Tabs（靠底部排列），先计算占用高度（两列布局）
 			float buttonH = 28f;
 			float spacing = 4f;
-			int buttonCount = Prefs.DevMode ? 7 : 6;
+			// 固定 6 个正常按钮；测试按钮（DevMode）独立渲染在其上方，不影响栅格布局
+			int buttonCount = 6;
 			int columns = 2;
 			int rows = (buttonCount + columns - 1) / columns;
 			float colSpacing = 6f;
-			float totalButtonsH = rows * buttonH + (rows - 1) * spacing;
+			float baseButtonsH = rows * buttonH + (rows - 1) * spacing;
+			float extraTestH = Prefs.DevMode ? (buttonH + spacing) : 0f;
+			float totalButtonsH = baseButtonsH + extraTestH;
 			float buttonsStartY = rect.yMax - 8f - totalButtonsH; // 与上方 padding 对齐
 
 			// 上半部分：人员名单（滚动列表）
@@ -94,6 +97,16 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 			// 底部 Tabs（两列靠底部排列）
 			var y = buttonsStartY;
+			// 先绘制（可选）Test 按钮于正常按钮之上，避免隐藏时改变下方栅格格式
+			if (Prefs.DevMode)
+			{
+				var testRect = new Rect(x, y, w, buttonH);
+				var prevEnabledT = GUI.enabled;
+				GUI.enabled = !isStreaming;
+				if (Widgets.ButtonText(testRect, "RimAI.ChatUI.Tabs.Test".Translate())) activeTab = ChatTab.Test;
+				GUI.enabled = prevEnabledT;
+				y += buttonH + spacing;
+			}
 			float btnW = (w - colSpacing) / 2f;
 			for (int r = 0; r < rows; r++)
 			{
@@ -158,16 +171,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 								GUI.enabled = prevEnabled5;
 							}
 							break;
-						case 6:
-							{
-								if (!Prefs.DevMode) break;
-								var btnRect6 = new Rect(bx, y, btnW, buttonH);
-								var prevEnabled6 = GUI.enabled;
-								GUI.enabled = !isStreaming;
-								if (Widgets.ButtonText(btnRect6, "RimAI.ChatUI.Tabs.Test".Translate())) activeTab = ChatTab.Test;
-								GUI.enabled = prevEnabled6;
-							}
-							break;
+						// case 6: 已移除（Test 按钮独立渲染在顶部）
 					}
 				}
 				y += buttonH + spacing;

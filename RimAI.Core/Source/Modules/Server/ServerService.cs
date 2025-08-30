@@ -45,16 +45,41 @@ namespace RimAI.Core.Source.Modules.Server
 		{
 			if (string.IsNullOrWhiteSpace(entityId)) throw new ArgumentNullException(nameof(entityId));
 			if (level < 1 || level > 3) throw new ArgumentOutOfRangeException(nameof(level));
-			return _servers.GetOrAdd(entityId, id => new ServerRecord
-			{
-				EntityId = id,
-				Level = level,
-				SerialHex12 = GenerateSerial(),
-				BuiltAtAbsTicks = GetTicks(),
-				InspectionIntervalHours = 24,
-				InspectionSlots = new List<InspectionSlot>(),
-				ServerPersonaSlots = new List<ServerPersonaSlot>()
-			});
+			return _servers.AddOrUpdate(entityId,
+				id => new ServerRecord
+				{
+					EntityId = id,
+					Level = level,
+					SerialHex12 = GenerateSerial(),
+					BuiltAtAbsTicks = GetTicks(),
+					InspectionIntervalHours = 24,
+					InspectionSlots = new List<InspectionSlot>(),
+					ServerPersonaSlots = new List<ServerPersonaSlot>()
+				},
+				(id, existing) =>
+				{
+					if (existing == null)
+					{
+						return new ServerRecord
+						{
+							EntityId = id,
+							Level = level,
+							SerialHex12 = GenerateSerial(),
+							BuiltAtAbsTicks = GetTicks(),
+							InspectionIntervalHours = 24,
+							InspectionSlots = new List<InspectionSlot>(),
+							ServerPersonaSlots = new List<ServerPersonaSlot>()
+						};
+					}
+					// 同步 Level 变更，并按新等级调整槽位容量
+					if (existing.Level != level)
+					{
+						existing.Level = level;
+						EnsureInspectionSlots(existing, GetInspectionCapacity(existing.Level));
+						EnsureServerPersonaSlots(existing, GetPersonaCapacity(existing.Level));
+					}
+					return existing;
+				});
 		}
 
 		public ServerRecord Get(string entityId)
@@ -140,10 +165,7 @@ namespace RimAI.Core.Source.Modules.Server
 					}
 				}
 			}
-			// 等级/研究过滤：统一在 ToolRegistryService.BuildToolsAsync
-			var tuple = _tooling.BuildToolsAsync(RimAI.Core.Contracts.Config.ToolCallMode.Classic, null, null, null, new ToolQueryOptions { MaxToolLevel = s.Level }, CancellationToken.None).GetAwaiter().GetResult();
-			bool allowed = (tuple.toolsJson ?? new List<string>()).Any(j => j != null && j.IndexOf("\"name\":\"" + toolName + "\"", StringComparison.OrdinalIgnoreCase) >= 0);
-			if (!allowed) throw new InvalidOperationException("tool not allowed for this server level");
+			// 取消在分配阶段的等级/研究过滤：依据 V5 规范，权限校验集中在列表阶段
 			s.InspectionSlots[slotIndex] = new InspectionSlot { Index = slotIndex, ToolName = toolName, Enabled = true };
 		}
 
@@ -167,6 +189,7 @@ namespace RimAI.Core.Source.Modules.Server
 		{
 			var s = GetOrThrow(entityId);
 			if (!(s.InspectionEnabled)) return;
+			// 巡检时排除空槽位与无工具名的槽位
 			var enabled = (s.InspectionSlots ?? new List<InspectionSlot>()).Where(x => x != null && x.Enabled && !string.IsNullOrWhiteSpace(x.ToolName)).OrderBy(x => x.Index).ToList();
 			if (enabled.Count == 0) return;
 			// pick one slot by rotation pointer

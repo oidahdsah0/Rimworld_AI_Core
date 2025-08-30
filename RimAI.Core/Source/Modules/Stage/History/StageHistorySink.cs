@@ -10,34 +10,9 @@ namespace RimAI.Core.Source.Modules.Stage.History
 {
 	internal sealed class StageHistorySink
 	{
-		private readonly IHistoryService _history;
-		private readonly ConfigurationService _cfg;
-
-		public StageHistorySink(IHistoryService history, IConfigurationService cfg)
-		{
-			_history = history;
-			_cfg = cfg as ConfigurationService;
-		}
-
-		public bool TryWrite(ActResult result, string actName = null, string convKey = null)
-		{
-			try
-			{
-				var stage = _cfg?.GetInternal()?.Stage ?? new CoreConfig.StageSection();
-				var stageConvKey = stage.History?.StageLogConvKey ?? "agent:stage";
-				var body = result?.FinalText ?? string.Empty;
-				if (body.Length > (stage.History?.MaxFinalTextChars ?? 800)) body = body.Substring(0, Math.Max(0, (stage.History?.MaxFinalTextChars ?? 800)));
-				var entry = $"Stage:{actName ?? ""}";
-				var speaker = "agent:stage";
-				_ = Task.Run(async () =>
-				{
-					try { await _history.AppendRecordAsync(stageConvKey, entry, speaker, "chat", body, advanceTurn: false, ct: CancellationToken.None).ConfigureAwait(false); }
-					catch { }
-				});
-				return true;
-			}
-			catch { return false; }
-		}
+		// Deprecated in V5：Stage 总线历史不再写入，保留空实现以便构造注入不破坏。
+		public StageHistorySink(object _, object __) { }
+		public bool TryWrite(ActResult result, string actName = null, string convKey = null) { return false; }
 	}
 }
 

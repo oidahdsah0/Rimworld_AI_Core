@@ -37,8 +37,16 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		private readonly System.Collections.Generic.Dictionary<string, string> _convUserName = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
 		private readonly System.Collections.Generic.Dictionary<string, string> _convPawnName = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
 		private readonly System.Collections.Generic.HashSet<string> _nameResolving = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+		// 关联对话内联编辑缓存（convKey → 正在编辑的 entryId 集合 / 文本）
+		private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> _relatedEditingIds = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>(System.StringComparer.Ordinal);
+		private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>> _relatedEditTexts = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>(System.StringComparer.Ordinal);
+		// 每条记录的 speaker 映射（entryId → speakerId，例如 player:xxx / pawn:123 / agent:stage）
+		private readonly System.Collections.Generic.Dictionary<string, string> _entrySpeakerById = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+		// 每个 speakerId 的显示名缓存（speakerId → 显示名）
+		private readonly System.Collections.Generic.Dictionary<string, string> _speakerDisplayName = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+		private readonly System.Collections.Generic.HashSet<string> _speakerResolving = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
 
-		public void Draw(Rect inRect, RimAI.Core.Source.UI.ChatWindow.ChatConversationState state, IHistoryService history, IRecapService recap, Action<string> switchToConvKey)
+		public void Draw(Rect inRect, RimAI.Core.Source.UI.ChatWindow.ChatConversationState state, IHistoryService history, IRecapService recap)
 		{
 			float tabsH = 28f; float sp = 6f; float btnW = 110f;
 			var rTabs = new Rect(inRect.x, inRect.y, inRect.width, tabsH);
@@ -64,7 +72,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					break;
 				case HistorySubTab.Related:
 					EnsureRelatedLoaded(history, state.ParticipantIds);
-					DrawRelated(contentRect, switchToConvKey);
+					DrawRelated(contentRect, history, state.ParticipantIds);
 					break;
 				case HistorySubTab.RawJson:
 					DrawRawJson(contentRect, history, state.ConvKey);
@@ -87,6 +95,60 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 						_entries.Add(new HistoryEntryVM { Id = e.Id, ConvKey = convKey, Role = e.Role, Content = e.Content, TimestampUtc = e.Timestamp, IsEditing = false, EditText = e.Content });
 					}
 				}
+				// 过滤后台日志/标签类条目（不在 UI 显示，例如 end:Completed/Aborted 等）
+				try
+				{
+					var rawList = history.GetAllEntriesRawAsync(convKey).GetAwaiter().GetResult();
+					if (rawList != null && rawList.Count > 0)
+					{
+						var hideIds = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+						for (int i = 0; i < rawList.Count; i++)
+						{
+							var r = rawList[i];
+							if (r == null || r.Deleted) continue;
+							try
+							{
+								var jo = Newtonsoft.Json.Linq.JObject.Parse(r.Content ?? "{}");
+								var type = jo.Value<string>("type") ?? string.Empty;
+								var content = jo.Value<string>("content") ?? string.Empty;
+								if (string.Equals(type, "log", System.StringComparison.OrdinalIgnoreCase)) { if (!string.IsNullOrEmpty(r.Id)) hideIds.Add(r.Id); continue; }
+								if (!string.IsNullOrEmpty(content) && (content.StartsWith("end:", System.StringComparison.OrdinalIgnoreCase) || content.StartsWith("parseError:", System.StringComparison.OrdinalIgnoreCase)))
+								{
+									if (!string.IsNullOrEmpty(r.Id)) hideIds.Add(r.Id);
+								}
+							}
+							catch { }
+						}
+						if (hideIds.Count > 0 && _entries != null)
+						{
+							for (int i = _entries.Count - 1; i >= 0; i--) { var it = _entries[i]; if (it != null && !string.IsNullOrEmpty(it.Id) && hideIds.Contains(it.Id)) _entries.RemoveAt(i); }
+						}
+					}
+				}
+				catch { }
+				// 同步加载原始 JSON 以提取每条记录的 speaker（用于群聊时逐条显示正确人物名）
+				try
+				{
+					var rawList = history.GetAllEntriesRawAsync(convKey).GetAwaiter().GetResult();
+					if (rawList != null)
+					{
+						for (int i = 0; i < rawList.Count; i++)
+						{
+							var r = rawList[i];
+							if (r == null || r.Deleted) continue;
+							try
+							{
+								var jo = Newtonsoft.Json.Linq.JObject.Parse(r.Content ?? "{}");
+								var sp = jo.Value<string>("speaker") ?? string.Empty;
+								if (!string.IsNullOrWhiteSpace(r.Id) && !_entrySpeakerById.ContainsKey(r.Id)) _entrySpeakerById[r.Id] = sp ?? string.Empty;
+							}
+							catch { }
+						}
+					}
+				}
+				catch { }
+				// 异步解析本会话中出现的各个 pawn: 的显示名
+				BeginResolveSpeakerNamesForConv(history, convKey);
 			}
 			catch { _entries = new List<HistoryEntryVM>(); }
 		}
@@ -116,7 +178,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				{
 					var it = _entries[i];
 					var measureRect = new Rect(0f, 0f, contentWForMeasure, 99999f);
-					string senderNameMeasure = it.Role == EntryRole.User ? names.userName : names.pawnName;
+					string senderNameMeasure = it.Role == EntryRole.User ? names.userName : ResolveDisplayNameForEntry(it.Id, names.pawnName);
 					string labelForMeasure = (senderNameMeasure ?? string.Empty) + ": " + (it.Content ?? string.Empty);
 					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, measureRect.width)) : Mathf.Max(24f, Text.CalcHeight(labelForMeasure, measureRect.width));
 					float rowH = contentH + 12f;
@@ -134,7 +196,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					float actionsW = 200f;
 					float contentW = viewRect.width - actionsW - 16f;
 					var contentMeasureRect = new Rect(0f, 0f, contentW, 99999f);
-					string senderName = it.Role == EntryRole.User ? names.userName : names.pawnName;
+					string senderName = it.Role == EntryRole.User ? names.userName : ResolveDisplayNameForEntry(it.Id, names.pawnName);
 					string label = (senderName ?? string.Empty) + ": " + (it.Content ?? string.Empty);
 					float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, contentMeasureRect.width)) : Mathf.Max(24f, Text.CalcHeight(label, contentMeasureRect.width));
 					float rowH = contentH + 12f;
@@ -448,14 +510,15 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			});
 		}
 
-		private void DrawRelated(Rect rect, Action<string> switchToConvKey)
+		private void DrawRelated(Rect rect, IHistoryService history, System.Collections.Generic.IReadOnlyList<string> currentParticipantIds)
 		{
 			float y = rect.y;
 			// 选择按钮
 			string currentLabel = (_relatedSelectedIdx >= 0 && _relatedSelectedIdx < (_relatedConvs?.Count ?? 0))
 				? ((_relatedConvLabels != null && _relatedConvLabels.Count == _relatedConvs.Count) ? _relatedConvLabels[_relatedSelectedIdx] : _relatedConvs[_relatedSelectedIdx])
 				: "RimAI.ChatUI.Related.Select".Translate();
-			if (Widgets.ButtonText(new Rect(rect.x, y, 240f, 28f), currentLabel))
+			var selectBtnRect = new Rect(rect.x, y, 240f, 28f);
+			if (Widgets.ButtonText(selectBtnRect, currentLabel))
 			{
 				var menu = new List<FloatMenuOption>();
 				if (_relatedConvs != null)
@@ -469,6 +532,29 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				}
 				if (menu.Count > 0) Find.WindowStack.Add(new FloatMenu(menu));
 			}
+			// 清空内容按钮（仅清空当前选中的关联会话）
+			var clearBtnRect = new Rect(selectBtnRect.xMax + 10f, y, 120f, 28f);
+			var prevColor = GUI.color;
+			GUI.color = Color.red;
+			if (Widgets.ButtonText(clearBtnRect, "RimAI.ChatUI.Related.ClearSelected".Translate()))
+			{
+				try
+				{
+					if (_relatedSelectedIdx >= 0 && _relatedSelectedIdx < (_relatedConvs?.Count ?? 0))
+					{
+						var ck = _relatedConvs[_relatedSelectedIdx];
+						var ok = history.ClearThreadAsync(ck).GetAwaiter().GetResult();
+						if (ok)
+						{
+							// 刷新关联会话列表与当前视图
+							EnsureRelatedLoaded(history, currentParticipantIds);
+							_relatedSelectedIdx = -1;
+						}
+					}
+				}
+				catch { }
+			}
+			GUI.color = prevColor;
 			y += 34f;
 			// 即时显示所选关联对话的历史界面（不跳转主界面）
 			if (_relatedSelectedIdx >= 0 && _relatedSelectedIdx < (_relatedConvs?.Count ?? 0))
@@ -486,6 +572,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			try
 			{
 				var history = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<IHistoryService>();
+				// 取/建编辑缓存
+				if (!_relatedEditingIds.TryGetValue(convKey, out var editingSet)) { editingSet = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal); _relatedEditingIds[convKey] = editingSet; }
+				if (!_relatedEditTexts.TryGetValue(convKey, out var editTexts)) { editTexts = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal); _relatedEditTexts[convKey] = editTexts; }
 				var thread = history.GetThreadAsync(convKey, 1, 200).GetAwaiter().GetResult();
 				var temp = new List<HistoryEntryVM>();
 				if (thread?.Entries != null)
@@ -493,13 +582,92 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 					foreach (var e in thread.Entries)
 					{
 						if (e == null || e.Deleted) continue;
-						temp.Add(new HistoryEntryVM { Id = e.Id, ConvKey = convKey, Role = e.Role, Content = e.Content, TimestampUtc = e.Timestamp, IsEditing = false, EditText = e.Content });
+						bool isEditing = (e.Id != null && editingSet.Contains(e.Id));
+						string editText = e.Content;
+						if (isEditing && e.Id != null && editTexts.TryGetValue(e.Id, out var saved)) editText = saved ?? e.Content;
+						temp.Add(new HistoryEntryVM { Id = e.Id, ConvKey = convKey, Role = e.Role, Content = e.Content, TimestampUtc = e.Timestamp, IsEditing = isEditing, EditText = editText });
 					}
 				}
-				// 复用 Thread 绘制逻辑（只读：隐藏保存/删除，保留修改/删除按钮入口，但点击时操作当前 convKey）
-				var saved = _entries; _entries = temp;
-				DrawThread(rect, history, convKey);
-				_entries = saved;
+				// 解析该关联会话的原始 JSON，提取每条记录的 speaker → 供逐条显示正确的人名
+				try
+				{
+					var rawList = history.GetAllEntriesRawAsync(convKey).GetAwaiter().GetResult();
+					if (rawList != null)
+					{
+						for (int i = 0; i < rawList.Count; i++)
+						{
+							var r = rawList[i];
+							if (r == null || r.Deleted) continue;
+							try
+							{
+								var jo = Newtonsoft.Json.Linq.JObject.Parse(r.Content ?? "{}");
+								var sp = jo.Value<string>("speaker") ?? string.Empty;
+								if (!string.IsNullOrWhiteSpace(r.Id)) _entrySpeakerById[r.Id] = sp ?? string.Empty;
+							}
+							catch { }
+						}
+					}
+				}
+				catch { }
+				// 启动一次该会话的显示名解析（玩家称谓/小人名）
+				BeginResolveSpeakerNamesForConv(history, convKey);
+				// 在内联区域完整实现与 Thread 相同的“编辑/保存/删除”行为（直接操作 target convKey）
+				float totalH = 4f; float actionsW = 200f; float contentW = rect.width - 16f - actionsW - 16f;
+				// 动态高度测算
+				if (temp != null)
+				{
+					for (int i = 0; i < temp.Count; i++)
+					{
+						var it = temp[i]; var measure = new Rect(0f, 0f, contentW, 99999f);
+						string senderName = it.Role == EntryRole.User ? (GetOrBeginResolveNames(history, convKey).userName) : ResolveDisplayNameForEntry(it.Id, GetOrBeginResolveNames(history, convKey).pawnName);
+						string label = (senderName ?? string.Empty) + ": " + (it.Content ?? string.Empty);
+						float contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, measure.width)) : Mathf.Max(24f, Text.CalcHeight(label, measure.width));
+						totalH += contentH + 12f + 6f;
+					}
+				}
+				var view = new Rect(0f, 0f, rect.width - 16f, Mathf.Max(rect.height, totalH));
+				Widgets.BeginScrollView(rect, ref _scrollRelated, view);
+				float y = 4f;
+				if (temp != null)
+				{
+					for (int i = 0; i < temp.Count; i++)
+					{
+						var it = temp[i];
+						float contentH;
+						var contentRect = new Rect(6f, y + 6f, contentW, 99999f);
+						var measure = new Rect(0f, 0f, contentW, 99999f);
+						string senderName = it.Role == EntryRole.User ? (GetOrBeginResolveNames(history, convKey).userName) : ResolveDisplayNameForEntry(it.Id, GetOrBeginResolveNames(history, convKey).pawnName);
+						string label = (senderName ?? string.Empty) + ": " + (it.Content ?? string.Empty);
+						contentH = it.IsEditing ? Mathf.Max(28f, Text.CalcHeight(it.EditText ?? string.Empty, measure.width)) : Mathf.Max(24f, Text.CalcHeight(label, measure.width));
+						var row = new Rect(0f, y, view.width, contentH + 12f);
+						Widgets.DrawHighlightIfMouseover(row);
+						var actionsRect = new Rect(row.xMax - (actionsW + 10f), row.y + 8f, actionsW, 28f);
+						if (!it.IsEditing)
+						{
+							Widgets.Label(new Rect(contentRect.x, contentRect.y, contentW, contentH), label);
+							if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Edit".Translate())) { if (!string.IsNullOrEmpty(it.Id)) { editingSet.Add(it.Id); editTexts[it.Id] = it.Content; it.IsEditing = true; it.EditText = it.Content; } }
+							if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Delete".Translate())) { _ = DeleteEntryAsync(history, convKey, it.Id); }
+						}
+						else
+						{
+							it.EditText = Widgets.TextArea(new Rect(contentRect.x, contentRect.y, contentW, contentH), it.EditText ?? string.Empty);
+							if (!string.IsNullOrEmpty(it.Id)) editTexts[it.Id] = it.EditText ?? string.Empty;
+							if (Widgets.ButtonText(new Rect(actionsRect.x, actionsRect.y, 90f, 28f), "RimAI.Common.Save".Translate()))
+							{
+								_ = SaveEntryAsync(history, convKey, it.Id, it.EditText);
+								it.IsEditing = false; it.Content = it.EditText;
+								if (!string.IsNullOrEmpty(it.Id)) { editingSet.Remove(it.Id); editTexts.Remove(it.Id); }
+							}
+							if (Widgets.ButtonText(new Rect(actionsRect.x + 100f, actionsRect.y, 90f, 28f), "RimAI.Common.Cancel".Translate()))
+							{
+								it.IsEditing = false; it.EditText = it.Content;
+								if (!string.IsNullOrEmpty(it.Id)) { editingSet.Remove(it.Id); editTexts.Remove(it.Id); }
+							}
+						}
+						y += contentH + 12f + 6f;
+					}
+				}
+				Widgets.EndScrollView();
 			}
 			catch { }
 		}
@@ -587,6 +755,74 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				});
 			}
 			return (user ?? "RimAI.Common.Player".Translate(), pawn ?? "RimAI.Common.Pawn".Translate());
+		}
+
+		private void BeginResolveSpeakerNamesForConv(IHistoryService history, string convKey)
+		{
+			try
+			{
+				var parts = history.GetParticipantsOrEmpty(convKey) ?? System.Array.Empty<string>();
+				var world = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldDataService>();
+				var cfg = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Contracts.Config.IConfigurationService>() as RimAI.Core.Source.Infrastructure.Configuration.ConfigurationService;
+				var loc = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<ILocalizationService>();
+				var locale = cfg?.GetInternal()?.General?.Locale ?? "en";
+				string playerTitle = cfg?.GetPlayerTitleOrDefault();
+				if (string.IsNullOrWhiteSpace(playerTitle))
+				{
+					playerTitle = loc?.Get(locale, "ui.chat.player_title.value", loc?.Get("en", "ui.chat.player_title.value", "governor") ?? "governor") ?? "governor";
+				}
+				foreach (var p in parts)
+				{
+					if (string.IsNullOrWhiteSpace(p)) continue;
+					if (_speakerDisplayName.ContainsKey(p)) continue;
+					if (_speakerResolving.Contains(p)) continue;
+					_speakerResolving.Add(p);
+					_ = System.Threading.Tasks.Task.Run(async () =>
+					{
+						try
+						{
+							string name = null;
+							if (p.StartsWith("player:"))
+							{
+								name = playerTitle;
+							}
+							else if (p.StartsWith("pawn:"))
+							{
+								var sid = p.Substring("pawn:".Length);
+								if (int.TryParse(sid, out var id))
+								{
+									try { var snap = await world.GetPawnPromptSnapshotAsync(id); var nm = snap?.Id?.Name; name = string.IsNullOrWhiteSpace(nm) ? "RimAI.Common.Pawn".Translate().ToString() : nm; }
+									catch { name = "RimAI.Common.Pawn".Translate().ToString(); }
+								}
+							}
+							else if (p.StartsWith("agent:stage"))
+							{
+								name = "Stage";
+							}
+							lock (_speakerDisplayName) { _speakerDisplayName[p] = name ?? p; }
+						}
+						finally { _speakerResolving.Remove(p); }
+					});
+				}
+			}
+			catch { }
+		}
+
+		private string ResolveDisplayNameForEntry(string entryId, string defaultAiName)
+		{
+			try
+			{
+				if (!string.IsNullOrWhiteSpace(entryId) && _entrySpeakerById.TryGetValue(entryId, out var speaker))
+				{
+					if (!string.IsNullOrWhiteSpace(speaker))
+					{
+						if (_speakerDisplayName.TryGetValue(speaker, out var nm)) return nm ?? defaultAiName;
+						// 未解析完成则返回默认 AI 名
+					}
+				}
+			}
+			catch { }
+			return defaultAiName;
 		}
 
 		public void ClearCache()

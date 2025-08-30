@@ -77,6 +77,8 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						{
 							var jo = JObject.Parse(r.Content ?? "{}");
 							var type = jo.Value<string>("type") ?? string.Empty;
+							// 隐藏后台日志记录（如 end:Aborted/Completed 等），仅展示聊天/指令正文
+							if (string.Equals(type, "log", System.StringComparison.OrdinalIgnoreCase)) continue;
 							if (string.Equals(type, "tool_call", System.StringComparison.OrdinalIgnoreCase)) continue;
 							displayText = jo.Value<string>("content") ?? displayText;
 						}

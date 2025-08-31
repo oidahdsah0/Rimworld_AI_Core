@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 	{
 		public string Name => "get_power_status";
 		public string Description => "Get colony power status: generation, consumption, net and battery reserve days.";
-		public string DisplayName => "电力设施概览";
+		public string DisplayName => "tool.display.get_power_status";
 		public int Level => 1;
 		public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

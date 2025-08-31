@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 	internal sealed class AiOrbitalBombardmentTool : IRimAITool, IResearchGatedTool
 	{
 		public string Name => "ai_orbital_bombardment";
-		public string DisplayName => "旧卫星火炮破解";
+		public string DisplayName => "tool.display.ai_orbital_bombardment";
 		public int Level => 2;
 		public string Description => "Spoof old orbital satellite: perform random explosions near hostile pawns. Requires powered AI terminal and cooldown.";
 

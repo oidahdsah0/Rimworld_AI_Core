@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "get_mood_risk_overview";
         public string Description => "Summarize colony mood distribution and top negative causes.";
-        public string DisplayName => "心情风险概览";
+    public string DisplayName => "tool.display.get_mood_risk_overview";
         public int Level => 1;
         public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

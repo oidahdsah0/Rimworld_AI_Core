@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "get_research_options";
         public string Description => "List current research, available projects now, and key locked research reasons, plus colony research capability.";
-        public string DisplayName => "研究选项";
+    public string DisplayName => "tool.display.get_research_options";
         public int Level => 1;
         public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

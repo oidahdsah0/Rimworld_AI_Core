@@ -5,7 +5,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     internal sealed class GetTradeReadinessTool : IRimAITool
     {
         public string Name => "get_trade_readiness";
-        public string DisplayName => "贸易就绪度";
+    public string DisplayName => "tool.display.get_trade_readiness";
         public int Level => 1;
     public string Description => "Summarize trade readiness: available silver, beacon and comms console status, and a manifest of tradables within beacon coverage.";
         public string ParametersJson => "{ }";

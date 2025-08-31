@@ -9,6 +9,8 @@ using RimAI.Core.Source.Modules.Server;
 using RimAI.Core.Source.Modules.Tooling;
 using RimAI.Core.Source.Modules.Persistence.Snapshots;
 using RimWorld;
+using RimAI.Core.Source.Infrastructure.Localization;
+using RimAI.Core.Source.Boot;
 
 namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 {
@@ -186,7 +188,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             var btnRect = new Rect(labelRect.xMax + 6f, row.y + 2f, Mathf.Min(360f, row.width - (labelRect.width + 12f)), 26f);
             string currentName = null;
             try { currentName = (index >= 0 && index < state.SelectedTools.Count) ? state.SelectedTools[index] : null; } catch { }
-            string currentDisplay = string.IsNullOrWhiteSpace(currentName) ? "RimAI.SCW.Tools.NotLoaded".Translate() : (tooling?.GetToolDisplayNameOrNull(currentName) ?? currentName);
+            string currentDisplay = string.IsNullOrWhiteSpace(currentName) ? "RimAI.SCW.Tools.NotLoaded".Translate() : GetLocalizedToolDisplay(tooling, currentName);
             if (Widgets.ButtonText(btnRect, currentDisplay))
             {
                 var menu = new List<FloatMenuOption>();
@@ -212,7 +214,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                     {
                         string name = TryExtractName(j);
                         if (string.IsNullOrWhiteSpace(name)) continue;
-                        var disp = tooling?.GetToolDisplayNameOrNull(name) ?? name;
+                        var disp = GetLocalizedToolDisplay(tooling, name);
                         int lvl = 1; if (cachedLevels != null && cachedLevels.TryGetValue(name, out var lv)) lvl = lv;
                         items.Add((j, name, disp, lvl));
                     }
@@ -345,6 +347,20 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             });
         }
 
-    // 设备/研究 gate 已迁移至 WorldDataService 门面
+        // 设备/研究 gate 已迁移至 WorldDataService 门面
+        //
+        private static string GetLocalizedToolDisplay(IToolRegistryService tooling, string toolName)
+        {
+            var baseName = tooling?.GetToolDisplayNameOrNull(toolName) ?? toolName ?? string.Empty;
+            try
+            {
+                var loc = RimAICoreMod.Container.Resolve<ILocalizationService>();
+                var locale = loc?.GetDefaultLocale() ?? "zh-Hans";
+                var key = "tool.display." + (toolName ?? string.Empty);
+                var localized = loc?.Get(locale, key, baseName) ?? baseName;
+                return string.IsNullOrWhiteSpace(localized) ? baseName : localized;
+            }
+            catch { return baseName; }
+        }
     }
 }

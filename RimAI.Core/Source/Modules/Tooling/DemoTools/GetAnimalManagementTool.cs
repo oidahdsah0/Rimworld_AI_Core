@@ -5,7 +5,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
         public string Name => "get_animal_management";
     public string Description => "Get a livestock management overview: herd counts and distribution, training proficiency, and feed pressure (in days).";
         public string ParametersJson => "{\n  \"type\": \"object\",\n  \"properties\": {},\n  \"required\": []\n}";
-        public string DisplayName => "牲畜管理";
+    public string DisplayName => "tool.display.get_animal_management";
         public int Level => 1;
         public string BuildToolJson()
         {

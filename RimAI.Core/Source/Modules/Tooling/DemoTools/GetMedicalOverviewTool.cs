@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "get_medical_overview";
         public string Description => "Colony medical health check: summary, bleeding/infections/operations, and per-pawn health details.";
-        public string DisplayName => "健康检查";
+    public string DisplayName => "tool.display.get_medical_overview";
         public int Level => 1;
         public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

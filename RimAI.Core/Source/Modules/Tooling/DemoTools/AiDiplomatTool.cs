@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     internal sealed class AiDiplomatTool : IRimAITool, IResearchGatedTool
     {
         public string Name => "ai_diplomat";
-        public string DisplayName => "AI外交官";
+    public string DisplayName => "tool.display.ai_diplomat";
         public int Level => 2;
         public string Description => "During periodic server inspections, if an AI terminal is powered, randomly select an eligible faction and adjust goodwill by a small delta (-5..+15).";
 

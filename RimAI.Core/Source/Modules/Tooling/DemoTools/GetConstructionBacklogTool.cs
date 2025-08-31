@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "get_construction_backlog";
         public string Description => "Summarize blueprint/frame backlog and estimated material gaps on current map.";
-        public string DisplayName => "施工积压";
+    public string DisplayName => "tool.display.get_construction_backlog";
         public int Level => 1;
         public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

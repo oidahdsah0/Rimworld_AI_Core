@@ -5,7 +5,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     internal sealed class GetWildlifeOpportunitiesTool : IRimAITool
     {
         public string Name => "get_wildlife_opportunities";
-        public string DisplayName => "野生动物机会";
+    public string DisplayName => "tool.display.get_wildlife_opportunities";
         public int Level => 2;
         public string Description => "按物种聚合当前地图的野生动物，给出数量、风险（复仇/捕食/爆炸）与收益（肉/皮革）评估。";
     public string ParametersJson => "{ }"; // v1 无参数

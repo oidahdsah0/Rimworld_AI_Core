@@ -8,7 +8,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 
 		public string Name => ToolName;
 	public string Description => "Record immediate mood reaction after a short chat: returns mood_delta [-30..30], mood_title (locale-constrained), and duration_days [1..10] (float).";
-		public string DisplayName => "Pawn Conversation Reaction";
+		public string DisplayName => "tool.display.pawn_conversation_reaction";
 		public int Level => 4;
 		public string ParametersJson => JsonConvert.SerializeObject(new
 		{

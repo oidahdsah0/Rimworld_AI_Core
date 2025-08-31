@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "get_prison_overview";
     public string Description => "Summarize prisoner overview: current inmates and status, recruitment mode, and risk cues for revolt or escape.";
-        public string DisplayName => "囚犯概览";
+    public string DisplayName => "tool.display.get_prison_overview";
         public int Level => 1;
         public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

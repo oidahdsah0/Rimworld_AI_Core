@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "get_storage_saturation";
         public string Description => "Get per-storage usage saturation across stockpiles and storage buildings.";
-        public string DisplayName => "仓储饱和度";
+    public string DisplayName => "tool.display.get_storage_saturation";
         public int Level => 1;
         public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

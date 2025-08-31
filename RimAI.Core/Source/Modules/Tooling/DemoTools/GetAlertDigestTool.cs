@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "get_alert_digest";
     public string Description => "Aggregate current RimWorld alerts, sort them by severity, and return a concise summary.";
-        public string DisplayName => "警报摘要";
+    public string DisplayName => "tool.display.get_alert_digest";
         public int Level => 1;
         public string ParametersJson => JsonConvert.SerializeObject(new { type = "object", properties = new { }, required = new string[] { } });
 

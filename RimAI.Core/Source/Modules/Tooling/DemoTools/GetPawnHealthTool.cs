@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 	{
 		public string Name => "get_pawn_health";
 		public string Description => "Get a specific pawn's health snapshot (10 capacities average and death state).";
-		public string DisplayName => "殖民者健康状况查询";
+		public string DisplayName => "tool.display.get_pawn_health";
 		public int Level => 4;
 		public string ParametersJson => JsonConvert.SerializeObject(new
 		{

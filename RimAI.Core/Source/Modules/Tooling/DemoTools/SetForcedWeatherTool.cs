@@ -8,7 +8,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     {
         public string Name => "set_forced_weather";
         public string Description => "Force a specific weather on the current map for a short duration (1-3 in-game days).";
-        public string DisplayName => "天气控制器";
+    public string DisplayName => "tool.display.set_forced_weather";
         public int Level => 3;
 
         // Minimal research gating; runtime will self-check antenna power, cooldown, biome compatibility

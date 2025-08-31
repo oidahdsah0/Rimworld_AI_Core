@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 	{
 		public string Name => "get_colony_status";
 		public string Description => "Get structured colony status: people roster + food + medicine + live threats.";
-		public string DisplayName => "领地状况小助手";
+		public string DisplayName => "tool.display.get_colony_status";
 		public int Level => 1;
 		public string ParametersJson => JsonConvert.SerializeObject(new
 		{

@@ -6,7 +6,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
     internal sealed class InvokeSubspaceEntityTool : IRimAITool, IResearchGatedTool
     {
         public string Name => "invoke_subspace_entity";
-        public string DisplayName => "亚空间生物召唤器";
+    public string DisplayName => "tool.display.invoke_subspace_entity";
         public int Level => 3;
     public string Description => "Subspace invocation that manifests a one-time subspace echo. If the input line contains explicit eldritch/cosmic-horror summoning cues, this tool is directly invoked. Internally, it scores semantics, tone, and piety (0–100) to determine manifestation intensity. Low scores—or irreverence toward the Old Ones—may backfire, causing anomalous incursions.";
 

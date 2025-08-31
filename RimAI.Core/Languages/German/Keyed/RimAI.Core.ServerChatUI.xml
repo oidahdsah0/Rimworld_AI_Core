@@ -20,4 +20,31 @@
   <RimAI.SCW.InspectionHistory.Header>Inspektionsprotokolle</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>Protokolle leeren</RimAI.SCW.InspectionHistory.Clear>
   
+  <!-- Persona-Tab -->
+  <RimAI.SCW.Persona.HeaderTitle>Server-Persönlichkeit</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>Geben Sie Titel und Beschreibung ein oder wählen Sie eine Voreinstellung aus der Liste.</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>Titel:</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>Voreinstellung:</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>Voreinstellung wählen</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>Beschreiben Sie die Persönlichkeit…</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>Speichern</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>Anpassung löschen</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- Tools-Tab -->
+  <RimAI.SCW.Tools.Header>Server-Toolverwaltung</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>Der Server analysiert Ihre Kolonie regelmäßig mit den in den Slots konfigurierten Tools.</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>Inspektion auslösen</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>Intervall:</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>Aktivieren:</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>Slot {0}:</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>Nicht geladen</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>Belegt</RimAI.SCW.Tools.Occupied>
+
+  <!-- Allgemein -->
+  <RimAI.Common.Loading>Wird geladen…</RimAI.Common.Loading>
+
+  <!-- AI-Log-Tab -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>(Noch keine Protokolle)</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>ACT auslösen</RimAI.SCW.AiLog.Trigger>
+  
 </LanguageData>

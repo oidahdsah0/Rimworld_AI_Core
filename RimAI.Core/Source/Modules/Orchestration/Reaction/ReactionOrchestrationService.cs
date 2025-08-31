@@ -72,6 +72,27 @@ namespace RimAI.Core.Source.Modules.Orchestration.Reaction
 			bool hasServer = participantIds?.Any(id => id != null && (id.StartsWith("server:") || id.StartsWith("thing:"))) == true;
 			if (!hasPawn || hasServer) return;
 
+			// 冷却预检：若主要 pawn 处于反应冷却，则跳过派发，避免无谓请求
+			try
+			{
+				int pawnId = -1;
+				foreach (var id in participantIds ?? Array.Empty<string>())
+				{
+					if (string.IsNullOrWhiteSpace(id)) continue;
+					if (id.StartsWith("pawn:") && pawnId < 0)
+					{
+						var tail = id.Substring("pawn:".Length);
+						if (int.TryParse(tail, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)) { pawnId = parsed; break; }
+					}
+				}
+				if (pawnId > 0 && RimAI.Core.Source.Modules.Tooling.Execution.ReactionCooldown.IsCooling(pawnId))
+				{
+					try { Verse.Log.Message($"[RimAI.Core][Reaction] Cooldown pre-check active for pawn {pawnId}, skip dispatch."); } catch { }
+					return;
+				}
+			}
+			catch { }
+
 			// 本地化提示
 			var useLocale = locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans";
 			string sys = _loc?.Get(useLocale, "prompt.reaction.system", "After the chat, return a function call with mood_delta and mood_title only.") ?? "After the chat, return a function call with mood_delta and mood_title only.";
@@ -137,13 +158,8 @@ namespace RimAI.Core.Source.Modules.Orchestration.Reaction
 			}
 			catch { }
 
-			// 执行器将进行最终裁剪/持久化；这里仅写入一个轻量历史以便调试
-			try
-			{
-				string compact = JsonConvert.SerializeObject(new { tool = toolName, args });
-				await _history.AppendRecordAsync(convKey, "ChatUI", $"tool:{toolName}", "tool_call", compact, advanceTurn: false, ct: ct).ConfigureAwait(false);
-			}
-			catch { }
+			// 不再写入任何与“心情反应”相关的历史记录，避免在会话历史中出现请求/结果 JSON
+			//（此前这里会写入一个轻量的 tool_call 记录用于调试）
 
 			try
 			{

@@ -16,7 +16,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 	{
 		public string Name => "pawn_conversation_reaction";
 
-		public async Task<object> ExecuteAsync(Dictionary<string, object> args, CancellationToken ct = default)
+		public Task<object> ExecuteAsync(Dictionary<string, object> args, CancellationToken ct = default)
 		{
 			int delta = 0;
 			string title = null;
@@ -37,18 +37,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 				title = loc?.Get(locale, "tool.pawn_reaction.default_title", "Chat Reaction") ?? "Chat Reaction";
 			}
 
-			// 记录到历史：轻量 JSON；不推进回合
-			try
-			{
-				var history = RimAICoreMod.TryGetService<IHistoryService>();
-				string convo = null;
-				try { if (args != null && args.TryGetValue("conv_key", out var ck) && ck != null) convo = Convert.ToString(ck, CultureInfo.InvariantCulture); } catch { }
-				if (string.IsNullOrWhiteSpace(convo)) convo = BuildConvKeyFromContext();
-				var compact = new { type = "reaction", mood_delta = delta, mood_title = title, duration_days = durationDays };
-				await history.AppendRecordAsync(convo, "ChatUI", "agent:reaction", "tool_call", Newtonsoft.Json.JsonConvert.SerializeObject(compact), advanceTurn: false, ct: ct).ConfigureAwait(false);
-				// try { Verse.Log.Message($"[RimAI.Core][Reaction] Persisted conv={convo} delta={delta} title={title}"); } catch { }
-			}
-			catch { }
+			// 不再向历史写入“reaction”类型的 JSON，避免污染会话记录
 
 			// 冷却：同一 Pawn 在冷却期内不再写入记忆
 			try
@@ -71,7 +60,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 			}
 			catch { }
 
-			return new { ok = true, applied_delta = delta, applied_title = title };
+			return Task.FromResult<object>(new { ok = true, applied_delta = delta, applied_title = title });
 		}
 
 		private static string SanitizeTitle(string input)

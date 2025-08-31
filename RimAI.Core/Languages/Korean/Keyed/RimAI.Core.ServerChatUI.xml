@@ -19,4 +19,31 @@
   <!-- 점검 기록 페이지 -->
   <RimAI.SCW.InspectionHistory.Header>점검 기록</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>기록 지우기</RimAI.SCW.InspectionHistory.Clear>
+  
+  <!-- 인격 탭 -->
+  <RimAI.SCW.Persona.HeaderTitle>서버 인격</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>제목과 설명을 입력하거나, 드롭다운에서 프리셋을 선택하세요.</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>제목:</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>프리셋:</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>프리셋 선택</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>인격을 설명해 주세요…</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>저장</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>재정의 해제</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- 도구 탭 -->
+  <RimAI.SCW.Tools.Header>서버 도구 관리</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>서버는 슬롯에 설정된 도구를 사용하여 식민지를 주기적으로 분석합니다.</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>점검 실행</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>간격:</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>사용:</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>슬롯 {0}:</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>미로드</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>사용 중</RimAI.SCW.Tools.Occupied>
+
+  <!-- 공통 -->
+  <RimAI.Common.Loading>불러오는 중…</RimAI.Common.Loading>
+
+  <!-- AI 로그 탭 -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>(아직 로그가 없습니다)</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>ACT 실행</RimAI.SCW.AiLog.Trigger>
 </LanguageData>

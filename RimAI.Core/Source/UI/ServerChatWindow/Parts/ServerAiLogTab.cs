@@ -73,7 +73,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             {
                 var old = GUI.color;
                 GUI.color = new Color(0.7f, 0.7f, 0.7f, 0.9f);
-                Widgets.Label(new Rect(8f, 8f, viewRect.width - 16f, 24f), "（暂无日志）");
+                Widgets.Label(new Rect(8f, 8f, viewRect.width - 16f, 24f), "RimAI.SCW.AiLog.EmptyPlaceholder".Translate());
                 GUI.color = old;
             }
             for (int i = 0; i < state.Lines.Count; i++)
@@ -93,7 +93,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             var bar = new Rect(rect.x, rect.yMax - actionsH + 4f, rect.width, actionsH - 4f);
             float bw = 120f;
             var rAct = new Rect(bar.xMax - bw, bar.y, bw, 28f);
-            if (Widgets.ButtonText(rAct, "触发ACT"))
+            if (Widgets.ButtonText(rAct, "RimAI.SCW.AiLog.Trigger".Translate()))
             {
                 _ = TriggerAsync(stage, state);
             }

@@ -33,9 +33,9 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             // 顶部：大标题 + 说明
             var headerTitleRect = new Rect(inRect.x + 8f, inRect.y, inRect.width - 16f, headerTitleH);
             Text.Font = GameFont.Medium;
-            Widgets.Label(headerTitleRect, "服务器人格设置");
+            Widgets.Label(headerTitleRect, "RimAI.SCW.Persona.HeaderTitle".Translate());
             Text.Font = GameFont.Small;
-            string headerDesc = "请填入该服务器的人格标题、人格描述，当然也可以从下拉菜单选择预设";
+            string headerDesc = "RimAI.SCW.Persona.HeaderDesc".Translate().Resolve();
             float headerDescH = Mathf.Ceil(Text.CalcHeight(headerDesc, headerTitleRect.width));
             var headerDescRect = new Rect(inRect.x + 8f, headerTitleRect.yMax + 2f, headerTitleRect.width, headerDescH);
             var oldColorHeader = GUI.color;
@@ -48,7 +48,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             // 第1行：标题栏（单行文本框，可编辑 + 标签）
             var row1 = new Rect(inRect.x, yStart, inRect.width, titleH);
             var r1Label = new Rect(row1.x + 8f, row1.y + 4f, 90f, 24f);
-            Widgets.Label(r1Label, "人格标题：");
+            Widgets.Label(r1Label, "RimAI.SCW.Persona.TitleLabel".Translate());
             var availableW = row1.width - (r1Label.width + 8f + 6f + 8f);
             var inputW = Mathf.Min(titleInputMaxWidth, availableW);
             var r1Input = new Rect(r1Label.xMax + 6f, row1.y + 2f, inputW, 28f);
@@ -60,11 +60,11 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             // 第2行：下拉菜单（独立一行）
             var row2 = new Rect(inRect.x, row1.yMax + rowPad, inRect.width, dropdownH);
             var labelRect = new Rect(row2.x + 8f, row2.y + 7f, 90f, 22f); // 向下偏移5像素，与下拉按钮文本对齐
-            Widgets.Label(labelRect, "人格模板：");
+            Widgets.Label(labelRect, "RimAI.SCW.Persona.TemplateLabel".Translate());
             var dropdownAvailableW = row2.width - (labelRect.width + 8f + 6f + 8f);
             var dropdownW = Mathf.Min(dropdownMaxWidth, dropdownAvailableW);
             var dropdownRect = new Rect(labelRect.xMax + 6f, row2.y + 2f, dropdownW, 28f);
-            if (Widgets.ButtonText(dropdownRect, string.IsNullOrWhiteSpace(personaName) ? "选择模板" : personaName))
+            if (Widgets.ButtonText(dropdownRect, string.IsNullOrWhiteSpace(personaName) ? "RimAI.SCW.Persona.TemplateButtonDefault".Translate() : personaName))
             {
                 var options = LoadServerPersonaOptions();
                 if (options.Count > 0)
@@ -92,7 +92,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                 GUI.color = new Color(1f, 1f, 1f, 0.35f);
                 // 放在视图内左上角一点内边距
                 var placeholderRect = new Rect(6f, 6f, viewRect.width - 12f, 22f);
-                Widgets.Label(placeholderRect, "具体描述");
+                Widgets.Label(placeholderRect, "RimAI.SCW.Persona.Placeholder".Translate());
                 GUI.color = prev;
             }
             Widgets.EndScrollView();
@@ -102,8 +102,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             float bw = 110f; float sp = 8f;
             var rSave = new Rect(bar.xMax - bw, bar.y, bw, 28f);
             var rClear = new Rect(rSave.x - sp - bw, bar.y, bw, 28f);
-            if (Widgets.ButtonText(rSave, "保存")) onSave?.Invoke();
-            if (Widgets.ButtonText(rClear, "清空覆盖")) onClearOverride?.Invoke();
+            if (Widgets.ButtonText(rSave, "RimAI.SCW.Persona.Save".Translate())) onSave?.Invoke();
+            if (Widgets.ButtonText(rClear, "RimAI.SCW.Persona.ClearOverride".Translate())) onClearOverride?.Invoke();
         }
 
         private static List<(string key, string title, string text)> LoadServerPersonaOptions()

@@ -43,7 +43,8 @@ namespace RimAI.Core.Source.Modules.Persona.Ideology
 					ParticipantIds = new System.Collections.Generic.List<string> { entityId, "player:persona" },
 					PawnLoadId = TryParsePawnId(entityId),
 					IsCommand = false,
-					Locale = _cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans",
+					// 跟随全局“提示词语言覆盖”设置；若未设置则置空交由 PromptService 决定
+					Locale = _cfg?.GetPromptLocaleOverrideOrNull(),
 					UserInput = string.Empty
 				};
 				var prompt = await prompting.BuildAsync(req, cts.Token).ConfigureAwait(false);

@@ -10,6 +10,22 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
         private static readonly ConcurrentDictionary<int, int> NextAvailableAt = new();
         private static readonly Random Rng = new Random();
 
+        public static bool IsCooling(int pawnLoadId)
+        {
+            try
+            {
+                int now = 0;
+                try { now = Find.TickManager?.TicksGame ?? 0; } catch { now = 0; }
+                if (now <= 0) now = Environment.TickCount & int.MaxValue;
+                if (NextAvailableAt.TryGetValue(pawnLoadId, out var ready))
+                {
+                    return now < ready;
+                }
+                return false;
+            }
+            catch { return false; }
+        }
+
         public static bool TryEnter(int pawnLoadId)
         {
             try

@@ -20,6 +20,33 @@
   <!-- 巡检记录页 -->
   <RimAI.SCW.InspectionHistory.Header>巡检记录</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>清空记录</RimAI.SCW.InspectionHistory.Clear>
+  
+  <!-- 人格页 -->
+  <RimAI.SCW.Persona.HeaderTitle>服务器人格设置</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>请填写该服务器的人格标题、人格描述，或从下拉菜单选择预设。</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>人格标题：</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>人格模板：</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>选择模板</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>具体描述</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>保存</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>清空覆盖</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- 工具页 -->
+  <RimAI.SCW.Tools.Header>服务器加载工具管理</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>服务器会通过工具槽里的工具，定时自动分析领地的相关信息</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>触发巡检</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>巡检周期：</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>巡检开关：</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>工具槽{0}：</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>不加载</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>已占用</RimAI.SCW.Tools.Occupied>
+
+  <!-- 通用 -->
+  <RimAI.Common.Loading>加载中...</RimAI.Common.Loading>
+
+  <!-- AI 日志页 -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>（暂无日志）</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>触发ACT</RimAI.SCW.AiLog.Trigger>
 </LanguageData>
 
 

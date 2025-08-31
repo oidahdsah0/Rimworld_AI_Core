@@ -19,4 +19,31 @@
   <!-- Page d'historique d'inspection -->
   <RimAI.SCW.InspectionHistory.Header>Historique des inspections</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>Effacer l'historique</RimAI.SCW.InspectionHistory.Clear>
+  
+  <!-- Onglet Persona -->
+  <RimAI.SCW.Persona.HeaderTitle>Personnalité du serveur</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>Saisissez un titre et une description, ou choisissez un préréglage dans la liste déroulante.</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>Titre :</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>Préréglage :</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>Choisir un préréglage</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>Décrivez la personnalité…</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>Enregistrer</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>Effacer la personnalisation</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- Onglet Outils -->
+  <RimAI.SCW.Tools.Header>Gestion des outils serveur</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>Le serveur analysera périodiquement votre colonie à l’aide des outils configurés dans les emplacements.</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>Lancer une inspection</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>Intervalle :</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>Activer :</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>Emplacement {0} :</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>Non chargé</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>Occupé</RimAI.SCW.Tools.Occupied>
+
+  <!-- Commun -->
+  <RimAI.Common.Loading>Chargement…</RimAI.Common.Loading>
+
+  <!-- Onglet Journal IA -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>(Aucun journal pour le moment)</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>Déclencher ACT</RimAI.SCW.AiLog.Trigger>
 </LanguageData>

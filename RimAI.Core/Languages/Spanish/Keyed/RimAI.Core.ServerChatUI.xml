@@ -20,4 +20,31 @@
   <RimAI.SCW.InspectionHistory.Header>Registro de inspecciones</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>Vaciar registros</RimAI.SCW.InspectionHistory.Clear>
   
+  <!-- Pestaña de personalidad -->
+  <RimAI.SCW.Persona.HeaderTitle>Personalidad del servidor</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>Escribe un título y una descripción, o elige un ajuste preestablecido del menú.</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>Título:</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>Preajuste:</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>Elegir preajuste</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>Describe la personalidad…</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>Guardar</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>Quitar sobrescritura</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- Pestaña de herramientas -->
+  <RimAI.SCW.Tools.Header>Gestor de herramientas del servidor</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>El servidor analizará periódicamente tu colonia con las herramientas configuradas en las ranuras.</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>Iniciar inspección</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>Intervalo:</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>Activar:</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>Ranura {0}:</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>No cargado</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>Ocupado</RimAI.SCW.Tools.Occupied>
+
+  <!-- Común -->
+  <RimAI.Common.Loading>Cargando…</RimAI.Common.Loading>
+
+  <!-- Pestaña de registro de IA -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>(Aún no hay registros)</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>Ejecutar ACT</RimAI.SCW.AiLog.Trigger>
+  
 </LanguageData>

@@ -21,6 +21,8 @@ internal sealed class ToolOrchestrationOptions
 	public int? MaxToolLevel { get; set; }
 	// 新增：工具槽白名单（服务器命令模式下，仅允许已装载的工具名）
 	public IReadOnlyList<string> IncludeWhitelist { get; set; }
+	// 新增：是否为命令模式（用于控制历史写入等策略）
+	public bool IsCommand { get; set; } = false;
 }
 
 internal sealed class ToolCallRecord

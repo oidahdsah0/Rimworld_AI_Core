@@ -19,4 +19,31 @@
   <!-- 巡回履歴ページ -->
   <RimAI.SCW.InspectionHistory.Header>巡検記録</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>記録をクリア</RimAI.SCW.InspectionHistory.Clear>
+  
+  <!-- 人格タブ -->
+  <RimAI.SCW.Persona.HeaderTitle>サーバーの人格</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>タイトルと説明を入力するか、ドロップダウンからプリセットを選択してください。</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>タイトル：</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>プリセット：</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>プリセットを選択</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>人格の説明を書いてください…</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>保存</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>上書きを解除</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- ツールタブ -->
+  <RimAI.SCW.Tools.Header>サーバーツール管理</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>サーバーはスロットに設定されたツールを用いて、コロニーを定期的に分析します。</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>巡検を実行</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>間隔：</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>有効：</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>スロット {0}：</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>未読み込み</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>使用中</RimAI.SCW.Tools.Occupied>
+
+  <!-- 共通 -->
+  <RimAI.Common.Loading>読み込み中…</RimAI.Common.Loading>
+
+  <!-- AI ログタブ -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>（まだログがありません）</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>ACT を実行</RimAI.SCW.AiLog.Trigger>
 </LanguageData>

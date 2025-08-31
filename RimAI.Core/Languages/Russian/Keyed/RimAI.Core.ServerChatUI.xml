@@ -19,4 +19,31 @@
   <!-- Страница журнала инспекций -->
   <RimAI.SCW.InspectionHistory.Header>Журнал инспекций</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>Очистить журнал</RimAI.SCW.InspectionHistory.Clear>
+  
+  <!-- Вкладка Персона -->
+  <RimAI.SCW.Persona.HeaderTitle>Персона сервера</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>Введите заголовок и описание или выберите пресет из списка.</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>Заголовок:</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>Пресет:</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>Выбрать пресет</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>Опишите личность…</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>Сохранить</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>Сбросить переопределение</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- Вкладка Инструменты -->
+  <RimAI.SCW.Tools.Header>Управление инструментами сервера</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>Сервер будет периодически анализировать колонию с помощью инструментов, настроенных в слотах.</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>Запустить проверку</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>Интервал:</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>Включить:</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>Слот {0}:</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>Не загружено</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>Занято</RimAI.SCW.Tools.Occupied>
+
+  <!-- Общие -->
+  <RimAI.Common.Loading>Загрузка…</RimAI.Common.Loading>
+
+  <!-- Вкладка Журнал ИИ -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>(Пока нет записей)</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>Запустить ACT</RimAI.SCW.AiLog.Trigger>
 </LanguageData>

@@ -48,9 +48,11 @@ namespace RimAI.Core.Source.Modules.Prompting
 			_recap = recap;
             _relations = relations;
             _loc = localization;
-            _composers = new List<IPromptComposer>();
-            // 内置 ChatUI 作曲器（最小集），可后续按配置裁剪与扩展
-            _composers.Add(new Composers.ChatUI.SystemBaseComposer());
+			_composers = new List<IPromptComposer>();
+			// 内置 ChatUI 作曲器（最小集），可后续按配置裁剪与扩展
+			_composers.Add(new Composers.ChatUI.SystemBaseComposer());
+			// 新增：输出语言要求（紧随系统基底之后）
+			_composers.Add(new Composers.ChatUI.OutputLanguageRequirementComposer());
 			_composers.Add(new Composers.ChatUI.CommandSummaryTaskComposer());
             _composers.Add(new Composers.ChatUI.PlayerTitleComposer());
             _composers.Add(new Composers.ChatUI.PawnIdentityComposer());
@@ -84,17 +86,23 @@ namespace RimAI.Core.Source.Modules.Prompting
             // Stage Scope：群聊（环境 + 参与者摘要）
             _composers.Add(new Composers.Stage.StageEnvironmentComposer());
             _composers.Add(new Composers.Stage.StageParticipantsComposer());
+			// 让“输出语言要求”在群聊(Stage)中也生效（靠前显示）
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.OutputLanguageRequirementComposer(), PromptScope.Stage, idOverride: "stage_output_language_requirement", orderOverride: 1));
 
             // ServerStage Scope：服务器群聊（服务器事实 + 合约约束）
             _composers.Add(new Composers.ServerStage.ServerStageServerFactsComposer());
             _composers.Add(new Composers.ServerStage.ServerStageContractComposer());
             // 复用 ChatUI 的 ColonyStatus 到 ServerStage（用 Scope 适配器包一层）
             _composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.ColonyStatusComposer(), PromptScope.ServerStage, idOverride: "server_colony_status", orderOverride: 60));
+			// 让“输出语言要求”在服务器群聊(ServerStage)中也生效（靠前显示）
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.OutputLanguageRequirementComposer(), PromptScope.ServerStage, idOverride: "serverstage_output_language_requirement", orderOverride: 1));
 
 			// New: Server scopes (Chat / Command / Inspection)
 			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerChat));
 			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerChat));
 			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerChat));
+			// 让“输出语言要求”在服务器聊天(ServerChat)中也生效（靠前显示）
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.OutputLanguageRequirementComposer(), PromptScope.ServerChat, idOverride: "server_output_language_requirement", orderOverride: 1));
 			// 让 ServerChat 也能看到最近前情提要（作用域适配）
 			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.HistoryRecapComposer(), PromptScope.ServerChat, idOverride: "server_history_recap", orderOverride: 90));
 
@@ -102,6 +110,8 @@ namespace RimAI.Core.Source.Modules.Prompting
 			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerCommand));
 			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerCommand));
 			_composers.Add(new Composers.Server.ServerCommandSummaryTaskComposer());
+			// 让“输出语言要求”在服务器命令(ServerCommand)中也生效（靠前显示）
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.OutputLanguageRequirementComposer(), PromptScope.ServerCommand, idOverride: "servercmd_output_language_requirement", orderOverride: 1));
 			// 让 ServerCommand 也能看到最近前情提要（作用域适配）
 			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.HistoryRecapComposer(), PromptScope.ServerCommand, idOverride: "servercmd_history_recap", orderOverride: 90));
 
@@ -110,6 +120,8 @@ namespace RimAI.Core.Source.Modules.Prompting
 			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerInspection));
 			// Ensure system base appears first for inspection
 			_composers.Add(new Composers.Server.ServerInspectionBaseComposer());
+			// 让“输出语言要求”在巡检(ServerInspection)中也生效（靠前显示）
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.OutputLanguageRequirementComposer(), PromptScope.ServerInspection, idOverride: "serverinspect_output_language_requirement", orderOverride: 1));
 			_composers.Add(new Composers.Server.ServerInspectionSystemComposer());
 			// Append important task suffix at the end of system
 			_composers.Add(new Composers.Server.ServerInspectionTaskSuffixComposer());
@@ -119,11 +131,15 @@ namespace RimAI.Core.Source.Modules.Prompting
             // PersonaBiography Scope：仅系统提示 + 单段User（去除世界信息，不引入日志）
             var scopeBio = PromptScope.PersonaBiography;
             _composers.Add(new Composers.Persona.PersonaBiographySystemComposer());
+			// 个人传记作用域：追加输出语言要求
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.OutputLanguageRequirementComposer(), scopeBio, idOverride: "bio_output_language_requirement", orderOverride: 1));
             _composers.Add(new Composers.Persona.PersonaUserPayloadComposer(scopeBio));
 
             // PersonaIdeology Scope：仅系统提示 + 单段User（去除世界信息，不引入日志）
             var scopeIdeo = PromptScope.PersonaIdeology;
             _composers.Add(new Composers.Persona.PersonaIdeologySystemComposer());
+			// 世界观作用域：追加输出语言要求
+			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.OutputLanguageRequirementComposer(), scopeIdeo, idOverride: "ideo_output_language_requirement", orderOverride: 1));
             _composers.Add(new Composers.Persona.PersonaUserPayloadComposer(scopeIdeo));
 		}
 

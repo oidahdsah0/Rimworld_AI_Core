@@ -21,6 +21,33 @@
   <RimAI.SCW.InspectionHistory.Header>Inspection Records</RimAI.SCW.InspectionHistory.Header>
   <RimAI.SCW.InspectionHistory.Clear>Clear records</RimAI.SCW.InspectionHistory.Clear>
   
+  <!-- Persona tab -->
+  <RimAI.SCW.Persona.HeaderTitle>Server Persona</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>Fill in a title and description, or choose a preset from the dropdown.</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>Title:</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>Preset:</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>Select preset</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>Describe the persona…</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>Save</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>Clear override</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- Tools tab -->
+  <RimAI.SCW.Tools.Header>Server Tools Manager</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>The server will periodically analyze your colony using the tools configured in slots.</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>Trigger inspection</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>Interval:</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>Enable:</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>Slot {0}:</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>Not loaded</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>Occupied</RimAI.SCW.Tools.Occupied>
+
+  <!-- Common -->
+  <RimAI.Common.Loading>Loading...</RimAI.Common.Loading>
+
+  <!-- AI Log tab -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>(No logs yet)</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>Trigger ACT</RimAI.SCW.AiLog.Trigger>
+  
 </LanguageData>
 
 

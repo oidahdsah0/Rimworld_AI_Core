@@ -280,11 +280,16 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				try
 				{
 					// 段1：编排（非流式）——直接用原始用户输入参与工具决策
+					// 注入当前默认语言，确保计划轨迹与工具显示名使用正确本地化
+					var _locSvc = RimAI.Core.Source.Boot.RimAICoreMod.TryGetService<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>();
+					var _currentLocale = _locSvc?.GetDefaultLocale();
 					var result = await _orchestration.ExecuteAsync(userText, State.ParticipantIds, new RimAI.Core.Source.Modules.Orchestration.ToolOrchestrationOptions
 					{
 						Mode = RimAI.Core.Source.Modules.Orchestration.OrchestrationMode.Classic,
 						Profile = RimAI.Core.Source.Modules.Orchestration.ExecutionProfile.Fast,
-						MaxCalls = 1
+						MaxCalls = 1,
+						IsCommand = true,
+						Locale = _currentLocale
 					}, linked);
 					// try { Verse.Log.Message($"[RimAI.Core][P12] Orchestration done ok={result != null}"); } catch { }
 
@@ -728,7 +733,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				list.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemPayload });
 			}
 			var sb = new System.Text.StringBuilder();
-			sb.AppendLine("[工具调用]");
+			sb.AppendLine("[Tool Calls]");
 			try
 			{
 				if (orchestration != null && orchestration.Executions != null)
@@ -747,7 +752,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			}
 			catch { sb.AppendLine("[]"); }
 			sb.AppendLine();
-			sb.AppendLine("[用户输入]");
+			sb.AppendLine("[User Input]");
 			sb.AppendLine(originalUserInput ?? string.Empty);
 			list.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "user", Content = sb.ToString().TrimEnd() });
 			return list;

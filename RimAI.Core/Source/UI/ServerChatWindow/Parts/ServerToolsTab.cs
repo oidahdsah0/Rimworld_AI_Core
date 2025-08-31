@@ -40,10 +40,10 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             var ctlRect2 = new Rect(inRect.x + 8f, ctlRect.yMax + 4f, inRect.width - 16f, 26f);
             var bodyTop = ctlRect2.yMax + 6f;
             Text.Font = GameFont.Medium;
-            Widgets.Label(titleRect, "服务器加载工具管理");
+            Widgets.Label(titleRect, "RimAI.SCW.Tools.Header".Translate());
             Text.Font = GameFont.Small;
             var prevColor = GUI.color; GUI.color = new Color(1f,1f,1f,0.75f);
-            Widgets.Label(descRect, "服务器会通过工具槽里的工具，定时自动分析领地的相关信息");
+            Widgets.Label(descRect, "RimAI.SCW.Tools.Desc".Translate());
             GUI.color = prevColor;
 
             // Init or refresh current selections from service
@@ -137,7 +137,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                 // Right-aligned button
                 float btnW = 140f; float btnH = 26f;
                 var btnRect = new Rect(footerRect.xMax - btnW, footerRect.y + (footerRect.height - btnH) / 2f, btnW, btnH);
-                if (Widgets.ButtonText(btnRect, "触发巡检"))
+                if (Widgets.ButtonText(btnRect, "RimAI.SCW.Tools.TriggerInspection".Translate()))
                 {
                     // Fire-and-forget manual inspection for this server
                     _ = TriggerInspectionAsync(server, entityId);
@@ -150,7 +150,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             var left = new Rect(rect.x, rect.y + 2f, rect.width, rect.height - 4f);
             // Interval slider (6-128 hours)
             var labRect = new Rect(left.x, left.y, 260f, left.height);
-            Widgets.Label(labRect, "巡检周期：");
+            Widgets.Label(labRect, "RimAI.SCW.Tools.IntervalLabel".Translate());
             // Move slider 30px to the left (x-30, width+30 to keep right edge)
             // Further shift the whole slider 50px left (keep right edge): x-50, width+50
             var sliderRect = new Rect(labRect.xMax + 8f - 150f, left.y, (left.width - labRect.width - 12f) + 30f - 70f, left.height);
@@ -171,7 +171,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             // Toggle enable/disable on its own line
             var toggleRect = new Rect(rect.x, rect.y, rect.width - 200f, rect.height);
             bool en = state.Enabled;
-            Widgets.CheckboxLabeled(toggleRect, "巡检开关：", ref en);
+            Widgets.CheckboxLabeled(toggleRect, "RimAI.SCW.Tools.EnabledLabel".Translate(), ref en);
             if (en != state.Enabled)
             {
                 state.Enabled = en;
@@ -182,15 +182,15 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
         private static void DrawSlotRow(Rect row, int index, string entityId, IServerService server, IToolRegistryService tooling, State state)
         {
             var labelRect = new Rect(row.x, row.y + 6f, 120f, 22f);
-            Widgets.Label(labelRect, $"工具槽{index + 1}：");
+            Widgets.Label(labelRect, string.Format("RimAI.SCW.Tools.SlotLabel".Translate(), index + 1));
             var btnRect = new Rect(labelRect.xMax + 6f, row.y + 2f, Mathf.Min(360f, row.width - (labelRect.width + 12f)), 26f);
             string currentName = null;
             try { currentName = (index >= 0 && index < state.SelectedTools.Count) ? state.SelectedTools[index] : null; } catch { }
-            string currentDisplay = string.IsNullOrWhiteSpace(currentName) ? "不加载" : (tooling?.GetToolDisplayNameOrNull(currentName) ?? currentName);
+            string currentDisplay = string.IsNullOrWhiteSpace(currentName) ? "RimAI.SCW.Tools.NotLoaded".Translate() : (tooling?.GetToolDisplayNameOrNull(currentName) ?? currentName);
             if (Widgets.ButtonText(btnRect, currentDisplay))
             {
                 var menu = new List<FloatMenuOption>();
-                menu.Add(new FloatMenuOption("不加载", () =>
+                menu.Add(new FloatMenuOption("RimAI.SCW.Tools.NotLoaded".Translate(), () =>
                 {
                     try { server?.RemoveSlot(entityId, index); } catch { }
                     try { if (index >= 0 && index < state.SelectedTools.Count) state.SelectedTools[index] = null; } catch { }
@@ -201,7 +201,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                 if (cachedList == null || cachedList.Count == 0)
                 {
                     // 若尚未准备好，提示加载中，并触发一次异步刷新
-                    menu.Add(new FloatMenuOption("(加载中...)", () => { }));
+                    menu.Add(new FloatMenuOption("(" + "RimAI.Common.Loading".Translate() + ")", () => { }));
                     TryStartToolsRefreshAsync(tooling, server?.Get(entityId)?.Level ?? 1, state);
                 }
                 else
@@ -247,7 +247,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                             if (!string.Equals(state.SelectedTools[index], it.name, System.StringComparison.OrdinalIgnoreCase))
                                 continue;
                         }
-                        var label = it.disp + $" (Lv{it.level})" + (occupied ? " [已占用]" : string.Empty);
+                        var label = it.disp + $" (Lv{it.level})" + (occupied ? (" [" + "RimAI.SCW.Tools.Occupied".Translate() + "]") : string.Empty);
                         menu.Add(new FloatMenuOption(label, () =>
                         {
                             if (string.Equals(it.name, "get_unknown_civ_contact", System.StringComparison.OrdinalIgnoreCase))

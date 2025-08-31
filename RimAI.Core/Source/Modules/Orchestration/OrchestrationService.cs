@@ -140,11 +140,13 @@ namespace RimAI.Core.Source.Modules.Orchestration
 			{
 				new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemPrompt }
 			};
+			bool currentUserAlreadyInHistory = false;
 			try
 			{
 				var historyEntries = await _history.GetAllEntriesAsync(convId, ct).ConfigureAwait(false);
 				if (historyEntries != null)
 				{
+					// 先按时间顺序回灌历史（已是升序）
 					foreach (var e in historyEntries)
 					{
 						var role = e.Role == EntryRole.User ? "user" : "assistant";
@@ -152,10 +154,27 @@ namespace RimAI.Core.Source.Modules.Orchestration
 						if (string.IsNullOrWhiteSpace(content)) continue;
 						messages.Add(new RimAI.Framework.Contracts.ChatMessage { Role = role, Content = content });
 					}
+
+					// 检查历史中最后一条用户发言是否与当前输入相同，避免重复追加
+					try
+					{
+						var lastUserInHistory = historyEntries
+							.AsEnumerable()
+							.Reverse()
+							.FirstOrDefault(x => x != null && x.Role == EntryRole.User && !string.IsNullOrWhiteSpace(x.Content))?.Content;
+						var a = (lastUserInHistory ?? string.Empty).Trim();
+						var b = (userInput ?? string.Empty).Trim();
+						currentUserAlreadyInHistory = !string.IsNullOrEmpty(b) && string.Equals(a, b, StringComparison.Ordinal);
+					}
+					catch { }
 				}
 			}
 			catch { }
-			messages.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "user", Content = userInput ?? string.Empty });
+			// 若用户输入已由 UI 写入历史，则不再追加重复的 user 消息
+			if (!(currentUserAlreadyInHistory))
+			{
+				messages.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "user", Content = userInput ?? string.Empty });
+			}
 			var req = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = convId, Messages = messages, Stream = false };
 			var resp = await _llm.GetResponseAsync(req, toolsTuple.toolsJson, jsonMode: false, cancellationToken: ct).ConfigureAwait(false);
 			if (!resp.IsSuccess || resp.Value?.Message == null || resp.Value.Message.ToolCalls == null || resp.Value.Message.ToolCalls.Count == 0)
@@ -247,11 +266,14 @@ namespace RimAI.Core.Source.Modules.Orchestration
 						StartedAtUtc = t0,
 						FinishedAtUtc = DateTime.UtcNow
 					});
-					// P14：可选写入工具调用轨迹（tool_call），不推进回合
+					// P14：工具调用轨迹（tool_call）在命令模式下不写入历史，避免占用空间
 					try
 					{
-						string compact = result?.ToString() ?? string.Empty;
-						await _history.AppendRecordAsync(convId, "ChatUI", $"tool:{toolName}", "tool_call", compact, advanceTurn: false, ct: ct).ConfigureAwait(false);
+						if (!(options?.IsCommand == true))
+						{
+							string compact = result?.ToString() ?? string.Empty;
+							await _history.AppendRecordAsync(convId, "ChatUI", $"tool:{toolName}", "tool_call", compact, advanceTurn: false, ct: ct).ConfigureAwait(false);
+						}
 					}
 					catch { }
 				}

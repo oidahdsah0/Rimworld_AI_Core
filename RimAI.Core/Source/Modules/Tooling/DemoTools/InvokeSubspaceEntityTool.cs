@@ -8,7 +8,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
         public string Name => "invoke_subspace_entity";
         public string DisplayName => "亚空间生物召唤器";
         public int Level => 3;
-        public string Description => "亚空间召唤，触发一次亚空间回声显化：若输入语句中出现明显的克苏鲁风格召唤词，将直接命中本工具；内部会根据语义、文风、虔诚程度评分(0-100)决定显化强度。若评分过低，或对旧日不敬，可能会引发反噬，产生异常涌入。";
+    public string Description => "Subspace invocation that manifests a one-time subspace echo. If the input line contains explicit eldritch/cosmic-horror summoning cues, this tool is directly invoked. Internally, it scores semantics, tone, and piety (0–100) to determine manifestation intensity. Low scores—or irreverence toward the Old Ones—may backfire, causing anomalous incursions.";
 
         // New research gate
         public System.Collections.Generic.IReadOnlyList<string> RequiredResearchDefNames => new[] { "RimAI_Subspace_Gravitic_Penetration" };

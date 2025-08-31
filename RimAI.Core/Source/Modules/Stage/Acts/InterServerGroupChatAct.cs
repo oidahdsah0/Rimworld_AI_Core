@@ -135,7 +135,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				var extBlocksFb1 = new List<ContextBlock> { new ContextBlock { Title = (topicLabel ?? "Topic") + colon + topicPick, Text = style } };
 				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = req?.Locale, ExternalBlocks = extBlocksFb1 }, ct).ConfigureAwait(false);
 				var systemTextFb = builtPromptFallback?.SystemPrompt ?? string.Empty;
-				var userTextFb = _loc?.Format(locale, "stage.serverchat.user", new { round = 1 })
+				var userTextFb = _loc?.Format(locale, "stage.serverchat.user", new Dictionary<string, string> { { "round", "1" } })
 					?? "Now produce round 1 of the server chat. Output JSON array only: each element is {\"speaker\":\"thing:<id>\",\"content\":\"...\"}; no extra explanations.";
 				var chatReqFb = new RimAI.Framework.Contracts.UnifiedChatRequest
 				{
@@ -172,11 +172,11 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
 				// 汇总文本输出
 				var sbFb = new System.Text.StringBuilder();
-				sbFb.AppendLine(_loc?.Format(locale, "stage.serverchat.round_title", new { round = 1 }) ?? "Round 1");
+				sbFb.AppendLine(_loc?.Format(locale, "stage.serverchat.round_title", new Dictionary<string, string> { { "round", "1" } }) ?? "Round 1");
 				foreach (var m in msgsFb)
 				{
 					var idx = Math.Max(1, servers.FindIndex(s => string.Equals(s, m.speaker, StringComparison.OrdinalIgnoreCase)) + 1);
-					var disp = _loc?.Format(locale, "stage.serverchat.server_display", new { index = idx }) ?? ($"Server {idx}");
+					var disp = _loc?.Format(locale, "stage.serverchat.server_display", new Dictionary<string, string> { { "index", idx.ToString() } }) ?? ($"Server {idx}");
 					sbFb.AppendLine($"【{disp}】{m.content}");
 				}
 				var finalTextFb = sbFb.ToString().TrimEnd();
@@ -347,7 +347,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			}, ct).ConfigureAwait(false);
 
 			var systemText = builtPrompt?.SystemPrompt ?? string.Empty;
-			var userText = _loc?.Format(req?.Locale, "stage.serverchat.user", new { round = 1 })
+			var userText = _loc?.Format(req?.Locale, "stage.serverchat.user", new Dictionary<string, string> { { "round", "1" } })
 				?? "Now produce round 1 of the server chat. Output JSON array only: each element is {\"speaker\":\"thing:<id>\",\"content\":\"...\"}; no extra explanations.";
 			var chatReq = new RimAI.Framework.Contracts.UnifiedChatRequest
 			{

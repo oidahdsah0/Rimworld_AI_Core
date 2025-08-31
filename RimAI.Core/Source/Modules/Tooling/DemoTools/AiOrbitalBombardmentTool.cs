@@ -8,7 +8,7 @@ namespace RimAI.Core.Source.Modules.Tooling.DemoTools
 		public string Name => "ai_orbital_bombardment";
 		public string DisplayName => "旧卫星火炮破解";
 		public int Level => 2;
-		public string Description => "Spoof old orbital satellite: perform 5-15 random explosions near hostile pawns. Requires powered AI terminal and cooldown.";
+		public string Description => "Spoof old orbital satellite: perform random explosions near hostile pawns. Requires powered AI terminal and cooldown.";
 
 		public System.Collections.Generic.IReadOnlyList<string> RequiredResearchDefNames => new[] { "RimAI_GW_Communication" }; // 可改为专用研究键
 

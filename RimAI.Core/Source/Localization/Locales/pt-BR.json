@@ -108,7 +108,10 @@
   "tool.pawn_reaction.description": "Registra a reação imediata de humor de um colono após um bate‑papo curto (após o streaming). Saída apenas em português do Brasil. Parâmetros: mood_delta inteiro em [-30,30] (positivo=bônus, negativo=malus); mood_title título curto ≤3 palavras, coloquial, relacionado ao tema, sem aspas ou colchetes decorativos. O servidor limita e corta se necessário. Exemplos (título + valor):\n- Aprovação do governador +16\n- Conversou com o governador +7\n- Dura reprimenda do governador -29\n- Ambíguo com o governador +30\n- Falou do futuro +28\n- Crush secreto pelo governador +12",
   "tool.pawn_reaction.default_title": "Conversou com o governador",
   "prompt.reaction.system": "Tarefa: com base na conversa desta rodada, retorne uma única chamada de função contendo exatamente três parâmetros: mood_delta (inteiro em [-30..30]; avalie, na primeira pessoa do colono, como as falas do governador afetaram seu humor e pontue em coerência com o impacto geral da rodada), mood_title (≤3 palavras, em português, coloquial, conciso, aderente ao tema, sem marcas decorativas) e duration_days (duração da memória em dias, 1..10, permite decimais). Requisitos: saída apenas da chamada de função; nenhum outro texto; o título deve estar em português. Veja exemplos abaixo.",
-  "prompt.reaction.examples": "- Aprovação do governador +16\n- Conversou com o governador +7\n- Dura reprimenda do governador -29\n- Ambíguo com o governador +30\n- Falou do futuro +28\n- Crush secreto pelo governador +12"
+  "prompt.reaction.examples": "- Aprovação do governador +16\n- Conversou com o governador +7\n- Dura reprimenda do governador -29\n- Ambíguo com o governador +30\n- Falou do futuro +28\n- Crush secreto pelo governador +12",
+  "prompt.requirement.output_language": "Requisito máximo: idioma de saída. Nesta conversa, salvo onde o inglês for explicitamente necessário, apresente a maior parte do conteúdo visível ao jogador em português (Brasil)."
 }
+
+
 
 

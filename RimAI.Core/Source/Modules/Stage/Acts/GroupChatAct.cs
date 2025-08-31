@@ -222,7 +222,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 return respLocal.Value?.Message?.Content ?? string.Empty;
             };
 
-            // 启动消费者：每 1 秒出队 1 条，遇到结束标记则停止
+            // 启动消费者：每 1.5 秒出队 1 条，遇到结束标记则停止
             var consumeTask = Task.Run(async () =>
             {
                 while (!hard.IsCancellationRequested)
@@ -237,7 +237,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                         {
                             try { await _worldAction.ShowSpeechTextAsync(pid, text, hard).ConfigureAwait(false); } catch { }
                         }
-                        try { await Task.Delay(1000, hard).ConfigureAwait(false); } catch { break; }
+                        try { await Task.Delay(1500, hard).ConfigureAwait(false); } catch { break; }
                     }
                     else
                     {
@@ -312,9 +312,9 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 }
                 catch (Exception ex) { aborted = true; try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"parseError:{ex.GetType().Name}", false, hard).ConfigureAwait(false); } catch { } break; }
 
-                // 轮次间隔固定 1 秒
+                // 轮次间隔固定 1.5 秒
                 if (deadlineHit) { break; }
-                try { await Task.Delay(1000, hard).ConfigureAwait(false); } catch { }
+                try { await Task.Delay(1500, hard).ConfigureAwait(false); } catch { }
                 if (DateTime.UtcNow > enqueueDeadlineUtc) { deadlineHit = true; break; }
             }
 

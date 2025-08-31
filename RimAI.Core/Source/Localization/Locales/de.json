@@ -96,7 +96,18 @@
   "ui.server.inspection.task_suffix": "[Wichtig: Aktuelle Aufgabe] Du führst eine automatische Basis-Inspektion durch. Fasse das unten zurückgegebene Basis-JSON zusammen und protokolliere es:",
   "ui.server.inspection.user": "Du hast {app} aufgerufen. Dessen JSON-Ausgabe ist unten angehängt. Verfasse in zur Persona passender Stimme einen Inspektionsvermerk der KI. Das detaillierte Programmergebnis lautet: {result}",
   "recap.system.base": "Du bist ein Assistent für Dialog-Zusammenfassungen. Fasse in {max} Zeichen die Schlüsselfakten und den Fortschritt in stichpunktartiger Form zusammen; Zahlen erhalten; Fülltext vermeiden.",
-  "recap.system.prev_label": "[Vorherige Zusammenfassung]"
+  "recap.system.prev_label": "[Vorherige Zusammenfassung]",
+  "ui.server.identity.title": "[Server Identity]",
+  "ui.server.identity.line": "Name: {name}; Serial: {sn}; Level: L{level}",
+  "ui.server.persona.title": "[Server Persona]",
+  "ui.server.env.temp.title": "[Server Room Temperature]",
+  "RimAI.Common.AIServer": "AI Server",
+  "ui.command.summary.important_task": "[Wichtig: Aktuelle Aufgabe] Du führst Function Calling für das Territorium aus. Die aktuellen Tool-Ergebnisse liegen vor. Fasse die Tool-Ergebnisse zusammen.",
+  "tool.pawn_reaction.display_name": "Kolonisten‑Gesprächsreaktion",
+  "tool.pawn_reaction.description": "Erfasst die unmittelbare Stimmungsreaktion eines Kolonisten nach einer Plauderrunde (nach Streaming‑Abschluss). Ausgabe nur in Deutsch. Parameter: mood_delta als Ganzzahl in [-30,30] (positiv=Bonus, negativ=Malus); mood_title als kurzer Titel mit ≤3 Wörtern, umgangssprachlich, themennah, ohne Zierklammern/Anführungen. Server begrenzt Ausreißer und kürzt zu lange Titel. Beispiele (Titel + Wert):\n- Lob des Gouverneurs +16\n- Plausch mit Gouverneur +7\n- Strenge Rüge des Gouverneurs -29\n- Mehrdeutig mit Gouverneur +30\n- Über die Zukunft gesprochen +28\n- Heimlicher Schwarm für Gouverneur +12",
+  "tool.pawn_reaction.default_title": "Plausch mit Gouverneur",
+  "prompt.reaction.system": "Aufgabe: Auf Basis dieser Runde genau eine ‚Kolonisten‑Gesprächsreaktion‘ per Funktionsaufruf liefern – mit exakt drei Parametern: mood_delta (Ganzzahl in [-30..30]; aus Ich‑Perspektive des Kolonisten bewerten, wie die Worte des Gouverneurs die Stimmung beeinflussten, und im Einklang mit dem Gesamteinfluss der Runde punkten), mood_title (≤3 Wörter, umgangssprachlich, knapp, themennah, ohne Zierzeichen), sowie duration_days (Gedächtnisdauer in Tagen 1..10, Dezimal erlaubt). Anforderungen: nur den Funktionsaufruf ausgeben; kein weiterer Text; der Titel muss auf Deutsch sein. Siehe Beispiele unten.",
+  "prompt.reaction.examples": "- Lob des Gouverneurs +16\n- Plausch mit Gouverneur +7\n- Strenge Rüge des Gouverneurs -29\n- Mehrdeutig mit Gouverneur +30\n- Über die Zukunft gesprochen +28\n- Heimlicher Schwarm für Gouverneur +12"
 }
 
 

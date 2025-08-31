@@ -96,7 +96,18 @@
   "ui.server.inspection.task_suffix": "[Important : Tâche en cours] Vous effectuez une inspection automatisée de la base. Résumez et enregistrez le JSON de base renvoyé ci-dessous :",
   "ui.server.inspection.user": "Vous avez invoqué {app}. Sa sortie JSON sera jointe ci-dessous. Dans une voix cohérente avec la persona, rédigez une note d’inspection par l’IA. Le résultat détaillé du programme est : {result}",
   "recap.system.base": "Vous êtes l’assistant de récapitulatif de dialogue. En {max} caractères, résumez faits clés et avancement sous forme de lignes façon puces ; conservez les nombres ; évitez le remplissage.",
-  "recap.system.prev_label": "[Récapitulatif précédent]"
+  "recap.system.prev_label": "[Récapitulatif précédent]",
+  "ui.server.identity.title": "[Server Identity]",
+  "ui.server.identity.line": "Name: {name}; Serial: {sn}; Level: L{level}",
+  "ui.server.persona.title": "[Server Persona]",
+  "ui.server.env.temp.title": "[Server Room Temperature]",
+  "RimAI.Common.AIServer": "AI Server",
+  "ui.command.summary.important_task": "[Important : Tâche en cours] Vous exécutez un Function Calling du territoire. Vous avez reçu les résultats d’outil. Résumez ces résultats.",
+  "tool.pawn_reaction.display_name": "Réaction de conversation du colon",
+  "tool.pawn_reaction.description": "Enregistre la réaction d’humeur immédiate d’un colon après une courte discussion (après le streaming). Sortie en français uniquement. Paramètres : mood_delta entier dans [-30,30] (positif=bonus, négatif=malus) ; mood_title titre court ≤3 mots, parlé, lié au sujet, sans guillemets/crochets décoratifs. Le serveur borne et tronque si nécessaire. Exemples (titre + valeur) :\n- Approbation du gouverneur +16\n- A parlé avec le gouverneur +7\n- Sévère réprimande du gouverneur -29\n- Ambigu avec le gouverneur +30\n- A parlé de l’avenir +28\n- Crush secret pour le gouverneur +12",
+  "tool.pawn_reaction.default_title": "A parlé avec le gouverneur",
+  "prompt.reaction.system": "Tâche : sur la base de l’échange de ce tour, renvoyez un unique appel de fonction avec exactement trois paramètres : mood_delta (entier dans [-30..30] ; évaluez, du point de vue à la première personne du colon, l’effet des paroles du gouverneur sur son humeur et notez en cohérence avec l’impact global de ce tour), mood_title (≤3 mots, français, oral et concis, en phase avec le sujet, sans marques décoratives), et duration_days (durée de mémoire en jours, 1..10, décimales acceptées). Exigences : ne produire que l’appel de fonction ; aucun autre texte ; le titre doit être en français. Voir exemples ci‑dessous.",
+  "prompt.reaction.examples": "- Approbation du gouverneur +16\n- A parlé avec le gouverneur +7\n- Sévère réprimande du gouverneur -29\n- Ambigu avec le gouverneur +30\n- A parlé de l’avenir +28\n- Crush secret pour le gouverneur +12"
 }
 
 

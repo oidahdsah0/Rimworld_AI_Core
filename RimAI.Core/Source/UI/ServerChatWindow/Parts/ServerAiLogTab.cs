@@ -124,10 +124,12 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
                 foreach (var e in items)
                 {
                     if (e == null || string.IsNullOrWhiteSpace(e.Content)) continue;
-                    string speaker = null; string content = null;
+                    string speaker = null; string content = null; string type = null;
                     try
                     {
                         var jo = JObject.Parse(e.Content);
+                        type = jo.Value<string>("type");
+                        if (string.Equals(type, "log", StringComparison.OrdinalIgnoreCase)) continue; // 过滤内部日志
                         speaker = jo.Value<string>("speaker");
                         content = jo.Value<string>("content");
                     }

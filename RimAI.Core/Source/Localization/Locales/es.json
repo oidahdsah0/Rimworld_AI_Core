@@ -96,7 +96,18 @@
   "ui.server.inspection.task_suffix": "[Importante: Tarea actual] Estás realizando una inspección automatizada de la base. Resume y registra el JSON de base devuelto abajo:",
   "ui.server.inspection.user": "Invocaste {app}. Su salida JSON se adjuntará abajo. En una voz coherente con la persona, escribe un registro de inspección de la IA. El resultado detallado del programa es: {result}",
   "recap.system.base": "Eres un asistente de recapitulación de diálogos. En {max} caracteres, resume hechos clave y avances en líneas tipo viñetas; conserva números; evita relleno.",
-  "recap.system.prev_label": "[Resumen anterior]"
+  "recap.system.prev_label": "[Resumen anterior]",
+  "ui.server.identity.title": "[Server Identity]",
+  "ui.server.identity.line": "Name: {name}; Serial: {sn}; Level: L{level}",
+  "ui.server.persona.title": "[Server Persona]",
+  "ui.server.env.temp.title": "[Server Room Temperature]",
+  "RimAI.Common.AIServer": "AI Server",
+  "ui.command.summary.important_task": "[Importante: tarea actual] Estás realizando Function Calling del territorio. Ya tienes los resultados de la herramienta. Debes resumir esos resultados.",
+  "tool.pawn_reaction.display_name": "Reacción de charla del colono",
+  "tool.pawn_reaction.description": "Registra la reacción de estado de ánimo inmediata del colono tras una ronda de charla (tras el streaming). Salida sólo en español. Parámetros: mood_delta entero en [-30,30] (positivo=bono, negativo=penalización); mood_title título corto ≤3 palabras, coloquial, acorde al tema, sin comillas/corchetes decorativos. El servidor limita valores fuera de rango y recorta títulos largos. Ejemplos (título + valor):\n- Aprobación del gobernador +16\n- Charló con el gobernador +7\n- Severas críticas del gobernador -29\n- Relación ambigua con el gobernador +30\n- Habló del futuro +28\n- Enamoramiento secreto del gobernador +12",
+  "tool.pawn_reaction.default_title": "Charló con el gobernador",
+  "prompt.reaction.system": "Tarea: Con base en la charla de esta ronda, devuelve una única llamada de función con exactamente tres parámetros: mood_delta (entero en [-30..30]; evalúa, desde la primera persona del colono, cómo las palabras del gobernador afectaron su ánimo y puntúa en coherencia con el impacto global de la ronda), mood_title (≤3 palabras, en español, coloquial, conciso, acorde al tema, sin marcas decorativas) y duration_days (duración de la memoria en días, 1..10, se permiten decimales). Requisitos: imprime solo la llamada de función; nada de texto adicional; el título debe estar en español. Ver ejemplos abajo.",
+  "prompt.reaction.examples": "- Aprobación del gobernador +16\n- Charló con el gobernador +7\n- Severas críticas del gobernador -29\n- Relación ambigua con el gobernador +30\n- Habló del futuro +28\n- Enamoramiento secreto del gobernador +12"
 }
 
 

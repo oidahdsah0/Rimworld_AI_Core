@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -52,20 +53,65 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				return new ActResult { Completed = false, Reason = "TooFewServers", FinalText = "（服务器数量不足，跳过本次群聊）" };
 			}
 
-			// Step 1: 汇总“已加载工具 List”（从服务器巡检槽）
+			// 本地复用：以 1.5s 间隔播放服务器气泡，并写入历史（FIFO 消费者）。
+			async Task PlayServerBubblesAsync(List<(string speaker, string content)> playMsgs, CancellationToken token)
+			{
+				if (playMsgs == null || playMsgs.Count == 0) return;
+				var outQueueLocal = new ConcurrentQueue<(string speaker, string content, bool end)>();
+				var consumeTaskLocal = Task.Run(async () =>
+				{
+					while (!token.IsCancellationRequested)
+					{
+						if (outQueueLocal.TryDequeue(out var item))
+						{
+							if (item.end) break;
+							var spk = item.speaker;
+							if (!string.IsNullOrWhiteSpace(spk) && spk.StartsWith("thing:") && int.TryParse(spk.Substring(6), out var thingId))
+							{
+								try
+								{
+									var worldAction = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
+									await worldAction.ShowThingSpeechTextAsync(thingId, item.content, token).ConfigureAwait(false);
+								}
+								catch { }
+							}
+							try { await Task.Delay(1500, token).ConfigureAwait(false); } catch { break; }
+						}
+						else
+						{
+							try { await Task.Delay(100, token).ConfigureAwait(false); } catch { break; }
+						}
+					}
+					while (outQueueLocal.TryDequeue(out _)) { }
+				}, token);
+
+				var rndLocal = new Random(unchecked(Environment.TickCount ^ conv.GetHashCode()));
+				foreach (var m in playMsgs.OrderBy(_ => rndLocal.Next()))
+				{
+					outQueueLocal.Enqueue((m.speaker, m.content, false));
+					try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", m.speaker, "chat", m.content, advanceTurn: false, ct: token).ConfigureAwait(false); } catch { }
+				}
+				outQueueLocal.Enqueue((null, null, true));
+				try { await consumeTaskLocal.ConfigureAwait(false); } catch { }
+			}
+
+			// Step 1: 随机选择“发起人”服务器，仅基于其槽位扫描工具列表（确保工具列表随机化随发起人变化）
+			string initiator = null;
+			var rndInitiator = new Random(unchecked(Environment.TickCount ^ conv.GetHashCode() ^ servers.Count));
+			try { initiator = servers[rndInitiator.Next(0, servers.Count)]; } catch { initiator = servers[0]; }
 			var loadedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			try
 			{
-				foreach (var sid in servers)
+				var slots = _server.GetSlots(initiator) ?? new List<RimAI.Core.Source.Modules.Persistence.Snapshots.InspectionSlot>();
+				foreach (var sl in slots)
 				{
-					var slots = _server.GetSlots(sid) ?? new List<RimAI.Core.Source.Modules.Persistence.Snapshots.InspectionSlot>();
-					foreach (var sl in slots)
-					{
-						if (sl != null && sl.Enabled && !string.IsNullOrWhiteSpace(sl.ToolName)) loadedTools.Add(sl.ToolName);
-					}
+					if (sl != null && sl.Enabled && !string.IsNullOrWhiteSpace(sl.ToolName)) loadedTools.Add(sl.ToolName);
 				}
 			}
-			catch (Exception ex) { /* best effort; just log via history */ try { await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"loadedToolsScanError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
+			catch (Exception)
+			{
+				// 不再将 LoadedToolsScanError 写入会话历史，避免污染 AI Log；静默降级到兜底议题。
+			}
 			// 若无工具，继续走后续兜底流程（不再直接返回），以随机议题开启群聊
 
 			// 过滤为当前已注册工具集合
@@ -117,6 +163,10 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					msgsFb.Add((spk.Trim(), txt.Trim()));
 				}
 				if (msgsFb.Count == 0) { return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = "（无白名单内有效输出）" }; }
+				// 播放气泡并写历史（1.5s 间隔）
+				await PlayServerBubblesAsync(msgsFb, ct).ConfigureAwait(false);
+
+				// 汇总文本输出
 				var sbFb = new System.Text.StringBuilder();
 				sbFb.AppendLine("第1轮");
 				foreach (var m in msgsFb)
@@ -124,7 +174,6 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					var idx = Math.Max(1, servers.FindIndex(s => string.Equals(s, m.speaker, StringComparison.OrdinalIgnoreCase)) + 1);
 					var disp = $"服务器{idx}";
 					sbFb.AppendLine($"【{disp}】{m.content}");
-					try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", m.speaker, "chat", m.content, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
 				}
 				var finalTextFb = sbFb.ToString().TrimEnd();
 				return new ActResult { Completed = true, Reason = "Completed", FinalText = finalTextFb, Rounds = 1 };
@@ -267,6 +316,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					msgsFb.Add((spk.Trim(), txt.Trim()));
 				}
 				if (msgsFb.Count == 0) { return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = "（无白名单内有效输出）" }; }
+				await PlayServerBubblesAsync(msgsFb, ct).ConfigureAwait(false);
 				var sbFb = new System.Text.StringBuilder();
 				sbFb.AppendLine("第1轮");
 				foreach (var m in msgsFb)
@@ -274,7 +324,6 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					var idx = Math.Max(1, servers.FindIndex(s => string.Equals(s, m.speaker, StringComparison.OrdinalIgnoreCase)) + 1);
 					var disp = $"服务器{idx}";
 					sbFb.AppendLine($"【{disp}】{m.content}");
-					try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", m.speaker, "chat", m.content, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
 				}
 				var finalTextFb = sbFb.ToString().TrimEnd();
 				return new ActResult { Completed = true, Reason = "Completed", FinalText = finalTextFb, Rounds = 1 };
@@ -333,24 +382,13 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			{
 				return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = "（无白名单内有效输出）" };
 			}
-
+			// 与小人群聊一致：使用生产者/消费者队列，消费者以 1.5s 间隔播放气泡
 			try
 			{
-				var jsonItems = new List<object>();
-				foreach (var m in msgs)
-				{
-					jsonItems.Add(new { speaker = m.speaker, content = m.content });
-					try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", m.speaker, "chat", m.content, advanceTurn: false, ct: ct).ConfigureAwait(false); } catch { }
-					try
-					{
-						if (!string.IsNullOrWhiteSpace(m.speaker) && m.speaker.StartsWith("thing:") && int.TryParse(m.speaker.Substring(6), out var thingId))
-						{
-							var worldAction = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.World.IWorldActionService>();
-							await worldAction.ShowThingSpeechTextAsync(thingId, m.content, ct).ConfigureAwait(false);
-						}
-					}
-					catch { }
-				}
+				// 播放气泡 + 写历史
+				await PlayServerBubblesAsync(msgs, ct).ConfigureAwait(false);
+				// 返回 JSON（保持主路径原有输出格式）
+				var jsonItems = msgs.Select(m => new { speaker = m.speaker, content = m.content }).ToList();
 				var finalJson = JsonConvert.SerializeObject(jsonItems);
 				return new ActResult { Completed = true, Reason = "Completed", FinalText = finalJson, Rounds = 1 };
 			}

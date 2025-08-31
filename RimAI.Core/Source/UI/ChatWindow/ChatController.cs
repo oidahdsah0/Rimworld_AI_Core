@@ -14,6 +14,7 @@ using RimAI.Core.Source.Modules.Prompting;
 using RimAI.Core.Source.Modules.Prompting.Models;
 using RimAI.Core.Source.Boot;
 using RimAI.Core.Source.Modules.Server;
+using RimAI.Core.Source.Modules.Orchestration.Reaction;
 using Verse;
 
 namespace RimAI.Core.Source.UI.ChatWindow
@@ -25,6 +26,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 		private readonly IWorldDataService _world;
 		private readonly IOrchestrationService _orchestration;
 		private readonly IPromptService _prompting;
+	private readonly IReactionOrchestrationService _reaction;
 
 		private static readonly ThreadLocal<Random> _rng = new ThreadLocal<Random>(() => new Random(unchecked(Environment.TickCount * 31 + Thread.CurrentThread.ManagedThreadId)));
 
@@ -46,6 +48,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			_world = world;
 			_orchestration = orchestration;
 			_prompting = prompting;
+			try { _reaction = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<IReactionOrchestrationService>(); } catch { _reaction = null; }
 			State = new ChatConversationState
 			{
 				ConvKey = convKey,
@@ -527,6 +530,23 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			{
 				AppendAllChunksToLastAiMessageInternal();
 				await WriteFinalToHistoryIfAnyAsync().ConfigureAwait(false);
+				// 非阻塞：若为小人闲聊（无服务器参与），在完成写入后触发一次“对话反应”后台流程
+				try
+				{
+					if (!ParticipantsHaveServer() && _reaction != null)
+					{
+						var lastUser = string.Empty;
+						for (var i = State.Messages.Count - 1; i >= 0; i--)
+						{
+							if (State.Messages[i].Sender == MessageSender.User) { lastUser = State.Messages[i].Text ?? string.Empty; break; }
+						}
+						var lastAi = GetLastAiText();
+						var locale = RimAI.Core.Source.Boot.RimAICoreMod.TryGetService<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>()?.GetDefaultLocale() ?? "zh-Hans";
+						var title = State.PlayerTitle ?? (await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "Player");
+						await _reaction.EnqueuePawnSmalltalkReactionAsync(State.ConvKey, State.ParticipantIds, lastUser, lastAi, locale, title).ConfigureAwait(false);
+					}
+				}
+				catch { }
 			}
 			catch { }
 		}

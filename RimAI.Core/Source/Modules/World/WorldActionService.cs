@@ -32,6 +32,7 @@ namespace RimAI.Core.Source.Modules.World
 		private readonly SubspaceActionPart _subspacePart;
 		private readonly FactionActionPart _factionActionPart;
 		private readonly DevExplosionPart _devExplosionPart;
+		private readonly MoodReactionPart _moodReactionPart;
 
 		public WorldActionService(ISchedulerService scheduler, IConfigurationService cfg)
 		{
@@ -44,6 +45,7 @@ namespace RimAI.Core.Source.Modules.World
 			_subspacePart = new SubspaceActionPart(_scheduler, _cfg);
 			_factionActionPart = new FactionActionPart(_scheduler, _cfg);
 			_devExplosionPart = new DevExplosionPart(_scheduler, _cfg);
+			_moodReactionPart = new MoodReactionPart(_scheduler, _cfg);
 		}
 
 	/// <summary>
@@ -147,6 +149,12 @@ namespace RimAI.Core.Source.Modules.World
 		{
 			return _devExplosionPart.TryExplodeNearEnemiesAsync(strikes, radius, ct);
 		}
+
+		public Task<bool> TryApplyChatReactionAsync(int pawnLoadId, int delta, string title, CancellationToken ct = default)
+			=> _moodReactionPart.TryApplyChatReactionAsync(pawnLoadId, delta, title, null, ct);
+
+		public Task<bool> TryApplyChatReactionAsync(int pawnLoadId, int delta, string title, int durationTicksOverride, CancellationToken ct = default)
+			=> _moodReactionPart.TryApplyChatReactionAsync(pawnLoadId, delta, title, durationTicksOverride, ct);
 	}
 }
 

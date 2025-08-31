@@ -27,6 +27,7 @@ using RimAI.Core.Source.Modules.Prompting;
 // using RimAI.Core.Source.Modules.Prompting.Composers.ChatUI; // composers are instantiated inside PromptService
 using RimAI.Core.Source.Infrastructure.Localization;
 using RimAI.Core.Source.Modules.Server;
+using RimAI.Core.Source.Modules.Orchestration.Reaction;
 using Verse;
 using RimAI.Core.Source.UI.Settings;
 using RimAI.Core.Source.UI.Settings.Sections;
@@ -59,6 +60,8 @@ namespace RimAI.Core.Source.Boot
                 Container.Register<RimAI.Core.Source.Modules.Tooling.IToolRegistryService, RimAI.Core.Source.Modules.Tooling.ToolRegistryService>();
                 // P5 Orchestration
                 Container.Register<IOrchestrationService, OrchestrationService>();
+                // P15 Reaction Orchestration
+                Container.Register<RimAI.Core.Source.Modules.Orchestration.Reaction.IReactionOrchestrationService, RimAI.Core.Source.Modules.Orchestration.Reaction.ReactionOrchestrationService>();
 
                 // Register P7 Persona services
                 Container.Register<IPersonaService, PersonaService>();

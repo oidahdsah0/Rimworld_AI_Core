@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Defs>
+  <!-- RimAI: 殖民者对话反应（内存型 Thought）。
+       - 采用 3 个槽位 Thought，用于简单“环形缓冲/状态机”：
+         若 1 未被占用则写入 1；否则尝试 2；否则 3；若三者皆存在则清空三者并写入 1。
+       - 基础 mood 为 0，由代码通过 Thought_Memory.moodOffset 注入实际增量；会在头顶显示气泡。
+       - 当前持续时间由用户配置调整为 3.0 天。 -->
+
+  <ThoughtDef>
+    <defName>RimAI_ChatReaction_Slot1</defName>
+    <label>chat reaction</label>
+    <description>Reaction to recent conversations (slot 1).</description>
+    <thoughtClass>RimAI.Core.Source.RimWorldCompat.Thoughts.Thought_Memory_RimAI_ChatReaction, RimAI.Core</thoughtClass>
+    <durationDays>3.0</durationDays>
+    <showBubble>true</showBubble>
+    <stages>
+      <li>
+        <label>chat reaction</label>
+        <baseMoodEffect>0</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+
+  <ThoughtDef>
+    <defName>RimAI_ChatReaction_Slot2</defName>
+    <label>chat reaction</label>
+    <description>Reaction to recent conversations (slot 2).</description>
+    <thoughtClass>RimAI.Core.Source.RimWorldCompat.Thoughts.Thought_Memory_RimAI_ChatReaction, RimAI.Core</thoughtClass>
+    <durationDays>3.0</durationDays>
+    <showBubble>true</showBubble>
+    <stages>
+      <li>
+        <label>chat reaction</label>
+        <baseMoodEffect>0</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+
+  <ThoughtDef>
+    <defName>RimAI_ChatReaction_Slot3</defName>
+    <label>chat reaction</label>
+    <description>Reaction to recent conversations (slot 3).</description>
+    <thoughtClass>RimAI.Core.Source.RimWorldCompat.Thoughts.Thought_Memory_RimAI_ChatReaction, RimAI.Core</thoughtClass>
+    <durationDays>3.0</durationDays>
+    <showBubble>true</showBubble>
+    <stages>
+      <li>
+        <label>chat reaction</label>
+        <baseMoodEffect>0</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+
+</Defs>

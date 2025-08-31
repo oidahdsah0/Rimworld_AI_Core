@@ -133,6 +133,16 @@ namespace RimAI.Core.Source.Modules.World
 		Task<int> TryDevExplosionsNearEnemiesAsync(int strikes, int radius, CancellationToken ct = default);
 
 		/// <summary>
+		/// 为指定殖民者应用一次“聊天反应”内存思想（RimAI_ChatReaction），即时影响心情。
+		/// </summary>
+		/// <param name="pawnLoadId">目标 Pawn 的 thingIDNumber。</param>
+		/// <param name="delta">心情增量（-30..30 建议范围，内部不再裁剪）。</param>
+		/// <param name="title">用于顶左提示的标题（可空）。</param>
+		/// <param name="ct">取消令牌。</param>
+		Task<bool> TryApplyChatReactionAsync(int pawnLoadId, int delta, string title, CancellationToken ct = default);
+		Task<bool> TryApplyChatReactionAsync(int pawnLoadId, int delta, string title, int durationTicksOverride, CancellationToken ct = default);
+
+		/// <summary>
 		/// 调整一个派系与玩家派系之间的好感度（-100..100 范围剪裁），并返回前后值与派系信息。
 		/// </summary>
 		/// <param name="factionLoadId">目标派系的稳定 loadID。</param>

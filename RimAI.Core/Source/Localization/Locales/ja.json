@@ -96,7 +96,18 @@
   "ui.server.inspection.task_suffix": "[重要：現在の任務] あなたは基地の自動巡検を実施している。以下に返る基地JSONを要約し、記録せよ：",
   "ui.server.inspection.user": "{app} を起動した。JSON出力は下に添付される。ペルソナに一致する声で、AIによる巡検記録を1件作成せよ。プログラムの詳細な結果は：{result}",
   "recap.system.base": "あなたは対話の前情提要アシスタントである。{max}文字以内で、要点風の行として重要事実と進捗を要約せよ；数値は保持；冗長な言い回しは避ける。",
-  "recap.system.prev_label": "[前回の前情提要]"
+  "recap.system.prev_label": "[前回の前情提要]",
+  "ui.server.identity.title": "[Server Identity]",
+  "ui.server.identity.line": "Name: {name}; Serial: {sn}; Level: L{level}",
+  "ui.server.persona.title": "[Server Persona]",
+  "ui.server.env.temp.title": "[Server Room Temperature]",
+  "RimAI.Common.AIServer": "AI Server",
+  "ui.command.summary.important_task": "【重要：現在のタスク】領地の Function Calling を実行中です。ツール結果を取得済み。これらを要約してください。",
+  "tool.pawn_reaction.display_name": "入植者の会話反応",
+  "tool.pawn_reaction.description": "小話（ストリーム完了後）に対する入植者の即時ムード反応を記録します。出力は本言語（日本語）のみ。パラメータ：mood_delta は整数 [-30,30]（正=加点、負=減点）；mood_title はタイトル、7 文字以内、口語・簡潔・当該ラウンドの内容に即し、装飾記号（【】、\"\" など）を避ける。範囲超過や長過ぎる場合はサーバー側で補正。例（タイトル + 数値）：\n- 統治者の称賛 +16\n- 統治者とおしゃべり +7\n- 統治者の厳しい叱責 -29\n- 統治者と曖昧な関係 +30\n- 未来を語った +28\n- 統治者に片想い +12",
+  "tool.pawn_reaction.default_title": "統治者とおしゃべり",
+  "prompt.reaction.system": "【タスク】本ラウンドの小話にもとづき、関数呼び出しのみで3パラメータを返す：mood_delta（整数 -30..30；入植者本人の一人称視点で総督の会話が気分に与えた影響を評価し、ラウンド全体の影響に整合するように採点する）、mood_title（日本語・7文字以内、口語的で簡潔、今回の話題に即し、装飾記号なし）、duration_days（記憶の継続日数 1..10、小数可）。【要件】関数呼び出しのみを出力し、その他のテキストは出力しない；タイトルは日本語であること。下記の例を参照。",
+  "prompt.reaction.examples": "- 総督の称賛 +16\n- 計画が承認 +18\n- 総督と雑談 +7\n- 直し方を発見 +10\n- 晴れ間が出た +6\n- 贈り物が届く +14\n- 仲間が後押し +11\n- ひらめき +8\n- 食料を確保 +20\n- 扉を修理 +7\n- 厳しく叱責 -21\n- 誤解された -8\n- 仕事が倍に -12\n- 物資が減る -15\n- 嵐が近い -10\n- 約束を破られ -7\n- 傷が痛む -9\n- 寝つきが悪い -6\n- 提案が却下 -13\n- 口論になった -11\n- 計画が棚上げ -14\n- 食事を抜いた -5"
 }
 
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Scène : Chat de groupe colons -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>(Trop peu de participants ; chat de groupe ignoré)</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>(Aucune sortie valide pour ce chat de groupe)</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>[Chat de groupe] Tour {0} commence</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>Ce tour de bavardage est terminé.</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>(Impossible de démarrer la tâche de chat de groupe)</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- Scène : Chat serveurs -->
+  <RimAI.Stage.ServerChat.TooFewServers>(Trop peu de serveurs, tour ignoré)</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>(Échec ou délai dépassé du chat serveurs)</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>(Aucune sortie valide pour ce tour)</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>(Aucun contenu d'intervenants autorisés)</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>Tour {0}</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>Serveur {0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

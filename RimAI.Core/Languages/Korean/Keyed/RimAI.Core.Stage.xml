@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- 스테이지: 식민자 그룹 채팅 -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>(참가자가 부족하여 이 라운드를 건너뜁니다)</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>(이번 그룹 채팅에 유효한 출력이 없습니다)</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>[그룹 채팅] {0}라운드 시작</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>이번 라운드의 잡담이 종료되었습니다.</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>(그룹 채팅 임무를 시작할 수 없습니다)</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- 스테이지: 서버 간 채팅 -->
+  <RimAI.Stage.ServerChat.TooFewServers>(서버가 부족하여 이번 라운드를 건너뜁니다)</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>(서버 채팅이 실패했거나 시간 초과되었습니다)</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>(이번 라운드에 유효한 출력이 없습니다)</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>(허용된 발화자에서 나온 내용이 없습니다)</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>{0} 라운드</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>서버 {0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

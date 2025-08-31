@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Сцена: групповой чат поселенцев -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>(Слишком мало участников; чат пропущен)</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>(Нет валидного вывода для этого группового чата)</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>[Групповой чат] Раунд {0} начался</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>Этот раунд беседы завершен.</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>(Не удалось запустить задачу группового чата)</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- Сцена: серверный чат -->
+  <RimAI.Stage.ServerChat.TooFewServers>(Слишком мало серверов, раунд пропущен)</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>(Серверный чат не удался или истек таймаут)</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>(Нет валидного вывода для этого раунда)</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>(Нет сообщений от разрешенных говорящих)</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>Раунд {0}</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>Сервер {0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

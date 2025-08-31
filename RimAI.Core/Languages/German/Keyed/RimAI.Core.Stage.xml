@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Bühne: Gruppenchat Kolonisten -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>(Zu wenige Teilnehmer; Gruppenchat übersprungen)</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>(Kein gültiger Output für diesen Gruppenchat)</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>[Gruppenchat] Runde {0} beginnt</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>Diese Runde Smalltalk ist beendet.</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>(Gruppenchat-Aufgabe konnte nicht gestartet werden)</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- Bühne: Serverchat -->
+  <RimAI.Stage.ServerChat.TooFewServers>(Zu wenige Server, Runde wird übersprungen)</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>(Serverchat fehlgeschlagen oder Zeitüberschreitung)</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>(Kein gültiger Output für diese Runde)</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>(Kein Inhalt von freigegebenen Sprechern)</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>Runde {0}</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>Server {0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

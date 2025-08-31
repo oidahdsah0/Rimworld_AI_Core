@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Stage: Group Chat -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>(Too few participants; skipping group chat)</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>(No valid output for this group chat)</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>[GroupChat] Round {0} Begin</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>This round of small talk has ended.</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>(Failed to start group chat task)</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- Stage: Server Chat -->
+  <RimAI.Stage.ServerChat.TooFewServers>(Too few servers, skipping this round)</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>(Server chat failed or timed out)</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>(No valid output for this round)</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>(No content from whitelisted speakers)</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>Round {0}</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>Server {0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

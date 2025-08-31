@@ -13,6 +13,7 @@ using RimAI.Core.Source.Infrastructure.Configuration;
 using RimAI.Core.Source.Modules.History.View;
 using RimAI.Core.Source.Infrastructure.Localization;
 using RimAI.Core.Contracts.Config;
+using Verse;
 
 namespace RimAI.Core.Source.Modules.Stage.Acts
 {
@@ -58,7 +59,8 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             var participants = (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).ToList();
             if (participants.Count < 2)
             {
-                return new ActResult { Completed = false, Reason = "TooFewParticipants", FinalText = "（参与者不足，跳过本次群聊）" };
+                var msgFew = "RimAI.Stage.GroupChat.TooFewParticipants".Translate().ToString();
+                return new ActResult { Completed = false, Reason = "TooFewParticipants", FinalText = msgFew };
             }
             // 确保历史服务已登记该会话的参与者映射，便于“关联对话”查询
             try { if (_history != null) await _history.UpsertParticipantsAsync(conv, participants, ct).ConfigureAwait(false); } catch { }
@@ -101,7 +103,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 if (_worldAction != null && initiatorId > 0 && others.Count > 0)
                 {
                     session = await _worldAction.StartGroupChatDutyAsync(initiatorId, others, radius, maxDur, ct).ConfigureAwait(false);
-                    if (session == null) { return new ActResult { Completed = false, Reason = "WorldActionFailed", FinalText = "（无法开始群聊任务）" }; }
+                    if (session == null) { var failMsg = "RimAI.Stage.GroupChat.TaskStartFailed".Translate().ToString(); return new ActResult { Completed = false, Reason = "WorldActionFailed", FinalText = failMsg }; }
                 }
             }
             catch (Exception ex) { try { if (_history != null) await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"startSessionError:{ex.GetType().Name}", false, ct).ConfigureAwait(false); } catch { } }
@@ -141,13 +143,13 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                     if (_history != null)
                     {
                         // 在日志记录之前，显式写入一条用户可见的结束语句
-                        try { await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "chat", "该轮闲聊已结束。", false, ct).ConfigureAwait(false); } catch { }
+                        try { var endMsg = "RimAI.Stage.GroupChat.RoundEnd".Translate().ToString(); await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "chat", endMsg, false, ct).ConfigureAwait(false); } catch { }
                         await _history.AppendRecordAsync(conv, $"Stage:{Name}", "agent:stage", "log", $"end:{(completed ? "Completed" : reason ?? "Aborted")}", false, ct).ConfigureAwait(false);
                     }
                 }
                 catch { }
                 // 左上角提示（Act 结束）
-                try { await _worldAction.ShowTopLeftMessageAsync("[GroupChat] End", RimWorld.MessageTypeDefOf.TaskCompletion, ct).ConfigureAwait(false); } catch { }
+                try { var endUi = "RimAI.Stage.GroupChat.RoundEnd".Translate().ToString(); await _worldAction.ShowTopLeftMessageAsync(endUi, RimWorld.MessageTypeDefOf.TaskCompletion, ct).ConfigureAwait(false); } catch { }
             }
 
             // 预取：在播放本轮气泡时并发请求下一轮
@@ -170,7 +172,9 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 {
                     // 兜底：最小合约行（含白名单），防止缺本地化/作曲器失败
                     var whitelist = string.Join(", ", participants.Select((id, i) => $"{i + 1}:{id}"));
-                    systemLocal = $"仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。";
+                    systemLocal = _loc?.Format(req?.Locale ?? "en", "stage.groupchat.system_fallback", new Dictionary<string,string>{{"whitelist", whitelist}},
+                        $"Output strictly a JSON array: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelist}]; no extra explanations.")
+                        ?? $"Output strictly a JSON array: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelist}]; no extra explanations.";
                 }
 
                 // 用户段提示：本地化 + 重复关键 JSON 合约与白名单，强化模型遵循度
@@ -179,13 +183,13 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 try
                 {
                     var args = new Dictionary<string, string> { { "round", round.ToString() }, { "whitelist", whitelistForUser } };
-                    userLocal = _loc?.Format(locale ?? "en", "stage.groupchat.user", args,
-                        $"现在，生成第{round}轮群聊。仅输出 JSON 数组，每个元素形如 {{\\\"speaker\\\":\\\"pawn:<id>\\\",\\\"content\\\":\\\"...\\\"}}；发言者必须在白名单内：[{whitelistForUser}]；不得输出解释文本或额外内容。")
-                        ?? $"现在，生成第{round}轮群聊。仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelistForUser}]；不得输出解释文本或额外内容。";
+                        userLocal = _loc?.Format(locale ?? "en", "stage.groupchat.user", args,
+                            $"Now produce round {round} of the group chat. Output JSON array only: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelistForUser}]; no extra explanations.")
+                            ?? $"Now produce round {round} of the group chat. Output JSON array only: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelistForUser}]; no extra explanations.";
                 }
                 catch
                 {
-                    userLocal = $"现在，生成第{round}轮群聊。仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelistForUser}]；不得输出解释文本或额外内容。";
+                        userLocal = $"Now produce round {round} of the group chat. Output JSON array only: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelistForUser}]; no extra explanations.";
                 }
                 var msgs = new List<RimAI.Framework.Contracts.ChatMessage>();
                 msgs.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemLocal });
@@ -208,7 +212,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                     Stream = false,
                     ForceJsonOutput = true
                 };
-                try { await _worldAction.ShowTopLeftMessageAsync($"[GroupChat] Round {round} Begin", RimWorld.MessageTypeDefOf.NeutralEvent, token).ConfigureAwait(false); } catch { }
+                try { await _worldAction.ShowTopLeftMessageAsync("RimAI.Stage.GroupChat.RoundBegin".Translate(round).ToString(), RimWorld.MessageTypeDefOf.NeutralEvent, token).ConfigureAwait(false); } catch { }
                 var respLocal = await _llm.GetResponseAsync(chatReqLocal, token).ConfigureAwait(false);
                 // 控制台输出原始 LLM 返回内容（截断以防日志过长）
                 try
@@ -328,7 +332,8 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
             if (aborted || actualRounds < rounds)
             {
-                return new ActResult { Completed = false, Reason = aborted ? "Aborted" : "NoContent", FinalText = "（本次群聊无有效输出）", Rounds = 0 };
+                var nm = "RimAI.Stage.GroupChat.NoContent".Translate().ToString();
+                return new ActResult { Completed = false, Reason = aborted ? "Aborted" : "NoContent", FinalText = nm, Rounds = 0 };
             }
             finalTranscript = transcript.ToString().TrimEnd();
             return new ActResult { Completed = true, Reason = "Completed", FinalText = finalTranscript, Rounds = actualRounds };
@@ -349,14 +354,14 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 var pool = list.Where(x => x != center).OrderBy(_ => rnd.Next()).Take(Math.Max(1, count - 1)).ToList();
                 pool.Insert(0, center);
                 var participants = pool.Select(x => $"pawn:{x}").ToList();
-                var scenario = $"群聊触发：预期轮数={rounds}，参与者={string.Join(",", participants)}";
+                var scenario = $"groupchat:auto rounds={rounds}; participants={string.Join(",", participants)}";
                 return new StageIntent
                 {
                     ActName = Name,
                     ParticipantIds = participants,
                     Origin = "Global",
                     ScenarioText = scenario,
-                    Locale = "zh-Hans",
+                    Locale = _loc?.GetDefaultLocale() ?? "en",
                     Seed = DateTime.UtcNow.Ticks.ToString()
                 };
             }

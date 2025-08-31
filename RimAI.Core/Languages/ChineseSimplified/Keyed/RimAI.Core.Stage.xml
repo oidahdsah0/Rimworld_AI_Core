@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- 舞台：小人群聊 -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>（参与者不足，跳过本次群聊）</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>（本次群聊无有效输出）</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>【群聊】第{0}轮开始</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>该轮闲聊已结束。</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>（无法开始群聊任务）</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- 舞台：服务器群聊 -->
+  <RimAI.Stage.ServerChat.TooFewServers>（服务器数量不足，跳过本次群聊）</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>（服务器群聊失败或超时）</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>（本次群聊无有效输出）</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>（无白名单内有效输出）</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>第{0}轮</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>服务器{0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

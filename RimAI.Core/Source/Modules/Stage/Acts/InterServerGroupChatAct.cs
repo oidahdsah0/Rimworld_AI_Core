@@ -15,6 +15,7 @@ using RimAI.Core.Source.Modules.History;
 using RimAI.Core.Source.Modules.Server;
 using RimAI.Core.Source.Modules.Tooling;
 using Newtonsoft.Json.Linq;
+using Verse;
 
 namespace RimAI.Core.Source.Modules.Stage.Acts
 {
@@ -50,7 +51,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			if (servers.Count == 0) { servers = ParseServersFromScenario(req?.ScenarioText); }
 			if (servers.Count < 2)
 			{
-				var msg = _loc?.Get(req?.Locale, "act.serverchat.too_few_servers", "(Too few servers, skipping this round)") ?? "(Too few servers, skipping this round)";
+				var msg = "RimAI.Stage.ServerChat.TooFewServers".Translate().ToString();
 				return new ActResult { Completed = false, Reason = "TooFewServers", FinalText = msg };
 			}
 
@@ -146,13 +147,13 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 						new RimAI.Framework.Contracts.ChatMessage{ Role = "user", Content = userTextFb }
 					},
 					Stream = false,
-					ForceJsonOutput = true
+					ForceJsonOutput = false
 				};
 				var respFb = await _llm.GetResponseAsync(chatReqFb, ct).ConfigureAwait(false);
-				if (!respFb.IsSuccess) { var em = _loc?.Get(locale, "act.serverchat.failed", "(Server chat failed or timed out)"); return new ActResult { Completed = false, Reason = respFb.Error ?? "Error", FinalText = em }; }
+				if (!respFb.IsSuccess) { var em = "RimAI.Stage.ServerChat.Failed".Translate().ToString(); return new ActResult { Completed = false, Reason = respFb.Error ?? "Error", FinalText = em }; }
 				var jsonFb = respFb.Value?.Message?.Content ?? string.Empty;
 				List<Dictionary<string, object>> arrFb = null; try { arrFb = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(jsonFb); } catch { arrFb = null; }
-				if (arrFb == null || arrFb.Count == 0) { var nm = _loc?.Get(locale, "act.serverchat.no_content", "(No valid output for this round)"); return new ActResult { Completed = false, Reason = "NoContent", FinalText = nm }; }
+				if (arrFb == null || arrFb.Count == 0) { var nm = "RimAI.Stage.ServerChat.NoContent".Translate().ToString(); return new ActResult { Completed = false, Reason = "NoContent", FinalText = nm }; }
 				var msgsFb = new List<(string speaker, string content)>();
 				foreach (var item in arrFb)
 				{
@@ -166,17 +167,17 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					if (!servers.Contains(spk)) continue;
 					msgsFb.Add((spk.Trim(), txt.Trim()));
 				}
-				if (msgsFb.Count == 0) { var nw = _loc?.Get(locale, "act.serverchat.no_whitelist", "(No content from whitelisted speakers)"); return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = nw }; }
+				if (msgsFb.Count == 0) { var nw = "RimAI.Stage.ServerChat.NoWhitelist".Translate().ToString(); return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = nw }; }
 				// 播放气泡并写历史（1.5s 间隔）
 				await PlayServerBubblesAsync(msgsFb, ct).ConfigureAwait(false);
 
 				// 汇总文本输出
 				var sbFb = new System.Text.StringBuilder();
-				sbFb.AppendLine(_loc?.Format(locale, "stage.serverchat.round_title", new Dictionary<string, string> { { "round", "1" } }) ?? "Round 1");
+				sbFb.AppendLine("RimAI.Stage.ServerChat.RoundTitle".Translate(1).ToString());
 				foreach (var m in msgsFb)
 				{
 					var idx = Math.Max(1, servers.FindIndex(s => string.Equals(s, m.speaker, StringComparison.OrdinalIgnoreCase)) + 1);
-					var disp = _loc?.Format(locale, "stage.serverchat.server_display", new Dictionary<string, string> { { "index", idx.ToString() } }) ?? ($"Server {idx}");
+					var disp = "RimAI.Stage.ServerChat.ServerDisplay".Translate(idx).ToString();
 					sbFb.AppendLine($"【{disp}】{m.content}");
 				}
 				var finalTextFb = sbFb.ToString().TrimEnd();
@@ -282,14 +283,17 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			{
 				// 工具执行未产出时，也回退到随机关联话题
 				var locale = req?.Locale;
-				var topicsJoined = _loc?.Get(locale, "stage.serverchat.random_topics", "供电故障备援|机房散热|日志瘦身|备份策略|风暴来袭|入侵防护|升级调度|应急演练|风扇积灰|电池健康");
+				var topicsJoined = _loc?.Get(locale, "stage.serverchat.random_topics", "backup power|room cooling|log slimming|backup strategy|incoming storm|intrusion defense|upgrade scheduling|emergency drill|dusty fans|battery health");
 				var topicList = (topicsJoined ?? string.Empty).Split(new[] { '|', '\n', ';', '，', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
-				var topicPick = topicList.Count > 0 ? topicList[new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, topicList.Count)] : "机房散热";
-				var style = _loc?.Get(locale, "stage.serverchat.random_topic.instruction", "请以 RimWorld 的黑色幽默风格、口语化、简短地围绕该话题各说一句；不输出解释文本。");
-				var extBlocksFb2 = new List<ContextBlock> { new ContextBlock { Title = "议题：" + topicPick, Text = style } };
+				var topicPick = topicList.Count > 0 ? topicList[new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, topicList.Count)] : _loc?.Get(locale, "stage.serverchat.topic.default", "room cooling");
+				var style = _loc?.Get(locale, "stage.serverchat.random_topic.instruction", "In RimWorld's dark humor style, spoken and concise, each server says one line around the topic; no extra explanations.");
+				var topicLabelFb2 = _loc?.Get(locale, "stage.serverchat.topic", "Topic");
+				var colonFb2 = _loc?.Get(locale, "prompt.punct.colon", ": ") ?? ": ";
+				var extBlocksFb2 = new List<ContextBlock> { new ContextBlock { Title = (topicLabelFb2 ?? "Topic") + colonFb2 + topicPick, Text = style } };
 				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = req?.Locale, ExternalBlocks = extBlocksFb2 }, ct).ConfigureAwait(false);
 				var systemTextFb = builtPromptFallback?.SystemPrompt ?? string.Empty;
-				var userTextFb = "现在，生成第1轮服务器群聊。";
+				var userTextFb = _loc?.Format(locale, "stage.serverchat.user", new Dictionary<string, string> { { "round", "1" } })
+					?? "Now produce round 1 of the server chat. Output JSON array only: each element is {\"speaker\":\"thing:<id>\",\"content\":\"...\"}; no extra explanations.";
 				var chatReqFb = new RimAI.Framework.Contracts.UnifiedChatRequest
 				{
 					ConversationId = conv,
@@ -302,10 +306,18 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					ForceJsonOutput = true
 				};
 				var respFb = await _llm.GetResponseAsync(chatReqFb, ct).ConfigureAwait(false);
-				if (!respFb.IsSuccess) { return new ActResult { Completed = false, Reason = respFb.Error ?? "Error", FinalText = "（服务器群聊失败或超时）" }; }
+				if (!respFb.IsSuccess)
+				{
+					var em2 = "RimAI.Stage.ServerChat.Failed".Translate().ToString();
+					return new ActResult { Completed = false, Reason = respFb.Error ?? "Error", FinalText = em2 };
+				}
 				var jsonFb = respFb.Value?.Message?.Content ?? string.Empty;
 				List<Dictionary<string, object>> arrFb = null; try { arrFb = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(jsonFb); } catch { arrFb = null; }
-				if (arrFb == null || arrFb.Count == 0) { return new ActResult { Completed = false, Reason = "NoContent", FinalText = "（本次群聊无有效输出）" }; }
+				if (arrFb == null || arrFb.Count == 0)
+				{
+					var nm2 = "RimAI.Stage.ServerChat.NoContent".Translate().ToString();
+					return new ActResult { Completed = false, Reason = "NoContent", FinalText = nm2 };
+				}
 				var msgsFb = new List<(string speaker, string content)>();
 				foreach (var item in arrFb)
 				{
@@ -319,14 +331,18 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					if (!servers.Contains(spk)) continue;
 					msgsFb.Add((spk.Trim(), txt.Trim()));
 				}
-				if (msgsFb.Count == 0) { return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = "（无白名单内有效输出）" }; }
+				if (msgsFb.Count == 0)
+				{
+					var nw2 = "RimAI.Stage.ServerChat.NoWhitelist".Translate().ToString();
+					return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = nw2 };
+				}
 				await PlayServerBubblesAsync(msgsFb, ct).ConfigureAwait(false);
 				var sbFb = new System.Text.StringBuilder();
-				sbFb.AppendLine("第1轮");
+				sbFb.AppendLine("RimAI.Stage.ServerChat.RoundTitle".Translate(1).ToString());
 				foreach (var m in msgsFb)
 				{
 					var idx = Math.Max(1, servers.FindIndex(s => string.Equals(s, m.speaker, StringComparison.OrdinalIgnoreCase)) + 1);
-					var disp = $"服务器{idx}";
+					var disp = "RimAI.Stage.ServerChat.ServerDisplay".Translate(idx).ToString();
 					sbFb.AppendLine($"【{disp}】{m.content}");
 				}
 				var finalTextFb = sbFb.ToString().TrimEnd();
@@ -363,7 +379,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			var resp = await _llm.GetResponseAsync(chatReq, ct).ConfigureAwait(false);
 			if (!resp.IsSuccess)
 			{
-				var em = _loc?.Get(req?.Locale, "act.serverchat.failed", "(Server chat failed or timed out)");
+				var em = "RimAI.Stage.ServerChat.Failed".Translate().ToString();
 				return new ActResult { Completed = false, Reason = resp.Error ?? "Error", FinalText = em };
 			}
 			var json = resp.Value?.Message?.Content ?? string.Empty;
@@ -371,7 +387,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			try { arr = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(json); } catch { arr = null; }
 			if (arr == null || arr.Count == 0)
 			{
-				var nm = _loc?.Get(req?.Locale, "act.serverchat.no_content", "(No valid output for this round)");
+				var nm = "RimAI.Stage.ServerChat.NoContent".Translate().ToString();
 				return new ActResult { Completed = false, Reason = "NoContent", FinalText = nm };
 			}
 			var msgs = new List<(string speaker, string content)>();
@@ -389,7 +405,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			}
 			if (msgs.Count == 0)
 			{
-				var nw = _loc?.Get(req?.Locale, "act.serverchat.no_whitelist", "(No content from whitelisted speakers)");
+				var nw = "RimAI.Stage.ServerChat.NoWhitelist".Translate().ToString();
 				return new ActResult { Completed = false, Reason = "NoWhitelistedContent", FinalText = nw };
 			}
 			// 与小人群聊一致：使用生产者/消费者队列，消费者以 1.5s 间隔播放气泡
@@ -479,7 +495,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 					ParticipantIds = new[] { "agent:server_hub", "player:servers" },
 					Origin = "Global",
 					ScenarioText = scenario,
-					Locale = "zh-Hans",
+					Locale = _loc?.GetDefaultLocale() ?? "en",
 					Seed = DateTime.UtcNow.Ticks.ToString()
 				};
 			}

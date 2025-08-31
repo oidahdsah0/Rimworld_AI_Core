@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- ステージ：入植者グループチャット -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>（参加者が不足しているため、このラウンドはスキップ）</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>（このグループチャットに有効な出力はありません）</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>【グループチャット】第{0}ラウンド開始</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>このラウンドの雑談は終了しました。</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>（グループチャット任務を開始できませんでした）</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- ステージ：サーバー間チャット -->
+  <RimAI.Stage.ServerChat.TooFewServers>（サーバー数が少ないため、このラウンドをスキップ）</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>（サーバーチャットは失敗またはタイムアウト）</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>（このラウンドに有効な出力はありません）</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>（ホワイトリストの話者からの内容がありません）</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>第{0}ラウンド</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>サーバー{0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

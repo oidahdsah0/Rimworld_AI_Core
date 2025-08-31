@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Palco: bate-papo em grupo (colonos) -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>(Poucos participantes; bate-papo em grupo ignorado)</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>(Sem saída válida para este bate-papo em grupo)</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>[Grupo] Início da rodada {0}</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>Esta rodada de conversa terminou.</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>(Falha ao iniciar a tarefa de bate-papo em grupo)</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- Palco: bate-papo entre servidores -->
+  <RimAI.Stage.ServerChat.TooFewServers>(Poucos servidores; esta rodada foi ignorada)</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>(Falha ou tempo esgotado no bate-papo de servidores)</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>(Sem saída válida nesta rodada)</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>(Sem conteúdo de palestrantes permitidos)</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>Rodada {0}</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>Servidor {0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

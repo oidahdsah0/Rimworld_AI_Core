@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Escena: chat en grupo de peones -->
+  <RimAI.Stage.GroupChat.TooFewParticipants>(Muy pocos participantes; se omite el chat en grupo)</RimAI.Stage.GroupChat.TooFewParticipants>
+  <RimAI.Stage.GroupChat.NoContent>(Sin salida válida para este chat en grupo)</RimAI.Stage.GroupChat.NoContent>
+  <RimAI.Stage.GroupChat.RoundBegin>[Chat en grupo] Comienza la ronda {0}</RimAI.Stage.GroupChat.RoundBegin>
+  <RimAI.Stage.GroupChat.RoundEnd>Esta ronda de charla ha terminado.</RimAI.Stage.GroupChat.RoundEnd>
+  <RimAI.Stage.GroupChat.TaskStartFailed>(No se pudo iniciar la tarea de chat en grupo)</RimAI.Stage.GroupChat.TaskStartFailed>
+
+  <!-- Escena: chat entre servidores -->
+  <RimAI.Stage.ServerChat.TooFewServers>(Muy pocos servidores; se omite esta ronda)</RimAI.Stage.ServerChat.TooFewServers>
+  <RimAI.Stage.ServerChat.Failed>(El chat de servidores falló o agotó el tiempo)</RimAI.Stage.ServerChat.Failed>
+  <RimAI.Stage.ServerChat.NoContent>(Sin salida válida para esta ronda)</RimAI.Stage.ServerChat.NoContent>
+  <RimAI.Stage.ServerChat.NoWhitelist>(Sin contenido de los oradores permitidos)</RimAI.Stage.ServerChat.NoWhitelist>
+  <RimAI.Stage.ServerChat.RoundTitle>Ronda {0}</RimAI.Stage.ServerChat.RoundTitle>
+  <RimAI.Stage.ServerChat.ServerDisplay>Servidor {0}</RimAI.Stage.ServerChat.ServerDisplay>
+</LanguageData>

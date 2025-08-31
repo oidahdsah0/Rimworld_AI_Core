@@ -112,4 +112,3 @@
   "prompt.requirement.output_language": "Top requirement: Output language. In this conversation, unless a specific part must be in English, you should present most player-visible content in the target locale's language."
 }
 
-

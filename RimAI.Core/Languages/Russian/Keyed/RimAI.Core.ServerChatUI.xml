@@ -15,4 +15,8 @@
 
   <!-- Названия инструментов -->
   <RimAI.Tool.DisplayName.ai_diplomat>Дипломат ИИ</RimAI.Tool.DisplayName.ai_diplomat>
+  
+  <!-- Страница журнала инспекций -->
+  <RimAI.SCW.InspectionHistory.Header>Журнал инспекций</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>Очистить журнал</RimAI.SCW.InspectionHistory.Clear>
 </LanguageData>

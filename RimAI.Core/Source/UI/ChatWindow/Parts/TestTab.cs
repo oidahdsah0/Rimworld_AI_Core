@@ -21,7 +21,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		{
 			// Header
 			Text.Font = GameFont.Medium;
-			Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "RimAI.ChatUI.Tabs.Test".Translate());
+			Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 28f), "Test");
 			Text.Font = GameFont.Small;
 			var y = inRect.y + 36f;
 
@@ -29,9 +29,9 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			bool dev = Prefs.DevMode;
 			GUI.enabled = dev;
 			var btnRect = new Rect(inRect.x, y, 160f, 28f);
-			if (Widgets.ButtonText(btnRect, "RimAI.ChatUI.Test.TriggerGroupChat".Translate()))
+			if (Widgets.ButtonText(btnRect, "Trigger Group Chat"))
 			{
-				_status = "RimAI.ChatUI.Test.Working".Translate();
+				_status = "Working...";
 				_cts?.Cancel();
 				_cts = new CancellationTokenSource();
 				var token = _cts.Token;
@@ -42,7 +42,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 						var stage = container.Resolve<IStageService>();
 						var ids = await world.GetAllColonistLoadIdsAsync(token).ConfigureAwait(false);
 						var list = ids?.ToList() ?? new List<int>();
-						if (list.Count < 2) { _status = "RimAI.ChatUI.Test.GroupChat.NotEnough".Translate(); return; }
+						if (list.Count < 2) { _status = "Not enough participants, at least 2 colonists required"; return; }
 						// choose 2..4 participants
 						var rnd = new System.Random(unchecked(Environment.TickCount ^ list.Count));
 						int count = Math.Max(2, Math.Min(5, 2 + rnd.Next(0, 4)));
@@ -60,12 +60,12 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 						var convKey = string.Join("|", pids);
 						var intent = new StageIntent { ActName = "GroupChat", ParticipantIds = participants, Origin = "ChatUI-Test", ScenarioText = string.Empty, Locale = "zh-Hans", Seed = DateTime.UtcNow.Ticks.ToString() };
 						var decision = await stage.SubmitIntentAsync(intent, token).ConfigureAwait(false);
-						if (decision == null || decision.Ticket == null) { _status = "RimAI.ChatUI.Test.GroupChat.Failed".Translate(); return; }
-						_status = "RimAI.ChatUI.Test.GroupChat.Done".Translate(participants.Count);
+						if (decision == null || decision.Ticket == null) { _status = "Trigger failed"; return; }
+						_status = $"Group chat triggered ({participants.Count} participants)";
 					}
 					catch (Exception ex)
 					{
-						try { _status = "RimAI.ChatUI.Test.GroupChat.Error".Translate(ex.GetType().Name); } catch { _status = "Error"; }
+						_status = $"Error: {ex.GetType().Name}";
 					}
 				}, token);
 			}
@@ -73,19 +73,19 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 
 			// Second button: Dump all history convKeys (always enabled)
 			var btnRect2 = new Rect(inRect.x + 170f, y, 220f, 28f);
-			if (Widgets.ButtonText(btnRect2, "输出历史服务所有键"))
+			if (Widgets.ButtonText(btnRect2, "Dump All History Keys"))
 			{
 				try
 				{
 					var history = container.Resolve<IHistoryService>();
 					var keys = history?.GetAllConvKeys() ?? new List<string>();
 					var preview = string.Join("\n", keys);
-					_status = $"历史键（{keys.Count}）:\n{preview}";
+					_status = $"History Keys ({keys.Count}):\n{preview}";
 					try { GUIUtility.systemCopyBuffer = _status; } catch { }
 				}
 				catch (Exception ex)
 				{
-					_status = $"获取失败: {ex.GetType().Name}";
+					_status = $"Failed to get: {ex.GetType().Name}";
 				}
 			}
 

@@ -15,4 +15,8 @@
 
   <!-- Noms d'outils -->
   <RimAI.Tool.DisplayName.ai_diplomat>Diplomate IA</RimAI.Tool.DisplayName.ai_diplomat>
+  
+  <!-- Page d'historique d'inspection -->
+  <RimAI.SCW.InspectionHistory.Header>Historique des inspections</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>Effacer l'historique</RimAI.SCW.InspectionHistory.Clear>
 </LanguageData>

@@ -15,4 +15,8 @@
 
   <!-- 도구 표시 이름 -->
   <RimAI.Tool.DisplayName.ai_diplomat>AI 외교관</RimAI.Tool.DisplayName.ai_diplomat>
+  
+  <!-- 점검 기록 페이지 -->
+  <RimAI.SCW.InspectionHistory.Header>점검 기록</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>기록 지우기</RimAI.SCW.InspectionHistory.Clear>
 </LanguageData>

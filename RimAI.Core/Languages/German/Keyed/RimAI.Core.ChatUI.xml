@@ -31,7 +31,7 @@
   <RimAI.ChatUI.Tabs.Persona>Persona</RimAI.ChatUI.Tabs.Persona>
   <RimAI.ChatUI.Tabs.Job>Jobs</RimAI.ChatUI.Tabs.Job>
   <RimAI.ChatUI.Tabs.FixedPrompt>Fester Prompt</RimAI.ChatUI.Tabs.FixedPrompt>
-  <RimAI.ChatUI.Tabs.Test>Test</RimAI.ChatUI.Tabs.Test>
+  <!-- Test tab label hardcoded in code; key removed -->
 
   <!-- Header / vitals -->
   <RimAI.ChatUI.Header.Vitals>Vitalwerte:</RimAI.ChatUI.Header.Vitals>
@@ -91,12 +91,9 @@
   <RimAI.ChatUI.Job.History.Transferred>Sie wurden auf die Position {0} versetzt</RimAI.ChatUI.Job.History.Transferred>
   <RimAI.ChatUI.Job.History.Assigned>Sie wurden als {0} ernannt</RimAI.ChatUI.Job.History.Assigned>
   
-  <!-- Test Tab -->
-  <RimAI.ChatUI.Test.TriggerGroupChat>Gruppenchat auslösen</RimAI.ChatUI.Test.TriggerGroupChat>
-  <RimAI.ChatUI.Test.Working>Wird ausgeführt...</RimAI.ChatUI.Test.Working>
-  <RimAI.ChatUI.Test.GroupChat.NotEnough>Nicht genügend Teilnehmer, mindestens 2 Kolonisten erforderlich</RimAI.ChatUI.Test.GroupChat.NotEnough>
-  <RimAI.ChatUI.Test.GroupChat.Failed>Auslösung fehlgeschlagen</RimAI.ChatUI.Test.GroupChat.Failed>
-  <RimAI.ChatUI.Test.GroupChat.Done>Gruppenchat ausgelöst ({0} Teilnehmer)</RimAI.ChatUI.Test.GroupChat.Done>
-  <RimAI.ChatUI.Test.GroupChat.Error>Fehler: {0}</RimAI.ChatUI.Test.GroupChat.Error>
+  <!-- Related: clear selected conversation -->
+  <RimAI.ChatUI.Related.ClearSelected>Ausgewählten Thread leeren</RimAI.ChatUI.Related.ClearSelected>
+  
+  <!-- Test Tab strings hardcoded; keys removed -->
 </LanguageData>
 

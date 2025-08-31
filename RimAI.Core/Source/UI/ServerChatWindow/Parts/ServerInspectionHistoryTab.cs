@@ -79,8 +79,12 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 
 			var headerRect = new Rect(inRect.x, inRect.y, inRect.width, 30f);
 			var btnRect = new Rect(inRect.xMax - 140f, inRect.y + 2f, 130f, 26f);
+			// 标题使用 Medium 字体
+			var prevFont = Text.Font;
 			Text.Font = GameFont.Medium;
 			Widgets.Label(headerRect, "RimAI.SCW.InspectionHistory.Header".Translate());
+			// 其余内容（按钮与列表）统一使用 Small 字体
+			Text.Font = GameFont.Small;
 			// ...
 			var prev = GUI.enabled; GUI.enabled = !state.Clearing;
 			if (Widgets.ButtonText(btnRect, "RimAI.SCW.InspectionHistory.Clear".Translate()))
@@ -98,6 +102,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 			var contentRect = new Rect(inRect.x, headerRect.yMax + 6f, inRect.width, inRect.height - 36f);
 			EnsureLoaded(history, state, convKey);
 			DrawEntries(contentRect, state);
+			// 恢复外部字体状态，避免影响其他 UI
+			Text.Font = prevFont;
 		}
 
 	private static void EnsureLoaded(IHistoryService history, State state, string convKey)
@@ -111,6 +117,8 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 
 		private static void DrawEntries(Rect rect, State state)
 		{
+			var prevFont = Text.Font;
+			Text.Font = GameFont.Small; // 记录内容统一使用 Small 字体
 			var entries = state.Entries ?? new List<RimAI.Core.Source.Modules.History.Models.HistoryEntry>();
 			float totalH = 4f;
 			float contentW = rect.width - 16f;
@@ -134,6 +142,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
 				y += h + 8f;
 			}
 			Widgets.EndScrollView();
+			Text.Font = prevFont;
 		}
 	}
 }

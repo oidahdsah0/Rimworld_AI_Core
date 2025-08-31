@@ -31,7 +31,7 @@
   <RimAI.ChatUI.Tabs.Persona>Persona</RimAI.ChatUI.Tabs.Persona>
   <RimAI.ChatUI.Tabs.Job>Postes</RimAI.ChatUI.Tabs.Job>
   <RimAI.ChatUI.Tabs.FixedPrompt>Prompt fixe</RimAI.ChatUI.Tabs.FixedPrompt>
-  <RimAI.ChatUI.Tabs.Test>Test</RimAI.ChatUI.Tabs.Test>
+  <!-- Test tab label hardcoded in code; key removed -->
 
   <!-- Header / vitals -->
   <RimAI.ChatUI.Header.Vitals>Signes vitaux :</RimAI.ChatUI.Header.Vitals>
@@ -91,12 +91,9 @@
   <RimAI.ChatUI.Job.History.Transferred>Vous avez été muté au poste {0}</RimAI.ChatUI.Job.History.Transferred>
   <RimAI.ChatUI.Job.History.Assigned>Vous avez été nommé {0}</RimAI.ChatUI.Job.History.Assigned>
   
-  <!-- Test Tab -->
-  <RimAI.ChatUI.Test.TriggerGroupChat>Déclencher le chat de groupe</RimAI.ChatUI.Test.TriggerGroupChat>
-  <RimAI.ChatUI.Test.Working>En cours...</RimAI.ChatUI.Test.Working>
-  <RimAI.ChatUI.Test.GroupChat.NotEnough>Participants insuffisants, au moins 2 colons requis</RimAI.ChatUI.Test.GroupChat.NotEnough>
-  <RimAI.ChatUI.Test.GroupChat.Failed>Échec du déclenchement</RimAI.ChatUI.Test.GroupChat.Failed>
-  <RimAI.ChatUI.Test.GroupChat.Done>Chat de groupe déclenché ({0} participants)</RimAI.ChatUI.Test.GroupChat.Done>
-  <RimAI.ChatUI.Test.GroupChat.Error>Erreur : {0}</RimAI.ChatUI.Test.GroupChat.Error>
+  <!-- Related: clear selected conversation -->
+  <RimAI.ChatUI.Related.ClearSelected>Effacer la conversation sélectionnée</RimAI.ChatUI.Related.ClearSelected>
+  
+  <!-- Test Tab strings hardcoded; keys removed -->
 </LanguageData>
 

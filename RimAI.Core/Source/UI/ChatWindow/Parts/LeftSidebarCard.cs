@@ -103,7 +103,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				var testRect = new Rect(x, y, w, buttonH);
 				var prevEnabledT = GUI.enabled;
 				GUI.enabled = !isStreaming;
-				if (Widgets.ButtonText(testRect, "RimAI.ChatUI.Tabs.Test".Translate())) activeTab = ChatTab.Test;
+				if (Widgets.ButtonText(testRect, "Test")) activeTab = ChatTab.Test;
 				GUI.enabled = prevEnabledT;
 				y += buttonH + spacing;
 			}

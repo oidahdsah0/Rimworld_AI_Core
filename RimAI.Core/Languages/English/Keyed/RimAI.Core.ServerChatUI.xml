@@ -17,6 +17,10 @@
   <!-- Tool display names -->
   <RimAI.Tool.DisplayName.ai_diplomat>AI Diplomat</RimAI.Tool.DisplayName.ai_diplomat>
   
+  <!-- Inspection history page -->
+  <RimAI.SCW.InspectionHistory.Header>Inspection Records</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>Clear records</RimAI.SCW.InspectionHistory.Clear>
+  
 </LanguageData>
 
 

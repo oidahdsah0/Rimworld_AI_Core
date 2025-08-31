@@ -16,6 +16,10 @@
 
   <!-- 工具显示名 -->
   <RimAI.Tool.DisplayName.ai_diplomat>AI 外交官</RimAI.Tool.DisplayName.ai_diplomat>
+  
+  <!-- 巡检记录页 -->
+  <RimAI.SCW.InspectionHistory.Header>巡检记录</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>清空记录</RimAI.SCW.InspectionHistory.Clear>
 </LanguageData>
 
 

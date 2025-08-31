@@ -19,7 +19,8 @@ namespace RimAI.Core.Source.UI.Gizmos
 
             yield return new Command_Action
             {
-                defaultLabel = "RimAI.ServerChatUI.Button.BackToChat".Translate(),
+                // 复用 ChatWindow 的打开键：“信息传输”
+                defaultLabel = "RimAI.ChatUI.Gizmo.Open".Translate(),
                 defaultDesc = "RimAI.Core.Buildings.InfoSendDesc".Translate(),
                 icon = ContentFinder<Texture2D>.Get("RimAI/Chat/InfoSend", true),
                 action = () =>

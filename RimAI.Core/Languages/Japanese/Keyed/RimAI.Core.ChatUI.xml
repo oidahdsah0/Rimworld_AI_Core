@@ -31,7 +31,7 @@
   <RimAI.ChatUI.Tabs.Persona>ペルソナ</RimAI.ChatUI.Tabs.Persona>
   <RimAI.ChatUI.Tabs.Job>職務</RimAI.ChatUI.Tabs.Job>
   <RimAI.ChatUI.Tabs.FixedPrompt>固定プロンプト</RimAI.ChatUI.Tabs.FixedPrompt>
-  <RimAI.ChatUI.Tabs.Test>テスト</RimAI.ChatUI.Tabs.Test>
+  <!-- Test tab label hardcoded in code; key removed -->
 
   <!-- Header / vitals -->
   <RimAI.ChatUI.Header.Vitals>バイタル：</RimAI.ChatUI.Header.Vitals>
@@ -91,12 +91,9 @@
   <RimAI.ChatUI.Job.History.Transferred>あなたは{0}に異動されました</RimAI.ChatUI.Job.History.Transferred>
   <RimAI.ChatUI.Job.History.Assigned>あなたは{0}に任命されました</RimAI.ChatUI.Job.History.Assigned>
   
-  <!-- Test Tab -->
-  <RimAI.ChatUI.Test.TriggerGroupChat>グループチャットを起動</RimAI.ChatUI.Test.TriggerGroupChat>
-  <RimAI.ChatUI.Test.Working>実行中...</RimAI.ChatUI.Test.Working>
-  <RimAI.ChatUI.Test.GroupChat.NotEnough>参加者が不足しています。少なくとも2人の入植者が必要です</RimAI.ChatUI.Test.GroupChat.NotEnough>
-  <RimAI.ChatUI.Test.GroupChat.Failed>起動に失敗しました</RimAI.ChatUI.Test.GroupChat.Failed>
-  <RimAI.ChatUI.Test.GroupChat.Done>グループチャットを起動しました（{0}人）</RimAI.ChatUI.Test.GroupChat.Done>
-  <RimAI.ChatUI.Test.GroupChat.Error>エラー：{0}</RimAI.ChatUI.Test.GroupChat.Error>
+  <!-- Related: clear selected conversation -->
+  <RimAI.ChatUI.Related.ClearSelected>選択した会話をクリア</RimAI.ChatUI.Related.ClearSelected>
+  
+  <!-- Test Tab strings hardcoded; keys removed -->
 </LanguageData>
 

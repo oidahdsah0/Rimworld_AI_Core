@@ -16,4 +16,8 @@
   <!-- Tool display names -->
   <RimAI.Tool.DisplayName.ai_diplomat>KI-Diplomat</RimAI.Tool.DisplayName.ai_diplomat>
   
+  <!-- Inspektionsverlauf-Seite -->
+  <RimAI.SCW.InspectionHistory.Header>Inspektionsprotokolle</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>Protokolle leeren</RimAI.SCW.InspectionHistory.Clear>
+  
 </LanguageData>

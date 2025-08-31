@@ -15,4 +15,8 @@
 
   <!-- ツール表示名 -->
   <RimAI.Tool.DisplayName.ai_diplomat>AI外交官</RimAI.Tool.DisplayName.ai_diplomat>
+  
+  <!-- 巡回履歴ページ -->
+  <RimAI.SCW.InspectionHistory.Header>巡検記録</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>記録をクリア</RimAI.SCW.InspectionHistory.Clear>
 </LanguageData>

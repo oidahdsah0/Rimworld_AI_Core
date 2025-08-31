@@ -7,6 +7,7 @@ using RimAI.Core.Source.Infrastructure.Scheduler;
 using Verse;
 using RimWorld;
 using UnityEngine;
+using System.Linq;
 
 namespace RimAI.Core.Source.Modules.World.Parts
 {
@@ -26,6 +27,7 @@ namespace RimAI.Core.Source.Modules.World.Parts
             var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeoutMs);
+            // 指定名称用于 Scheduler 的长任务诊断；origin 会在 Scheduler 内自动捕获
             return _scheduler.ScheduleOnMainThreadAsync(() =>
             {
                 if (Current.Game == null) throw new WorldDataException("World not loaded");
@@ -177,6 +179,39 @@ namespace RimAI.Core.Source.Modules.World.Parts
                 catch { }
                 return snap;
             }, name: "GetAiServerSnapshot", ct: cts.Token);
+        }
+
+        public Task<System.Collections.Generic.IReadOnlyList<string>> GetUniqueLoadedServerToolsAsync(CancellationToken ct = default)
+        {
+            var timeoutMs = _cfg.GetWorldDataConfig().DefaultTimeoutMs;
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeoutMs);
+            return _scheduler.ScheduleOnMainThreadAsync(() =>
+            {
+                // 虽然 ServerService 是托管数据，但统一走主线程，避免潜在并发可见性问题
+                try
+                {
+                    var server = RimAI.Core.Source.Boot.RimAICoreMod.Container.Resolve<RimAI.Core.Source.Modules.Server.IServerService>();
+                    var list = server?.List() ?? new List<RimAI.Core.Source.Modules.Persistence.Snapshots.ServerRecord>();
+                    var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var rec in list)
+                    {
+                        if (rec == null) continue;
+                        foreach (var sl in (rec.InspectionSlots ?? new List<RimAI.Core.Source.Modules.Persistence.Snapshots.InspectionSlot>()))
+                        {
+                            if (sl == null || !sl.Enabled) continue;
+                            var name = sl.ToolName;
+                            if (!string.IsNullOrWhiteSpace(name)) set.Add(name);
+                        }
+                    }
+                    var sorted = set.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
+                    return (System.Collections.Generic.IReadOnlyList<string>)sorted;
+                }
+                catch
+                {
+                    return (System.Collections.Generic.IReadOnlyList<string>)new List<string>();
+                }
+            }, name: "GetUniqueLoadedServerTools", ct: cts.Token);
         }
     }
 }

@@ -231,6 +231,9 @@ namespace RimAI.Core.Source.Modules.World
 		// 杂项：通过 MetaPart 统一实现
 		public Task<long> GetNowAbsTicksAsync(CancellationToken ct = default) => _metaPart.GetNowAbsTicksAsync(ct);
 		public Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default) => _metaPart.GetCurrentMapCipherSeedAsync(ct);
+
+		// 获取所有服务器加载中的工具名（唯一、排序）
+		public Task<System.Collections.Generic.IReadOnlyList<string>> GetUniqueLoadedServerToolsAsync(CancellationToken ct = default) => _aiServerPart.GetUniqueLoadedServerToolsAsync(ct);
 	}
 
 	internal sealed class WorldDataException : Exception

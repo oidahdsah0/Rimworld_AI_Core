@@ -51,6 +51,7 @@ namespace RimAI.Core.Source.Modules.Prompting
             _composers = new List<IPromptComposer>();
             // 内置 ChatUI 作曲器（最小集），可后续按配置裁剪与扩展
             _composers.Add(new Composers.ChatUI.SystemBaseComposer());
+			_composers.Add(new Composers.ChatUI.CommandSummaryTaskComposer());
             _composers.Add(new Composers.ChatUI.PlayerTitleComposer());
             _composers.Add(new Composers.ChatUI.PawnIdentityComposer());
             _composers.Add(new Composers.ChatUI.PawnBackstoryComposer());
@@ -100,6 +101,7 @@ namespace RimAI.Core.Source.Modules.Prompting
 			_composers.Add(new Composers.Server.ServerIdentityComposer(PromptScope.ServerCommand));
 			_composers.Add(new Composers.Server.ServerPersonaComposer(PromptScope.ServerCommand));
 			_composers.Add(new Composers.Server.ServerTemperatureComposer(PromptScope.ServerCommand));
+			_composers.Add(new Composers.Server.ServerCommandSummaryTaskComposer());
 			// 让 ServerCommand 也能看到最近前情提要（作用域适配）
 			_composers.Add(new ScopedComposerAdapter(new Composers.ChatUI.HistoryRecapComposer(), PromptScope.ServerCommand, idOverride: "servercmd_history_recap", orderOverride: 90));
 
@@ -202,11 +204,17 @@ namespace RimAI.Core.Source.Modules.Prompting
 			}
 
 			// 最终在 ChatUI/Server* 下将（包含外部 RAG 在内的）全部 ContextBlocks 合并进 System 段
-			bool mergeBlocks = request.Scope == PromptScope.ChatUI
-				|| request.Scope == PromptScope.ServerChat
-				|| request.Scope == PromptScope.ServerCommand
+			// 命令模式总结阶段（IsCommand=true）不将 ExternalBlocks/ContextBlocks 合并到 System，避免工具 JSON 出现在 system 段
+			// ChatUI: 闲聊合并；命令总结不合并
+			// ServerChat: 合并
+			// ServerCommand: 闲聊式/非命令可合并；命令总结不合并
+			// ServerStage: 合并
+			bool mergeBlocks =
+				(request.Scope == PromptScope.ChatUI && !request.IsCommand)
+				|| (request.Scope == PromptScope.ServerChat)
+				|| (request.Scope == PromptScope.ServerCommand && !request.IsCommand)
 				// ServerInspection: do NOT merge ExternalBlocks into System; user composer will include result
-				|| request.Scope == PromptScope.ServerStage; // ensure ServerStage external/context blocks are merged into system
+				|| (request.Scope == PromptScope.ServerStage); // ensure ServerStage external/context blocks are merged into system
 			if (mergeBlocks && blocks != null && blocks.Count > 0)
 			{
 				foreach (var b in blocks)

@@ -88,6 +88,10 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             if (controller.TryDequeueChunk(out var chunk))
             {
                 AppendToLastAiMessage(controller.State, chunk);
+                // 流式分片追加后强制吸底
+                var forcedH = ComputeTranscriptViewHeight(transcriptRect, controller.State);
+                scrollTranscript.y = forcedH;
+                lastTranscriptContentHeight = forcedH;
             }
 
             // 复位 Data 指示灯的闪烁
@@ -100,6 +104,10 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             if (controller.State.Indicators.FinishOn && !historyWritten)
             {
                 try { AppendAllChunks(controller.State); historyWritten = true; } catch { }
+                // 合并残余分片后同样吸底
+                var forcedH2 = ComputeTranscriptViewHeight(transcriptRect, controller.State);
+                scrollTranscript.y = forcedH2;
+                lastTranscriptContentHeight = forcedH2;
             }
         }
 

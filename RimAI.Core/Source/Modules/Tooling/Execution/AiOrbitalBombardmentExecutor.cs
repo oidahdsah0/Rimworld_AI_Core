@@ -35,17 +35,31 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 				int serverLevel = 1;
 				try { if (args != null && args.TryGetValue("server_level", out var lv)) int.TryParse(lv?.ToString() ?? "1", NumberStyles.Integer, CultureInfo.InvariantCulture, out serverLevel); } catch { serverLevel = 1; }
 				serverLevel = Math.Max(1, Math.Min(3, serverLevel));
-				if (serverLevel < 2) return new { ok = false, error = "require_server_level2" };
+				if (serverLevel < 2) return new { ok = false, error = "ERROR: require_server_level2" };
 
 				// 设备：AI 终端通电
 				var terminalPowered = await world.HasPoweredBuildingAsync("RimAI_AITerminalA", ct).ConfigureAwait(false);
-				if (!terminalPowered) return new { ok = false, error = "terminal_absent_or_unpowered" };
+				if (!terminalPowered) return new { ok = false, error = "ERROR: terminal_absent_or_unpowered" };
+
+				// 防御性校验：该工具必须被任意服务器加载
+				try
+				{
+					var loaded = await world.GetUniqueLoadedServerToolsAsync(ct).ConfigureAwait(false);
+					bool found = false;
+					foreach (var name in loaded)
+					{
+						if (string.Equals(name, Name, StringComparison.OrdinalIgnoreCase)) { found = true; break; }
+					}
+					if (!found) return new { ok = false, error = "ERROR: tool_not_loaded_by_any_server" };
+				}
+				catch { /* best-effort; if listing fails,继续后续但通常不会发生 */ }
 
 				// 读取冷却状态（巡检与执行均需要）
 				var snap = persistence.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
 				snap.OrbitalBombardment ??= new OrbitalBombardmentState();
 				long nowAbs = await world.GetNowAbsTicksAsync(ct).ConfigureAwait(false);
-				int cooldownTicks = 3 * 60000;
+				// 冷却：游戏内 12 小时（半天）= 30,000 ticks
+				int cooldownTicks = 30000;
 				int remainingSec = 0;
 				if (snap.OrbitalBombardment.NextAllowedAtAbsTicks > 0 && nowAbs < snap.OrbitalBombardment.NextAllowedAtAbsTicks)
 				{
@@ -67,11 +81,27 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 					return new { ok = false, error = "cooldown_active", seconds_left = remainingSec };
 				}
 
-				int radius = 9; int strikes = 9;
+				int radius = 9;
 				try { if (args != null && args.TryGetValue("radius", out var r)) int.TryParse(r?.ToString() ?? "9", NumberStyles.Integer, CultureInfo.InvariantCulture, out radius); } catch { radius = 9; }
-				try { if (args != null && args.TryGetValue("max_strikes", out var m)) int.TryParse(m?.ToString() ?? "9", NumberStyles.Integer, CultureInfo.InvariantCulture, out strikes); } catch { strikes = 9; }
 				radius = Math.Max(3, Math.Min(30, radius));
-				strikes = Math.Max(5, Math.Min(15, strikes));
+
+				// 炮击次数：从配置 Tooling.Bombardment 读取范围（默认 5..20），可用参数 max_strikes 作为上限
+				var toolCfg = cfg?.GetToolingConfig();
+				int minStrikes = Math.Max(1, toolCfg?.Bombardment?.StrikesMin ?? 5);
+				int maxStrikes = Math.Max(minStrikes, toolCfg?.Bombardment?.StrikesMax ?? 20);
+				try
+				{
+					if (args != null && args.TryGetValue("max_strikes", out var m))
+					{
+						if (int.TryParse(m?.ToString() ?? maxStrikes.ToString(CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out var upper))
+						{
+							maxStrikes = Math.Max(minStrikes, Math.Min(maxStrikes, upper));
+						}
+					}
+				}
+				catch { }
+				var rng = new System.Random(unchecked(Environment.TickCount ^ radius ^ serverLevel));
+				int strikes = rng.Next(minStrikes, maxStrikes + 1);
 
 				// 开始提示
 				try { await action.ShowTopLeftMessageAsync("RimAI.Bombardment.Start".Translate(), RimWorld.MessageTypeDefOf.ThreatBig, ct).ConfigureAwait(false); } catch { }
@@ -86,7 +116,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 				snap.OrbitalBombardment.NextAllowedAtAbsTicks = (int)(nowAbs + cooldownTicks);
 				persistence.ReplaceLastSnapshotForDebug(snap);
 
-				return new { ok = true, strikes_executed = executed, radius, cooldown_days = 3 };
+				return new { ok = true, strikes_executed = executed, radius, cooldown_hours = 12, cooldown_days = 0.5 };
 			}
 			catch (Exception ex)
 			{

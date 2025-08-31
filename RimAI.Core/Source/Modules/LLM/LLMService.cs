@@ -102,31 +102,8 @@ namespace RimAI.Core.Source.Modules.LLM
 				{
 					foreach (var s in toolsJson)
 					{
-						try
-						{
-							// 尝试直接按 ToolDefinition 反序列化（不强制校验 Name 属性，交由 Framework 校验）
-							var tool = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(s);
-							if (tool != null) { toolList.Add(tool); continue; }
-							// 回退：从 { type:function, function:{ name, description, parameters } } 提取并转为 ToolDefinition 形状
-							var jo = Newtonsoft.Json.Linq.JObject.Parse(s);
-							var func = jo["function"] as Newtonsoft.Json.Linq.JObject;
-							var fname = func?[(object)"name"]?.ToString();
-							if (!string.IsNullOrWhiteSpace(fname))
-							{
-								var fdesc = func[(object)"description"]?.ToString();
-								var fparams = func[(object)"parameters"];
-								var shaped = new Newtonsoft.Json.Linq.JObject
-								{
-									["Name"] = fname,
-									["Description"] = fdesc != null ? new Newtonsoft.Json.Linq.JValue(fdesc) : null,
-									["Parameters"] = fparams ?? new Newtonsoft.Json.Linq.JObject()
-								};
-								var shapedStr = shaped.ToString(Newtonsoft.Json.Formatting.None);
-								var tool2 = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(shapedStr);
-								if (tool2 != null) toolList.Add(tool2);
-							}
-						}
-						catch { }
+						var tdef = TryConvertToolJsonToDefinition(s);
+						if (tdef != null) toolList.Add(tdef);
 					}
 				}
 				if (toolList.Count > 0)
@@ -170,29 +147,8 @@ namespace RimAI.Core.Source.Modules.LLM
 				{
 					foreach (var s in toolsJson)
 					{
-						try
-						{
-							var tool = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(s);
-							if (tool != null) { toolList.Add(tool); continue; }
-							var jo = Newtonsoft.Json.Linq.JObject.Parse(s);
-							var func = jo["function"] as Newtonsoft.Json.Linq.JObject;
-							var fname = func?[(object)"name"]?.ToString();
-							if (!string.IsNullOrWhiteSpace(fname))
-							{
-								var fdesc = func[(object)"description"]?.ToString();
-								var fparams = func[(object)"parameters"];
-								var shaped = new Newtonsoft.Json.Linq.JObject
-								{
-									["Name"] = fname,
-									["Description"] = fdesc != null ? new Newtonsoft.Json.Linq.JValue(fdesc) : null,
-									["Parameters"] = fparams ?? new Newtonsoft.Json.Linq.JObject()
-								};
-								var shapedStr = shaped.ToString(Newtonsoft.Json.Formatting.None);
-								var tool2 = Newtonsoft.Json.JsonConvert.DeserializeObject<RimAI.Framework.Contracts.ToolDefinition>(shapedStr);
-								if (tool2 != null) toolList.Add(tool2);
-							}
-						}
-						catch { }
+						var tdef = TryConvertToolJsonToDefinition(s);
+						if (tdef != null) toolList.Add(tdef);
 					}
 				}
 			}
@@ -205,6 +161,51 @@ namespace RimAI.Core.Source.Modules.LLM
 			}
 
 			return GetResponseAsync(request, cancellationToken);
+		}
+
+		// 统一且稳健的工具 JSON → ToolDefinition 转换器
+		private static RimAI.Framework.Contracts.ToolDefinition TryConvertToolJsonToDefinition(string json)
+		{
+			if (string.IsNullOrWhiteSpace(json)) return null;
+			try
+			{
+				var jo = Newtonsoft.Json.Linq.JObject.Parse(json);
+				Newtonsoft.Json.Linq.JToken fn = jo["function"];
+				string name = null;
+				string desc = null;
+				Newtonsoft.Json.Linq.JToken parameters = null;
+				if (fn != null && fn.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+				{
+					name = fn.Value<string>("name") ?? fn.Value<string>("Name");
+					desc = fn.Value<string>("description") ?? fn.Value<string>("Description");
+					parameters = fn["parameters"] ?? fn["Parameters"] ?? fn["ParametersSchema"];
+				}
+				else
+				{
+					name = jo.Value<string>("name") ?? jo.Value<string>("Name");
+					desc = jo.Value<string>("description") ?? jo.Value<string>("Description");
+					parameters = jo["parameters"] ?? jo["Parameters"] ?? jo["ParametersSchema"];
+				}
+				if (string.IsNullOrWhiteSpace(name)) return null;
+				// 标准化 parameters
+				if (parameters == null || parameters.Type == Newtonsoft.Json.Linq.JTokenType.Null)
+				{
+					parameters = new Newtonsoft.Json.Linq.JObject
+					{
+						["type"] = "object",
+						["properties"] = new Newtonsoft.Json.Linq.JObject(),
+						["required"] = new Newtonsoft.Json.Linq.JArray()
+					};
+				}
+				var fnObj = new Newtonsoft.Json.Linq.JObject
+				{
+					["name"] = name,
+					["parameters"] = parameters
+				};
+				if (!string.IsNullOrWhiteSpace(desc)) fnObj["description"] = desc;
+				return new RimAI.Framework.Contracts.ToolDefinition { Type = "function", Function = fnObj };
+			}
+			catch { return null; }
 		}
 
 		public Task<Result<UnifiedEmbeddingResponse>> GetEmbeddingsAsync(string input, CancellationToken cancellationToken = default)

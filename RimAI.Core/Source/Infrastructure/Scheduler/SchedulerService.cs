@@ -15,6 +15,8 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 		{
 			public string Name;
 			public CancellationToken Ct;
+			// Optional: where this item was scheduled from (simplified callsite summary)
+			public string Origin;
 			public abstract void Execute();
 		}
 
@@ -135,14 +137,19 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 		public void ScheduleOnMainThread(Action action, string name = null, CancellationToken ct = default)
 		{
 			if (ct.IsCancellationRequested) return;
-			_queue.Enqueue(new ActionWorkItem(name, action, ct));
+			var wi = new ActionWorkItem(name, action, ct);
+			wi.Origin = _maybeCaptureOrigin(name);
+			_queue.Enqueue(wi);
 		}
 
 		public Task<T> ScheduleOnMainThreadAsync<T>(Func<T> func, string name = null, CancellationToken ct = default)
 		{
 			var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 			if (ct.IsCancellationRequested) { tcs.TrySetCanceled(ct); return tcs.Task; }
-			_queue.Enqueue(new FuncWorkItem<T>(name, func, tcs, ct));
+			var wi = new FuncWorkItem<T>(name, func, tcs, ct);
+			// Capture origin for targeted diagnostics
+			wi.Origin = _maybeCaptureOrigin(name);
+			_queue.Enqueue(wi);
 			return tcs.Task;
 		}
 
@@ -150,7 +157,8 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 		{
 			var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 			if (ct.IsCancellationRequested) { tcs.TrySetCanceled(ct); return tcs.Task; }
-			_queue.Enqueue(new FuncTaskWorkItem(name, func, tcs, ct));
+			var wi = new FuncTaskWorkItem(name, func, tcs, ct) { Origin = _maybeCaptureOrigin(name) };
+			_queue.Enqueue(wi);
 			return tcs.Task;
 		}
 
@@ -260,7 +268,15 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 						{
 							_lastWarnTickByTask[item?.Name ?? "(unknown)"] = currentTick;
 							_interlockedLongTaskInc();
-							logWarn?.Invoke($"[RimAI.Core][P3][Scheduler] Long task '{item.Name}' took {swTask.ElapsedMilliseconds} ms");
+							var origin = (item as WorkItem)?.Origin;
+							if (!string.IsNullOrEmpty(origin))
+							{
+								logWarn?.Invoke($"[RimAI.Core][P3][Scheduler] Long task '{item.Name}' took {swTask.ElapsedMilliseconds} ms; origin={origin}");
+							}
+							else
+							{
+								logWarn?.Invoke($"[RimAI.Core][P3][Scheduler] Long task '{item.Name}' took {swTask.ElapsedMilliseconds} ms");
+							}
 						}
 					}
 				}
@@ -291,6 +307,34 @@ namespace RimAI.Core.Source.Infrastructure.Scheduler
 			swFrame.Stop();
 			_lastFrameProcessed = processed;
 			_lastFrameMs = swFrame.Elapsed.TotalMilliseconds;
+		}
+
+		private string _maybeCaptureOrigin(string name)
+		{
+			try
+			{
+				if (string.IsNullOrEmpty(name)) return null;
+				// Only capture for this noisy task to keep overhead minimal
+				if (!string.Equals(name, "GetPoweredAiServerThingIds", StringComparison.Ordinal)) return null;
+				var st = new StackTrace(1, false); // skip this helper's caller
+				var parts = new System.Collections.Generic.List<string>(2);
+				for (int i = 0; i < st.FrameCount && parts.Count < 2; i++)
+				{
+					var f = st.GetFrame(i);
+					var m = f?.GetMethod();
+					var dt = m?.DeclaringType;
+					var full = dt?.FullName ?? string.Empty;
+					if (string.IsNullOrEmpty(full)) continue;
+					// skip internal scheduler frames
+					if (full.Contains("Infrastructure.Scheduler")) continue;
+					var typeName = dt.Name;
+					var methodName = m.Name;
+					parts.Add(typeName + "." + methodName);
+				}
+				if (parts.Count == 0) return null;
+				return string.Join(" <= ", parts);
+			}
+			catch { return null; }
 		}
 
 		public SchedulerSnapshot GetSnapshot()

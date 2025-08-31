@@ -94,6 +94,13 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			StartBackgroundTasks();
 		}
 
+		public override void PreOpen()
+		{
+			// 互斥：打开本窗口前，若服务器聊天窗口已开启，则将其关闭
+			try { Verse.Find.WindowStack?.TryRemove(typeof(RimAI.Core.Source.UI.ServerChatWindow.ServerChatWindow), true); } catch { }
+			base.PreOpen();
+		}
+
 		public override void DoWindowContents(Rect inRect)
 		{
 			// 若当前不在称谓设置页，允许下次进入时重新初始化输入框
@@ -681,6 +688,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			if (_controller.TryDequeueChunk(out var chunk))
 			{
 				AppendToLastAiMessage(chunk);
+				// 流式分片追加后，强制滚动到底部以展示最新内容
+				var forcedH = ComputeTranscriptViewHeight(transcriptRect, _controller.State);
+				_scrollTranscript.y = forcedH;
+				_lastTranscriptContentHeight = forcedH;
 			}
 
 			if (DateTime.UtcNow > _controller.State.Indicators.DataBlinkUntilUtc)
@@ -691,6 +702,10 @@ namespace RimAI.Core.Source.UI.ChatWindow
 			if (_controller.State.Indicators.FinishOn && !_historyWritten)
 			{
 				try { AppendAllChunksToLastAiMessage(); _historyWritten = true; } catch { }
+				// 结束时合并残余分片后，同样吸底
+				var forcedH2 = ComputeTranscriptViewHeight(transcriptRect, _controller.State);
+				_scrollTranscript.y = forcedH2;
+				_lastTranscriptContentHeight = forcedH2;
 			}
 		}
 	}

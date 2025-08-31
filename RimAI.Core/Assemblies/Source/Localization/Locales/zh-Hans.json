@@ -60,6 +60,7 @@
   "tool.display.get_game_logs": "游戏日志浏览器",
 
   "server.inspection.summary.system": "你将收到一个工具的结果（JSON或文本）。请用2–3行中文概括它与殖民地当前状态的关联。不要输出解释或任何前后缀，只输出摘要内容。",
+  "ui.command.summary.important_task": "【注意，当下你的任务】你正在进行领地 Function Calling，你已获取当前工具调用结果，你需要对工具调用结果进行总结。",
   "ui.server.inspection.task_suffix": "[重要：当前你的任务]目前，你正在执行基地的自动巡检任务，你需要对下文中系统返回的基地Json信息进行汇总、记录：",
   "ui.server.inspection.user": "你调取了{app} 应用，它的Json返回内容会附于下文，你需要以符合人格设定的口吻生成一条AI的巡检记录，程序返回的具体内容如下： {result}",
   "orchestration.plantrace.hit_tool": "{pawn}从随身设备中找到了合适的APP：{displayName}，软件已经显示结果。",

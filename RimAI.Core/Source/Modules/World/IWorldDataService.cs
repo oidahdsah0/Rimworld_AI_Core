@@ -97,6 +97,9 @@ namespace RimAI.Core.Source.Modules.World
 		// Misc tiny reads (main-thread scheduled by implementation)
 		Task<long> GetNowAbsTicksAsync(CancellationToken ct = default);
 		Task<int> GetCurrentMapCipherSeedAsync(CancellationToken ct = default);
+
+		// New: 获取所有服务器加载中的工具名（唯一、大小写不敏感排序）
+		Task<System.Collections.Generic.IReadOnlyList<string>> GetUniqueLoadedServerToolsAsync(CancellationToken ct = default);
 	}
 }
 

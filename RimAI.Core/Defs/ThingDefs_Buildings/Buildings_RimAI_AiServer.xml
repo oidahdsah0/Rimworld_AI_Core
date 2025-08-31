@@ -195,14 +195,16 @@
     <terrainAffordanceNeeded>Medium</terrainAffordanceNeeded>
     <statBases>
       <MaxHitPoints>450</MaxHitPoints>
-      <WorkToBuild>2200</WorkToBuild>
+      <WorkToBuild>1000</WorkToBuild>
       <Flammability>0.8</Flammability>
       <Mass>45</Mass>
       <Beauty>0</Beauty>
     </statBases>
     <costList>
-      <Steel>120</Steel>
-      <ComponentIndustrial>3</ComponentIndustrial>
+      <Steel>500</Steel>
+      <ComponentIndustrial>10</ComponentIndustrial>
+      <Silver>100</Silver>
+      <Gold>30</Gold>
     </costList>
     <graphicData>
       <graphicClass>Graphic_Multi</graphicClass>

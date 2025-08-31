@@ -134,6 +134,23 @@ namespace RimAI.Core.Source.Infrastructure.Configuration
 			public EmbeddingSection Embedding { get; set; } = new();
 			public NarrowTopKSection NarrowTopK { get; set; } = new();
 			public IndexFilesSection IndexFiles { get; set; } = new();
+			// 新增：旧卫星炮击相关配置
+			public BombardmentSection Bombardment { get; set; } = new();
+		}
+
+		public sealed class BombardmentSection
+		{
+			// 每发之间的主线程延迟（tick），默认 1-2 秒
+			public int StrikeIntervalMinTicks { get; set; } = 60;
+			public int StrikeIntervalMaxTicks { get; set; } = 120;
+			// 以目标敌人为中心，落点偏移的搜索半径（格）
+			public int TargetOffsetRadius { get; set; } = 1;
+			// 爆炸半径范围（格）
+			public int ExplosionRadiusMin { get; set; } = 3;
+			public int ExplosionRadiusMax { get; set; } = 8;
+			// 炮击次数范围（次）
+			public int StrikesMin { get; set; } = 5;
+			public int StrikesMax { get; set; } = 20;
 		}
 
 		public sealed class EmbeddingSection

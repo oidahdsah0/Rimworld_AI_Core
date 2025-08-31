@@ -29,11 +29,23 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var persistence = RimAICoreMod.Container.Resolve<IPersistenceService>();
                 if (world == null || action == null) return new { ok = false, error = "world_services_unavailable" };
 
+                // 防御性校验：该工具必须被任意服务器加载
+                try
+                {
+                    var loaded = await world.GetUniqueLoadedServerToolsAsync(ct).ConfigureAwait(false);
+                    bool found = false;
+                    foreach (var name in loaded)
+                    {
+                        if (string.Equals(name, Name, StringComparison.OrdinalIgnoreCase)) { found = true; break; }
+                    }
+                    if (!found) return new { ok = false, error = "ERROR: tool_not_loaded_by_any_server" };
+                }
+                catch { }
+
                 // 巡检提示模式：不执行，仅返回冷却与提示
                 bool inspection = false; try { if (args != null && args.TryGetValue("inspection", out var ins)) bool.TryParse(ins?.ToString() ?? "false", out inspection); } catch { }
 
-                // Centralized config
-                var cooldownDays = WeatherControlConfig.CooldownDays;
+                // Centralized config (cooldown moved to fixed 12 in-game hours)
                 var minDays = WeatherControlConfig.MinDurationDays;
                 var maxDays = WeatherControlConfig.MaxDurationDays;
                 var allowed = WeatherControlConfig.AllowedWeathers ?? Array.Empty<string>();
@@ -79,7 +91,8 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var snap = persistence?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
                 snap.WeatherControl ??= new WeatherControlState();
                 long nowAbs = await world.GetNowAbsTicksAsync(ct).ConfigureAwait(false);
-                int cooldownTicks = cooldownDays * 60000;
+                // 冷却：游戏内 12 小时（半天）= 30,000 ticks
+                int cooldownTicks = 30000;
 
                 if (snap.WeatherControl.NextAllowedAtAbsTicks > 0 && nowAbs < snap.WeatherControl.NextAllowedAtAbsTicks)
                 {
@@ -118,7 +131,8 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                     ok = true,
                     weather = best,
                     duration_days = durDays,
-                    cooldown_days = cooldownDays
+                    cooldown_hours = 12,
+                    cooldown_days = 0.5
                 };
             }
             catch (Exception ex)

@@ -105,6 +105,13 @@ namespace RimAI.Core.Source.UI.ServerChatWindow
 
 		}
 
+		public override void PreOpen()
+		{
+			// 互斥：打开本窗口前，若普通 ChatWindow 已开启，则将其关闭
+			try { Verse.Find.WindowStack?.TryRemove(typeof(RimAI.Core.Source.UI.ChatWindow.ChatWindow), true); } catch { }
+			base.PreOpen();
+		}
+
 		public override void DoWindowContents(Rect inRect)
 		{
 			// 周期性后台刷新服务器列表（每3秒一次），避免 UI 线程阻塞

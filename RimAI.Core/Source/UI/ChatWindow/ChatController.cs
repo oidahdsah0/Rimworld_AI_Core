@@ -186,7 +186,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 					var systemPayload = BuildSystemPayload(systemFiltered, prompt.ContextBlocks);
 					var messages = BuildMessagesArray(systemPayload, State.Messages);
 					// 输出 Messages 列表（system+历史+本次用户输入）到日志
-					LogMessagesList(State.ConvKey, messages);
+					// LogMessagesList(State.ConvKey, messages);
 					var uiReq = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = State.ConvKey, Messages = messages, Stream = true };
 					await foreach (var r in _llm.StreamResponseAsync(uiReq, linked))
 					{
@@ -358,9 +358,9 @@ namespace RimAI.Core.Source.UI.ChatWindow
 						foreach (var m in State.Messages) { if (!object.ReferenceEquals(m, aiMsg)) tmp.Add(m); }
 						visibleForLlm = tmp;
 					}
-					var messages2 = BuildMessagesArray(systemPayload2, visibleForLlm);
-					// 输出 Messages 列表（system+历史+本次用户输入）到日志
-					LogMessagesList(State.ConvKey, messages2);
+					// 命令模式总结阶段：严格 1 个 system + 1 个 user（user 含 [工具调用] + [用户输入]）
+					var messages2 = BuildTwoMessageSummaryPayload(systemPayload2, result, userText);
+					// LogMessagesList(State.ConvKey, messages2);
 					var uiReq2 = new RimAI.Framework.Contracts.UnifiedChatRequest { ConversationId = State.ConvKey, Messages = messages2, Stream = true };
 					await foreach (var r in _llm.StreamResponseAsync(uiReq2, linked))
 					{
@@ -694,6 +694,43 @@ namespace RimAI.Core.Source.UI.ChatWindow
 				Verse.Log.Message(sb.ToString());
 			}
 			catch { }
+		}
+
+		// 构造严格的两条消息用于命令模式总结阶段：1 system + 1 user
+		private static System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage> BuildTwoMessageSummaryPayload(
+			string systemPayload,
+			RimAI.Core.Source.Modules.Orchestration.ToolCallsResult orchestration,
+			string originalUserInput)
+		{
+			var list = new System.Collections.Generic.List<RimAI.Framework.Contracts.ChatMessage>();
+			if (!string.IsNullOrWhiteSpace(systemPayload))
+			{
+				list.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "system", Content = systemPayload });
+			}
+			var sb = new System.Text.StringBuilder();
+			sb.AppendLine("[工具调用]");
+			try
+			{
+				if (orchestration != null && orchestration.Executions != null)
+				{
+					var compact = new System.Collections.Generic.List<object>();
+					foreach (var e in orchestration.Executions)
+					{
+						compact.Add(new { tool = e.ToolName, outcome = e.Outcome, result = e.ResultObject });
+					}
+					sb.AppendLine(Newtonsoft.Json.JsonConvert.SerializeObject(compact));
+				}
+				else
+				{
+					sb.AppendLine("[]");
+				}
+			}
+			catch { sb.AppendLine("[]"); }
+			sb.AppendLine();
+			sb.AppendLine("[用户输入]");
+			sb.AppendLine(originalUserInput ?? string.Empty);
+			list.Add(new RimAI.Framework.Contracts.ChatMessage { Role = "user", Content = sb.ToString().TrimEnd() });
+			return list;
 		}
 
 		private static void LogBuiltPrompt(string convKey, string systemFiltered, System.Collections.Generic.IReadOnlyList<string> special, PromptBuildResult prompt, string mode)

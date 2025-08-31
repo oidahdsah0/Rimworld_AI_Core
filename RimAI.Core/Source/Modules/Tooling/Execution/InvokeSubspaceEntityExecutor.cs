@@ -25,7 +25,20 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var world = RimAICoreMod.Container.Resolve<IWorldDataService>();
                 var action = RimAICoreMod.Container.Resolve<IWorldActionService>();
                 var persistence = RimAICoreMod.Container.Resolve<IPersistenceService>();
-                if (world == null || action == null) return new { ok = false, error = "world_services_unavailable" };
+                if (world == null || action == null) return new { ok = false, error = "ERROR: world_services_unavailable" };
+
+                // 防御性校验：该工具必须被任意服务器加载
+                try
+                {
+                    var loaded = await world.GetUniqueLoadedServerToolsAsync(ct).ConfigureAwait(false);
+                    bool found = false;
+                    foreach (var name in loaded)
+                    {
+                        if (string.Equals(name, Name, StringComparison.OrdinalIgnoreCase)) { found = true; break; }
+                    }
+                    if (!found) return new { ok = false, error = "ERROR: tool_not_loaded_by_any_server" };
+                }
+                catch { }
 
                 // Parse args (new): server_level injected by callers; llm_score required
                 int serverLevel = 1;
@@ -54,7 +67,8 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                 var snap = persistence?.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
                 snap.SubspaceInvocation ??= new SubspaceInvocationState();
                 long nowAbs = await world.GetNowAbsTicksAsync(ct).ConfigureAwait(false);
-                int cooldownTicks = 2 * 60000; // 2 in-game days
+                // 冷却：游戏内 12 小时（半天）= 30,000 ticks
+                int cooldownTicks = 30000;
                 var remain2 = (int)Math.Max(0, (snap.SubspaceInvocation.NextAllowedAtAbsTicks - nowAbs) / 60); // seconds
 
                 if (inspection)
@@ -108,7 +122,8 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
                     tier = outcome.Tier,
                     composition = outcome.Composition,
                     count = outcome.Count,
-                    cooldown_days = 2
+                    cooldown_hours = 12,
+                    cooldown_days = 0.5
                 };
             }
             catch (Exception ex)

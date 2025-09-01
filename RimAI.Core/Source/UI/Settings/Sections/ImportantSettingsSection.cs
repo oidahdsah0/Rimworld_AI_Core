@@ -50,7 +50,7 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 		public string GetTitle()
 		{
 			// 使用 XML Key：RimAI.Settings.Section.Important
-			try { return "RimAI.Settings.Section.Important".Translate().ToString(); } catch { return "重要设置"; }
+			try { return "RimAI.Settings.Section.Important".Translate().ToString(); } catch { return "Important"; }
 		}
 
 		public float GetHeight(float width)
@@ -84,7 +84,7 @@ namespace RimAI.Core.Source.UI.Settings.Sections
 			// 单标签+两个按钮：手动下拉 + 同步游戏语言
 			var avail = _loc?.GetAvailableLocales();
 			var opts = avail == null ? new string[] { _loc?.GetDefaultLocale() ?? "en" } : avail.ToArray();
-			if (listing.ButtonText("选择提示词语言（手动）"))
+			if (listing.ButtonText("RimAI.Settings.Important.Locale.PickManual".Translate().ToString()))
 			{
 				var menu = new System.Collections.Generic.List<FloatMenuOption>();
 				foreach (var name in opts)

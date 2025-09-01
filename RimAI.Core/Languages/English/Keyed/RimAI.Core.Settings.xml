@@ -4,6 +4,7 @@
   <RimAI.Settings.Section.Important>Important Settings</RimAI.Settings.Section.Important>
   <RimAI.Settings.Important.Locale.Auto>Prompt language (auto): {0}</RimAI.Settings.Important.Locale.Auto>
   <RimAI.Settings.Important.Locale.Sync>Sync to game language</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.Locale.PickManual>Pick prompt language (manual)</RimAI.Settings.Important.Locale.PickManual>
   <RimAI.Settings.Important.PlayerTitle>How colonists address you</RimAI.Settings.Important.PlayerTitle>
   <RimAI.Settings.Important.VerboseLogs>Verbose logs</RimAI.Settings.Important.VerboseLogs>
   <RimAI.Settings.Important.ToolingEnabled>Enable Tooling</RimAI.Settings.Important.ToolingEnabled>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI.Building.LimitReached.Format>Este mapa permite no máximo {0} unidade(s) de {1} (já existem {2}).</RimAI.Building.LimitReached.Format>
+
+  <RimAI.Tool.RequireAntennaPowered>Esta ferramenta requer uma Antena de Ondas Gravitacionais construída e energizada.</RimAI.Tool.RequireAntennaPowered>
+  <RimAI.Tool.RequireTerminalPowered>Esta ferramenta requer o Terminal de IA energizado.</RimAI.Tool.RequireTerminalPowered>
+  <RimAI.Tool.RequireServerLevel2>Esta ferramenta requer Servidor de IA de nível 2 ou superior.</RimAI.Tool.RequireServerLevel2>
+  <RimAI.Tool.RequireResearch.Level2>Esta ferramenta requer a pesquisa: RimAI — IA de Nível 2.</RimAI.Tool.RequireResearch.Level2>
+  
+</LanguageData>

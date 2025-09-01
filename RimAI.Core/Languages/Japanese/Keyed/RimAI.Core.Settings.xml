@@ -4,6 +4,7 @@
   <RimAI.Settings.Section.Important>重要設定</RimAI.Settings.Section.Important>
   <RimAI.Settings.Important.Locale.Auto>プロンプト言語（自動）：{0}</RimAI.Settings.Important.Locale.Auto>
   <RimAI.Settings.Important.Locale.Sync>ゲーム言語に同期</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.Locale.PickManual>プロンプト言語を選択（手動）</RimAI.Settings.Important.Locale.PickManual>
   <RimAI.Settings.Important.PlayerTitle>入植者があなたを呼ぶ称号</RimAI.Settings.Important.PlayerTitle>
   <RimAI.Settings.Important.VerboseLogs>詳細ログ</RimAI.Settings.Important.VerboseLogs>
   <RimAI.Settings.Important.ToolingEnabled>ツールシステムを有効化</RimAI.Settings.Important.ToolingEnabled>

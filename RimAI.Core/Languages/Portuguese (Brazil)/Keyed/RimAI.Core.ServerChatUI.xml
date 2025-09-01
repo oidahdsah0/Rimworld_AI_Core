@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+  <!-- Janela de Chat do Servidor (SCW) -->
+  <RimAI.ChatUI.Server.Name>Lista de Servidores</RimAI.ChatUI.Server.Name>
+
+  <RimAI.SCW.Left.Header>Lista de Servidores</RimAI.SCW.Left.Header>
+  <RimAI.SCW.Tools.ManagerButton>Carregamento de Ferramentas</RimAI.SCW.Tools.ManagerButton>
+
+  <RimAI.SCW.Tabs.Chat>Bate-papo</RimAI.SCW.Tabs.Chat>
+  <RimAI.SCW.Tabs.Persona>Persona</RimAI.SCW.Tabs.Persona>
+  <RimAI.SCW.Tabs.InspectionHistory>Registros de Inspeção</RimAI.SCW.Tabs.InspectionHistory>
+  <RimAI.SCW.Tabs.AiLog>Log de IA</RimAI.SCW.Tabs.AiLog>
+  <RimAI.SCW.Tabs.History>Histórico</RimAI.SCW.Tabs.History>
+
+  <RimAI.ServerChatUI.Button.BackToChat>Bate-papo</RimAI.ServerChatUI.Button.BackToChat>
+
+  <!-- Nomes de Ferramentas -->
+  <RimAI.Tool.DisplayName.ai_diplomat>Diplomata de IA</RimAI.Tool.DisplayName.ai_diplomat>
+  
+  <!-- Página: Registros de Inspeção -->
+  <RimAI.SCW.InspectionHistory.Header>Registros de Inspeção</RimAI.SCW.InspectionHistory.Header>
+  <RimAI.SCW.InspectionHistory.Clear>Limpar Registros</RimAI.SCW.InspectionHistory.Clear>
+  
+  <!-- Página: Persona -->
+  <RimAI.SCW.Persona.HeaderTitle>Configurações de Persona do Servidor</RimAI.SCW.Persona.HeaderTitle>
+  <RimAI.SCW.Persona.HeaderDesc>Defina o título e a descrição da persona, ou escolha um modelo no menu.</RimAI.SCW.Persona.HeaderDesc>
+  <RimAI.SCW.Persona.TitleLabel>Título da Persona:</RimAI.SCW.Persona.TitleLabel>
+  <RimAI.SCW.Persona.TemplateLabel>Modelo de Persona:</RimAI.SCW.Persona.TemplateLabel>
+  <RimAI.SCW.Persona.TemplateButtonDefault>Escolher modelo</RimAI.SCW.Persona.TemplateButtonDefault>
+  <RimAI.SCW.Persona.Placeholder>Descrição detalhada</RimAI.SCW.Persona.Placeholder>
+  <RimAI.SCW.Persona.Save>Salvar</RimAI.SCW.Persona.Save>
+  <RimAI.SCW.Persona.ClearOverride>Limpar Substituição</RimAI.SCW.Persona.ClearOverride>
+
+  <!-- Página: Ferramentas -->
+  <RimAI.SCW.Tools.Header>Gerenciar Ferramentas Carregadas do Servidor</RimAI.SCW.Tools.Header>
+  <RimAI.SCW.Tools.Desc>O servidor usa as ferramentas nos slots para analisar periodicamente o estado da colônia.</RimAI.SCW.Tools.Desc>
+  <RimAI.SCW.Tools.TriggerInspection>Disparar Inspeção</RimAI.SCW.Tools.TriggerInspection>
+  <RimAI.SCW.Tools.IntervalLabel>Intervalo de Inspeção:</RimAI.SCW.Tools.IntervalLabel>
+  <RimAI.SCW.Tools.EnabledLabel>Inspeção Ativada:</RimAI.SCW.Tools.EnabledLabel>
+  <RimAI.SCW.Tools.SlotLabel>Slot {0}:</RimAI.SCW.Tools.SlotLabel>
+  <RimAI.SCW.Tools.NotLoaded>Não carregar</RimAI.SCW.Tools.NotLoaded>
+  <RimAI.SCW.Tools.Occupied>Ocupado</RimAI.SCW.Tools.Occupied>
+
+  <!-- Comum -->
+  <RimAI.Common.Loading>Carregando...</RimAI.Common.Loading>
+
+  <!-- Página: Log de IA -->
+  <RimAI.SCW.AiLog.EmptyPlaceholder>(sem registros)</RimAI.SCW.AiLog.EmptyPlaceholder>
+  <RimAI.SCW.AiLog.Trigger>Disparar ACT</RimAI.SCW.AiLog.Trigger>
+</LanguageData>

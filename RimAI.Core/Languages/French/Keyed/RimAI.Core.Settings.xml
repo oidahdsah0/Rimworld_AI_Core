@@ -4,6 +4,7 @@
   <RimAI.Settings.Section.Important>Paramètres importants</RimAI.Settings.Section.Important>
   <RimAI.Settings.Important.Locale.Auto>Langue des prompts (auto) : {0}</RimAI.Settings.Important.Locale.Auto>
   <RimAI.Settings.Important.Locale.Sync>Synchroniser avec la langue du jeu</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.Locale.PickManual>Choisir la langue des prompts (manuel)</RimAI.Settings.Important.Locale.PickManual>
   <RimAI.Settings.Important.PlayerTitle>Comment les colons vous appellent</RimAI.Settings.Important.PlayerTitle>
   <RimAI.Settings.Important.VerboseLogs>Journaux détaillés</RimAI.Settings.Important.VerboseLogs>
   <RimAI.Settings.Important.ToolingEnabled>Activer le système d'outils</RimAI.Settings.Important.ToolingEnabled>

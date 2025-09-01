@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Servidores de IA -->
+  <RimAI_AIServer_Lv1A.label>Servidor de IA (Lv1)</RimAI_AIServer_Lv1A.label>
+  <RimAI_AIServer_Lv1A.description>Servidor que fornece serviços básicos de IA para a colônia.</RimAI_AIServer_Lv1A.description>
+
+  <RimAI_AIServer_Lv2A.label>Servidor de IA (Lv2)</RimAI_AIServer_Lv2A.label>
+  <RimAI_AIServer_Lv2A.description>Servidor que fornece serviços de IA aprimorados para a colônia.</RimAI_AIServer_Lv2A.description>
+
+  <RimAI_AIServer_Lv3A.label>Servidor de IA (Lv3)</RimAI_AIServer_Lv3A.label>
+  <RimAI_AIServer_Lv3A.description>Servidor que fornece serviços de IA de alto desempenho para a colônia.</RimAI_AIServer_Lv3A.description>
+
+  <!-- Antena de ondas gravitacionais -->
+  <RimAI_GWAntennaA.label>Antena de Ondas Gravitacionais</RimAI_GWAntennaA.label>
+  <RimAI_GWAntennaA.description>Usada para comunicação por ondas gravitacionais a longa distância com civilizações desconhecidas. Requer energia contínua.</RimAI_GWAntennaA.description>
+</LanguageData>

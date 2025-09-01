@@ -4,6 +4,7 @@
   <RimAI.Settings.Section.Important>중요 설정</RimAI.Settings.Section.Important>
   <RimAI.Settings.Important.Locale.Auto>프롬프트 언어(자동): {0}</RimAI.Settings.Important.Locale.Auto>
   <RimAI.Settings.Important.Locale.Sync>게임 언어와 동기화</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.Locale.PickManual>프롬프트 언어 선택(수동)</RimAI.Settings.Important.Locale.PickManual>
   <RimAI.Settings.Important.PlayerTitle>입식자들이 당신을 부르는 호칭</RimAI.Settings.Important.PlayerTitle>
   <RimAI.Settings.Important.VerboseLogs>자세한 로그</RimAI.Settings.Important.VerboseLogs>
   <RimAI.Settings.Important.ToolingEnabled>도구 시스템 활성화</RimAI.Settings.Important.ToolingEnabled>

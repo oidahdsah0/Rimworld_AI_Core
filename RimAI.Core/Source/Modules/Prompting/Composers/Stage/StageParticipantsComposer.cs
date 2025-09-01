@@ -123,7 +123,15 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.Stage
 				}
 				// 追加：群聊 JSON 合约与白名单（严格输出数组对象，不含解释文本）
 				var whitelist = string.Join(", ", participants.Select((id, i) => $"{i + 1}:{id}"));
-				lines.Add($"仅输出 JSON 数组，每个元素形如 {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。");
+				var contract = "{\\\"speaker\\\":\\\"pawn:<id>\\\",\\\"content\\\":\\\"...\\\"}";
+				var args2 = new Dictionary<string, string> { { "contract", contract }, { "whitelist", whitelist } };
+				string line2 = null;
+				try { line2 = ctx?.F?.Invoke("stage.groupchat.contract", args2, null); } catch { line2 = null; }
+				if (string.IsNullOrWhiteSpace(line2))
+				{
+					line2 = $"Output JSON array only: each element is {contract}; speakers must be in whitelist: [{whitelist}]; no extra explanations.";
+				}
+				lines.Add(line2);
 			}
 			catch { }
 			return new ComposerOutput { SystemLines = lines, ContextBlocks = Array.Empty<ContextBlock>() };

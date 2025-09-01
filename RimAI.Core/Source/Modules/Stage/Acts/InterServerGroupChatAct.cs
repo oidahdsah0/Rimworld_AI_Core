@@ -455,7 +455,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 		private static string BuildUserPrompt(int count)
 		{
 			var template = BuildJsonTemplate(count);
-			return $"现在，生成第1轮服务器群聊。请严格输出 JSON，键为 1..{count}，值为对应服务器的台词（简短口语化），不得包含解释文本：{template}";
+			return $"Now produce round 1 of the server chat. Output JSON only: keys 1..{count} mapping to each server's line (spoken, concise); no explanations: {template}";
 		}
 
 		private static string BuildJsonTemplate(int count)

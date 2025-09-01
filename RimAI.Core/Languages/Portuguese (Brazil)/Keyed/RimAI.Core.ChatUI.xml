@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Gizmo -->
+  <RimAI.ChatUI.Gizmo.Open>Transmissão de Dados</RimAI.ChatUI.Gizmo.Open>
+  <RimAI.ChatUI.Gizmo.OpenDesc>Abrir a janela de chat do RimAI Core.</RimAI.ChatUI.Gizmo.OpenDesc>
+
+  <!-- Common -->
+  <RimAI.Common.Save>Salvar</RimAI.Common.Save>
+  <RimAI.Common.Reset>Redefinir</RimAI.Common.Reset>
+  <RimAI.Common.Edit>Editar</RimAI.Common.Edit>
+  <RimAI.Common.Delete>Excluir</RimAI.Common.Delete>
+  <RimAI.Common.Cancel>Cancelar</RimAI.Common.Cancel>
+  <RimAI.Common.Clear>Limpar</RimAI.Common.Clear>
+  <RimAI.Common.Exit>Fechar</RimAI.Common.Exit>
+  <RimAI.Common.Empty>(vazio)</RimAI.Common.Empty>
+  <RimAI.Common.Player>Jogador</RimAI.Common.Player>
+  <RimAI.Common.Pawn>Colono</RimAI.Common.Pawn>
+  <RimAI.Common.AutoUpdate>Atualização automática</RimAI.Common.AutoUpdate>
+  <RimAI.Common.Processing>Processando...</RimAI.Common.Processing>
+  <RimAI.Common.Colon>:</RimAI.Common.Colon>
+  <RimAI.Common.Male>Masculino</RimAI.Common.Male>
+  <RimAI.Common.Female>Feminino</RimAI.Common.Female>
+  <RimAI.Common.AgeSuffix>anos</RimAI.Common.AgeSuffix>
+
+  <!-- Left sidebar / Tabs -->
+  <RimAI.ChatUI.Left.Header>Lista de Pessoal</RimAI.ChatUI.Left.Header>
+  <RimAI.ChatUI.Left.Unassigned>Sem nomeação</RimAI.ChatUI.Left.Unassigned>
+  <RimAI.ChatUI.Tabs.Chat>Bate-papo</RimAI.ChatUI.Tabs.Chat>
+  <RimAI.ChatUI.Tabs.Title>Título</RimAI.ChatUI.Tabs.Title>
+  <RimAI.ChatUI.Tabs.History>Histórico</RimAI.ChatUI.Tabs.History>
+  <RimAI.ChatUI.Tabs.Persona>Persona</RimAI.ChatUI.Tabs.Persona>
+  <RimAI.ChatUI.Tabs.Job>Funções</RimAI.ChatUI.Tabs.Job>
+  <RimAI.ChatUI.Tabs.FixedPrompt>Prompt Fixo</RimAI.ChatUI.Tabs.FixedPrompt>
+
+  <!-- Header / vitals -->
+  <RimAI.ChatUI.Header.Vitals>Sinais Vitais:</RimAI.ChatUI.Header.Vitals>
+
+  <!-- Input row -->
+  <RimAI.ChatUI.Input.Smalltalk>Enviar Chat (Shift+Enter)</RimAI.ChatUI.Input.Smalltalk>
+  <RimAI.ChatUI.Input.Command>Enviar Comando (Ctrl+Enter)</RimAI.ChatUI.Input.Command>
+  <RimAI.ChatUI.Input.Cancel>Interromper</RimAI.ChatUI.Input.Cancel>
+
+  <!-- Indicator lights -->
+  <RimAI.ChatUI.Indicator.Data>Dados</RimAI.ChatUI.Indicator.Data>
+  <RimAI.ChatUI.Indicator.Busy>Ocupado</RimAI.ChatUI.Indicator.Busy>
+  <RimAI.ChatUI.Indicator.Finish>Fim</RimAI.ChatUI.Indicator.Finish>
+
+  <!-- Common messages -->
+  <RimAI.ChatUI.Common.NoPawnSelected>Nenhum colono válido selecionado</RimAI.ChatUI.Common.NoPawnSelected>
+
+  <!-- Tool results -->
+  <RimAI.ChatUI.Tools.ResultTitle>Resultado da Ferramenta</RimAI.ChatUI.Tools.ResultTitle>
+  <RimAI.ChatUI.Tools.ResultTitleWithName>[Resultado]: {0}</RimAI.ChatUI.Tools.ResultTitleWithName>
+
+  <!-- Title settings -->
+  <RimAI.ChatUI.TitleSettings.Question>Como você gostaria que os colonos o chamassem?</RimAI.ChatUI.TitleSettings.Question>
+  <RimAI.ChatUI.PlayerTitle.Default>Governador</RimAI.ChatUI.PlayerTitle.Default>
+
+  <!-- History -->
+  <RimAI.ChatUI.History.Tab.Thread>Histórico</RimAI.ChatUI.History.Tab.Thread>
+  <RimAI.ChatUI.History.Tab.Recaps>Resumo</RimAI.ChatUI.History.Tab.Recaps>
+  <RimAI.ChatUI.History.Tab.Related>Tópicos Relacionados</RimAI.ChatUI.History.Tab.Related>
+  <RimAI.ChatUI.History.Tab.RawJson>JSON Bruto</RimAI.ChatUI.History.Tab.RawJson>
+  <RimAI.ChatUI.Recap.Generate>Gerar Resumo</RimAI.ChatUI.Recap.Generate>
+  <RimAI.ChatUI.Recap.Generating>Gerando...</RimAI.ChatUI.Recap.Generating>
+  <RimAI.ChatUI.Related.Select>Selecionar tópico relacionado</RimAI.ChatUI.Related.Select>
+
+  <!-- Persona -->
+  <RimAI.ChatUI.Persona.Tab.Bio>Biografia</RimAI.ChatUI.Persona.Tab.Bio>
+  <RimAI.ChatUI.Persona.Tab.Ideo>Ideologia</RimAI.ChatUI.Persona.Tab.Ideo>
+  <RimAI.ChatUI.Persona.GenerateDraft>Gerar Rascunho de Biografia</RimAI.ChatUI.Persona.GenerateDraft>
+  <RimAI.ChatUI.Ideo.Generate>Gerar</RimAI.ChatUI.Ideo.Generate>
+
+  <!-- Ideology Compose labels -->
+  <RimAI.ChatUI.Ideo.WorldviewLabel>Cosmovisão:</RimAI.ChatUI.Ideo.WorldviewLabel>
+  <RimAI.ChatUI.Ideo.ValuesLabel>Valores:</RimAI.ChatUI.Ideo.ValuesLabel>
+  <RimAI.ChatUI.Ideo.CodeLabel>Código de Conduta:</RimAI.ChatUI.Ideo.CodeLabel>
+  <RimAI.ChatUI.Ideo.TraitsLabel>Traços:</RimAI.ChatUI.Ideo.TraitsLabel>
+
+  <!-- Job -->
+  <RimAI.ChatUI.Job.AssignTitle>Nomeação de Função</RimAI.ChatUI.Job.AssignTitle>
+  <RimAI.ChatUI.Job.Label>Função:</RimAI.ChatUI.Job.Label>
+  <RimAI.ChatUI.Job.Presets>Predefinições:</RimAI.ChatUI.Job.Presets>
+  <RimAI.ChatUI.Job.AssignAction>Nomear...</RimAI.ChatUI.Job.AssignAction>
+  <RimAI.ChatUI.Job.Unassigned>Sem nomeação</RimAI.ChatUI.Job.Unassigned>
+  <RimAI.ChatUI.Presets.Select>(Selecionar predefinição)</RimAI.ChatUI.Presets.Select>
+
+  <!-- Job history messages -->
+  <RimAI.ChatUI.Job.History.Removed>Você foi destituído da função</RimAI.ChatUI.Job.History.Removed>
+  <RimAI.ChatUI.Job.History.Transferred>Você foi transferido para {0}</RimAI.ChatUI.Job.History.Transferred>
+  <RimAI.ChatUI.Job.History.Assigned>Você foi nomeado como {0}</RimAI.ChatUI.Job.History.Assigned>
+  
+  <!-- Related: clear selected conversation -->
+  <RimAI.ChatUI.Related.ClearSelected>Limpar seleção</RimAI.ChatUI.Related.ClearSelected>
+</LanguageData>

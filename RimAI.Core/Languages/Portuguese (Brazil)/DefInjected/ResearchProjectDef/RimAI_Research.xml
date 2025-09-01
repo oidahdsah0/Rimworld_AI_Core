@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RimAI_AI_Level1.label>RimAI — Inteligência Artificial Nível 1</RimAI_AI_Level1.label>
+  <RimAI_AI_Level1.description>Desenvolve a plataforma básica RimAI, desbloqueando Servidor Lv1 e Terminal de IA.</RimAI_AI_Level1.description>
+
+  <RimAI_AI_Level2.label>RimAI — Inteligência Artificial Nível 2</RimAI_AI_Level2.label>
+  <RimAI_AI_Level2.description>Aprimora raciocínio e tolerância a falhas sobre o Nível 1, desbloqueando Servidor Lv2.</RimAI_AI_Level2.description>
+
+  <RimAI_AI_Level3.label>RimAI — Inteligência Artificial Nível 3</RimAI_AI_Level3.label>
+  <RimAI_AI_Level3.description>Integra algoritmos avançados e hardware, desbloqueando Servidor Lv3.</RimAI_AI_Level3.description>
+
+  <!-- Comunicação por ondas gravitacionais -->
+  <RimAI_GW_Communication.label>Comunicação por Ondas Gravitacionais</RimAI_GW_Communication.label>
+  <RimAI_GW_Communication.description>Desbloqueia a construção da Antena de Ondas Gravitacionais e permite tentar contato com civilizações desconhecidas.</RimAI_GW_Communication.description>
+
+  <!-- Penetração gravitacional em subespaço -->
+  <RimAI_Subspace_Gravitic_Penetration.label>Penetração Gravitacional no Subespaço</RimAI_Subspace_Gravitic_Penetration.label>
+  <RimAI_Subspace_Gravitic_Penetration.description>Modula ondas gravitacionais para penetrar localmente o subespaço, permitindo eco breve e moldagem de manifestações sutis.</RimAI_Subspace_Gravitic_Penetration.description>
+</LanguageData>

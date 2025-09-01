@@ -23,7 +23,15 @@ namespace RimAI.Core.Source.Modules.Prompting.Composers.ServerStage
 				{
 					var whitelist = string.Join(", ", participants);
 					var contract = "{\\\"speaker\\\":\\\"thing:<id>\\\",\\\"content\\\":\\\"...\\\"}";
-					lines.Add($"仅输出 JSON 数组，每个元素形如 {contract}；发言者必须在白名单内：[{whitelist}]；不得输出解释文本或额外内容。");
+					// Localized server chat contract instruction
+					var args = new Dictionary<string, string> { { "contract", contract }, { "whitelist", whitelist } };
+					string line = null;
+					try { line = ctx?.F?.Invoke("stage.serverchat.contract", args, null); } catch { line = null; }
+					if (string.IsNullOrWhiteSpace(line))
+					{
+						line = $"Output JSON array only: each element is {contract}; speakers must be in whitelist: [{whitelist}]; no extra explanations.";
+					}
+					lines.Add(line);
 				}
 			}
 			catch { }

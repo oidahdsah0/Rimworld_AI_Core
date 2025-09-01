@@ -4,6 +4,7 @@
   <RimAI.Settings.Section.Important>Важные настройки</RimAI.Settings.Section.Important>
   <RimAI.Settings.Important.Locale.Auto>Язык подсказок (авто): {0}</RimAI.Settings.Important.Locale.Auto>
   <RimAI.Settings.Important.Locale.Sync>Синхронизировать с языком игры</RimAI.Settings.Important.Locale.Sync>
+  <RimAI.Settings.Important.Locale.PickManual>Выбрать язык подсказок (вручную)</RimAI.Settings.Important.Locale.PickManual>
   <RimAI.Settings.Important.PlayerTitle>Как поселенцы к вам обращаются</RimAI.Settings.Important.PlayerTitle>
   <RimAI.Settings.Important.VerboseLogs>Подробные логи</RimAI.Settings.Important.VerboseLogs>
   <RimAI.Settings.Important.ToolingEnabled>Включить систему инструментов</RimAI.Settings.Important.ToolingEnabled>

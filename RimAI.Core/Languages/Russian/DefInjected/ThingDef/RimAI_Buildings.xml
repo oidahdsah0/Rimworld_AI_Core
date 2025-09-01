@@ -10,6 +10,10 @@
   <RimAI_AIServer_Lv3A.label>Сервер ИИ (Ур.3)</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>Предоставляет высокопроизводительные услуги ИИ для колонии.</RimAI_AIServer_Lv3A.description>
 
+  <!-- Терминал ИИ -->
+  <RimAI_AITerminalA.label>Терминал ИИ</RimAI_AITerminalA.label>
+  <RimAI_AITerminalA.description>Терминал ИИ для обмена информацией.</RimAI_AITerminalA.description>
+
   <!-- Антенна гравитационных волн -->
   <RimAI_GWAntennaA.label>Антенна гравитационных волн</RimAI_GWAntennaA.label>
   <RimAI_GWAntennaA.description>Мощная антенна для сверхдальней связи на гравитационных волнах с неизвестными цивилизациями. Требуется электропитание.</RimAI_GWAntennaA.description>

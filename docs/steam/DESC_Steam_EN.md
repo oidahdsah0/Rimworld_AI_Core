@@ -1,61 +1,72 @@
-[h1]🧠 RimAI Core - Alpha (Developer Example) - AI Colony Management Demo[/h1]
+[h1]🧠 RimAI Core (BETA) — Give Your Colony a Talking Brain[/h1]
 
-[b]⚠️ **IMPORTANT: This is a Open Source Developer Example/Demonstration Mod**
-This mod is designed as a **comprehensive example** to showcase how modders can integrate with the RimAI Framework. It demonstrates best practices for AI-powered mod development and serves as a learning resource for the modding community. [/b]
-
-Github (Open Source)：github.com/oidahdsah0/Rimworld_AI_Core
+This is not a tech demo. It’s playable content. You’ll talk to an AI “Server/Terminal” that watches your base, jokes with other servers, and gets things done.
 
 [hr][/hr]
 
-[h1]✨ Key Features of V4[/h1]
-
+[h1]🎮 How to Play (Gameplay Overview)[/h1]
 [list]
-[*] [b]Intelligent AI Personas:[/b] Interact with distinct AI personalities, from a logical Assistant to unique characters for your colonists. Each persona has its own understanding and way of communicating, driven by a powerful, underlying system prompt architecture.
+[*] [b]Environment‑aware conversations[/b]
+	Chat with the terminal/server and it will reference live context: season and weather, day–night temps, power load, stock levels, colonist mood/health, threat trends, and more. It gives advice based on your current state.
 
-[*] [b]Extensible Tool System:[/b] The AI is no longer just a spectator. With the new Tooling module, the AI can be equipped with a dynamic "toolbox" of abilities, allowing it to interact with the game world, read data, and eventually, execute commands on your behalf.
+[*] [b]Interesting servers worth exploring[/b]
+	Each server has a distinct personality and focus: a strict duty officer, a snarky quartermaster, a chatty archive… They banter, hold grudges, but are reliable when it counts. The more you talk, the more easter eggs you’ll find.
 
-[*] [b]Robust Orchestration Engine:[/b] Witness a sophisticated, five-step reasoning process. The AI can now receive a query, decide which tools to use, execute them to gather live game data, and then formulate a comprehensive, context-aware response.
+[*] [b]Ask for the most accurate state of your colony[/b]
+	“Is the grid stable today?” “Is the freezer safe?” “Who’s slacking?” “Any raids soon?” It answers with your live data—not fluff.
 
-[*] [b]Safe & Responsive:[/b] Built with a dedicated scheduler and anti-corruption layer, all AI interactions with the game are thread-safe, ensuring a smooth, crash-free experience without freezing your UI.
+[*] [b]Call powerful server tools to manage your base[/b]
+	Trigger one‑click tools: intel scans, logistics tallies, security hints, production advice, diplomatic nudges (with cooldowns and requirements). Less panel‑clicking, more commanding.
 
-[*] [b]Phased Development:[/b] V4 is being built incrementally, with each phase delivering a stable, verifiable set of features. You are getting access to the cutting edge as it's being developed.
+[*] [b]Personas, worldview, backstories, roles[/b]
+	Servers aren’t just functions—they have attitudes, short bios, and well‑defined roles, so replies feel like a team, not a toolbar.
+
+[*] [b]Spontaneous group chats and server banter[/b]
+	They start group chats, roast each other, form alliances or squabble. You can listen in or chime in—and sometimes gain useful intel from the drama.
+
+[*] [b](In development) AI‑driven pawn behavior[/b]
+	Ongoing work to let AI influence or drive certain day‑to‑day decisions and micro‑behaviors for a more “alive” colony.
+
+[*] [b]Multilingual LLM support[/b]
+	Multiple languages supported (Chinese, English, etc.). In English environments, responses default to English to avoid mixed‑language output.
 [/list]
 
 [hr][/hr]
 
-[h1]🚀 What Can You Do Right Now?[/h1]
-
-The V4 release is a work in progress, but the foundation is already powerful. In its current state, you can:
-[list]
-[*] Engage in complex, context-aware conversations with the AI Assistant.
-[*] Use the [b]Debug Panel[/b] to test and witness the AI's core capabilities firsthand, from live data-fetching to tool execution.
-[*] Ask the AI questions about your colony, and it will use its new `Tooling` system to get live information (e.g., "What's our colony's status?").
-[*] Experience the speed and responsiveness of the new streaming and asynchronous architecture.
-[/list]
-
-[hr][/hr]
-
-[h1]📋 Installation & Dependencies[/h1]
-
-[b]⚠️ CRITICAL: YOU MUST INSTALL AND CONFIGURE THE [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3233516574]RIMAI FRAMEWORK[/url] FIRST! THIS MOD WILL NOT WORK WITHOUT IT.[/b]
-
+[h1]🧭 Quick Start (3 Steps)</h1]
 [olist]
-[*] [b]Install the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3233516574]RimAI Framework[/url].[/b] This is a hard requirement.
-[*] Install this mod, RimAI Core.
-[*] In the game's mod settings, configure your chosen LLM provider (OpenAI, DeepSeek, Ollama, etc.) in the Framework's settings menu.
-[*] Load RimAI Core [b]after[/b] the Framework in your mod list.
+[*] Research & build: unlock and construct AI Server + AI Terminal (requires power).
+[*] Start chatting: open the chat window or approach the terminal and ask “What should we do today?”.
+[*] Use tools: run an intel/logistics/security tool and feel the “say it, done” flow.
 [/olist]
 
+[i]Tip: It won’t invent facts. Ask about your current base for best results.[/i]
+
 [hr][/hr]
 
-[h1]🤝 Join the Development Journey[/h1]
-
-This project is fully open-source and community-driven. You are invited to be a part of its creation.
-
+[h1]� Installation & Requirements (Short)</h1]
 [list]
-[*] [b]Contribute on GitHub:[/b] [url=https://github.com/oidahdsah0/Rimworld_AI_Core]Rimworld_AI_Core[/url]
-[*] [b]Report Issues:[/b] Found a bug? Let us know on the GitHub issue tracker.
-[*] [b]Suggest Features:[/b] Have a great idea? Join the discussion!
+[*] Install and enable [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077]Harmony[/url] (top of load order).
+[*] Install and enable [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3233516574]RimAI Framework[/url].
+[*] Load order: Harmony → RimAI Framework → RimAI Core.
+[*] In settings, choose your language and provider to start playing.
 [/list]
 
-[b]By subscribing to this mod, you are not just a user—you are a pioneer, experiencing and shaping the future of AI in RimWorld.[/b]
+[hr][/hr]
+
+[h1]🧪 BETA Notes</h1]
+[list]
+[*] Fully playable; we’ll keep expanding server personalities, group chat events, and tools.
+[*] Minor typos or “over‑confident” lines may appear; polishing is ongoing.
+[*] We aim to keep saves compatible; any risky updates will be clearly flagged.
+[/list]
+
+[hr][/hr]
+
+[h1]🤝 Feedback & Involvement</h1]
+[list]
+[*] Feedback & suggestions: comment here or visit GitHub.
+[*] Source & contributions: [url=https://github.com/oidahdsah0/Rimworld_AI_Core]Rimworld_AI_Core (GitHub)[/url]
+[/list]
+
+[b]Treat it like your “staff office”. You set direction; it guards the base, runs errands, and throws a quip or two. Have fun on the Rim.[/b]

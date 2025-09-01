@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>RimAI Core - Alpha (An Example)</name>
+  <name>RimAI Core (BETA)</name>
   <author>Kilokio</author>
   <supportedVersions>
     <li>1.6</li>
@@ -15,23 +15,28 @@
     <li>
       <packageId>kilokio.rimai.framework</packageId>
       <displayName>RimAI Framework</displayName>
-      <steamWorkshopUrl>https://steamcommunity.com/sharedfiles/filedetails/?id=TBD</steamWorkshopUrl>
+    <steamWorkshopUrl>https://steamcommunity.com/sharedfiles/filedetails/?id=3233516574</steamWorkshopUrl>
     </li>
   </modDependencies>
 
-  <modVersion>4.1.1-alpha</modVersion>
+  <modVersion>4.1.1-beta</modVersion>
 
   <packageId>kilokio.rimai.core</packageId>
-  <description>A comprehensive AI-powered colony management system featuring intelligent decision-making, dual-layer architecture, and advanced workflow optimization.
+  <description>Talk to an AI "Server/Terminal" that sees your base, jokes with other servers, and helps you run the colony. Player-focused, playable content (BETA).
 
-Features:
-• Three-Officer System (Governor, Military Officer, Logistics Officer)
-• Direct Command Interface with natural language processing
-• W.I.F.E. System for workflow optimization
-• Dual-layer architecture (LLM Layer + Execution Layer)
-• Material Depth System with 5 levels of analysis
-• Support for multiple LLM providers (OpenAI, DeepSeek, Ollama, etc.)
+Gameplay highlights:
+• Environment-aware conversations: advice based on live context (weather, power, stocks, mood/health, threats)
+• Distinct servers to explore: different personalities, banter, and hidden gags
+• Ask for precise colony state: straight answers from your live data
+• Call powerful server tools: intel scans, logistics tallies, security tips, production nudges (with cooldowns/requirements)
+• Personas, worldview, backstories, roles: feels like a staff team, not a toolbar
+• Spontaneous group chats and server banter: listen in or chime in for useful intel
+• (In development) AI-driven pawn behavior: more "alive" day-to-day decisions
+• Multilingual LLM support (Chinese, English, etc.)
 
-Requires RimAI Framework to function.</description>
+Requirements & load order:
+• Harmony
+• RimAI Framework
+Load order: Harmony → RimAI Framework → RimAI Core</description>
   <url>https://github.com/oidahdsah0/Rimworld_AI_Core</url>
 </ModMetaData>

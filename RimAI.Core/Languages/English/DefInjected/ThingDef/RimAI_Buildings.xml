@@ -10,6 +10,10 @@
   <RimAI_AIServer_Lv3A.label>AI Server (Lv3)</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>Provides high-performance AI services for the colony.</RimAI_AIServer_Lv3A.description>
 
+  <!-- AI Terminal -->
+  <RimAI_AITerminalA.label>AI Terminal</RimAI_AITerminalA.label>
+  <RimAI_AITerminalA.description>An AI terminal for information exchange.</RimAI_AITerminalA.description>
+
   <!-- Gravitational-wave antenna -->
   <RimAI_GWAntennaA.label>gravitational-wave antenna</RimAI_GWAntennaA.label>
   <RimAI_GWAntennaA.description>A powerful antenna for gravitational-wave based communication with unknown civilizations. Requires power.</RimAI_GWAntennaA.description>

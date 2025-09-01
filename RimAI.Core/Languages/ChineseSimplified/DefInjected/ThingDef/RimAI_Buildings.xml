@@ -10,6 +10,10 @@
   <RimAI_AIServer_Lv3A.label>AI 服务器（Lv3）</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>为殖民地提供高性能 AI 服务的服务器。</RimAI_AIServer_Lv3A.description>
 
+  <!-- AI 终端 -->
+  <RimAI_AITerminalA.label>AI 终端</RimAI_AITerminalA.label>
+  <RimAI_AITerminalA.description>用于信息交互的 AI 终端设备。</RimAI_AITerminalA.description>
+
   <!-- 引力波天线 -->
   <RimAI_GWAntennaA.label>引力波天线</RimAI_GWAntennaA.label>
   <RimAI_GWAntennaA.description>用于进行超远距离与未知文明的引力波通信。需要持续供电。</RimAI_GWAntennaA.description>

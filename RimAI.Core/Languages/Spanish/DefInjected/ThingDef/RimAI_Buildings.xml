@@ -10,6 +10,10 @@
   <RimAI_AIServer_Lv3A.label>Servidor IA (Nv.3)</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>Proporciona servicios de IA de alto rendimiento a la colonia.</RimAI_AIServer_Lv3A.description>
 
+  <!-- Terminal de IA -->
+  <RimAI_AITerminalA.label>Terminal de IA</RimAI_AITerminalA.label>
+  <RimAI_AITerminalA.description>Un terminal de IA para intercambio de información.</RimAI_AITerminalA.description>
+
   <!-- Antena de ondas gravitacionales -->
   <RimAI_GWAntennaA.label>Antena de ondas gravitacionales</RimAI_GWAntennaA.label>
   <RimAI_GWAntennaA.description>Antena de gran ganancia para comunicaciones a muy larga distancia mediante ondas gravitacionales con civilizaciones desconocidas. Requiere energía eléctrica.</RimAI_GWAntennaA.description>

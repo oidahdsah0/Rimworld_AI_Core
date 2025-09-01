@@ -10,6 +10,10 @@
   <RimAI_AIServer_Lv3A.label>KI-Server (Stufe 3)</RimAI_AIServer_Lv3A.label>
   <RimAI_AIServer_Lv3A.description>Bietet hochleistungsfähige KI-Dienste für die Kolonie.</RimAI_AIServer_Lv3A.description>
 
+  <!-- KI-Terminal -->
+  <RimAI_AITerminalA.label>KI‑Terminal</RimAI_AITerminalA.label>
+  <RimAI_AITerminalA.description>Ein KI‑Terminal für Informationsaustausch.</RimAI_AITerminalA.description>
+
   <!-- Gravitationswellen-Antenne -->
   <RimAI_GWAntennaA.label>Gravitationswellen-Antenne</RimAI_GWAntennaA.label>
   <RimAI_GWAntennaA.description>Eine leistungsstarke Antenne für Gravitationswellen-basierte Fernkommunikation mit unbekannten Zivilisationen. Benötigt Strom.</RimAI_GWAntennaA.description>

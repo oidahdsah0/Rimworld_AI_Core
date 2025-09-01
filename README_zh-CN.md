@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![RimWorld](https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)
 [![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
-[![Status](https://img.shields.io/badge/Status-v4.1.1-orange.svg)](https://steamcommunity.com/sharedfiles/filedetails/?id=3529186453)
+[![Status](https://img.shields.io/badge/Status-v4.1.1-orange.svg)](https://steamcommunity.com/sharedfiles/filedetails/?id=3560404184)
 
 > **RimAI Core v4：一个为 RimWorld 设计的、增量式的企业级 AI 框架，为快速迭代、可验证的进度和无与伦比的可扩展性而重构。V4 继承了 v3 强大的设计哲学，同时采用分阶段交付模型，以确保稳定性和持续改进。**
 
@@ -52,7 +52,7 @@
 ⚠️ **至关重要：您必须严格遵循 RimAI Framework Mod 页面的设置说明，否则 AI 将无法工作！**
 
 1.  **首先安装 [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework)。**
-2.  从 [Steam 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core。
+2.  从 [Steam 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3560404184) 或 [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases) 下载 RimAI Core。
 3.  在 Framework 的 Mod 设置菜单中配置您的 LLM API 密钥。
 4.  启动 RimWorld 并通过 `Debug Panel`（调试面板）来测试 V4 的各项功能。
 
@@ -169,7 +169,7 @@ V4 的实现被分解为 8 个阶段。您可以在 [V4 实施计划](docs/v4/IM
 
 - **问题反馈**: [GitHub Issues](https://github.com/oidahdsah0/Rimworld_AI_Core/issues)
 - **参与讨论**: [GitHub Discussions](https://github.com/oidahdsah0/Rimworld_AI_Core/discussions)
-- **创意工坊**: [Workshop Page](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD)
+- **创意工坊**: [Workshop Page](https://steamcommunity.com/sharedfiles/filedetails/?id=3560404184)
 
 ---
 

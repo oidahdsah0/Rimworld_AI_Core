@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![RimWorld](https://img.shields.io/badge/RimWorld-1.6-brightgreen.svg)](https://rimworldgame.com/)
 [![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)](https://dotnet.microsoft.com/download/dotnet-framework)
-[![Status](https://img.shields.io/badge/Status-v4.1.1-orange.svg)](https://steamcommunity.com/sharedfiles/filedetails/?id=3529186453)
+[![Status](https://img.shields.io/badge/Status-v4.1.1-orange.svg)](https://steamcommunity.com/sharedfiles/filedetails/?id=3560404184)
 
 > **RimAI Core v4: An incremental, enterprise-grade AI framework for RimWorld, rebuilt for rapid iteration, verifiable progress, and unparalleled extensibility. V4 inherits the robust design philosophy of v3 while adopting a phased delivery model to ensure stability and continuous improvement.**
 
@@ -52,7 +52,7 @@ This project was brought to life through a close partnership with my AI collabor
 ⚠️ **CRITICAL: You MUST strictly follow the setup instructions on the RimAI Framework Mod page, or the AI will NOT work!**
 
 1.  **Install [RimAI.Framework](https://github.com/oidahdsah0/Rim_AI_Framework) first.**
-2.  Download RimAI Core from the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD) or [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases).
+2.  Download RimAI Core from the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3560404184) or [GitHub Releases](https://github.com/oidahdsah0/Rimworld_AI_Core/releases).
 3.  Configure your LLM API settings in the Framework mod settings menu.
 4.  Launch RimWorld and verify the `Debug Panel` for testing the V4 features.
 
@@ -169,7 +169,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/oidahdsah0/Rimworld_AI_Core/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/oidahdsah0/Rimworld_AI_Core/discussions)
-- **Steam Workshop**: [Workshop Page](https://steamcommunity.com/sharedfiles/filedetails/?id=TBD)
+- **Steam Workshop**: [Workshop Page](https://steamcommunity.com/sharedfiles/filedetails/?id=3560404184)
 
 ---
 

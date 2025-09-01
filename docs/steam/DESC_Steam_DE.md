@@ -1,4 +1,8 @@
- [h1]🧠 RimAI Core (BETA) — Gib deiner Kolonie ein „sprechendes Gehirn“[/h1]
+[h1]🧠 RimAI Core (BETA) — Gib deiner Kolonie ein „sprechendes Gehirn“[/h1]
+
+[h1][b]⚠ Hinweis: Abonniere zuerst RimAI Framework, wähle einen Anbieter, konfiguriere die Basis‑URL und den API‑Schlüssel und führe mindestens einmal „Testen“ und „Speichern“ aus. Erst dann ist RimAI Core aktiv.[/b][/h1]
+
+[b]Deutsch wird unterstützt.[/b]
 
 Das ist keine Tech-Demo, sondern echter Spielinhalt. Über einen „KI-Server/Terminal“ sprichst du mit einem Koloniezentrum, das die Umgebung beobachtet, Sprüche klopft und Dinge erledigt.
 

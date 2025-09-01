@@ -1,4 +1,8 @@
- [h1]🧠 RimAI Core (BETA) — Ponle a tu colonia un “cerebro que habla”[/h1]
+[h1]🧠 RimAI Core (BETA) — Ponle a tu colonia un “cerebro que habla”[/h1]
+
+[h1][b]⚠ Aviso: suscríbete a RimAI Framework, elige un proveedor, configura la URL base y la clave API, y realiza al menos un «Probar» y «Guardar». Sin esto, RimAI Core no funcionará.[/b][/h1]
+
+[b]El español está adaptado.[/b]
 
 No es una demo técnica, sino contenido jugable. A través de un «servidor/terminal IA» hablarás con un centro de control que observa el entorno, suelta bromas y también hace el trabajo.
 

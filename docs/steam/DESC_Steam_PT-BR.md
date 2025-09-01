@@ -1,4 +1,8 @@
- [h1]🧠 RimAI Core (BETA) — Um “cérebro que fala” para a sua colônia[/h1]
+[h1]🧠 RimAI Core (BETA) — Um “cérebro que fala” para a sua colônia[/h1]
+
+[h1][b]⚠ Atenção: assine o RimAI Framework, escolha um provedor, configure a URL base e a chave de API e realize pelo menos um “Testar” e “Salvar”. Sem isso, o RimAI Core não entrará em funcionamento.[/b][/h1]
+
+[b]Português (Brasil) compatível.[/b]
 
 Isto não é uma demo técnica, e sim conteúdo jogável. Por meio de um “servidor/terminal de IA”, você conversa com um centro da colônia que observa o ambiente, faz piadas e também resolve coisas de verdade.
 

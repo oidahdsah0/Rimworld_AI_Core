@@ -46,17 +46,18 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
         public async Task<ActResult> ExecuteAsync(StageExecutionRequest req, CancellationToken ct)
         {
-            // 强制将群聊写入 Stage 专属会话，避免污染玩家-小人对话历史
+            // 会话键：优先使用调度层提供的 ConvKey；否则按参与者组合（排序后 join）生成稳定键，并加统一前缀
             var conv = req?.Ticket?.ConvKey;
-            if (string.IsNullOrWhiteSpace(conv) || !conv.StartsWith("agent:stage|", StringComparison.Ordinal))
+            string participantsKey = string.Join("|", (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).OrderBy(x => x, StringComparer.Ordinal));
+            if (string.IsNullOrWhiteSpace(conv)) { conv = participantsKey; }
+            // 统一要求前缀：agent:stage|group|
+            if (!string.IsNullOrWhiteSpace(conv) && !conv.StartsWith("agent:stage|group|", StringComparison.Ordinal))
             {
-                string participantsKey = string.Join("|", (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).OrderBy(x => x, StringComparer.Ordinal));
-                var seed = req?.Seed ?? DateTime.UtcNow.Ticks.ToString();
-                conv = string.IsNullOrWhiteSpace(participantsKey)
-                    ? ($"agent:stage|group|{seed}")
-                    : ($"agent:stage|group|{participantsKey}|{seed}");
+                // 如果 conv 已经是纯参与者组合，则直接加前缀；否则保持原 conv 但仍做一次规范化包装
+                conv = "agent:stage|group|" + (string.IsNullOrWhiteSpace(participantsKey) ? conv : participantsKey);
             }
             var participants = (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).ToList();
+            try { var lc = req?.Locale ?? _loc?.GetDefaultLocale() ?? "en"; Verse.Log.Message($"[RimAI.Core][P9] GroupChat begin conv={conv} participants={participants?.Count ?? 0} locale={lc}"); } catch { }
             if (participants.Count < 2)
             {
                 var msgFew = "RimAI.Stage.GroupChat.TooFewParticipants".Translate().ToString();
@@ -156,13 +157,14 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
             Func<int, CancellationToken, Task<string>> startRequest = async (round, token) =>
             {
                 // 使用 P11 Prompting（Stage Scope）统一构建系统提示（包含参与者白名单与 JSON 数组合约）
-                string locale = req?.Locale;
+                // 统一计算 locale：优先请求；否则使用本地化服务默认；最后回退 en
+                string useLocale = !string.IsNullOrWhiteSpace(req?.Locale) ? req.Locale : (_loc?.GetDefaultLocale() ?? "en");
                 string systemLocal = string.Empty;
                 try
                 {
                     if (_prompt != null)
                     {
-                        var reqPrompt = new PromptBuildRequest { Scope = PromptScope.Stage, ConvKey = conv, ParticipantIds = participants, Locale = req?.Locale };
+                        var reqPrompt = new PromptBuildRequest { Scope = PromptScope.Stage, ConvKey = conv, ParticipantIds = participants, Locale = useLocale };
                         var built = await _prompt.BuildAsync(reqPrompt, token).ConfigureAwait(false);
                         systemLocal = built?.SystemPrompt ?? string.Empty;
                     }
@@ -172,7 +174,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 {
                     // 兜底：最小合约行（含白名单），防止缺本地化/作曲器失败
                     var whitelist = string.Join(", ", participants.Select((id, i) => $"{i + 1}:{id}"));
-                    systemLocal = _loc?.Format(req?.Locale ?? "en", "stage.groupchat.system_fallback", new Dictionary<string,string>{{"whitelist", whitelist}},
+                    systemLocal = _loc?.Format(useLocale ?? "en", "stage.groupchat.system_fallback", new Dictionary<string,string>{{"whitelist", whitelist}},
                         $"Output strictly a JSON array: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelist}]; no extra explanations.")
                         ?? $"Output strictly a JSON array: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelist}]; no extra explanations.";
                 }
@@ -183,7 +185,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                 try
                 {
                     var args = new Dictionary<string, string> { { "round", round.ToString() }, { "whitelist", whitelistForUser } };
-                        userLocal = _loc?.Format(locale ?? "en", "stage.groupchat.user", args,
+                        userLocal = _loc?.Format(useLocale ?? "en", "stage.groupchat.user", args,
                             $"Now produce round {round} of the group chat. Output JSON array only: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelistForUser}]; no extra explanations.")
                             ?? $"Now produce round {round} of the group chat. Output JSON array only: each element is {{\"speaker\":\"pawn:<id>\",\"content\":\"...\"}}; speakers must be in whitelist: [{whitelistForUser}]; no extra explanations.";
                 }
@@ -210,7 +212,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
                     ConversationId = conv,
                     Messages = msgs,
                     Stream = false,
-                    ForceJsonOutput = true
+                    ForceJsonOutput = false
                 };
                 try { await _worldAction.ShowTopLeftMessageAsync("RimAI.Stage.GroupChat.RoundBegin".Translate(round).ToString(), RimWorld.MessageTypeDefOf.NeutralEvent, token).ConfigureAwait(false); } catch { }
                 var respLocal = await _llm.GetResponseAsync(chatReqLocal, token).ConfigureAwait(false);

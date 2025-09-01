@@ -54,7 +54,7 @@ namespace RimAI.Core.Source.Modules.Persona
 
 	internal sealed class PersonaComposeOptions
 	{
-		public string Locale = "zh-Hans";
+	public string Locale = "en";
 		public int MaxTotalChars = 4000;
 		public int MaxJobChars = 600, MaxFixedChars = 800, MaxIdeologySegment = 600, MaxBioPerItem = 400, MaxBioItems = 4;
 		public bool IncludeJob = true, IncludeFixedPrompts = true, IncludeIdeology = true, IncludeBiography = true;

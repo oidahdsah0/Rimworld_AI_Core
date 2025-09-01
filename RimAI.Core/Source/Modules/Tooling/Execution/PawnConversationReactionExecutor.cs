@@ -31,7 +31,7 @@ namespace RimAI.Core.Source.Modules.Tooling.Execution
 			title = SanitizeTitle(title);
 
 			var loc = RimAICoreMod.TryGetService<ILocalizationService>();
-			string locale = loc?.GetDefaultLocale() ?? "zh-Hans";
+			string locale = loc?.GetDefaultLocale() ?? "en";
 			if (string.IsNullOrWhiteSpace(title))
 			{
 				title = loc?.Get(locale, "tool.pawn_reaction.default_title", "Chat Reaction") ?? "Chat Reaction";

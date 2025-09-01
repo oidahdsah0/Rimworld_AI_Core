@@ -18,7 +18,7 @@ namespace RimAI.Core.Source.Modules.Persona.Templates
 
 		public async Task<PersonaTemplates> GetTemplatesAsync(string locale, CancellationToken ct = default)
 		{
-			var lc = string.IsNullOrWhiteSpace(locale) ? (_cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans") : locale;
+			var lc = string.IsNullOrWhiteSpace(locale) ? (_cfg?.GetInternal()?.Persona?.Locale ?? "en") : locale;
 			var master = (_cfg?.GetInternal()?.Persona?.Templates?.MasterPath ?? "Resources/prompts/persona/{locale}.persona.json").Replace("{locale}", lc);
 			var overridePath = (_cfg?.GetInternal()?.Persona?.Templates?.UserOverridePath ?? "Config/RimAI/Prompts/persona/{locale}.persona.user.json").Replace("{locale}", lc);
 			// master: 目前先不读资源文件，返回内置默认模板；用户覆盖：尝试从 Config 下读

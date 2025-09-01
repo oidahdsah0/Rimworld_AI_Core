@@ -169,6 +169,8 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 		{
 			// 先计算总高度以启用滚动
 			float totalH = 4f;
+			// 顶部操作区（清空内容按钮）高度
+			totalH += 34f;
 			float actionsWForMeasure = 200f;
 			float contentWForMeasure = (rect.width - 16f) - actionsWForMeasure - 16f;
 			var names = GetOrBeginResolveNames(history, convKey);
@@ -188,6 +190,16 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 			var viewRect = new Rect(0f, 0f, rect.width - 16f, Mathf.Max(rect.height, totalH));
 			Widgets.BeginScrollView(rect, ref _scrollThread, viewRect);
 			float y = 4f;
+			// 顶部操作区：清空当前对话全部内容（真实删除会话）
+			var clearBtnRect = new Rect(0f, y, 160f, 28f);
+			var prev = GUI.color; GUI.color = Color.red;
+			if (Widgets.ButtonText(clearBtnRect, "RimAI.Common.Clear".Translate()))
+			{
+				try { var ok = history.ClearThreadAsync(convKey).GetAwaiter().GetResult(); if (ok) { ReloadHistory(history, convKey); } }
+				catch { }
+			}
+			GUI.color = prev;
+			y += 34f;
 			if (_entries != null)
 			{
 				for (int i = 0; i < _entries.Count; i++)
@@ -533,7 +545,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 				if (menu.Count > 0) Find.WindowStack.Add(new FloatMenu(menu));
 			}
 			// 清空内容按钮（仅清空当前选中的关联会话）
-			var clearBtnRect = new Rect(selectBtnRect.xMax + 10f, y, 120f, 28f);
+			var clearBtnRect = new Rect(selectBtnRect.xMax + 10f, y, 160f, 28f);
 			var prevColor = GUI.color;
 			GUI.color = Color.red;
 			if (Widgets.ButtonText(clearBtnRect, "RimAI.ChatUI.Related.ClearSelected".Translate()))
@@ -546,7 +558,10 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 						var ok = history.ClearThreadAsync(ck).GetAwaiter().GetResult();
 						if (ok)
 						{
-							// 刷新关联会话列表与当前视图
+							// 刷新关联会话列表与当前视图（并移除下拉中的该键）
+							_relatedConvs = null;
+							_relatedConvLabels = null;
+							_relatedLabelsResolving = false;
 							EnsureRelatedLoaded(history, currentParticipantIds);
 							_relatedSelectedIdx = -1;
 						}

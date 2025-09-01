@@ -546,7 +546,7 @@ namespace RimAI.Core.Source.UI.ChatWindow
 							if (State.Messages[i].Sender == MessageSender.User) { lastUser = State.Messages[i].Text ?? string.Empty; break; }
 						}
 						var lastAi = GetLastAiText();
-						var locale = RimAI.Core.Source.Boot.RimAICoreMod.TryGetService<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>()?.GetDefaultLocale() ?? "zh-Hans";
+						var locale = RimAI.Core.Source.Boot.RimAICoreMod.TryGetService<RimAI.Core.Source.Infrastructure.Localization.ILocalizationService>()?.GetDefaultLocale() ?? "en";
 						var title = State.PlayerTitle ?? (await _world.GetPlayerNameAsync().ConfigureAwait(false) ?? "Player");
 						await _reaction.EnqueuePawnSmalltalkReactionAsync(State.ConvKey, State.ParticipantIds, lastUser, lastAi, locale, title).ConfigureAwait(false);
 					}

@@ -46,9 +46,34 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 
 		public async Task<ActResult> ExecuteAsync(StageExecutionRequest req, CancellationToken ct)
 		{
-			var conv = req?.Ticket?.ConvKey ?? ("agent:stage|" + DateTime.UtcNow.Ticks);
+			// 会话键：优先使用调度层提供的 ConvKey；若缺失则按参与者组合（排序后 join）生成稳定键，统一加前缀
+			var conv = req?.Ticket?.ConvKey;
 			var servers = (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x) && x.StartsWith("thing:"))?.Distinct()?.ToList() ?? new List<string>();
 			if (servers.Count == 0) { servers = ParseServersFromScenario(req?.ScenarioText); }
+			if (string.IsNullOrWhiteSpace(conv))
+			{
+				var allIds = (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).OrderBy(x => x, StringComparer.Ordinal).ToList();
+				if (allIds.Count == 0 && servers.Count > 0)
+				{
+					allIds = servers.Select(x => x.Trim()).OrderBy(x => x, StringComparer.Ordinal).ToList();
+				}
+				conv = allIds.Count == 0 ? string.Empty : string.Join("|", allIds);
+			}
+			// 统一要求前缀：agent:stage|servergroup|
+			if (!string.IsNullOrWhiteSpace(conv))
+			{
+				// 如果 conv 不带前缀，使用规范化参与者组合作为主体
+				if (!conv.StartsWith("agent:stage|servergroup|", StringComparison.Ordinal))
+				{
+					var normalized = (req?.Ticket?.ParticipantIds ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).OrderBy(x => x, StringComparer.Ordinal).ToList();
+					if (normalized.Count == 0 && servers.Count > 0) normalized = servers.Select(x => x.Trim()).OrderBy(x => x, StringComparer.Ordinal).ToList();
+					var body = normalized.Count == 0 ? conv : string.Join("|", normalized);
+					conv = "agent:stage|servergroup|" + body;
+				}
+			}
+			// 统一 locale：请求 → 默认语言 → en
+			var useLocale = req?.Locale ?? _loc?.GetDefaultLocale() ?? "en";
+			try { Verse.Log.Message($"[RimAI.Core][P9] InterServerGroupChat begin conv={conv} servers={servers?.Count ?? 0} locale={useLocale}"); } catch { }
 			if (servers.Count < 2)
 			{
 				var msg = "RimAI.Stage.ServerChat.TooFewServers".Translate().ToString();
@@ -126,7 +151,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			if (loadedTools.Count == 0)
 			{
 				// Fallback：无工具可用时，生成一个随机关联话题（本地化），并以黑色幽默风格讨论
-				var locale = req?.Locale;
+				var locale = useLocale;
 				var topicsJoined = _loc?.Get(locale, "stage.serverchat.random_topics", "backup power|room cooling|log slimming|backup strategy|incoming storm|intrusion defense|upgrade scheduling|emergency drill|dusty fans|battery health");
 				var topicList = (topicsJoined ?? string.Empty).Split(new[] { '|', '\n', ';', '，', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
 				var topicPick = topicList.Count > 0 ? topicList[new Random(unchecked(Environment.TickCount ^ conv.GetHashCode())).Next(0, topicList.Count)] : _loc?.Get(locale, "stage.serverchat.topic.default", "room cooling");
@@ -134,7 +159,7 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 				var topicLabel = _loc?.Get(locale, "stage.serverchat.topic", "Topic");
 				var colon = _loc?.Get(locale, "prompt.punct.colon", ": ") ?? ": ";
 				var extBlocksFb1 = new List<ContextBlock> { new ContextBlock { Title = (topicLabel ?? "Topic") + colon + topicPick, Text = style } };
-				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = req?.Locale, ExternalBlocks = extBlocksFb1 }, ct).ConfigureAwait(false);
+				var builtPromptFallback = await _prompt.BuildAsync(new PromptBuildRequest { Scope = PromptScope.ServerStage, ConvKey = conv, ParticipantIds = servers, Locale = useLocale, ExternalBlocks = extBlocksFb1 }, ct).ConfigureAwait(false);
 				var systemTextFb = builtPromptFallback?.SystemPrompt ?? string.Empty;
 				var userTextFb = _loc?.Format(locale, "stage.serverchat.user", new Dictionary<string, string> { { "round", "1" } })
 					?? "Now produce round 1 of the server chat. Output JSON array only: each element is {\"speaker\":\"thing:<id>\",\"content\":\"...\"}; no extra explanations.";
@@ -350,20 +375,20 @@ namespace RimAI.Core.Source.Modules.Stage.Acts
 			}
 
 			// Step 3/4: 组装 Prompt（ServerStage），注入 ExternalBlocks
-			var topicLabel2 = _loc?.Get(req?.Locale, "stage.serverchat.topic", "Topic");
-			var colon2 = _loc?.Get(req?.Locale, "prompt.punct.colon", ": ") ?? ": ";
+			var topicLabel2 = _loc?.Get(useLocale, "stage.serverchat.topic", "Topic");
+			var colon2 = _loc?.Get(useLocale, "prompt.punct.colon", ": ") ?? ": ";
 			var extBlocks = new List<ContextBlock> { new ContextBlock { Title = string.IsNullOrWhiteSpace(topicTitle) ? (topicLabel2 ?? "Topic") : ((topicLabel2 ?? "Topic") + colon2 + topicTitle), Text = TrimToBudget(topicJson, 1600) } };
 			var builtPrompt = await _prompt.BuildAsync(new PromptBuildRequest
 			{
 				Scope = PromptScope.ServerStage,
 				ConvKey = conv,
 				ParticipantIds = servers,
-				Locale = req?.Locale,
+				Locale = useLocale,
 				ExternalBlocks = extBlocks
 			}, ct).ConfigureAwait(false);
 
 			var systemText = builtPrompt?.SystemPrompt ?? string.Empty;
-			var userText = _loc?.Format(req?.Locale, "stage.serverchat.user", new Dictionary<string, string> { { "round", "1" } })
+			var userText = _loc?.Format(useLocale, "stage.serverchat.user", new Dictionary<string, string> { { "round", "1" } })
 				?? "Now produce round 1 of the server chat. Output JSON array only: each element is {\"speaker\":\"thing:<id>\",\"content\":\"...\"}; no extra explanations.";
 			var chatReq = new RimAI.Framework.Contracts.UnifiedChatRequest
 			{

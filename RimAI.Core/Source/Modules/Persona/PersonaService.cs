@@ -72,7 +72,7 @@ namespace RimAI.Core.Source.Modules.Persona
 		public string ComposePersonaBlock(string entityId, PersonaComposeOptions options, out PersonaComposeAudit audit)
 		{
 			var budget = _cfg?.GetInternal()?.Persona?.Budget;
-			var locale = options?.Locale ?? _cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans";
+			var locale = options?.Locale ?? _cfg?.GetInternal()?.Persona?.Locale ?? "en";
 			var o = options ?? new PersonaComposeOptions();
 			if (budget != null)
 			{
@@ -144,7 +144,7 @@ namespace RimAI.Core.Source.Modules.Persona
 		private PersonaRecordSnapshot ReadFromPersistence(string entityId)
 		{
 			var snap = _persistence.GetLastSnapshotForDebug() ?? new PersistenceSnapshot();
-			var rec = new PersonaRecordSnapshot { EntityId = entityId, Locale = _cfg?.GetInternal()?.Persona?.Locale ?? "zh-Hans" };
+			var rec = new PersonaRecordSnapshot { EntityId = entityId, Locale = _cfg?.GetInternal()?.Persona?.Locale ?? "en" };
 			if (snap.FixedPrompts.Items.TryGetValue(entityId, out var fp))
 			{
 				rec.FixedPrompts = new FixedPromptSnapshot { Text = fp, UpdatedAtUtc = DateTime.UtcNow };

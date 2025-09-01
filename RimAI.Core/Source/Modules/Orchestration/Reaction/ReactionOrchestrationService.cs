@@ -94,7 +94,7 @@ namespace RimAI.Core.Source.Modules.Orchestration.Reaction
 			catch { }
 
 			// 本地化提示
-			var useLocale = locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans";
+			var useLocale = locale ?? _loc?.GetDefaultLocale() ?? "en";
 			string sys = _loc?.Get(useLocale, "prompt.reaction.system", "After the chat, return a function call with mood_delta and mood_title only.") ?? "After the chat, return a function call with mood_delta and mood_title only.";
 			// 可选：将示例拼接进 System，增强分布多样性
 			try

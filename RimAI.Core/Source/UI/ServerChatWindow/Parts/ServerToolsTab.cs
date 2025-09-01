@@ -355,7 +355,7 @@ namespace RimAI.Core.Source.UI.ServerChatWindow.Parts
             try
             {
                 var loc = RimAICoreMod.Container.Resolve<ILocalizationService>();
-                var locale = loc?.GetDefaultLocale() ?? "zh-Hans";
+                var locale = loc?.GetDefaultLocale() ?? "en";
                 var key = "tool.display." + (toolName ?? string.Empty);
                 var localized = loc?.Get(locale, key, baseName) ?? baseName;
                 return string.IsNullOrWhiteSpace(localized) ? baseName : localized;

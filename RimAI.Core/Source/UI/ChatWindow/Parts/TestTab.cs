@@ -58,7 +58,7 @@ namespace RimAI.Core.Source.UI.ChatWindow.Parts
 						catch { }
 						pids.Sort(StringComparer.Ordinal);
 						var convKey = string.Join("|", pids);
-						var intent = new StageIntent { ActName = "GroupChat", ParticipantIds = participants, Origin = "ChatUI-Test", ScenarioText = string.Empty, Locale = "zh-Hans", Seed = DateTime.UtcNow.Ticks.ToString() };
+						var intent = new StageIntent { ActName = "GroupChat", ParticipantIds = participants, Origin = "ChatUI-Test", ScenarioText = string.Empty, Locale = null, Seed = DateTime.UtcNow.Ticks.ToString() };
 						var decision = await stage.SubmitIntentAsync(intent, token).ConfigureAwait(false);
 						if (decision == null || decision.Ticket == null) { _status = "Trigger failed"; return; }
 						_status = $"Group chat triggered ({participants.Count} participants)";

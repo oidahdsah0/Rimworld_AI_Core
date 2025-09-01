@@ -70,7 +70,7 @@ namespace RimAI.Core.Source.Modules.Server
 			return new ServerPromptPreset
 			{
 				Version = 1,
-				Locale = string.IsNullOrWhiteSpace(locale) ? "zh-Hans" : locale,
+				Locale = string.IsNullOrWhiteSpace(locale) ? "en" : locale,
 				BaseServerPersonaText = "你是殖民地驻地 AI 服务器。保持稳健、实事求是，优先提供结构化与可执行的信息。",
 				Env = new ServerPromptPreset.EnvSection
 				{

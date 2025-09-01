@@ -221,7 +221,7 @@ namespace RimAI.Core.Source.Modules.Orchestration
 					var disp = _tooling.GetToolDisplayNameOrNull(toolName) ?? toolName;
 					try
 					{
-						var locale = options?.Locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans";
+						var locale = options?.Locale ?? _loc?.GetDefaultLocale() ?? "en";
 						var key = "tool.display." + (toolName ?? string.Empty);
 						var localized = _loc?.Get(locale, key, disp) ?? disp;
 						disp = string.IsNullOrWhiteSpace(localized) ? disp : localized;
@@ -234,7 +234,7 @@ namespace RimAI.Core.Source.Modules.Orchestration
 						pawnName = "Pawn";
 					}
 					catch { }
-					var line = _loc?.Format(options?.Locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans", "orchestration.plantrace.hit_tool", new System.Collections.Generic.Dictionary<string, string>
+					var line = _loc?.Format(options?.Locale ?? _loc?.GetDefaultLocale() ?? "en", "orchestration.plantrace.hit_tool", new System.Collections.Generic.Dictionary<string, string>
 					{
 						{ "pawn", pawnName },
 						{ "displayName", disp }
@@ -300,7 +300,7 @@ namespace RimAI.Core.Source.Modules.Orchestration
 				var baseName = _tooling.GetToolDisplayNameOrNull(nm) ?? nm;
 				try
 				{
-					var locale = options?.Locale ?? _loc?.GetDefaultLocale() ?? "zh-Hans";
+					var locale = options?.Locale ?? _loc?.GetDefaultLocale() ?? "en";
 					var key = "tool.display." + nm;
 					var localized = _loc?.Get(locale, key, baseName) ?? baseName;
 					hitName = string.IsNullOrWhiteSpace(localized) ? baseName : localized;

@@ -19,7 +19,7 @@
     </li>
   </modDependencies>
 
-  <modVersion>4.1.1-beta</modVersion>
+  <modVersion>5.1.1-beta</modVersion>
 
   <packageId>kilokio.rimai.core</packageId>
   <description>Talk to an AI "Server/Terminal" that sees your base, jokes with other servers, and helps you run the colony. Player-focused, playable content (BETA).
@@ -34,7 +34,7 @@ Gameplay highlights:
 • (In development) AI-driven pawn behavior: more "alive" day-to-day decisions
 • Multilingual LLM support (Chinese, English, etc.)
 
-Requirements & load order:
+Requirements &amp; load order:
 • Harmony
 • RimAI Framework
 Load order: Harmony → RimAI Framework → RimAI Core</description>

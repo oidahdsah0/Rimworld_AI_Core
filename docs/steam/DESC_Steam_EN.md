@@ -1,5 +1,10 @@
 [h1]🧠 RimAI Core (BETA) — Give Your Colony a Talking Brain[/h1]
 
+[h1][b]⚠ Note: RimAI Core only takes effect after you subscribe to RimAI Framework, choose a provider, configure the base URL and API key, and perform at least one "Test" and "Save".[/b][/h1]
+
+[b]English is supported.[/b]
+
+This mod hooks RimWorld up to AI—and makes the world truly come alive.
 This is not a tech demo. It’s playable content. You’ll talk to an AI “Server/Terminal” that watches your base, jokes with other servers, and gets things done.
 
 [hr][/hr]
@@ -33,7 +38,7 @@ This is not a tech demo. It’s playable content. You’ll talk to an AI “Serv
 
 [hr][/hr]
 
-[h1]🧭 Quick Start (3 Steps)</h1]
+[h1]🧭 Quick Start (3 Steps)[/h1]
 [olist]
 [*] Research & build: unlock and construct AI Server + AI Terminal (requires power).
 [*] Start chatting: open the chat window or approach the terminal and ask “What should we do today?”.
@@ -44,7 +49,7 @@ This is not a tech demo. It’s playable content. You’ll talk to an AI “Serv
 
 [hr][/hr]
 
-[h1]� Installation & Requirements (Short)</h1]
+[h1]📦 Installation & Requirements (Short)[/h1]
 [list]
 [*] Install and enable [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077]Harmony[/url] (top of load order).
 [*] Install and enable [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3233516574]RimAI Framework[/url].

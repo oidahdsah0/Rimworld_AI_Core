@@ -4,6 +4,8 @@
 
 [b]Le français est pris en charge.[/b]
 
+Ce mod connecte RimWorld à l’IA — et fait vraiment prendre vie au monde.
+
 Ce n’est pas une démo technique, mais un contenu jouable. Via un « serveur/terminal IA », vous discutez avec un centre de contrôle capable d’observer l’environnement, de plaisanter et d’agir concrètement.
 
 [hr][/hr]

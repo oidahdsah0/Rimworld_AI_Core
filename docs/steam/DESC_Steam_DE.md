@@ -4,6 +4,8 @@
 
 [b]Deutsch wird unterstützt.[/b]
 
+Diese Mod verbindet RimWorld mit KI — und erweckt die Welt wirklich zum Leben.
+ 
 Das ist keine Tech-Demo, sondern echter Spielinhalt. Über einen „KI-Server/Terminal“ sprichst du mit einem Koloniezentrum, das die Umgebung beobachtet, Sprüche klopft und Dinge erledigt.
 
 [hr][/hr]
